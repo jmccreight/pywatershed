@@ -60,3 +60,6 @@ test_ans:
         prcp_adj: 0.1416483701569282
         rainfall_adj: 0.1372140761113731
         snowfall_adj: 0.004434294045555103
+
+  budget:
+    calculate: 0.013623188308023353
