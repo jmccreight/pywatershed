@@ -1,4 +1,5 @@
 from datetime import datetime
+
 import numpy as np
 import pandas as pd
 
@@ -185,8 +186,8 @@ class TestPRMSCanopyDomain:
 
             atol = 0.1
             errmsg = f"Canopy variable {cv} does not match to within {atol}"
-            assert np.allclose(diffmin, 0., atol=atol), errmsg
-            assert np.allclose(diffmax, 0., atol=atol), errmsg
+            assert np.allclose(diffmin, 0.0, atol=atol), errmsg
+            assert np.allclose(diffmax, 0.0, atol=atol), errmsg
 
         makeplot = False
         if makeplot:

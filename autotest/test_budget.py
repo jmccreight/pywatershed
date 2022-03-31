@@ -6,7 +6,6 @@ from pynhm.atmosphere.NHMBoundaryLayer import NHMBoundaryLayer
 from pynhm.budget.budget import Budget
 from pynhm.canopy.PRMSCanopy import PRMSCanopy
 from pynhm.utils.parameters import PrmsParameters
-
 from utils import assert_or_print
 
 start_time = np.datetime64("1979-01-03T00:00:00.00")
