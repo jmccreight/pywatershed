@@ -1,10 +1,12 @@
 import pandas as pd
 
+from pynhm.base.Time import Time
+
 from ..atmosphere.NHMBoundaryLayer import NHMBoundaryLayer
 from ..utils.parameters import PrmsParameters
 
 
-class StorageUnit:
+class StorageUnit(Time):
     def __init__(
         self,
         storage_type,
@@ -12,7 +14,10 @@ class StorageUnit:
         params: PrmsParameters,
         atm: NHMBoundaryLayer,
         verbose: bool,
+        **kwargs,
     ):
+
+        super().__init__(**kwargs)
 
         self.storage_type = storage_type
         self.id = id

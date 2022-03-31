@@ -185,6 +185,12 @@ class Time(StateAccess):
             verbosity=verbosity,
         )
 
+    def get_current_state(self, state_name: str) -> np.ndarray:
+        if self[state_name] is not None:
+            return self[state_name].take(
+                indices=self.current_time_index, axis=0
+            )
+
     def advance(self):
         """Advance time."""
         if self.datetime is not None:

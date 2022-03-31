@@ -25,10 +25,13 @@ class PRMSCanopy(StorageUnit):
         params: PrmsParameters,
         atm: NHMBoundaryLayer,
         pkwater_equiv_alltimes: np.ndarray,
+        **kwargs,
     ):
 
         verbose = True
-        super().__init__("cnp", id, params, atm, verbose)
+        super().__init__("cnp", id, params, atm, verbose, **kwargs)
+
+        self._potential_variables = ["intcp_evap"]
 
         # store pkwater_equiv, which is a snowpack calculated variable
         self.pkwater_equiv_alltimes = pkwater_equiv_alltimes
@@ -263,6 +266,9 @@ class PRMSCanopy(StorageUnit):
         self.output_data["net_snow"].append(
             [self.atm.current_time] + list(net_snow)
         )
+        self["intcp_evap"] = (
+            intcp_evap * 0 + 1
+        )  # JLM: total hack for testing budget remove the numbers
         self.output_data["intcp_evap"].append(
             [self.atm.current_time] + list(intcp_evap)
         )
@@ -408,6 +414,7 @@ class PRMSCanopy(StorageUnit):
         self.output_data["net_snow"].append(
             [self.atm.current_time] + list(net_snow)
         )
+        # self["intcp_evap"] = intcp_evap
         self.output_data["intcp_evap"].append(
             [self.atm.current_time] + list(intcp_evap)
         )

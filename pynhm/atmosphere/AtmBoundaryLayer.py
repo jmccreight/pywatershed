@@ -42,12 +42,5 @@ class AtmBoundaryLayer(Time):
 
         return
 
-    # JLM this should go in Time as time is dataaccess
-    def get_current_state(self, state_name: str) -> np.ndarray:
-        if self[state_name] is not None:
-            return self[state_name].take(
-                indices=self.current_time_index, axis=0
-            )
-
     # JLM check that time and the time dimensions on the states match on set or inits
     # JLM ensure the spatial dimension matches.
