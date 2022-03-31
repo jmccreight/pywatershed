@@ -6,7 +6,6 @@ from pynhm.budget.budget import Budget
 
 # from pynhm.canopy.PRMSCanopy import PRMSCanopy
 from pynhm.utils.parameters import PrmsParameters
-
 from utils import assert_or_print
 
 

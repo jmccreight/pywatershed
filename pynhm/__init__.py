@@ -3,6 +3,7 @@ from .atmosphere.NHMBoundaryLayer import NHMBoundaryLayer
 from .atmosphere.NHMSolarGeometry import NHMSolarGeometry
 from .base.StateAccess import StateAccess
 from .base.Time import Time
+from .budget.budget import Budget
 from .canopy.PRMSCanopy import PRMSCanopy
 from .preprocess.cbh import CBH
 from .preprocess.csv_utils import CsvFile
