@@ -1,8 +1,10 @@
 import pathlib as pl
-import numpy as np
 from typing import Union
 
+import numpy as np
+
 from pynhm.base.Time import Time
+
 from ..utils.prms5util import load_nhru_output_csv
 
 fileish = Union[str, pl.Path]

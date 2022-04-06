@@ -5,7 +5,6 @@ from pynhm.base import Time
 from pynhm.utils import ControlVariables
 from utils import assert_or_print
 
-
 # @pytest.fixture
 # def control_keys():
 #     return tuple(
