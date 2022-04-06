@@ -16,7 +16,7 @@ class ControlVariables:
     """
 
     def __init__(self, control_dict: dict) -> "ControlVariables":
-        self.control = DictionaryAsProperties(control_dict["control"])
+        self.control = DictionaryAsProperties(control_dict)
 
     def get_variables(self, keys: listish) -> "ControlVariables":
         """Get a subset of keys in the control variable dictionary
@@ -53,5 +53,5 @@ class ControlVariables:
 
         """
         return ControlVariables(
-            PrmsFile(control_file, file_type="control").get_data()
+            PrmsFile(control_file, file_type="control").get_data()["control"]
         )

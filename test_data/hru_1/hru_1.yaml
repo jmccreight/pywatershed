@@ -23,6 +23,8 @@ prms_outputs:
   intcp_evap: output/nhru_intcp_evap.csv
   soltab: soltab_debug
   pkwater_equiv: output/nhru_pkwater_equiv.csv
+  snowcov_area: output/nhru_snowcov_area.csv
+  snowmelt: output/nhru_snowmelt.csv
 
 cbh_nc: cbh.nc
 

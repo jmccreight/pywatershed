@@ -144,6 +144,8 @@ def test_cbh_adj_prms_output(domain, params):
             "intcp_evap",
             "pkwater_equiv",
             "transp_on",
+            "snowcov_area",
+            "snowmelt",
         ]:
             continue
         if var in ["swrad", "potet"]:

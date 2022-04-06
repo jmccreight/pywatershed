@@ -6,18 +6,18 @@ from pynhm.utils import ControlVariables
 from utils import assert_or_print
 
 
-@pytest.fixture
-def control_keys():
-    return tuple(
-        (
-            "start_time",
-            "end_time",
-            "initial_deltat",
-        )
-    )
+# @pytest.fixture
+# def control_keys():
+#     return tuple(
+#         (
+#             "start_time",
+#             "end_time",
+#             "initial_deltat",
+#         )
+#     )
 
 
-def test_control_read(domain, control_keys):
+def test_control_read(domain):
     control_file = domain["control_file"]
     print(f"parsing...'{control_file}'")
 
@@ -45,7 +45,7 @@ def test_control_read(domain, control_keys):
     return
 
 
-def test_Time_from_control(domain, control_keys):
+def test_Time_from_control(domain):
     control_file = domain["control_file"]
     time_obj = Time.load(control_file)
 
