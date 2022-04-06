@@ -13,7 +13,7 @@ control_keys = ["start_time", "end_time", "initial_deltat"]
 def control(domain):
     control_file = domain["control_file"]
     control = ControlVariables.load(control_file)
-    control = control.get_variables(control_keys).control
+    control = control[control_keys]
     control["time_step"] = control["initial_deltat"]
     del control["initial_deltat"]
     return control

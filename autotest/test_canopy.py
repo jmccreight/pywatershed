@@ -71,6 +71,30 @@ class TestPRMSCanopySimple:
             "epan_coef": np.array(nhru * [1.0]),
             "potet_sublim": np.array(nhru * [1.0]),
             "cov_type": np.array(nhru * [1]),
+            "radadj_intcp": np.array(nhru * [1]),
+            "radadj_slope": np.array(nhru * [1]),
+            "tmax_index": np.array(nhru * [1]),
+            "dday_slope": np.array(nhru * [1]),
+            "dday_intcp": np.array(nhru * [1]),
+            "radmax": np.array(nhru * [1]),
+            "ppt_rad_adj": np.array(nhru * [1]),
+            "tmax_allsnow": np.array(nhru * [1]),
+            "tmax_allrain_offset": np.array(nhru * [1]),
+            "hru_slope": np.array(nhru * [1]),
+            "radj_sppt": np.array(nhru * [1]),
+            "radj_wppt": np.array(nhru * [1]),
+            "hru_lat": np.array(nhru * [1]),
+            "hru_area": np.array(nhru * [1]),
+            "hru_aspect": np.array(nhru * [1]),
+            "jh_coef": np.array(nhru * [1]),
+            "jh_coef_hru": np.array(nhru * [1]),
+            "tmax_cbh_adj": np.array(nhru * [1]),
+            "tmin_cbh_adj": np.array(nhru * [1]),
+            "tmax_allsnow": np.array(nhru * [1]),
+            "tmax_allrain_offset": np.array(nhru * [1]),
+            "snow_cbh_adj": np.array(nhru * [1]),
+            "rain_cbh_adj": np.array(nhru * [1]),
+            "adjmix_rain": np.array(nhru * [1]),
         }
         prms_params = PrmsParameters(prms_params)
         atm = NHMBoundaryLayer(
@@ -100,9 +124,9 @@ class TestPRMSCanopyDomain:
         # Set information from the control file
         control_file = domain["control_file"]
         control = ControlVariables.load(control_file)
-        start_time = control.control.start_time
-        end_time = control.control.end_time
-        initial_deltat = control.control.initial_deltat
+        start_time = control.start_time
+        end_time = control.end_time
+        initial_deltat = control.initial_deltat
 
         atm_information_dict = {
             "start_time": start_time,

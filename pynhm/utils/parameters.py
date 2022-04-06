@@ -3,6 +3,7 @@ from typing import Union
 
 import numpy as np
 
+from pynhm.base.DictAccess import DictAccess
 from .dictionary_as_properties import DictionaryAsProperties
 from .prms5_file_util import PrmsFile
 
@@ -29,7 +30,7 @@ class PrmsParameters:
         parameter_dimensions_dict: dict = None,
     ) -> "PrmsParameters":
 
-        self.parameters = DictionaryAsProperties(parameter_dict)
+        self.parameters = DictAccess(**parameter_dict)
 
         # build dimensions from data
         if parameter_dimensions_dict is None:
@@ -52,9 +53,7 @@ class PrmsParameters:
                             temp_dims.append("unknown")
                     parameter_dimensions_dict[key] = temp_dims
 
-        self.parameter_dimensions = DictionaryAsProperties(
-            parameter_dimensions_dict
-        )
+        self.parameter_dimensions = DictAccess(**parameter_dimensions_dict)
 
     def get_parameters(self, keys: listish) -> "PrmsParameters":
         """Get a subset of keys in the parameter dictionary
@@ -70,18 +69,8 @@ class PrmsParameters:
         """
         if isinstance(keys, str):
             keys = [keys]
-
         return PrmsParameters(
-            {
-                key: self.parameters.get(key)
-                for key in keys
-                if key in self.parameters.keys()
-            },
-            {
-                key: self.parameter_dimensions.get(key)
-                for key in keys
-                if key in self.parameter_dimensions.keys()
-            },
+            self.parameters[list(keys)], self.parameter_dimensions[list(keys)]
         )
 
     @property

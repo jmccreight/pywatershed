@@ -34,9 +34,7 @@ def test_control_read(domain):
         elif key in ("initial_deltat",):
             answers[key] = np.timedelta64(int(value), "h")
     results = {
-        key: val
-        for key, val in control.control.items()
-        if key in answers.keys()
+        key: val for key, val in control.items() if key in answers.keys()
     }
     assert_or_print(results, answers, print_ans=domain["print_ans"])
 

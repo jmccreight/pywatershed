@@ -58,7 +58,12 @@ def test_parameter_canopy_subset(domain, canopy_parameters):
 
     parameters = PrmsParameters.load(parameter_file)
 
-    canopy_subset = parameters.get_parameters(canopy_parameters)
+    # You can no longer give a key NOT in the parameters without
+    # an error.
+    canopy_subset = parameters.get_parameters(canopy_parameters[1:])
+
+    with pytest.raises(KeyError):
+        canopy_subset = parameters.get_parameters(canopy_parameters)
 
     with pytest.raises(AttributeError):
         v = canopy_subset.parameters.unknown
