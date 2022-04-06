@@ -4,6 +4,7 @@ from typing import Union
 import numpy as np
 
 from pynhm.base.DictAccess import DictAccess
+
 from .dictionary_as_properties import DictionaryAsProperties
 from .prms5_file_util import PrmsFile
 
