@@ -12,9 +12,9 @@ What's New
     np.random.seed(123456)
 
 
-.. _whats-new.1.2.0:
+.. _whats-new.2.0.0:
 
-v2.0.0 (Unreleased)
+v2.0.0 (14 November 2024)
 ---------------------
 
 New Features
@@ -23,7 +23,7 @@ New Features
   combine different kinds flow solutions in arbitrary order on a "flow graph".
   The accompanying base classes :class:`FlowNode` and :class:`FlowNodeMaker`
   are introduced along with their subclasses for modeling
-  :class:`PassThroughNode`\ s, :class:`ObsInNode`\ s (flow replacement by
+  :class:`PassThroughFlowNode`\ s, :class:`ObsInFlowNode`\ s (flow replacement by
   observations with sink and source tracking in mass balance),
   :class:`PRMSChannelFlowNode`\ s, and :class:`StarfitFlowNode`\ s. A new
   example notebook,
@@ -35,28 +35,23 @@ New Features
   (DFW) routing from PRMS NHM input files and a few simple assumptions. The
   lateral (to-channel) fluxes from a PRMS are used as time varying boundary
   conditions. A new notebook runs the Delaware River Basin using MF6 DFW:
-  `examples/mmr_to_mf6_dfw.ipynb <https://github.com/EC-USGS/pywatershed/blob/develop/examples/mmr_to_mf6_dfw.ipynb>`__.
+  `examples/07_mmr_to_mf6_chf_dfw.ipynb <https://github.com/EC-USGS/pywatershed/blob/develop/examples/07_mmr_to_mf6_chf_dfw.ipynb>`__.
   (:pull:`290`) By `James McCreight <https://github.com/jmccreight>`_.
-- The depression storage option for PRMSRunoff is implemented and tested.
-  (:pull:`279`) By `James McCreight <https://github.com/jmccreight>`_.
 - No depression storage subclasses are available for PRMSRunoff, PRMSSoilzone,
   and PRMSGroundwater by adding "NoDprst" to the end of the names. Depression
   storage is switched off in sagehen_5yr and in new nhm_no_dprst
   configurations.
   (:pull:`288`) By `James McCreight <https://github.com/jmccreight>`_.
-- Dunnian flow is implemented (in PRMSSoilzone) and tested for sagehen_5yr
-  whereas it was effectively off in all NHM configurations and its effect
-  on the sroff variable (in PRMSRunoff) incorrect.
+- Dunnian flow is implemented (in PRMSSoilzone) and tested for sagehen_5yr.
   (:pull:`288`) By `James McCreight <https://github.com/jmccreight>`_.
-- Preferential flow is implemented (in PRMSSoilzone) and tested for sagehen_5yr
-  whereas it was effectively off in all NHM configurations.
+- Preferential flow is implemented (in PRMSSoilzone) and tested for sagehen_5yr.
   (:pull:`288`) By `James McCreight <https://github.com/jmccreight>`_.
 - Control instances have a diff method to compare with other instances.
   (:pull:`288`) By `James McCreight <https://github.com/jmccreight>`_.
 - Feature to standardize subsetting input data (parameters and forcings) in
   space and time either from file (:func:`utils.netcdf_utils.subset_netcdf_file`) or
   in memory (:func:`utils.netcdf_utils.subset_xr`).
-  (:pull:`304`) By `James McCreight <https://github.com/jmccreight>`_.  
+  (:pull:`304`) By `James McCreight <https://github.com/jmccreight>`_.
 
 Breaking Changes
 ~~~~~~~~~~~~~~~~
@@ -96,6 +91,8 @@ Internal changes
   PRMSGroundwater: 1.0e-8, PRMSGroundwaterNoDprst: 1.0e-8, PRMSChannel: 5.0e-7)
   for all test domains.
   (:pull:`288`) By `James McCreight <https://github.com/jmccreight>`_.
+- Migration to Numpy 2.0+.
+  (:pull:`310`) By `James McCreight <https://github.com/jmccreight>`_.
 
 
 .. _whats-new.1.1.0:
