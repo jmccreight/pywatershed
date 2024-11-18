@@ -479,7 +479,7 @@ class PRMSCanopy(ConservativeProcessHru):
 
         for aa in prange(nactive_hrus):
             i = active_hrus[aa]
-            
+
             netrain = hru_rain[i]
             netsnow = hru_snow[i]
 
