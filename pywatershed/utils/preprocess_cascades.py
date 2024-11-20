@@ -26,6 +26,12 @@ def preprocess_cascade_params(
 
     This function combines the legacy calc_hru_route_order and
     init_cascade_params routines into one pre-processing step.
+
+    Args:
+      control: a Control object.
+      parameters: a parameter object of class Parameters.
+      verbosity: Currently an integer in [0, 1], boolean.
+
     """
     new_params = calc_hru_route_order(parameters)
     return init_cascade_params(control, new_params, verbosity=verbosity)
@@ -123,24 +129,14 @@ def init_cascade_params(
     parameters: Parameters,
     verbosity: int = 1,
 ) -> Parameters:
-    """init_cascade from cascade.f90"""
-    # USE PRMS_CONSTANTS, ONLY: DEBUG_less, INACTIVE, LAKE, SWALE,
-    #   CASCADE_HRU_SEGMENT, CASCADE_NORMAL
-    # USE PRMS_MODULE, ONLY: Nhru, Nsegment, Ncascade, Ncascdgw, Print_debug,
-    #   Cascade_flag, Cascadegw_flag
-    # USE PRMS_CASCADE
-    # USE PRMS_BASIN, ONLY: Active_hrus, Hru_route_order, Hru_type, Hru_area
-    # IMPLICIT NONE
-    # ! Functions
-    # INTEGER, EXTERNAL :: getparam
-    # EXTERNAL :: order_hrus, read_error
-    # INTRINSIC :: ABS
-    # ! Arguments
-    # INTEGER, INTENT(OUT) :: Iret
-    # ! Local Variables
-    # INTEGER :: i, j, k, ii, kk, dnhru, kup, jdn, istrm, num
-    # REAL, ALLOCATABLE :: hru_frac(:)
-    # REAL :: carea, frac
+    """init_cascade from cascade.f90
+
+    Args:
+      control: a Control object.
+      parameters: a parameter object of class Parameters.
+      verbosity: Currently an integer in [0, 1], boolean.
+
+    """
 
     def verbosity_msg(msg, verbosity_thresh: int = 1, warn: bool = False):
         if verbosity >= verbosity_thresh:

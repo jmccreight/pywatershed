@@ -100,7 +100,13 @@ class PRMSRunoffCascadesNoDprst(PRMSRunoff):
         # it wasnt by prms, we'll make it optional and add it here if missing.
         # TODO: with a warning and/or better criteria for the if
         if "hru_route_order" not in parameters.parameters.keys():
-            parameters = preprocess_cascade_params(control, parameters)
+            if verbose is None:
+                verbose_pass = 1
+            else:
+                verbose_pass = 0
+            parameters = preprocess_cascade_params(
+                control, parameters, verbosity=verbose_pass
+            )
 
         super().__init__(
             control=control,
