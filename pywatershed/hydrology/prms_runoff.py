@@ -440,6 +440,8 @@ class PRMSRunoff(ConservativeProcessHru):
 
     def _calculate(self, time_length, vectorized=False):
         """Perform the core calculations"""
+        nan_array = np.nan * self.infil
+
         (
             self.infil[:],
             self.contrib_fraction[:],
@@ -528,16 +530,16 @@ class PRMSRunoff(ConservativeProcessHru):
             hru_impervstor=self.hru_impervstor,
             through_rain=self.through_rain,
             dprst_flag=self._dprst_flag,
-            ncascade_hru=None,
+            ncascade_hru=nan_array,
             nactive_hrus=self._nactive_hrus,
             hru_route_order=self.hru_route_order,
-            hru_down=None,
-            hru_down_frac=None,
-            hru_down_fracwt=None,
-            cascade_area=None,
-            upslope_hortonian=None,
-            stream_seg_in=None,
-            cfs_conv=None,
+            hru_down=nan_array,
+            hru_down_frac=nan_array,
+            hru_down_fracwt=nan_array,
+            cascade_area=nan_array,
+            upslope_hortonian=nan_array,
+            stream_seg_in=nan_array,
+            cfs_conv=nan_array,
             # functions at end
             check_capacity=self.check_capacity,
             perv_comp=self.perv_comp,
@@ -646,12 +648,12 @@ class PRMSRunoff(ConservativeProcessHru):
         imperv_et,
         run_cascade_sroff,
     ):
-        if ncascade_hru is not None:
-            hru_horton_cascflow = np.zeros(nhru, dtype="float64")
+        hru_horton_cascflow = np.zeros(nhru, dtype="float64")
+        ncascade_hru_active = np.isnan(ncascade_hru).all()
+        if ncascade_hru_active:
+            hru_horton_cascflow[:] = zero
             upslope_hortonian[:] = zero
             stream_seg_in[:] = zero  # call_cascade==active??
-        else:
-            hru_horton_cascflow = None
 
         dprst_chk = 0
         infil[:] = 0.0
@@ -716,6 +718,7 @@ class PRMSRunoff(ConservativeProcessHru):
                 perv_comp=perv_comp,
                 through_rain=through_rain[i],
                 ncascade_hru=ncascade_hru,
+                ncascade_hru_active=ncascade_hru_active,
                 upslope_hortonian=upslope_hortonian,
                 ihru=i,
             )
@@ -794,7 +797,7 @@ class PRMSRunoff(ConservativeProcessHru):
                 runoff = runoff + srp * perv_area + sri * hruarea_imperv
                 srunoff = runoff / hruarea
 
-                if ncascade_hru is not None:
+                if ncascade_hru_active:  #  is not None:
                     hru_sroff_down = zero
                     if srunoff > zero:
                         hru_horton_cascflow[i] = zero
@@ -915,6 +918,7 @@ class PRMSRunoff(ConservativeProcessHru):
         perv_comp,
         through_rain,
         ncascade_hru: np.ndarray,
+        ncascade_hru_active: bool,
         upslope_hortonian: np.ndarray,
         ihru: int,
     ):
@@ -923,7 +927,7 @@ class PRMSRunoff(ConservativeProcessHru):
         if hru_type == LAND or isglacier:
             hru_flag = 1
 
-        if ncascade_hru is not None:
+        if ncascade_hru_active:
             avail_water = upslope_hortonian[ihru]
             if avail_water > zero:
                 infil = infil + avail_water
