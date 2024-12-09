@@ -120,6 +120,7 @@ line-length = 79
 target-version = "py39"
 include = [
     "pyproject.toml",
+    "*.py",
     "pywatershed/**/*.py",
     "autotest/**/*.py",
     "examples/**/*.py",

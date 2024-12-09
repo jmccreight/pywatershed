@@ -131,7 +131,7 @@ def control(simulation):
     if fortran_avail:
         control.options["calc_method"] = "fortran"
     else:
-        control.options["calc_method"] = "numpy"  # Todo: "numba"
+        control.options["calc_method"] = "numba"  # Todo: "numba"
     del control.options["netcdf_output_var_names"]
     return control
 

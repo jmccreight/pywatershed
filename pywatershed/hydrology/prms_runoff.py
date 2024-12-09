@@ -113,6 +113,7 @@ class PRMSRunoff(ConservativeProcessHru):
             self._dprst_flag = True
 
         self._set_budget()
+
         self._init_calc_method()
 
         self.basin_init()
@@ -410,6 +411,16 @@ class PRMSRunoff(ConservativeProcessHru):
         if self._calc_method.lower() == "numba":
             import numba as nb
 
+            self.check_capacity = nb.njit(self.check_capacity)
+            self.perv_comp = nb.njit(self.perv_comp)
+            self.compute_infil = nb.njit(self.compute_infil)
+            self.dprst_comp = nb.njit(self.dprst_comp)
+            self.imperv_et = nb.njit(self.imperv_et)
+            self._run_cascade_sroff = nb.jit(self._run_cascade_sroff)
+            self._run_cascade_sroff_dummy = nb.jit(
+                self._run_cascade_sroff_dummy
+            )
+
             numba_msg = f"{self.name} jit compiling with numba "
             nb_parallel = (numba_num_threads is not None) and (
                 numba_num_threads > 1
@@ -421,12 +432,6 @@ class PRMSRunoff(ConservativeProcessHru):
             self._calculate_runoff = nb.njit(
                 self._calculate_numpy, parallel=nb_parallel
             )
-            self.check_capacity = nb.njit(self.check_capacity)
-            self.perv_comp = nb.njit(self.perv_comp)
-            self.compute_infil = nb.njit(self.compute_infil)
-            self.dprst_comp = nb.njit(self.dprst_comp)
-            self.imperv_et = nb.njit(self.imperv_et)
-            self._run_cascade_sroff = nb.jit(self._run_cascade_sroff)
 
         else:
             self._calculate_runoff = self._calculate_numpy
@@ -440,7 +445,9 @@ class PRMSRunoff(ConservativeProcessHru):
 
     def _calculate(self, time_length, vectorized=False):
         """Perform the core calculations"""
+        zero_array_2d_int = np.zeros((2, 2), dtype="int32")
         nan_array = np.nan * self.infil
+        nan_array_2d = np.zeros((2, 2)) * np.nan
 
         (
             self.infil[:],
@@ -533,10 +540,10 @@ class PRMSRunoff(ConservativeProcessHru):
             ncascade_hru=nan_array,
             nactive_hrus=self._nactive_hrus,
             hru_route_order=self.hru_route_order,
-            hru_down=nan_array,
-            hru_down_frac=nan_array,
-            hru_down_fracwt=nan_array,
-            cascade_area=nan_array,
+            hru_down=zero_array_2d_int,
+            hru_down_frac=nan_array_2d,
+            hru_down_fracwt=nan_array_2d,
+            cascade_area=nan_array_2d,
             upslope_hortonian=nan_array,
             stream_seg_in=nan_array,
             cfs_conv=nan_array,
@@ -546,7 +553,7 @@ class PRMSRunoff(ConservativeProcessHru):
             compute_infil=self.compute_infil,
             dprst_comp=self.dprst_comp,
             imperv_et=self.imperv_et,
-            run_cascade_sroff=None,
+            run_cascade_sroff=self._run_cascade_sroff_dummy,
         )
 
         self.infil_hru[:] = self.infil * self.hru_frac_perv
@@ -649,11 +656,11 @@ class PRMSRunoff(ConservativeProcessHru):
         run_cascade_sroff,
     ):
         hru_horton_cascflow = np.zeros(nhru, dtype="float64")
-        ncascade_hru_active = np.isnan(ncascade_hru).all()
+        ncascade_hru_active = ~np.isnan(ncascade_hru).all()
         if ncascade_hru_active:
             hru_horton_cascflow[:] = zero
             upslope_hortonian[:] = zero
-            stream_seg_in[:] = zero  # call_cascade==active??
+            stream_seg_in[:] = zero
 
         dprst_chk = 0
         infil[:] = 0.0
@@ -797,7 +804,7 @@ class PRMSRunoff(ConservativeProcessHru):
                 runoff = runoff + srp * perv_area + sri * hruarea_imperv
                 srunoff = runoff / hruarea
 
-                if ncascade_hru_active:  #  is not None:
+                if ncascade_hru_active:
                     hru_sroff_down = zero
                     if srunoff > zero:
                         hru_horton_cascflow[i] = zero
@@ -1399,10 +1406,12 @@ class PRMSRunoff(ConservativeProcessHru):
         # ihru is already a 0-based index
         for kk in range(ncascade_hru_i):
             jj = hru_down[kk, ihru]  # a 1-based index
+            jjabs = abs(jj)
+
             #  if hru_down(k, Ihru) > 0, cascade contributes to a downslope HRU
             if jj > 0:
-                upslope_hortonian[jj - 1] = (
-                    upslope_hortonian[jj - 1]
+                upslope_hortonian[jjabs - 1] = (
+                    upslope_hortonian[jjabs - 1]
                     + runoff * hru_down_fracwt[kk, ihru]
                 )
 
@@ -1412,7 +1421,6 @@ class PRMSRunoff(ConservativeProcessHru):
                 # print(ihru, jj, kk, hru_sroff_down)
             elif jj < 0:
                 # if hru_down(k, Ihru) < 0, cascade contributes to a stream
-                jjabs = abs(jj)
                 stream_seg_in[jjabs - 1] = (
                     stream_seg_in[jjabs - 1]
                     + runoff * cascade_area[kk, ihru] * cfs_conv
@@ -1421,5 +1429,20 @@ class PRMSRunoff(ConservativeProcessHru):
         # <<
         # reset Sroff as it accumulates flow to streams
         runoff = runoff - hru_sroff_down
+        return (runoff, hru_sroff_down, stream_seg_in, upslope_hortonian)
 
+    @staticmethod
+    def _run_cascade_sroff_dummy(
+        ihru: int,
+        ncascade_hru_i: int,
+        upslope_hortonian: np.ndarray,
+        runoff: float,
+        hru_sroff_down: float,
+        hru_down: np.ndarray,
+        hru_down_frac: np.ndarray,
+        hru_down_fracwt: np.ndarray,
+        cascade_area: np.ndarray,
+        stream_seg_in: np.ndarray,
+        cfs_conv: float,
+    ):
         return (runoff, hru_sroff_down, stream_seg_in, upslope_hortonian)

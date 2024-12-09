@@ -32,6 +32,8 @@ prms_src/prms5.3.0/msvs/x64/Release/
 *.lib
 *.a
 
+ruff.toml
+
 # meson build information
 prms_src/prms5.3.0/builddir/
 

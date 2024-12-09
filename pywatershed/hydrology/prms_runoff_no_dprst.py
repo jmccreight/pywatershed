@@ -1,8 +1,10 @@
 from typing import Literal
 
+import numpy as np
+
 from ..base.adapter import adaptable
 from ..base.control import Control
-from ..constants import HruType, zero
+from ..constants import HruType, nan, zero
 from ..parameters import Parameters
 from .prms_runoff import PRMSRunoff
 
@@ -188,6 +190,9 @@ class PRMSRunoffNoDprst(PRMSRunoff):
         """Perform the core calculations"""
 
         zero_array = zero * self.infil
+        zero_array_2d_int = np.zeros((2, 2), dtype="int32")
+        nan_array = nan * self.infil
+        nan_array_2d = np.zeros((2, 2)) * nan
 
         (
             self.infil[:],
@@ -277,23 +282,23 @@ class PRMSRunoffNoDprst(PRMSRunoff):
             hru_impervstor=self.hru_impervstor,
             through_rain=self.through_rain,
             dprst_flag=self._dprst_flag,
-            ncascade_hru=None,
+            ncascade_hru=nan_array,
             nactive_hrus=self._nactive_hrus,
             hru_route_order=self.hru_route_order,
-            hru_down=None,
-            hru_down_frac=None,
-            hru_down_fracwt=None,
-            cascade_area=None,
-            upslope_hortonian=None,
-            stream_seg_in=None,
-            cfs_conv=None,
+            hru_down=zero_array_2d_int,
+            hru_down_frac=nan_array_2d,
+            hru_down_fracwt=nan_array_2d,
+            cascade_area=nan_array_2d,
+            upslope_hortonian=nan_array,
+            stream_seg_in=nan_array,
+            cfs_conv=nan_array,
             # functions at end
             check_capacity=self.check_capacity,
             perv_comp=self.perv_comp,
             compute_infil=self.compute_infil,
             dprst_comp=self.dprst_comp,
             imperv_et=self.imperv_et,
-            run_cascade_sroff=None,
+            run_cascade_sroff=self._run_cascade_sroff_dummy,
         )
 
         self.infil_hru[:] = self.infil * self.hru_frac_perv
