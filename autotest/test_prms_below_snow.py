@@ -127,7 +127,7 @@ def control(simulation):
         simulation["control_file"], warn_unused_options=False
     )
     control.options["verbosity"] = 10
-    control.options["budget_type"] = "warn"  # "error" - revert
+    control.options["budget_type"] = "error"
     if fortran_avail:
         control.options["calc_method"] = "fortran"
     else:
@@ -238,6 +238,8 @@ def test_model(simulation, model_args, tmp_path):
     sim_name = simulation["name"]
     config_name = sim_name.split(":")[1]
 
+    write_netcdf_files = True
+
     # setup input_dir with symlinked prms inputs and outputs
     input_dir = tmp_path / "input"
     input_dir.mkdir()
@@ -252,15 +254,15 @@ def test_model(simulation, model_args, tmp_path):
         control = model_args["control"]
 
     control.options["input_dir"] = input_dir
-    model_out_dir = tmp_path / "output"
-    control.options["netcdf_output_dir"] = model_out_dir
 
-    # TODO: remove this if statement?
-    if control.options["calc_method"] == "fortran":
-        # with pytest.warns(UserWarning):
-        model = Model(**model_args, write_control=model_out_dir)
+    model_out_dir = tmp_path / "output"
+    if write_netcdf_files:
+        control.options["netcdf_output_dir"] = model_out_dir
+        print(f"test_prms_below_snow::test_model output in: {model_out_dir}")
     else:
-        model = Model(**model_args, write_control=model_out_dir)
+        del control.options["netcdf_output_dir"]
+
+    model = Model(**model_args, write_control=model_out_dir)
 
     # check that control yaml file was written
     control_yaml_file = sorted(model_out_dir.glob("*model_control.yaml"))
@@ -346,6 +348,7 @@ def test_model(simulation, model_args, tmp_path):
     for istep in range(control.n_times):
         model.advance()
         model.calculate()
+        model.output()
 
         # PRMS5 answers
         # advance the answer, which is being read from a netcdf file
@@ -378,6 +381,7 @@ def test_model(simulation, model_args, tmp_path):
 
         raise Exception(msg)
 
+    model.finalize()
     return
 
 

@@ -183,6 +183,7 @@ class PRMSRunoffCascadesNoDprst(PRMSRunoff):
             "hru_impervstor": zero,
             "hru_impervstor_old": zero,
             "hru_impervstor_change": zero,
+            "hortonian_flow": zero,
             "upslope_hortonian": zero,
             "hru_horton_cascflow": zero,
             "stream_seg_in": zero,
@@ -198,9 +199,7 @@ class PRMSRunoffCascadesNoDprst(PRMSRunoff):
                 "upslope_hortonian",
             ],
             "outputs": [
-                # sroff = hru_sroffi + hru_sroffp
-                "hru_sroffi",
-                "hru_sroffp",
+                "hortonian_flow",
                 "infil_hru",
                 "hru_impervevap",
                 "hru_horton_cascflow",
@@ -240,6 +239,7 @@ class PRMSRunoffCascadesNoDprst(PRMSRunoff):
             _,
             self.sroff[:],
             self.hru_horton_cascflow[:],
+            self.hortonian_flow[:],
         ) = self._calculate_runoff(
             infil=self.infil,
             nhru=self.nhru,
@@ -314,6 +314,7 @@ class PRMSRunoffCascadesNoDprst(PRMSRunoff):
             hru_down_frac=self.hru_down_frac,
             hru_down_fracwt=self.hru_down_fracwt,
             cascade_area=self.cascade_area,
+            hortonian_flow=self.hortonian_flow,
             upslope_hortonian=self.upslope_hortonian,
             stream_seg_in=self.stream_seg_in,
             cfs_conv=cfs_conv,

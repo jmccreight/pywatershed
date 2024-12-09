@@ -215,6 +215,7 @@ class PRMSRunoffNoDprst(PRMSRunoff):
             _,
             self.sroff[:],
             _,
+            _,
         ) = self._calculate_runoff(
             infil=self.infil,
             nhru=self.nhru,
@@ -289,6 +290,7 @@ class PRMSRunoffNoDprst(PRMSRunoff):
             hru_down_frac=nan_array_2d,
             hru_down_fracwt=nan_array_2d,
             cascade_area=nan_array_2d,
+            hortonian_flow=nan_array,
             upslope_hortonian=nan_array,
             stream_seg_in=nan_array,
             cfs_conv=nan_array,
