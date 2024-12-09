@@ -38,6 +38,7 @@ dependencies:
   - pytest-xdist
   - python<3.12,>=3.10
   - pyyaml
+  - rasterstats
   - shapely
   - sphinx
   - sphinx-book-theme>=0.3.3
@@ -52,6 +53,8 @@ dependencies:
       - jupyter_black
       - modflow-devtools
       - git+https://github.com/jararias/mpsplines.git
+      - git+https://github.com/jlarsen-usgs/dany.git
+      - git+https://github.com/pygsflow/pygsflow.git@develop
       - git+https://github.com/paknorton/pyPRMS.git@development
       - sphinx-autodoc-typehints>=2.2.1
       - ruff
