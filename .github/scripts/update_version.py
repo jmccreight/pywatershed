@@ -1,12 +1,11 @@
 import argparse
 import textwrap
-import yaml
 from datetime import datetime
 from pathlib import Path
 
+import yaml
 from filelock import FileLock
 from packaging.version import Version
-
 
 _project_name = "pywatershed"
 _project_root_path = Path(__file__).parent.parent.parent

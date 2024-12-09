@@ -6,8 +6,9 @@ import hvplot.xarray  # noqa
 import numpy as np
 import pandas as pd
 import panel as pn
-import pywatershed
 import xarray as xr
+
+import pywatershed
 
 sys.path.append("../common")
 import metrics
@@ -86,7 +87,7 @@ def get_comp_ds(model: pywatershed.Model, var_name: str) -> xr.Dataset:
             ),
         ]
     )
-    comp_ds.attrs["Description"] = f"Variable comparison for PRMS and pynhm"
+    comp_ds.attrs["Description"] = "Variable comparison for PRMS and pynhm"
     comp_ds.attrs[var_name] = pywatershed.meta.get_vars(var_name)[var_name]
 
     return comp_ds
@@ -116,7 +117,10 @@ def err_panel(
         for proc_key, proc_val in model.processes.items()
         for var in proc_val.get_variables()
     ]
-    # var_dict = {proc_key: list(proc_val.get_variables()) for proc_key, proc_val in model.processes.items()}
+    # var_dict = {
+    #     proc_key: list(proc_val.get_variables())
+    #     for proc_key, proc_val in model.processes.items()
+    # }
 
     data_list = [get_comp_ds(model, var) for var in var_list]
     data_ds = xr.merge(

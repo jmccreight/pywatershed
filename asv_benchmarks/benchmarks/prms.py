@@ -1,6 +1,6 @@
 import pathlib as pl
 import shutil
-from typing import Union, Literal
+from typing import Literal, Union
 
 from . import _is_pws, parameterized, test_data_dir
 
@@ -95,7 +95,7 @@ class PRMSModels:
             self.control = pws.Control.load(
                 self.control_file, params=self.params
             )
-        except:
+        except:  # noqa: E722
             self.lt_v0_2_0 = False
 
         if hasattr(self, "control"):
