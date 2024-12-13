@@ -257,7 +257,7 @@ if [ -z "${t}" ]; then
 	   echo "  run PRMS and convert csv output to NetCDF"
 	   python generate_test_data.py \
 		  -n=$pytest_n --domain=sagehen_5yr \
-		  --control_pattern=sagehen_no_cascades.control \
+		  --control_pattern=cascades.control \
 		  --remove_prms_csvs --remove_prms_output_dirs || exit 1
        fi
 
@@ -277,7 +277,7 @@ if [ -z "${t}" ]; then
 	   -n=$pytest_n \
 	   -m "not domainless" \
 	   --domain=sagehen_5yr \
-	   --control_pattern=sagehen_no_cascades.control \
+	   --control_pattern=cascades.control \
 	   --durations=0  || exit 1
    fi
 

@@ -32,7 +32,7 @@ fortran_avail = getattr(
 invoke_style = ("prms", "model_dict", "model_dict_from_yaml")
 invoke_style = invoke_style[0:1]  # TODO, relax?
 
-failfast = True
+failfast = False
 verbose = True
 
 test_models = {
@@ -60,11 +60,6 @@ test_models = {
     ],
 }
 
-test_models = {
-    kk: vv for kk, vv in test_models.items() if kk == "sagehen_no_gw_cascades"
-}
-
-# Runoff should be PRMSRunoffCascadesNoDprst and or PRMSRunoffNoDprst
 
 # these variables not output by PRMS
 soil_vars_unavail = {
@@ -131,7 +126,7 @@ def control(simulation):
     if fortran_avail:
         control.options["calc_method"] = "fortran"
     else:
-        control.options["calc_method"] = "numba"  # Todo: "numba"
+        control.options["calc_method"] = "numba"
     del control.options["netcdf_output_var_names"]
     return control
 
@@ -232,7 +227,6 @@ def model_args(simulation, control, discretization, request):
 
 
 def test_model(simulation, model_args, tmp_path):
-    """Run the full NHM model"""
     tmp_path = pl.Path(tmp_path)
     output_dir = simulation["output_dir"]
     sim_name = simulation["name"]
@@ -334,10 +328,7 @@ def test_model(simulation, model_args, tmp_path):
                 if "dprst" in vv:
                     continue
 
-            if vv in ["tmin", "tmax", "prcp"]:
-                nc_pth = input_dir.parent / f"{vv}.nc"
-            else:
-                nc_pth = input_dir / f"{vv}.nc"
+            nc_pth = input_dir / f"{vv}.nc"
 
             ans[process_name][vv] = adapter_factory(
                 nc_pth, variable_name=vv, control=control

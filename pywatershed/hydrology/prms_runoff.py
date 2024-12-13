@@ -661,9 +661,7 @@ class PRMSRunoff(ConservativeProcessHru):
         hru_horton_cascflow = np.zeros(nhru, dtype="float64")
         ncascade_hru_active = ~np.isnan(ncascade_hru).all()
         if ncascade_hru_active:
-            hru_horton_cascflow[:] = zero
             upslope_hortonian[:] = zero
-            stream_seg_in[:] = zero
 
         dprst_chk = 0
         infil[:] = 0.0
@@ -955,7 +953,6 @@ class PRMSRunoff(ConservativeProcessHru):
                         infil,
                         srp,
                     )
-
         # <<<
         else:
             avail_water = 0.0

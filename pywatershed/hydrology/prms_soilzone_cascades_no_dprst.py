@@ -160,8 +160,8 @@ class PRMSSoilzoneCascadesNoDprst(PRMSSoilzone):
             "hru_impervevap",  # JLM ??
             "hru_intcpevap",  # JLM ???
             "infil_hru",
-            "sroff",
-            "sroff_vol",
+            "sroff",  # this in inout, a modified input
+            "sroff_vol",  # this in inout, a modified input
             "potet",
             # hru_ppt => model_precip%hru_ppt, & # JLM ??
             "transp_on",
