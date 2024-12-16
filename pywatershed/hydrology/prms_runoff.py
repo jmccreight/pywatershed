@@ -470,6 +470,7 @@ class PRMSRunoff(ConservativeProcessHru):
             self.dprst_stor_hru[:],
             self.sroff[:],
             _,
+            _,
         ) = self._calculate_runoff(
             infil=self.infil,
             nhru=self.nhru,
@@ -544,6 +545,7 @@ class PRMSRunoff(ConservativeProcessHru):
             hru_down_frac=nan_array_2d,
             hru_down_fracwt=nan_array_2d,
             cascade_area=nan_array_2d,
+            hortonian_flow=nan_array,
             upslope_hortonian=nan_array,
             stream_seg_in=nan_array,
             cfs_conv=nan_array,
@@ -644,6 +646,7 @@ class PRMSRunoff(ConservativeProcessHru):
         hru_down_frac,
         hru_down_fracwt,
         cascade_area,
+        hortonian_flow,
         upslope_hortonian,
         stream_seg_in,
         cfs_conv,
@@ -658,9 +661,7 @@ class PRMSRunoff(ConservativeProcessHru):
         hru_horton_cascflow = np.zeros(nhru, dtype="float64")
         ncascade_hru_active = ~np.isnan(ncascade_hru).all()
         if ncascade_hru_active:
-            hru_horton_cascflow[:] = zero
             upslope_hortonian[:] = zero
-            stream_seg_in[:] = zero
 
         dprst_chk = 0
         infil[:] = 0.0
@@ -873,6 +874,7 @@ class PRMSRunoff(ConservativeProcessHru):
                 ) / hruarea
             # <
             sroff[i] = srunoff
+            hortonian_flow[i] = srunoff
 
         # <
         return (
@@ -896,6 +898,7 @@ class PRMSRunoff(ConservativeProcessHru):
             dprst_stor_hru,
             sroff,
             hru_horton_cascflow,
+            hortonian_flow,
         )
 
     @staticmethod
@@ -950,7 +953,6 @@ class PRMSRunoff(ConservativeProcessHru):
                         infil,
                         srp,
                     )
-
         # <<<
         else:
             avail_water = 0.0

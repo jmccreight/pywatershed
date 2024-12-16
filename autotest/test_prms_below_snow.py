@@ -32,7 +32,7 @@ fortran_avail = getattr(
 invoke_style = ("prms", "model_dict", "model_dict_from_yaml")
 invoke_style = invoke_style[0:1]  # TODO, relax?
 
-failfast = True
+failfast = False
 verbose = True
 
 test_models = {
@@ -60,11 +60,6 @@ test_models = {
     ],
 }
 
-test_models = {
-    kk: vv for kk, vv in test_models.items() if kk == "sagehen_no_gw_cascades"
-}
-
-# Runoff should be PRMSRunoffCascadesNoDprst and or PRMSRunoffNoDprst
 
 # these variables not output by PRMS
 soil_vars_unavail = {
@@ -127,11 +122,11 @@ def control(simulation):
         simulation["control_file"], warn_unused_options=False
     )
     control.options["verbosity"] = 10
-    control.options["budget_type"] = "warn"  # "error" - revert
+    control.options["budget_type"] = "error"
     if fortran_avail:
         control.options["calc_method"] = "fortran"
     else:
-        control.options["calc_method"] = "numba"  # Todo: "numba"
+        control.options["calc_method"] = "numba"
     del control.options["netcdf_output_var_names"]
     return control
 
@@ -232,11 +227,12 @@ def model_args(simulation, control, discretization, request):
 
 
 def test_model(simulation, model_args, tmp_path):
-    """Run the full NHM model"""
     tmp_path = pl.Path(tmp_path)
     output_dir = simulation["output_dir"]
     sim_name = simulation["name"]
     config_name = sim_name.split(":")[1]
+
+    write_netcdf_files = True
 
     # setup input_dir with symlinked prms inputs and outputs
     input_dir = tmp_path / "input"
@@ -252,15 +248,15 @@ def test_model(simulation, model_args, tmp_path):
         control = model_args["control"]
 
     control.options["input_dir"] = input_dir
-    model_out_dir = tmp_path / "output"
-    control.options["netcdf_output_dir"] = model_out_dir
 
-    # TODO: remove this if statement?
-    if control.options["calc_method"] == "fortran":
-        # with pytest.warns(UserWarning):
-        model = Model(**model_args, write_control=model_out_dir)
+    model_out_dir = tmp_path / "output"
+    if write_netcdf_files:
+        control.options["netcdf_output_dir"] = model_out_dir
+        print(f"test_prms_below_snow::test_model output in: {model_out_dir}")
     else:
-        model = Model(**model_args, write_control=model_out_dir)
+        del control.options["netcdf_output_dir"]
+
+    model = Model(**model_args, write_control=model_out_dir)
 
     # check that control yaml file was written
     control_yaml_file = sorted(model_out_dir.glob("*model_control.yaml"))
@@ -332,10 +328,7 @@ def test_model(simulation, model_args, tmp_path):
                 if "dprst" in vv:
                     continue
 
-            if vv in ["tmin", "tmax", "prcp"]:
-                nc_pth = input_dir.parent / f"{vv}.nc"
-            else:
-                nc_pth = input_dir / f"{vv}.nc"
+            nc_pth = input_dir / f"{vv}.nc"
 
             ans[process_name][vv] = adapter_factory(
                 nc_pth, variable_name=vv, control=control
@@ -346,6 +339,7 @@ def test_model(simulation, model_args, tmp_path):
     for istep in range(control.n_times):
         model.advance()
         model.calculate()
+        model.output()
 
         # PRMS5 answers
         # advance the answer, which is being read from a netcdf file
@@ -378,6 +372,7 @@ def test_model(simulation, model_args, tmp_path):
 
         raise Exception(msg)
 
+    model.finalize()
     return
 
 

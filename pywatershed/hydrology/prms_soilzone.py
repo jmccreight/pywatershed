@@ -53,7 +53,8 @@ class PRMSSoilzone(ConservativeProcessHru):
             canopy for each HRU
         infil_hru: Infiltration to the capillary and preferential-flow
             reservoirs, depth on HRU area
-        sroff: Surface runoff to the stream network for each HRU
+        sroff: Surface runoff to the stream network for each HRU. This input is
+            modified (ie inout).
         sroff_vol: Surface runoff volume to the stream network for each HRU
         potet: Potential ET for each HRU
         transp_on: Flag indicating whether transpiration is occurring
@@ -225,7 +226,7 @@ class PRMSSoilzone(ConservativeProcessHru):
             "soil_rechr_prev": nan,  # sm_climateflow
             "soil_to_gw": zero,
             "soil_to_ssr": zero,
-            "soil_zone_max": nan,  # this is completely later
+            "soil_zone_max": nan,  # this is completely set later
             "ssr_to_gw": zero,
             "ssres_flow": zero,  # todo: privatize keep vol public
             "ssres_flow_vol": nan,

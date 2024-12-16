@@ -3,6 +3,7 @@ import subprocess
 import sys
 
 import pytest
+
 from pywatershed.constants import __pywatershed_root__
 
 # "Official" notebooks are numbered

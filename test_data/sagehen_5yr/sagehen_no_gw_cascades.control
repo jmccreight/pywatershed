@@ -184,7 +184,7 @@ nhruOutON_OFF
 nhruOutVars
 1
 1
-89
+90
 ####
 nhruOut_freq
 1
@@ -197,7 +197,7 @@ nhruOut_format
 4
 ####
 nhruOutVar_names
-89
+90
 4
 albedo
 cap_infil_tot
@@ -209,6 +209,7 @@ gwres_flow
 gwres_in
 gwres_sink
 gwres_stor
+hortonian_flow
 hru_actet
 hru_hortn_cascflow
 hru_impervevap

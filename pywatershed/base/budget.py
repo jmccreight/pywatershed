@@ -373,8 +373,12 @@ class Budget(Accessor):
 
             msg = (
                 "The flux unit balance not equal to the change in unit "
-                f"storage at time {self.control.current_time} and at the "
-                f"following locations for {self.description}: {wh_not_close}"
+                f"storage at time {self.control.current_time}.\n"
+                f"Maximum abs val of difference: {abs_diff.max()}\n"
+                f"Maximum abs val of relative diff "
+                f"{np.nanmax(rel_abs_diff)}\n."
+                f"With differencecs greater than atol or rtol at the "
+                f"following locations for {self.description}: {wh_not_close}."
             )
 
             if self.imbalance_fatal:
