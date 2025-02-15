@@ -65,12 +65,13 @@ class PRMSGroundwater(ConservativeProcess):
         budget_type: Literal["defer", None, "warn", "error"] = "defer",
         calc_method: Literal["fortran", "numba", "numpy"] = None,
         verbose: bool = None,
-        restart_read: Union[pl.Path, bool] = None,
+        restart_read: Union[pl.Path, bool] = False,
     ) -> None:
         super().__init__(
             control=control,
             discretization=discretization,
             parameters=parameters,
+            restart_read=restart_read,
         )
         self.name = "PRMSGroundwater"
 

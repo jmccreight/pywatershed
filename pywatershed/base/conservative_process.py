@@ -72,7 +72,7 @@ class ConservativeProcess(Process):
         budget_type: Literal["defer", None, "warn", "error"] = "defer",
         metadata_patches: dict[dict] = None,
         metadata_patch_conflicts: Literal["left", "warn", "error"] = "error",
-        restart_read: Union[pl.Path, bool] = None,
+        restart_read: Union[pl.Path, bool] = False,
     ):
         super().__init__(
             control=control,

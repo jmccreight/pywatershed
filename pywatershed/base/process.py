@@ -86,12 +86,13 @@ class Process(Accessor):
         experimental.
     metadata_patch_conflicts:
         How to handle metadata_patches conflicts. Experimental.
-    restart_read: If a bool, then a the directory corresponding to
-      control.start_time, ./YYYY-mm-dd/, is searched for individual files to
-      read. If a Path is supplied this directory is searched for files to read.
-    restart_write: As for restart_read. The directory in either case will
-      be attempted to be made if it does not exist.
-    restart_write_freq: The frequency of restart output in control.time_step.
+    restart_read: If True, then the searched directory for reading is the
+      working directory. Files searched for in aspecifed or in the working
+      directory are read in the form YYYY-mm-dd-varname.nc.
+    restart_write: As for restart_read but for writing. The directory in either
+      case will be attempted to be created if it does not exist.
+    restart_write_freq: The frequency of restart output in units of
+      control.time_step (typically days).
     """
 
     def __init__(
@@ -101,7 +102,7 @@ class Process(Accessor):
         parameters: Parameters,
         metadata_patches: dict[dict] = None,
         metadata_patch_conflicts: Literal["left", "warn", "error"] = "error",
-        restart_read: Union[pl.Path, bool] = None,
+        restart_read: Union[pl.Path, bool] = False,
         # restart_write: Union[pl.Path, bool] = None,
         # restart_write_freq: int = 1,
     ):
@@ -126,8 +127,9 @@ class Process(Accessor):
         self._initialize_self_variables()
         self._set_initial_conditions()
 
-        # can eventually remove the hasattr when all processes have the opt
-        if hasattr(self, "_restart_read") and self._restart_read is not None:
+        # can remove the left condition when all processes have the opt
+        if "restart_read" in locals().keys() and restart_read is not False:
+            self._restart_read = restart_read
             self._restart_from_file()
 
         return None
@@ -345,7 +347,18 @@ class Process(Accessor):
         return
 
     def _restart_from_file(self):
-        asdf
+        from xarray import load_dataarray
+
+        if self._restart_read is True:
+            restart_path = pl.Path(".")
+        else:
+            # in case someone uses a string
+            restart_path = pl.Path(self._restart_read)
+        init_strftime = self.control.init_time.item().strftime("%Y-%m-%d")
+        for vv in self.restart_variables.keys():
+            self[vv][:] = load_dataarray(
+                restart_path / f"{init_strftime}-{vv}.nc"
+            ).values
         return
 
     def _set_options(self, init_locals):
