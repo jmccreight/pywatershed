@@ -56,13 +56,22 @@ def make_restart_files_offline(output_dir, restart_dir, Process, control_bc):
     return
 
 
-# parameterize this to test the individual processes separately
+nhm_processes = [
+    pws.PRMSSolarGeometry,
+    pws.PRMSAtmosphere,
+    pws.PRMSGroundwater,
+    pws.PRMSChannel,
+]
+
+
+@pytest.mark.parametrize("Process", nhm_processes)
 def test_restart(
     simulation,
     control_ac,
     control_bc,
     discretization,
     parameters,
+    Process,
     tmp_path,
 ):
     """Test outline/goals:
@@ -76,11 +85,6 @@ def test_restart(
     output files in the ac run.
 
     """
-    # JLM TODO: parameterize over the processes
-    Process = pws.PRMSGroundwater
-    # Process = pws.PRMSSolarGeometry  # works
-    # Process = pws.PRMSAtmosphere  # works
-
     output_dir = simulation["output_dir"]
     input_variables = {
         kk: output_dir / f"{kk}.nc" for kk in Process.get_inputs()
@@ -144,5 +148,7 @@ def test_restart(
             bc_result = bc_result.current
         # <
         # TODO: why not stronger than assert_allclose, we want assert_equal
+        # maybe because with the processing step currently the files were
+        # originally made as csvs by prms?
         np.testing.assert_allclose(ac_result, bc_result)
-    #  np.testing.assert_equal(ac_result, bc_result)
+        # np.testing.assert_equal(ac_result, bc_result)

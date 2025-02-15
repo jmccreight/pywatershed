@@ -2466,6 +2466,13 @@ seg_inflow:
   type: float64
   units: cfs
   var_category: mass flux
+seg_inflow0:
+  desc: Total flow entering a segment at the previous timestep
+  dims:
+    0: nsegment
+  type: float64
+  units: cfs
+  var_category: mass flux
 seg_lateral_inflow:
   desc: Lateral inflow entering a segment
   dims:

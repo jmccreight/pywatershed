@@ -1,4 +1,5 @@
-from typing import Literal, Tuple
+import pathlib as pl
+from typing import Literal, Tuple, Union
 from warnings import warn
 
 import networkx as nx
@@ -108,11 +109,13 @@ class PRMSChannel(ConservativeProcess):
         calc_method: Literal["fortran", "numba", "numpy"] = None,
         adjust_parameters: Literal["warn", "error", "no"] = "warn",
         verbose: bool = None,
+        restart_read: Union[pl.Path, bool] = False,
     ) -> None:
         super().__init__(
             control=control,
             discretization=discretization,
             parameters=parameters,
+            restart_read=restart_read,
         )
         self.name = "PRMSChannel"
 
@@ -164,9 +167,16 @@ class PRMSChannel(ConservativeProcess):
             "channel_outflow_vol": nan,
             "seg_lateral_inflow": zero,
             "seg_upstream_inflow": zero,
+            "seg_inflow": zero,
+            "seg_inflow0": zero,
             "seg_outflow": zero,
             "seg_stor_change": zero,
         }
+
+    @staticmethod
+    def get_restart_variables() -> dict:
+        """Get a dict of restart varible names mapping current: previous."""
+        return {"seg_inflow": "seg_inflow0"}
 
     @staticmethod
     def get_mass_budget_terms():
@@ -333,8 +343,8 @@ class PRMSChannel(ConservativeProcess):
         self._c0[idx] = 0.0
 
         # local flow variables
-        self._seg_inflow = np.zeros(self.nsegment, dtype=float)
-        self._seg_inflow0 = np.zeros(self.nsegment, dtype=float) * nan
+        self.seg_inflow = np.zeros(self.nsegment, dtype=float)
+        self.seg_inflow0 = np.zeros(self.nsegment, dtype=float) * nan
         self._inflow_ts = np.zeros(self.nsegment, dtype=float)
         self._outflow_ts = np.zeros(self.nsegment, dtype=float)
         self._seg_current_sum = np.zeros(self.nsegment, dtype=float)
@@ -344,7 +354,7 @@ class PRMSChannel(ConservativeProcess):
             jseg = self._tosegment[iseg]
             if jseg < 0:
                 continue
-            self._seg_inflow[jseg] = self.seg_outflow[iseg]
+            self.seg_inflow[jseg] = self.seg_outflow[iseg]
 
         return
 
@@ -379,7 +389,7 @@ class PRMSChannel(ConservativeProcess):
                     nb.int64[:],  # _segment_order
                     nb.int64[:],  # _tosegment
                     nb.float64[:],  # seg_lateral_inflow
-                    nb.float64[:],  # _seg_inflow0
+                    nb.float64[:],  # seg_inflow0
                     nb.float64[:],  # _outflow_ts
                     nb.int64[:],  # _tsi
                     nb.float64[:],  # _ts
@@ -396,10 +406,6 @@ class PRMSChannel(ConservativeProcess):
 
         else:
             self._muskingum_mann = self._muskingum_mann_numpy
-
-    def _advance_variables(self) -> None:
-        self._seg_inflow0[:] = self._seg_inflow
-        return
 
     def _calculate(self, simulation_time: float) -> None:
         self._simulation_time = simulation_time
@@ -439,8 +445,8 @@ class PRMSChannel(ConservativeProcess):
         # solve muskingum_mann routing
         (
             self.seg_upstream_inflow[:],
-            self._seg_inflow0[:],
-            self._seg_inflow[:],
+            self.seg_inflow0[:],
+            self.seg_inflow[:],
             self.seg_outflow[:],
             self._inflow_ts[:],
             self._outflow_ts[:],
@@ -449,7 +455,7 @@ class PRMSChannel(ConservativeProcess):
             self._segment_order,
             self._tosegment,
             self.seg_lateral_inflow,
-            self._seg_inflow0,
+            self.seg_inflow0,
             self._outflow_ts,
             self._tsi,
             self._ts,
@@ -459,7 +465,7 @@ class PRMSChannel(ConservativeProcess):
         )
 
         self.seg_stor_change[:] = (
-            self._seg_inflow - self.seg_outflow
+            self.seg_inflow - self.seg_outflow
         ) * s_per_time
 
         self.channel_outflow_vol[:] = (

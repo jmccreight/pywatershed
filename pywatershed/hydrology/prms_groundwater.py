@@ -213,10 +213,6 @@ class PRMSGroundwater(ConservativeProcess):
 
         return
 
-    def _advance_variables(self) -> None:
-        self.gwres_stor_old[:] = self.gwres_stor
-        return
-
     def _calculate(self, simulation_time):
         self._simulation_time = simulation_time
         (

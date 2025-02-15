@@ -85,6 +85,7 @@ def test_compare_prms(
         calc_method=calc_method,
     )
 
+    compare_vars = set(PRMSChannel.get_variables()) - {"seg_inflow0"}
     if do_compare_output_files:
         nc_parent = tmp_path / simulation["name"].replace(":", "_")
         channel.initialize_netcdf(nc_parent)
@@ -94,7 +95,7 @@ def test_compare_prms(
 
     if do_compare_in_memory:
         answers = {}
-        for var in PRMSChannel.get_variables():
+        for var in compare_vars:
             var_pth = output_dir / f"{var}.nc"
             answers[var] = adapter_factory(
                 var_pth, variable_name=var, control=control
@@ -108,13 +109,15 @@ def test_compare_prms(
         if do_compare_in_memory:
             for var in answers.values():
                 var.advance()
-            compare_in_memory(channel, answers, atol=atol, rtol=rtol)
+            compare_in_memory(
+                channel, answers, atol=atol, rtol=rtol, skip_missing_ans=True
+            )
 
     channel.finalize()
 
     if do_compare_output_files:
         compare_netcdfs(
-            PRMSChannel.get_variables(),
+            compare_vars,
             tmp_path / simulation["name"].replace(":", "_"),
             output_dir,
             atol=atol,

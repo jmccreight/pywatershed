@@ -316,7 +316,9 @@ class Process(Accessor):
         raise Exception("This must be overridden")
 
     def _advance_variables(self):
-        raise Exception("This must be overridden")
+        # The prognostic variable dance
+        for cur, prev in self.restart_variables.items():
+            self[prev][:] = self[cur]
 
     def _advance_inputs(self):
         for key, value in self._input_variables_dict.items():
