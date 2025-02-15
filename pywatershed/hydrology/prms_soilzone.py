@@ -1,4 +1,5 @@
-from typing import Literal
+import pathlib as pl
+from typing import Literal, Union
 from warnings import warn
 
 import numpy as np
@@ -99,11 +100,13 @@ class PRMSSoilzone(ConservativeProcess):
         calc_method: Literal["numba", "numpy"] = None,
         adjust_parameters: Literal["warn", "error", "no"] = "warn",
         verbose: bool = None,
+        restart_read: Union[pl.Path, bool] = False,
     ) -> "PRMSSoilzone":
         super().__init__(
             control=control,
             discretization=discretization,
             parameters=parameters,
+            restart_read=restart_read,
         )
         self.name = "PRMSSoilzone"
 
@@ -181,10 +184,6 @@ class PRMSSoilzone(ConservativeProcess):
         )
 
     @staticmethod
-    def get_restart_variables() -> tuple:
-        return ()
-
-    @staticmethod
     def get_init_values() -> dict:
         return {
             "cap_infil_tot": zero,
@@ -230,6 +229,15 @@ class PRMSSoilzone(ConservativeProcess):
             "ssres_stor": nan,  # sm_soilzone
             "swale_actet": zero,
             "unused_potet": zero,
+        }
+
+    @staticmethod
+    def get_restart_variables() -> dict:
+        return {
+            "pref_flow_stor": "pref_flow_stor_prev",
+            "soil_rechr": "soil_rechr_prev",
+            "soil_lower": "soil_lower_prev",
+            "slow_stor": "slow_stor_prev",
         }
 
     @staticmethod
@@ -576,13 +584,6 @@ class PRMSSoilzone(ConservativeProcess):
         else:
             self._calculate_soilzone = self._calculate_numpy
 
-        return
-
-    def _advance_variables(self) -> None:
-        self.pref_flow_stor_prev[:] = self.pref_flow_stor
-        self.soil_rechr_prev[:] = self.soil_rechr
-        self.soil_lower_prev[:] = self.soil_lower
-        self.slow_stor_prev[:] = self.slow_stor
         return
 
     def _calculate(self, simulation_time):

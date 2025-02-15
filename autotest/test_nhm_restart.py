@@ -59,6 +59,10 @@ def make_restart_files_offline(output_dir, restart_dir, Process, control_bc):
 nhm_processes = [
     pws.PRMSSolarGeometry,
     pws.PRMSAtmosphere,
+    pws.PRMSCanopy,
+    # pws.PRMSSnow,  # may not match until we ditch the canned, PRMS input
+    # pws.PRMSRunoff, # mat not match until we ditch the canned, PRMS input?
+    # pws.PRMSSoilzone, # mat not match until we ditch the canned, PRMS input?
     pws.PRMSGroundwater,
     pws.PRMSChannel,
 ]

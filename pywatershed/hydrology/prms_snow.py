@@ -1,4 +1,5 @@
-from typing import Literal
+import pathlib as pl
+from typing import Literal, Union
 from warnings import warn
 
 import numpy as np
@@ -142,11 +143,13 @@ class PRMSSnow(ConservativeProcess):
         budget_type: Literal["defer", None, "warn", "error"] = "defer",
         calc_method: Literal["numba", "numpy"] = None,
         verbose: bool = None,
+        restart_read: Union[pl.Path, bool] = False,
     ) -> "PRMSSnow":
         super().__init__(
             control=control,
             discretization=discretization,
             parameters=parameters,
+            restart_read=restart_read,
         )
         self.name = "PRMSSnow"
 
@@ -254,6 +257,13 @@ class PRMSSnow(ConservativeProcess):
         }
 
     @staticmethod
+    def get_restart_variables() -> dict:
+        return {
+            "freeh2o": "freeh2o_prev",
+            "pk_ice": "pk_ice_prev",
+        }
+
+    @staticmethod
     def get_mass_budget_terms():
         return {
             "inputs": ["net_rain", "net_snow"],
@@ -265,32 +275,33 @@ class PRMSSnow(ConservativeProcess):
             "storage_changes": ["freeh2o_change", "pk_ice_change"],
         }
 
-    @staticmethod
-    def get_restart_variables() -> tuple:
-        return (
-            "albedo",
-            "freeh2o",
-            "iasw",
-            "int_alb",
-            "iso",
-            "lso",
-            "lst",
-            "mso",
-            "pk_def",
-            "pk_depth",
-            "pk_den",
-            "pk_ice",
-            "pk_temp",
-            "pksv",
-            "pss",
-            "pst",
-            "salb",
-            "scrv",
-            "slst",
-            "snowcov_area",
-            "snowcov_areasv",
-            "snsv",
-        )
+    # TODO: remove this. Im a bit concerned theres important knowledge in here
+    # @staticmethod
+    # def get_restart_variables() -> tuple:
+    #     return (
+    #         "albedo",
+    #         "freeh2o",
+    #         "iasw",
+    #         "int_alb",
+    #         "iso",
+    #         "lso",
+    #         "lst",
+    #         "mso",
+    #         "pk_def",
+    #         "pk_depth",
+    #         "pk_den",
+    #         "pk_ice",
+    #         "pk_temp",
+    #         "pksv",
+    #         "pss",
+    #         "pst",
+    #         "salb",
+    #         "scrv",
+    #         "slst",
+    #         "snowcov_area",
+    #         "snowcov_areasv",
+    #         "snsv",
+    #     )
 
     def _set_initial_conditions(self):
         # Derived parameters
@@ -478,11 +489,6 @@ class PRMSSnow(ConservativeProcess):
         else:
             self._calculate_snow = self._calculate_numpy
 
-        return
-
-    def _advance_variables(self) -> None:
-        self.freeh2o_prev[:] = self.freeh2o
-        self.pk_ice_prev[:] = self.pk_ice
         return
 
     def _calculate(self, simulation_time):

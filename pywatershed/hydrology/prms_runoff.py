@@ -1,4 +1,5 @@
-from typing import Literal
+import pathlib as pl
+from typing import Literal, Union
 from warnings import warn
 
 import numpy as np
@@ -97,11 +98,13 @@ class PRMSRunoff(ConservativeProcess):
         budget_type: Literal["defer", None, "warn", "error"] = "defer",
         calc_method: Literal["numba", "numpy"] = None,
         verbose: bool = None,
+        restart_read: Union[pl.Path, bool] = False,
     ) -> None:
         super().__init__(
             control=control,
             discretization=discretization,
             parameters=parameters,
+            restart_read=restart_read,
         )
 
         self.name = "PRMSRunoff"
@@ -222,6 +225,13 @@ class PRMSRunoff(ConservativeProcess):
             "dprst_stor_hru": zero,
             "dprst_stor_hru_old": zero,
             "dprst_stor_hru_change": zero,
+        }
+
+    @staticmethod
+    def get_restart_variables() -> dict:
+        return {
+            "hru_impervstor": "hru_impervstor_old",
+            "dprst_stor_hru": "dprst_stor_hru_old",
         }
 
     @staticmethod
@@ -424,11 +434,6 @@ class PRMSRunoff(ConservativeProcess):
             self._calculate_runoff = self._calculate_numpy
 
         return
-
-    def _advance_variables(self) -> None:
-        self.hru_impervstor_old[:] = self.hru_impervstor
-        self.dprst_stor_hru_old[:] = self.dprst_stor_hru
-        return None
 
     def _calculate(self, time_length, vectorized=False):
         """Perform the core calculations"""

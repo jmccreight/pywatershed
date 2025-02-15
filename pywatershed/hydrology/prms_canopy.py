@@ -1,4 +1,5 @@
-from typing import Literal
+import pathlib as pl
+from typing import Literal, Union
 from warnings import warn
 
 import numpy as np
@@ -88,11 +89,13 @@ class PRMSCanopy(ConservativeProcess):
         budget_type: Literal["defer", None, "warn", "error"] = "defer",
         calc_method: Literal["fortran", "numba", "numpy"] = None,
         verbose: bool = None,
+        restart_read: Union[pl.Path, bool] = False,
     ):
         super().__init__(
             control=control,
             discretization=discretization,
             parameters=parameters,
+            restart_read=restart_read,
         )
         self.name = "PRMSCanopy"
 
@@ -152,6 +155,10 @@ class PRMSCanopy(ConservativeProcess):
             "hru_intcpstor_change": zero,
             "hru_intcpstor_old": zero,
         }
+
+    @staticmethod
+    def get_restart_variables() -> dict:
+        return {"hru_intcpstor": "hru_intcpstor_old"}
 
     @staticmethod
     def get_mass_budget_terms():
@@ -292,15 +299,6 @@ class PRMSCanopy(ConservativeProcess):
         else:
             self._calculate_canopy = self._calculate_numpy
 
-        return
-
-    def _advance_variables(self):
-        """Advance canopy
-        Returns:
-            None
-
-        """
-        self.hru_intcpstor_old[:] = self.hru_intcpstor
         return
 
     def _calculate(self, time_length):
