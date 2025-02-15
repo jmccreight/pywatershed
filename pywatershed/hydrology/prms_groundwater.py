@@ -1,4 +1,5 @@
-from typing import Literal
+import pathlib as pl
+from typing import Literal, Union
 from warnings import warn
 
 import numpy as np
@@ -46,7 +47,10 @@ class PRMSGroundwater(ConservativeProcess):
         calc_method: one of ["fortran", "numba", "numpy"]. None defaults to
             "numba".
         verbose: Print extra information or not?
-
+        restart_read: If a bool, then a the directory corresponding to
+            control.start_time, ./YYYY-mm-dd/, is searched for individual files
+            to read. If a Path is supplied this directory is searched for files
+            to read.
     """
 
     def __init__(
@@ -61,6 +65,7 @@ class PRMSGroundwater(ConservativeProcess):
         budget_type: Literal["defer", None, "warn", "error"] = "defer",
         calc_method: Literal["fortran", "numba", "numpy"] = None,
         verbose: bool = None,
+        restart_read: Union[pl.Path, bool] = None,
     ) -> None:
         super().__init__(
             control=control,

@@ -88,7 +88,7 @@ class Process(Accessor):
         How to handle metadata_patches conflicts. Experimental.
     restart_read: If a bool, then a the directory corresponding to
       control.start_time, ./YYYY-mm-dd/, is searched for individual files to
-      read. If a Path is supplied this directory is searched for files to read..
+      read. If a Path is supplied this directory is searched for files to read.
     restart_write: As for restart_read. The directory in either case will
       be attempted to be made if it does not exist.
     restart_write_freq: The frequency of restart output in control.time_step.

@@ -132,6 +132,10 @@ class PRMSSolarGeometry(Process):
             "hru_aspect",
         )
 
+    @staticmethod
+    def get_restart_variables() -> dict:
+        return {}
+
     def _set_initial_conditions(self):
         return
 

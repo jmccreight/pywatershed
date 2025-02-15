@@ -271,6 +271,10 @@ class PRMSAtmosphere(Process):
             "orad_hru": nan,
         }
 
+    @staticmethod
+    def get_restart_variables() -> dict:
+        return {}
+
     def _set_initial_conditions(self):
         return
 
