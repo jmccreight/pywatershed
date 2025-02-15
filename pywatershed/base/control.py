@@ -448,12 +448,50 @@ class Control(Accessor):
 
         return None
 
+    def edit_init_start_times(
+        self,
+        new_init_time: np.datetime64,
+        new_start_time: np.datetime64 = None,
+    ) -> None:
+        """Supply a new init and start times for the simulation.
+
+        The initialization time is the time of the restart files. The start
+        time is generally one timestep later, the time of the end of the first
+        model advance. If new_start_time is not supplied, is is calculated
+        as one timestep greater than the required new_init_time.
+
+        Args:
+          new_init_time: The time of the restart files to use.
+          new_start_time: The new time after the first advance of the model.
+        """
+
+        if self._itime_step > -1:
+            warn("Control object can not be edited after first advance")
+            return
+
+        self._init_time = new_init_time
+        self._current_time = self._init_time
+
+        if new_start_time is not None:
+            self._start_time = new_start_time
+        else:
+            self._start_time = self._init_time + self._time_step
+
+        assert self._end_time - self._start_time > 0
+        self._n_times = (
+            int((self._end_time - self._start_time) / self._time_step) + 1
+        )
+        return None
+
     def edit_end_time(self, new_end_time: np.datetime64) -> None:
         """Supply a new end time for the simulation.
 
         Args:
             new_end_time: the new time at which to end the simulation.
         """
+        if self._itime_step > -1:
+            warn("Control object can not be edited after first advance")
+            return
 
         self._end_time = new_end_time
         assert self._end_time - self._start_time > 0

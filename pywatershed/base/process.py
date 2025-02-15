@@ -1,7 +1,7 @@
 import inspect
 import os
 import pathlib as pl
-from typing import Literal
+from typing import Literal, Union
 from warnings import warn
 
 import numpy as np
@@ -86,6 +86,12 @@ class Process(Accessor):
         experimental.
     metadata_patch_conflicts:
         How to handle metadata_patches conflicts. Experimental.
+    restart_read: If a bool, then a the directory corresponding to
+      control.start_time, ./YYYY-mm-dd/, is searched for individual files to
+      read. If a Path is supplied this directory is searched for files to read..
+    restart_write: As for restart_read. The directory in either case will
+      be attempted to be made if it does not exist.
+    restart_write_freq: The frequency of restart output in control.time_step.
     """
 
     def __init__(
@@ -95,6 +101,9 @@ class Process(Accessor):
         parameters: Parameters,
         metadata_patches: dict[dict] = None,
         metadata_patch_conflicts: Literal["left", "warn", "error"] = "error",
+        restart_read: Union[pl.Path, bool] = None,
+        # restart_write: Union[pl.Path, bool] = None,
+        # restart_write_freq: int = 1,
     ):
         self.name = "Process"
         self.control = control
@@ -116,6 +125,10 @@ class Process(Accessor):
 
         self._initialize_self_variables()
         self._set_initial_conditions()
+
+        # can eventually remove the hasattr when all processes have the opt
+        if hasattr(self, "_restart_read") and self._restart_read is not None:
+            self._restart_from_file()
 
         return None
 
@@ -176,8 +189,8 @@ class Process(Accessor):
         }
 
     @staticmethod
-    def get_restart_variables() -> list:
-        """Get a list of restart varible names."""
+    def get_restart_variables() -> dict:
+        """Get a dict of restart varible names mapping current: previous."""
         raise Exception("This must be overridden")
 
     @staticmethod
@@ -207,8 +220,8 @@ class Process(Accessor):
         return self.get_variables()
 
     @property
-    def restart_variables(self) -> tuple:
-        """A tuple of restart variable names."""
+    def restart_variables(self) -> dict:
+        """A dict of restart variable names mapping current: previous."""
         return self.get_restart_variables()
 
     @property
@@ -240,7 +253,7 @@ class Process(Accessor):
         else:
             self._params = parameters.subset(self.parameters)
 
-    def _initialize_self_variables(self, restart: bool = False):
+    def _initialize_self_variables(self):
         # dims
         for name in self.dimensions:
             if name == "ntime":
@@ -262,12 +275,7 @@ class Process(Accessor):
             setattr(self, name, np.zeros(spatial_dims, dtype=float) + np.nan)
 
         # variables
-        # skip restart variables if restart (for speed) ?
-        # the code is below but commented.
-        # restart_variables = self.restart_variables
         for name in self.variables:
-            # if restart and (name in restart_variables):
-            #     continue
             self._initialize_var(name)
 
         return
@@ -334,6 +342,10 @@ class Process(Accessor):
             if self._input_variables_dict[ii]:
                 self[ii] = self._input_variables_dict[ii].current
 
+        return
+
+    def _restart_from_file(self):
+        asdf
         return
 
     def _set_options(self, init_locals):
