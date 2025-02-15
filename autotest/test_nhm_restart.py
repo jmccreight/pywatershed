@@ -7,6 +7,9 @@ import pywatershed as pws
 
 @pytest.fixture(scope="function")
 def control_ac(simulation):
+    control_name = simulation["name"].split(":")[1]
+    if control_name != "nhm":
+        pytest.skip("test_cbh_to_netcdf only for nhm configuration")
     control = pws.Control.load_prms(
         simulation["control_file"], warn_unused_options=False
     )
