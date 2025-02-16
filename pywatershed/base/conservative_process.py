@@ -73,6 +73,8 @@ class ConservativeProcess(Process):
         metadata_patches: dict[dict] = None,
         metadata_patch_conflicts: Literal["left", "warn", "error"] = "error",
         restart_read: Union[pl.Path, bool] = False,
+        restart_write: Union[pl.Path, bool] = False,
+        restart_write_freq: Literal["y", "m", "d"] = False,
     ):
         super().__init__(
             control=control,
@@ -81,6 +83,8 @@ class ConservativeProcess(Process):
             metadata_patches=metadata_patches,
             metadata_patch_conflicts=metadata_patch_conflicts,
             restart_read=restart_read,
+            restart_write=restart_write,
+            restart_write_freq=restart_write_freq,
         )
 
         self.name = "ConservativeProcess"
