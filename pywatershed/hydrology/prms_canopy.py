@@ -178,6 +178,7 @@ class PRMSCanopy(ConservativeProcess):
         }
 
     def _set_initial_conditions(self):
+        """Set initial conditions for variables not in get_init_values"""
         return
 
     def _init_calc_method(self):

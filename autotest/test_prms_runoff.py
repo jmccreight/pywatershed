@@ -82,7 +82,9 @@ def test_compare_prms(
 ):
     tmp_path = pl.Path(tmp_path)
 
-    comparison_var_names = set(Runoff.get_variables())
+    comparison_var_names = set(Runoff.get_variables()) - {
+        "dprst_vol_thres_open"
+    }
     control.options["netcdf_output_var_names"] = comparison_var_names
 
     output_dir = simulation["output_dir"]

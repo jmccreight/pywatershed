@@ -477,7 +477,7 @@ class Control(Accessor):
         else:
             self._start_time = self._init_time + self._time_step
 
-        assert self._end_time - self._start_time > 0
+        assert self._end_time - self._start_time >= 0
         self._n_times = (
             int((self._end_time - self._start_time) / self._time_step) + 1
         )
@@ -494,7 +494,7 @@ class Control(Accessor):
             return
 
         self._end_time = new_end_time
-        assert self._end_time - self._start_time > 0
+        assert self._end_time - self._start_time >= 0
         self._n_times = (
             int((self._end_time - self._start_time) / self._time_step) + 1
         )

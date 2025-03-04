@@ -207,6 +207,9 @@ class PRMSChannel(ConservativeProcess):
         self.seg_outflow[:] = self.segment_flow_init
         return
 
+    def _init_diagnostic_vars(self) -> None:
+        return
+
     def _initialize_channel_data(self) -> None:
         """Initialize internal variables from raw channel data"""
 

@@ -1222,6 +1222,13 @@ dprst_vol_open_frac:
     0: nhru
   type: float64
   units: decimal fraction
+dprst_vol_thres_open:
+  desc: The depression storage volume threshold for open area (?)
+    HRU
+  dims:
+    0: nhru
+  type: float64
+  units: unknown
 dunnian_flow:
   desc: Dunnian surface runoff that flows to the stream network for each HRU
   dims:

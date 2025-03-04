@@ -163,6 +163,9 @@ class PRMSGroundwater(ConservativeProcess):
         self.gwres_stor_old[:] = self.gwstor_init.copy()
         return
 
+    def _init_diagnostic_vars(self) -> None:
+        return
+
     def _init_calc_method(self):
         if self._calc_method is None:
             self._calc_method = "numba"

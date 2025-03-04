@@ -407,6 +407,7 @@ class FlowGraph(ConservativeProcess):
         self._set_inputs(locals())
         self._set_options(locals())
 
+        self._node_maker_dict = node_maker_dict
         for fnm in self._node_maker_dict.values():
             assert isinstance(fnm, FlowNodeMaker)
 

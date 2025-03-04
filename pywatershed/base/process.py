@@ -125,9 +125,6 @@ class Process(Accessor):
                 conflicts=metadata_patch_conflicts,
             )
 
-        self._initialize_self_variables()
-        self._set_initial_conditions()
-
         # can remove the left condition when all processes have the opt
         if "restart_read" in locals().keys() and restart_read is not False:
             if restart_read is True:
@@ -135,8 +132,9 @@ class Process(Accessor):
             else:
                 restart_path = pl.Path(restart_read)
             # <
-            self._restart_read = restart_read
-            self._restart_from_file()
+            self._restart_read = restart_path
+        else:
+            self._restart_read = False
 
         if "restart_write" in locals().keys() and restart_write is not False:
             if restart_write is True:
@@ -150,6 +148,15 @@ class Process(Accessor):
             restart_write_freq_xform = {"y": "j", "m": "d", "d": "H"}
             strf_code = restart_write_freq_xform[restart_write_freq]
             self._restart_write_strf_code = f"%{strf_code}"
+        else:
+            self._restart_write = False
+
+        # <
+        self._initialize_self_variables()
+        self._set_initial_conditions()
+        if self._restart_read:
+            self._restart_from_file()
+        self._init_diagnostic_vars()
 
         return None
 
@@ -163,7 +170,11 @@ class Process(Accessor):
                 print(f"writing output for: {self.name}")
             self._output_netcdf()
 
-        if self._restart_write is not False and self.control.itime_step > 0:
+        if (
+            hasattr(self, "_restart_write")
+            and self._restart_write is not False
+            and self.control.itime_step >= 0
+        ):
             current_count = int(
                 self.control.current_time.astype("datetime64[D]")
                 .item()
@@ -343,7 +354,8 @@ class Process(Accessor):
             )
         return
 
-    def _set_initial_conditions(self):
+    def _set_initial_conditions(self) -> None:
+        """Set initial conditions for variables not in get_init_values"""
         raise Exception("This must be overridden")
 
     def _advance_variables(self):
@@ -393,22 +405,20 @@ class Process(Accessor):
         """Set options options on self if supplied on init, else take
         from control"""
         # some self and Process introspection reveals the option names
-        init_arg_names = set(
-            inspect.signature(self.__init__).parameters.keys()
-        )
-        process_init_args = set(
-            inspect.signature(Process.__init__).parameters.keys()
-        )
-        inputs_args = self.inputs
-        non_option_args = process_init_args.union(inputs_args)
-        option_names = init_arg_names.difference(non_option_args)
+        # options are defined as arguments with default values
+        signature = inspect.signature(self.__init__)
+        option_names = [
+            param.name
+            for param in signature.parameters.values()
+            if param.default is not param.empty
+        ]
         for opt in option_names:
             if opt in init_locals.keys() and init_locals[opt] is not None:
-                setattr(self, f"_{opt}", init_locals[opt])
+                self[f"_{opt}"] = init_locals[opt]
             elif opt in self.control.options.keys():
-                setattr(self, f"_{opt}", self.control.options[opt])
+                self[f"_{opt}"] = self.control.options[opt]
             else:
-                setattr(self, f"_{opt}", None)
+                self[f"_{opt}"] = None
 
         return
 
