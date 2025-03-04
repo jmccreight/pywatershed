@@ -105,7 +105,7 @@ class Process(Accessor):
         metadata_patch_conflicts: Literal["left", "warn", "error"] = "error",
         restart_read: Union[pl.Path, bool] = False,
         restart_write: Union[pl.Path, bool] = False,
-        restart_write_freq: Literal["y", "m", "d"] = False,
+        restart_write_freq: Literal["y", "m", "d", False] = False,
     ):
         self.name = "Process"
         self.control = control
@@ -128,7 +128,25 @@ class Process(Accessor):
         self._initialize_self_variables()
         self._set_initial_conditions()
 
-        # can remove the left condition when all processes have the opt
+        # Below, can remove the condition checking in locals().keys() when all
+        # processes have the opt.
+
+        # For these options not passed, look in control.option. That is, if
+        # the option is passed specifically, it is used.
+        # This cant be done by setting locals()[] unfortunately.
+        if "restart_read" in locals().keys() and restart_read is False:
+            if "restart_read" in self.control.options.keys():
+                restart_read = self.control.options["restart_read"]
+        if "restart_write" in locals().keys() and restart_write is False:
+            if "restart_write" in self.control.options.keys():
+                restart_write = self.control.options["restart_write"]
+        if (
+            "restart_write_freq" in locals().keys()
+            and restart_write_freq is False
+        ):
+            if "restart_write_freq" in self.control.options.keys():
+                restart_write_freq = self.control.options["restart_write_freq"]
+
         if "restart_read" in locals().keys() and restart_read is not False:
             if restart_read is True:
                 restart_path = pl.Path(".")
@@ -163,15 +181,15 @@ class Process(Accessor):
                 print(f"writing output for: {self.name}")
             self._output_netcdf()
 
-        if self._restart_write is not False and self.control.itime_step > 0:
-            current_count = int(
+        if self._restart_write is not False and self.control.itime_step >= 0:
+            current_mod = int(
                 self.control.current_time.astype("datetime64[D]")
                 .item()
                 .strftime(self._restart_write_strf_code)
             )
             if self._restart_write_strf_code != "%H":
-                current_count -= 1
-            if current_count == 0:
+                current_mod -= 1
+            if current_mod == 0:
                 self._output_restart()
 
         return
@@ -384,24 +402,37 @@ class Process(Accessor):
 
         init_strftime = self.control.init_time.item().strftime("%Y-%m-%d")
         for vv in self.restart_variables.keys():
-            self[vv][:] = load_dataarray(
-                self._restart_read / f"{init_strftime}-{vv}.nc"
-            ).values
+            rst_file = self._restart_read / f"{init_strftime}-{vv}.nc"
+            print(f"Restarting from file: {rst_file}")
+            self[vv][:] = load_dataarray(rst_file).values
         return
 
     def _set_options(self, init_locals):
-        """Set options options on self if supplied on init, else take
+        """Set options on self if supplied on init, else take
         from control"""
         # some self and Process introspection reveals the option names
+
         init_arg_names = set(
             inspect.signature(self.__init__).parameters.keys()
         )
-        process_init_args = set(
+        process_init_arg_names = set(
             inspect.signature(Process.__init__).parameters.keys()
         )
-        inputs_args = self.inputs
-        non_option_args = process_init_args.union(inputs_args)
+        inputs_arg_names = set(self.inputs)
+
+        non_option_args = process_init_arg_names.union(inputs_arg_names)
+
+        # all process options should be set in the init
+        # process_options = {
+        #     "restart_read",
+        #     "restart_write",
+        #     "restart_write_freq",
+        # }
+        # option_names = (
+        #     init_arg_names.difference(non_option_args) | process_options
+        # )
         option_names = init_arg_names.difference(non_option_args)
+
         for opt in option_names:
             if opt in init_locals.keys() and init_locals[opt] is not None:
                 setattr(self, f"_{opt}", init_locals[opt])

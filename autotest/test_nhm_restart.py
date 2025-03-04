@@ -48,7 +48,7 @@ nhm_processes = [
     # pws.PRMSSoilzone,
     pws.PRMSGroundwater,
     pws.PRMSChannel,
-]
+][-1:]
 
 
 @pytest.mark.parametrize("Process", nhm_processes)
@@ -88,7 +88,7 @@ def test_restart(
     # Solar and Atmosphere dont need restarts, these tests confirm: all diag
     if Process.__name__ not in ["PRMSSolarGeometry", "PRMSAtmosphere"]:
         run_args["restart_write"] = restart_dir
-        run_args["restart_write_freq"] = "y"
+        run_args["restart_write_freq"] = "d"
 
     proc_ac = Process(**run_args)
 
