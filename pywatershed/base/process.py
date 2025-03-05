@@ -105,7 +105,7 @@ class Process(Accessor):
         metadata_patch_conflicts: Literal["left", "warn", "error"] = "error",
         restart_read: Union[pl.Path, bool] = False,
         restart_write: Union[pl.Path, bool] = False,
-        restart_write_freq: Literal["y", "m", "d"] = False,
+        restart_write_freq: Literal["y", "m", "d", False] = False,
     ):
         self.name = "Process"
         self.control = control
@@ -125,7 +125,25 @@ class Process(Accessor):
                 conflicts=metadata_patch_conflicts,
             )
 
-        # can remove the left condition when all processes have the opt
+        # Below, can remove the condition checking in locals().keys() when all
+        # processes have the opt.
+
+        # For these options not passed, look in control.option. That is, if
+        # the option is passed specifically, it is used.
+        # This cant be done by setting locals()[] unfortunately.
+        if "restart_read" in locals().keys() and restart_read is False:
+            if "restart_read" in self.control.options.keys():
+                restart_read = self.control.options["restart_read"]
+        if "restart_write" in locals().keys() and restart_write is False:
+            if "restart_write" in self.control.options.keys():
+                restart_write = self.control.options["restart_write"]
+        if (
+            "restart_write_freq" in locals().keys()
+            and restart_write_freq is False
+        ):
+            if "restart_write_freq" in self.control.options.keys():
+                restart_write_freq = self.control.options["restart_write_freq"]
+
         if "restart_read" in locals().keys() and restart_read is not False:
             if restart_read is True:
                 restart_path = pl.Path(".")
@@ -156,7 +174,7 @@ class Process(Accessor):
         self._set_initial_conditions()
         if self._restart_read:
             self._restart_from_file()
-        self._init_diagnostic_vars()
+        # self._init_diagnostic_vars()
 
         return None
 
@@ -201,17 +219,17 @@ class Process(Accessor):
     @staticmethod
     def get_dimensions() -> tuple:
         """Get a tuple of dimension names for this Process."""
-        raise Exception("This must be overridden")
+        raise NotImplementedError("This must be implemented")
 
     @staticmethod
     def get_parameters() -> tuple:
         """Get a tuple of parameter names for this Process."""
-        raise Exception("This must be overridden")
+        raise NotImplementedError("This must be implemented")
 
     @staticmethod
     def get_inputs() -> tuple:
         """Get a tuple of input variable names for this Process."""
-        raise Exception("This must be overridden")
+        raise NotImplementedError("This must be implemented")
 
     @classmethod
     def get_variables(cls) -> tuple:
@@ -235,13 +253,13 @@ class Process(Accessor):
     @staticmethod
     def get_restart_variables() -> dict:
         """Get a dict of restart varible names mapping current: previous."""
-        raise Exception("This must be overridden")
+        raise NotImplementedError("This must be implemented")
 
     @staticmethod
     def get_init_values() -> dict:
         """Get a dictionary of initialization values for each public
         variable."""
-        raise Exception("This must be overridden")
+        raise NotImplementedError("This must be implemented")
 
     @property
     def dimensions(self) -> tuple:
@@ -356,7 +374,7 @@ class Process(Accessor):
 
     def _set_initial_conditions(self) -> None:
         """Set initial conditions for variables not in get_init_values"""
-        raise Exception("This must be overridden")
+        raise Exception("This must be implemented")
 
     def _advance_variables(self):
         # The prognostic variable dance
@@ -396,22 +414,36 @@ class Process(Accessor):
 
         init_strftime = self.control.init_time.item().strftime("%Y-%m-%d")
         for vv in self.restart_variables.keys():
-            self[vv][:] = load_dataarray(
-                self._restart_read / f"{init_strftime}-{vv}.nc"
-            ).values
+            rst_file = self._restart_read / f"{init_strftime}-{vv}.nc"
+            print(f"Restarting from file: {rst_file}")
+            self[vv][:] = load_dataarray(rst_file).values
         return
 
     def _set_options(self, init_locals):
-        """Set options options on self if supplied on init, else take
+        """Set options on self if supplied on init, else take
         from control"""
         # some self and Process introspection reveals the option names
-        # options are defined as arguments with default values
-        signature = inspect.signature(self.__init__)
-        option_names = [
-            param.name
-            for param in signature.parameters.values()
-            if param.default is not param.empty
-        ]
+        init_arg_names = set(
+            inspect.signature(self.__init__).parameters.keys()
+        )
+        process_init_arg_names = set(
+            inspect.signature(Process.__init__).parameters.keys()
+        )
+        inputs_arg_names = set(self.inputs)
+
+        non_option_args = process_init_arg_names.union(inputs_arg_names)
+
+        # all process options should be set in the init
+        # process_options = {
+        #     "restart_read",
+        #     "restart_write",
+        #     "restart_write_freq",
+        # }
+        # option_names = (
+        #     init_arg_names.difference(non_option_args) | process_options
+        # )
+        option_names = init_arg_names.difference(non_option_args)
+
         for opt in option_names:
             if opt in init_locals.keys() and init_locals[opt] is not None:
                 self[f"_{opt}"] = init_locals[opt]
@@ -453,9 +485,7 @@ class Process(Accessor):
                     f"{self.name} did not advance because "
                     f"it is not behind control time"
                 )
-                # warn(msg)
                 print(msg)  # can/howto make warn flush in real time?
-                # is a warning sufficient? an error
             return
 
         if self._verbose:
@@ -467,7 +497,7 @@ class Process(Accessor):
         return
 
     def _calculate(self):
-        raise Exception("This must be overridden")
+        raise NotImplementedError("This must be implemented")
 
     def calculate(self, time_length: float, **kwargs) -> None:
         """Calculate Process terms for a time step
@@ -580,18 +610,22 @@ class Process(Accessor):
 
         self._netcdf_initialized = True
         self._netcdf_output_dir = pl.Path(output_dir)
+
         if output_vars is None:
             self._netcdf_output_vars = self.variables
         else:
             self._netcdf_output_vars = list(
                 set(output_vars).intersection(set(self.variables))
             )
-            if len(self._netcdf_output_vars) == 0:
-                self._netcdf_initialized = False
-                return
 
         if addtl_output_vars is not None:
             self._netcdf_output_vars += addtl_output_vars
+
+        if len(self._netcdf_output_vars) == 0:
+            msg = f"No output variables found for process: {self.name}."
+            warn(msg)
+            self._netcdf_initialized = False
+            return
 
         self._netcdf = {}
 

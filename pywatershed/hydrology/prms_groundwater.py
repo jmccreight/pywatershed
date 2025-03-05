@@ -67,7 +67,7 @@ class PRMSGroundwater(ConservativeProcess):
         verbose: bool = None,
         restart_read: Union[pl.Path, bool] = False,
         restart_write: Union[pl.Path, bool] = False,
-        restart_write_freq: Literal["y", "m", "d"] = False,
+        restart_write_freq: Literal["y", "m", "d", False] = False,
     ) -> None:
         super().__init__(
             control=control,

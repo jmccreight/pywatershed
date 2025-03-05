@@ -12,7 +12,7 @@ nhm_processes = [
     # pws.PRMSSoilzone,
     pws.PRMSGroundwater,
     pws.PRMSChannel,
-][4:5]
+][4:6]
 
 times_dict = {
     "d": {
@@ -82,9 +82,6 @@ def test_restart(
 
     output_dir = simulation["output_dir"]
     restart_dir = tmp_path / "restarts"
-    # restart_dir = pl.Path(
-    #     "/private/var/folders/9l/7ch3kq7d1b10mc6fr99rd_n56cxk0f/T/pytest-of-jmccreight/pytest-456/test_restart_drb_2yr_nhm_PRMSR0/restarts"
-    # )
     input_variables = {
         kk: output_dir / f"{kk}.nc" for kk in Process.get_inputs()
     }
