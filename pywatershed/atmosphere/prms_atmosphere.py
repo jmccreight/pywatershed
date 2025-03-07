@@ -275,6 +275,9 @@ class PRMSAtmosphere(Process):
     def get_restart_variables() -> dict:
         return {}
 
+    def _init_diagnostic_vars(self) -> None:
+        return
+
     def _set_initial_conditions(self):
         return
 

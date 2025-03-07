@@ -181,6 +181,9 @@ class PRMSCanopy(ConservativeProcess):
         """Set initial conditions for variables not in get_init_values"""
         return
 
+    def _init_diagnostic_vars(self) -> None:
+        return
+
     def _init_calc_method(self):
         if self._calc_method is None:
             self._calc_method = "numba"

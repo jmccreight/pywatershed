@@ -270,6 +270,9 @@ class PRMSSoilzone(ConservativeProcess):
         # this is called in the super before options are set on self
         pass
 
+    def _init_diagnostic_vars(self) -> None:
+        return
+
     def _initialize_soilzone_data(self):
         # Derived parameters
         # JLM: is this awkward here?

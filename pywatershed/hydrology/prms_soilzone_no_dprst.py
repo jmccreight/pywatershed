@@ -153,10 +153,6 @@ class PRMSSoilzoneNoDprst(PRMSSoilzone):
         )
 
     @staticmethod
-    def get_restart_variables() -> tuple:
-        return ()
-
-    @staticmethod
     def get_init_values() -> dict:
         return {
             "cap_infil_tot": zero,

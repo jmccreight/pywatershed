@@ -3,16 +3,17 @@ import pytest
 
 import pywatershed as pws
 
+restart_freqs = ["y", "m", "d"]
 nhm_processes = [
     pws.PRMSSolarGeometry,
     pws.PRMSAtmosphere,
     pws.PRMSCanopy,
     # pws.PRMSSnow,  #  what is going on here? hidden prognostic variables?
-    pws.PRMSRunoff,
+    # pws.PRMSRunoff,
     # pws.PRMSSoilzone,
     pws.PRMSGroundwater,
     pws.PRMSChannel,
-][4:6]
+]
 
 times_dict = {
     "d": {
@@ -61,7 +62,7 @@ def parameters(simulation):
     return pws.parameters.PrmsParameters.load(param_file)
 
 
-@pytest.mark.parametrize("restart_freq", ["y", "m", "d"])
+@pytest.mark.parametrize("restart_freq", restart_freqs)
 @pytest.mark.parametrize("Process", nhm_processes)
 def test_restart(
     simulation,
@@ -151,8 +152,13 @@ def test_restart(
             np.testing.assert_allclose(ac_result, bc_result)
             # np.testing.assert_equal(ac_result, bc_result)
         else:
+            failed = False
             try:
                 np.testing.assert_allclose(ac_result, bc_result)
                 # np.testing.assert_equal(ac_result, bc_result)
             except AssertionError:
+                failed = True
                 print(vv)
+
+            if failed:
+                raise AssertionError("Failed")

@@ -85,7 +85,10 @@ def test_compare_prms(
         calc_method=calc_method,
     )
 
-    compare_vars = set(PRMSChannel.get_variables()) - {"seg_inflow0"}
+    compare_vars = set(PRMSChannel.get_variables()) - {
+        "seg_inflow0",
+        "outflow_ts",
+    }
     if do_compare_output_files:
         nc_parent = tmp_path / simulation["name"].replace(":", "_")
         channel.initialize_netcdf(nc_parent)

@@ -172,15 +172,19 @@ class PRMSChannel(ConservativeProcess):
             "seg_lateral_inflow": zero,
             "seg_upstream_inflow": zero,
             "seg_inflow": zero,
-            "seg_inflow0": zero,
+            "seg_inflow0": nan,
             "seg_outflow": zero,
             "seg_stor_change": zero,
+            "outflow_ts": zero,
         }
 
     @staticmethod
     def get_restart_variables() -> dict:
         """Get a dict of restart varible names mapping current: previous."""
-        return {"seg_inflow": "seg_inflow0"}
+        return {
+            "seg_inflow": "seg_inflow0",
+            "outflow_ts": "outflow_ts",
+        }
 
     @staticmethod
     def get_mass_budget_terms():
@@ -204,7 +208,7 @@ class PRMSChannel(ConservativeProcess):
     def _set_initial_conditions(self) -> None:
         # initialize channel segment "storage"
         # this is unused currently. Seems that it would set seg_inflow0
-        self.seg_outflow[:] = self.segment_flow_init
+        # self.seg_outflow[:] = self.segment_flow_init
         return
 
     def _init_diagnostic_vars(self) -> None:
@@ -212,6 +216,8 @@ class PRMSChannel(ConservativeProcess):
 
     def _initialize_channel_data(self) -> None:
         """Initialize internal variables from raw channel data"""
+
+        self.seg_inflow0[:] = self.seg_inflow
 
         # convert prms data to zero-based
         self._hru_segment = self.hru_segment - 1
@@ -350,18 +356,15 @@ class PRMSChannel(ConservativeProcess):
         self._c0[idx] = 0.0
 
         # local flow variables
-        self.seg_inflow = np.zeros(self.nsegment, dtype=float)
-        self.seg_inflow0 = np.zeros(self.nsegment, dtype=float) * nan
         self._inflow_ts = np.zeros(self.nsegment, dtype=float)
-        self._outflow_ts = np.zeros(self.nsegment, dtype=float)
         self._seg_current_sum = np.zeros(self.nsegment, dtype=float)
 
         # initialize internal self_inflow variable
-        for iseg in range(self.nsegment):
-            jseg = self._tosegment[iseg]
-            if jseg < 0:
-                continue
-            self.seg_inflow[jseg] = self.seg_outflow[iseg]
+        # for iseg in range(self.nsegment):
+        #     jseg = self._tosegment[iseg]
+        #     if jseg < 0:
+        #         continue
+        #     self.seg_inflow[jseg] = self.seg_outflow[iseg]
 
         return
 
@@ -456,14 +459,14 @@ class PRMSChannel(ConservativeProcess):
             self.seg_inflow[:],
             self.seg_outflow[:],
             self._inflow_ts[:],
-            self._outflow_ts[:],
+            self.outflow_ts[:],
             self._seg_current_sum[:],
         ) = self._muskingum_mann(
             self._segment_order,
             self._tosegment,
             self.seg_lateral_inflow,
             self.seg_inflow0,
-            self._outflow_ts,
+            self.outflow_ts,
             self._tsi,
             self._ts,
             self._c0,

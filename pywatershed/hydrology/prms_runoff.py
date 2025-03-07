@@ -120,8 +120,20 @@ class PRMSRunoff(ConservativeProcess):
         self._set_inputs(locals())
         self._set_options(locals())
 
+        if self._dprst_flag is None:
+            self._dprst_flag = True
+
         self._set_budget()
         self._init_calc_method()
+
+        self.basin_init()
+
+        if self._dprst_flag:
+            self.dprst_init()
+
+        if restart_read is not False or restart_write is not False:
+            self.restart_read = False
+            self.restart_write = False
 
         return
 
@@ -132,14 +144,15 @@ class PRMSRunoff(ConservativeProcess):
         self.dprst_vol_open_max = np.zeros(self.nhru, dtype=float)
         self.dprst_vol_clos_max = np.zeros(self.nhru, dtype=float)
         self.dprst_frac_clos = np.zeros(self.nhru, dtype=float)
-        # self.dprst_vol_thres_open = np.zeros(self.nhru, dtype=float)
-        self.basin_init()
+        self.dprst_vol_thres_open = np.zeros(self.nhru, dtype=float)
+        # self.basin_init()
 
         return
 
     def _init_diagnostic_vars(self):
-        if self._dprst_flag:
-            self.dprst_init()
+        # if self._dprst_flag:
+        #     self.dprst_init()
+        pass
 
     @staticmethod
     def get_dimensions() -> tuple:
@@ -328,10 +341,12 @@ class PRMSRunoff(ConservativeProcess):
                 # storage by HRU
                 # Dprst_area_open_max is the maximum open depression area
                 # (acres) that can generate surface runoff:
+                self._dprst_clos_flag = ACTIVE
                 if self._dprst_clos_flag == ACTIVE:
                     self.dprst_vol_clos_max[i] = (
                         self.dprst_area_clos_max[i] * self.dprst_depth_avg[i]
                     )
+                self._dprst_open_flag = ACTIVE
                 if self._dprst_open_flag == ACTIVE:
                     self.dprst_vol_open_max[i] = (
                         self.dprst_area_open_max[i] * self.dprst_depth_avg[i]
@@ -339,17 +354,17 @@ class PRMSRunoff(ConservativeProcess):
 
                 # calculate the initial open and closed depression storage
                 # volume:
-                if not self._restart_read:
-                    if self._dprst_open_flag == ACTIVE:
-                        self.dprst_vol_open[i] = (
-                            self.dprst_frac_init[i]
-                            * self.dprst_vol_open_max[i]
-                        )
-                    if self._dprst_clos_flag == ACTIVE:
-                        self.dprst_vol_clos[i] = (
-                            self.dprst_frac_init[i]
-                            * self.dprst_vol_clos_max[i]
-                        )
+                # if not self._restart_read:
+                self._dprst_open_flag = ACTIVE
+                if self._dprst_open_flag == ACTIVE:
+                    self.dprst_vol_open[i] = (
+                        self.dprst_frac_init[i] * self.dprst_vol_open_max[i]
+                    )
+                self._dprst_clos_flag = ACTIVE
+                if self._dprst_clos_flag == ACTIVE:
+                    self.dprst_vol_clos[i] = (
+                        self.dprst_frac_init[i] * self.dprst_vol_clos_max[i]
+                    )
 
                 # threshold volume is calculated as the % of maximum open
                 # depression storage above which flow occurs *  total open
@@ -400,7 +415,7 @@ class PRMSRunoff(ConservativeProcess):
                 self.dprst_stor_hru[i] = (
                     self.dprst_vol_open[i] + self.dprst_vol_clos[i]
                 ) / self.hru_area[i]
-                # self.dprst_stor_hru_old[i] = self.dprst_stor_hru[i]
+                self.dprst_stor_hru_old[i] = self.dprst_stor_hru[i]
 
                 if (
                     self.dprst_vol_open_max[i] + self.dprst_vol_clos_max[i]
