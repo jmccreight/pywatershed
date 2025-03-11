@@ -148,14 +148,15 @@ def test_restart(
         # TODO: just use equal, should be bit matched
         # Keep this around for checking Snow, Runoff, Soilzone
 
-        if False:
-            np.testing.assert_allclose(ac_result, bc_result)
-            # np.testing.assert_equal(ac_result, bc_result)
+        if True:
+            # np.testing.assert_allclose(ac_result, bc_result)
+            np.testing.assert_equal(ac_result, bc_result)
+
         else:
             failed = False
             try:
-                np.testing.assert_allclose(ac_result, bc_result)
-                # np.testing.assert_equal(ac_result, bc_result)
+                # np.testing.assert_allclose(ac_result, bc_result)
+                np.testing.assert_equal(ac_result, bc_result)
             except AssertionError:
                 failed = True
                 print(vv)
