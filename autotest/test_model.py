@@ -33,7 +33,8 @@ def control(simulation):
     config_name = sim_name.split(":")[1]
     if config_name != "nhm":
         pytest.skip(
-            f"The configuration is not tested by test_model_inputs: {config_name}"
+            "The configuration is not tested by test_model_inputs: "
+            f"{config_name}"
         )
     control = get_control(simulation["control_file"])
     return control
