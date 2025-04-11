@@ -486,7 +486,10 @@ class Control(Accessor):
         else:
             self._start_time = self._init_time + self._time_step
 
-        msg = "You may need to use edit_end_time before using edit_init_start_times."
+        msg = (
+            "You may need to use edit_end_time before using "
+            "edit_init_start_times."
+        )
         assert self._end_time - self._start_time >= 0, msg
         self._n_times = (
             int((self._end_time - self._start_time) / self._time_step) + 1
