@@ -465,8 +465,9 @@ class Control(Accessor):
 
         The initialization time is the time of the restart files. The start
         time is generally one timestep later, the time of the end of the first
-        model advance. If new_start_time is not supplied, is is calculated
-        as one timestep greater than the required new_init_time.
+        model advance but not necessarily so. Initialization could happen from
+        an arbitrarty time/state. If new_start_time is not supplied, is is
+        calculated as one timestep greater than the required new_init_time.
 
         Args:
         new_init_time: The time of the restart files to use.
@@ -485,7 +486,8 @@ class Control(Accessor):
         else:
             self._start_time = self._init_time + self._time_step
 
-        assert self._end_time - self._start_time >= 0
+        msg = "You may need to use edit_end_time before using edit_init_start_times."
+        assert self._end_time - self._start_time >= 0, msg
         self._n_times = (
             int((self._end_time - self._start_time) / self._time_step) + 1
         )

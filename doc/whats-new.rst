@@ -25,6 +25,8 @@ New Features
 - `SourceSinkFlowNode` adds or removes flow above some minimum flow parameter as
   a data file.
   (:pull:`327`) By `James McCreight <https://github.com/jmccreight>`_.
+- `Control` has new method `set_init_start_times` to manage changing these times.
+  (:pull:`335`) By `James McCreight <https://github.com/jmccreight>`_.
 
 Breaking Changes
 ~~~~~~~~~~~~~~~~
