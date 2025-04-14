@@ -60,6 +60,7 @@ autotest/temp
 
 # test_data
 test_data/.test_data_version*
+test_data/sagehen_prms_runs/
 
 # sphinx
 generated/
@@ -74,7 +75,7 @@ examples/pywatershed_gis
 examples/model_loop_custom_output
 pywatershed/data/pynhm_gis
 pywatershed/data/pywatershed_gis
-
+examples/CONUS_compare_pws_prms/
 
 # graphics
 *.png

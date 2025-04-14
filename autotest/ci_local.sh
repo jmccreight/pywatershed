@@ -89,7 +89,7 @@ if [ ! -z "${h}" ]; then
 
     exit 0
 fi
-    
+
 echo ""
 echo ""
 
@@ -97,9 +97,6 @@ echo ""
 start_dir=`pwd`
 
 # name: Set environment variables
-export PYWS_FORTRAN=false
-export SETUPTOOLS_ENABLE_FEATURES="legacy-editable"
-export PYNHM_FORTRAN=false
 export `head -n1 ../.mf6_ci_ref_remote`
 export `tail -n1 ../.mf6_ci_ref_remote`
 
@@ -194,8 +191,8 @@ if [ -z "${m}" ]; then
     # mamba create -y --name $env_name || exit 1
     # mamba env update --name $env_name --file $env_file --prune  || exit 1
 
-    # conda activate $env_name
-    source /Users/jmccreight/mambaforge/bin/activate $env_name
+    conda_dir=`dirname $CONDA_EXE`
+    source $conda_dir/activate $env_name  || exit 1
     # only necessary the first time
     # meson setup --prefix=$(pwd) --libdir=bin builddir
     meson install -C builddir
@@ -437,7 +434,7 @@ if [ -z "${t}" ]; then
            --control_pattern=nhm.control \
            --durations=0 || exit 1
    fi
-       
+
 fi
 
 if [ -z "${i}" ]; then

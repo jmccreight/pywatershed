@@ -48,7 +48,7 @@ def update_version_py(timestamp: datetime, version: Version):
                 "author_dict = {\n",
             ]
             + [
-                f"    \"{a['given-names']} {a['family-names']}\": \"{a['email']}\",\n"  # noqa: E501
+                f'    "{a["given-names"]} {a["family-names"]}": "{a["email"]}",\n'  # noqa: E501
                 for a in authors
             ]
             + [

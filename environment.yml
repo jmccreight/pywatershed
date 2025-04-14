@@ -35,6 +35,7 @@ dependencies:
   - python<3.12,>=3.10
   - pyyaml
   - rasterstats
+  - ruff
   - shapely
   - sphinx
   - sphinx-book-theme>=0.3.3
@@ -44,8 +45,6 @@ dependencies:
   - xarray>=2024.06.0
   - pip:
       - asv
-      - click != 8.1.0
-      - filelock
       - git+https://github.com/modflowpy/flopy.git
       - modflow-devtools
       - git+https://github.com/jararias/mpsplines.git
@@ -53,4 +52,3 @@ dependencies:
       - git+https://github.com/pygsflow/pygsflow.git@develop
       - git+https://github.com/paknorton/pyPRMS.git@development
       - sphinx-autodoc-typehints>=2.2.1
-      - ruff
