@@ -20,12 +20,37 @@ from .parameters import Parameters
 # * decide on the fate of "from storage unit"
 # * terminology: "balance" just means "storage change"
 # * terminology: what is the term for the budget dosent close/zero?
+# * Energy budget.
 
 
 class Budget(Accessor):
-    """Budget class for mass and energy conservation.
+    """Budget class for mass conservation.
 
-    Currently no energy budget has been implmenented, todo.
+    Args:
+      control: A pywatershed Control object.
+      inputs: A list or dict of numpy arrays which are mass inputs.
+      outputs: A list or dict of numpy arrays which are mass outputs.
+      storage_changes: A list or dict of numpy arrays which are mass storage
+        changes.
+      init_accumulations: A dictionary of initial accumulations.
+      accum_start_time:  The np.datetime64 start time for initial
+        accumulations.
+      units: A dictionary of units.
+      time_unit: A string describing the timestep units using np.timedelta64
+        string conventions.
+      description: A string describing this budget.
+      rtol: Relative error tolerance of the two sides of the i = o + ds
+        equation.
+      atol: Absolute error tolerance of the two sides of the i = o + ds
+        equation.
+      basis: The basis on which the budget is calculated, either "unit" or
+        "global".
+      imbalance_fatal: Boolean if an ValueError is raised on imbalance.
+      ignore_nans: A bool or numpy array mask of nan values (1 indicates NaN,
+        0 indicates valid value locations).
+      unit_desc: A string description of the units used. Default is "volumes".
+      verbose: A boolean if messages are to be printed.
+
     """
 
     def __init__(
@@ -42,7 +67,7 @@ class Budget(Accessor):
         rtol: float = 1e-5,
         atol: float = 1e-5,
         basis: Literal["unit", "global"] = "unit",
-        imbalance_fatal: bool = False,
+        imbalance_fatal: Union[bool, np.ndarray] = False,
         ignore_nans: bool = False,
         unit_desc: str = "volumes",
         verbose: bool = True,
@@ -58,10 +83,15 @@ class Budget(Accessor):
         self.rtol = rtol
         self.atol = atol
         self.imbalance_fatal = imbalance_fatal
-        self._ignore_nans = ignore_nans
         self._unit_desc = unit_desc
         self.verbose = verbose
         self.basis = basis
+
+        if isinstance(ignore_nans, bool):
+            self._ignore_nans = ignore_nans
+        else:
+            self._ignore_nans = True
+            self._nan_mask = ignore_nans
 
         self._output_netcdf = False
         self._inputs_sum = None
@@ -313,12 +343,16 @@ class Budget(Accessor):
     def _sum(self, attr):
         """Sum over the individual terms in a budget component."""
         if self.basis == "unit":
+            # keep nans on the units
             vals = [val for val in self[attr].values()]
             the_sum = sum(vals)
         elif self.basis == "global":
             # in global case, the variable dims dont need to match, collapse
             # to a scalar
-            vals = [sum(val) for val in self[attr].values()]
+            if self._ignore_nans:
+                vals = [np.nansum(val) for val in self[attr].values()]
+            else:
+                vals = [np.sum(val) for val in self[attr].values()]
             the_sum = sum(vals)
         else:
             raise ValueError(f"self.basis '{self.basis}' is invalid")
@@ -352,10 +386,20 @@ class Budget(Accessor):
             rhs = self._outputs_sum + self._storage_changes_sum
 
             if self._ignore_nans:
-                actual_nan = np.where(np.isnan(lhs), True, False)
-                desired_nan = np.where(np.isnan(rhs), True, False)
-                msg = "The nan values are not the same for the two arrays"
-                assert (actual_nan == desired_nan).all(), msg
+                lhs_nan = np.where(np.isnan(lhs), True, False)
+                rhs_nan = np.where(np.isnan(rhs), True, False)
+                msg = (
+                    "The nan values not identical for the two sides of the "
+                    "equation."
+                )
+                assert (lhs_nan == rhs_nan).all(), msg
+
+                if hasattr(self, "_nan_mask"):
+                    msg = (
+                        "The nan values present do not match the nan mask "
+                        "passed to Budget"
+                    )
+                    assert (lhs_nan == self._nan_mask).all()
 
             abs_diff = abs(lhs - rhs)
             with np.errstate(divide="ignore", invalid="ignore"):
@@ -529,7 +573,14 @@ class Budget(Accessor):
                             nk = len(keys[ll])
                             # subtract ": ", "m." and "e+ee"
                             prec_width = col_width - nk - 2 - 2 - 4
-                            vals_sum = vals[ll].sum()
+                            if self._ignore_nans:
+                                if hasattr(self, "_nan_mask"):
+                                    vals_sum = vals[ll][~self._nan_mask].sum()
+                                else:
+                                    vals_sum = np.nansum(vals[ll])
+                            else:
+                                vals_sum = vals[ll].sum()
+
                             if vals_sum < 0:
                                 prec_width -= 1
                             vv = np.format_float_scientific(
@@ -572,7 +623,11 @@ class Budget(Accessor):
             # TODO(JLM): This is a hack until i have some time to sort this out
             bal_line = "Balance: "
             for oper, vals_sum, col_width, col_key_width in term_data:
-                if vals_sum.sum() > 0:
+                if self._ignore_nans:
+                    vals_sum_sum = np.nansum(vals_sum)
+                else:
+                    vals_sum_sum = vals_sum.sum()
+                if vals_sum_sum > 0:
                     sign_extra = 0
                 else:
                     sign_extra = 1
@@ -582,7 +637,7 @@ class Budget(Accessor):
                     + (" " * (col_key_width + col_extra_colon - len(oper)))
                     + pretty_print(
                         np.format_float_scientific(
-                            vals_sum.sum(),
+                            vals_sum_sum,
                             precision=col_width
                             - col_key_width
                             - col_extra_colon
