@@ -3,12 +3,12 @@ from warnings import warn
 
 import numpy as np
 
-from pywatershed.base.process import Process
+from pywatershed.base import HruMixin, Process
 from pywatershed.utils.netcdf_utils import NetCdfWrite
 
 from ..base.adapter import adaptable
 from ..base.control import Control
-from ..constants import HruType, inch2cm, nan, nearzero, one, zero
+from ..constants import inch2cm, nan, nearzero, one, zero
 from ..parameters import Parameters
 from ..utils.time_utils import datetime_day_of_month, datetime_month
 from .solar_constants import solf
@@ -24,7 +24,7 @@ def tile_time_to_space(arr: np.ndarray, n_space) -> np.ndarray:
     return np.transpose(np.tile(arr, (n_space, 1)))
 
 
-class PRMSAtmosphere(Process):
+class PRMSAtmosphere(Process, HruMixin):
     """PRMS atmospheric boundary layer model.
 
     Implementation based on PRMS 5.2.1 with theoretical documentation given in
@@ -120,8 +120,7 @@ class PRMSAtmosphere(Process):
             metadata_patch_conflicts="left",
         )
         self.name = "PRMSAtmosphere"
-        self._set_active_mask()
-
+        self._set_active_hrus()
         self._set_inputs(locals())
         self._set_options(locals())
 
@@ -129,28 +128,6 @@ class PRMSAtmosphere(Process):
         self._netcdf_initialized = False
 
         return
-
-    def _set_active_hrus(self):
-        """Not used because there are no loops."""
-        pass
-
-    def _set_active_mask(self):
-        if self.hru_type.min() == HruType.INACTIVE.value:
-            active_mask_2d = self.hru_type != HruType.INACTIVE.value
-            shape_3d = self["swrad"].data.shape
-            self._active_mask = np.broadcast_to(active_mask_2d, shape_3d)
-        else:
-            self._active_mask = None
-
-    def _active_mask_variables(self):
-        if self._active_mask is None:
-            return
-        else:
-            # TODO: use constants.fill_values_dict here for different types.
-            for var_name in self.get_variables():
-                self[var_name].data[:] = np.where(
-                    self._active_mask, self[var_name].data, np.nan
-                )
 
     def _calculate_all_time(self):
         if self._calculated:
@@ -185,7 +162,7 @@ class PRMSAtmosphere(Process):
         self.calculate_potential_et_jh()
         self.calculate_transp_tindex()
 
-        self._active_mask_variables()
+        self._mask_inactive_hrus()
 
         # JLM todo: delete large variables on self for memory management
         self._calculated = True

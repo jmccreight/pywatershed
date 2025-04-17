@@ -113,7 +113,12 @@ class PRMSSoilzoneCascadesNoDprst(PRMSSoilzone):
             adjust_parameters=adjust_parameters,
             verbose=verbose,
         )
-        self._set_budget()
+        if (self.hru_type == 0).any():
+            ignore_nans = self.hru_type == 0
+        else:
+            ignore_nans = False
+
+        self._set_budget(ignore_nans=ignore_nans)
 
         return
 
@@ -221,8 +226,8 @@ class PRMSSoilzoneCascadesNoDprst(PRMSSoilzone):
             "swale_actet": zero,
             "unused_potet": zero,
             "hru_sz_cascadeflow": zero,
-            "upslope_dunnianflow": zero,
-            "upslope_interflow": zero,
+            "upslope_dunnianflow": nan,
+            "upslope_interflow": nan,
         }
 
     @staticmethod

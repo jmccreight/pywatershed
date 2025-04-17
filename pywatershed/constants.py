@@ -44,10 +44,10 @@ fill_values_dict = {
     np.dtype("float64"): np.nan,
     np.dtype("float32"): np.nan,
     np.dtype("float16"): np.nan,
-    np.dtype("int64"): None,
-    np.dtype("int32"): None,
-    np.dtype("int16"): None,
-    np.dtype("int8"): None,
+    np.dtype("int64"): -9999,
+    np.dtype("int32"): -9999,
+    np.dtype("int16"): -9999,
+    np.dtype("int8"): -9999,
     np.dtype("bool"): None,
 }
 

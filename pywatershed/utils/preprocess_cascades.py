@@ -212,10 +212,7 @@ def init_cascade_params(
     for ii in range(ncascade):
         kup = hru_up_id[ii]
         if kup < 1:
-            msg = (
-                f"Cascade ignored as hru_up_id<1, {ii+1=}, "
-                f"hru_up_id: {kup=}"
-            )
+            msg = f"Cascade ignored as hru_up_id<1, {ii+1=}, hru_up_id: {kup=}"
             continue
 
         jdn = hru_down_id[ii]
@@ -598,7 +595,7 @@ def order_hrus(
             # huh? this section is a bit of a head scratcher
             not_in_order_list = []
             for i in range(nhru):
-                if is_hru_on_list(i) == 0:
+                if is_hru_on_list[i] == 0:
                     not_in_order_list.append(i)
 
             msg = ""

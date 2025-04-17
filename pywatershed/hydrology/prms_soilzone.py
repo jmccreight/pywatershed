@@ -4,8 +4,8 @@ from warnings import warn
 import numpy as np
 from numba import prange
 
+from ..base import ConservativeProcess, HruMixin
 from ..base.adapter import adaptable, adapter_factory
-from ..base.conservative_process_hru import ConservativeProcessHru
 from ..base.control import Control
 from ..constants import (
     ETType,
@@ -23,7 +23,7 @@ ONETHIRD = 1 / 3
 TWOTHIRDS = 2 / 3
 
 
-class PRMSSoilzone(ConservativeProcessHru):
+class PRMSSoilzone(ConservativeProcess, HruMixin):
     """PRMS soil zone.
 
     Implementation based on PRMS 5.2.1 with theoretical documentation given in
@@ -102,15 +102,14 @@ class PRMSSoilzone(ConservativeProcessHru):
         adjust_parameters: Literal["warn", "error", "no"] = "warn",
         verbose: bool = None,
     ) -> None:
-        if not hasattr(self, "name"):
-            self.name = "PRMSSoilzone"
-
         super().__init__(
             control=control,
             discretization=discretization,
             parameters=parameters,
         )
-
+        self.name = "PRMSSoilzone"
+        self._set_active_hrus()
+        self._mask_inactive_hrus()
         self._set_inputs(locals())
         self._set_options(locals())
 
@@ -131,7 +130,12 @@ class PRMSSoilzone(ConservativeProcessHru):
         # This uses options
         self._initialize_soilzone_data()
 
-        self._set_budget()
+        if (self.hru_type == 0).any():
+            ignore_nans = self.hru_type == 0
+        else:
+            ignore_nans = False
+
+        self._set_budget(ignore_nans=ignore_nans)
         self._init_calc_method()
 
         return
@@ -257,9 +261,6 @@ class PRMSSoilzone(ConservativeProcessHru):
                 "pref_flow_stor_change",
             ],
         }
-
-    def _set_active_hrus(self):
-        pass
 
     def _set_initial_conditions(self):
         # this is called in the super before options are set on self
@@ -542,7 +543,7 @@ class PRMSSoilzone(ConservativeProcessHru):
 
         if not hasattr(self, "hru_route_order"):
             # hru_route_order in cascades is 1-based index, keep it the same.
-            self.hru_route_order = self._active_hrus + 1
+            self.hru_route_order = self._wh_active_hrus + 1
 
         return
 
@@ -844,8 +845,8 @@ class PRMSSoilzone(ConservativeProcessHru):
 
         if ncascade_hru is not None:
             # diagnostic resets
-            upslope_interflow[:] = zero
-            upslope_dunnianflow[:] = zero
+            upslope_interflow[hru_type != 0] = zero
+            upslope_dunnianflow[hru_type != 0] = zero
 
         # <
         gwin = zero

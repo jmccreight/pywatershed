@@ -4,8 +4,8 @@ from warnings import warn
 import numpy as np
 from numba import prange
 
+from ..base import ConservativeProcess, HruMixin
 from ..base.adapter import adaptable
-from ..base.conservative_process_hru import ConservativeProcessHru
 from ..base.control import Control
 from ..constants import (
     CovType,
@@ -36,7 +36,7 @@ OFF = 0
 ACTIVE = 1
 
 
-class PRMSCanopy(ConservativeProcessHru):
+class PRMSCanopy(ConservativeProcess, HruMixin):
     """PRMS canopy class.
 
     A canopy or vegetation representation from PRMS.
@@ -89,18 +89,23 @@ class PRMSCanopy(ConservativeProcessHru):
         calc_method: Literal["fortran", "numba", "numpy"] = None,
         verbose: bool = None,
     ):
-        self.name = "PRMSCanopy"
-
         super().__init__(
             control=control,
             discretization=discretization,
             parameters=parameters,
         )
-
+        self.name = "PRMSCanopy"
+        self._set_active_hrus()
+        self._mask_inactive_hrus()
         self._set_inputs(locals())
         self._set_options(locals())
 
-        self._set_budget()
+        if (self.hru_type == 0).any():
+            ignore_nans = self.hru_type == 0
+        else:
+            ignore_nans = False
+
+        self._set_budget(ignore_nans=ignore_nans)
         self._init_calc_method()
 
         return
@@ -327,7 +332,7 @@ class PRMSCanopy(ConservativeProcessHru):
                 self.intcp_transp_on[:],
             ) = self._calculate_canopy(
                 nactive_hrus=np.int32(self._nactive_hrus),
-                active_hrus=self._active_hrus,
+                wh_active_hrus=self._wh_active_hrus,
                 cov_type=self.cov_type,
                 covden_sum=self.covden_sum,
                 covden_win=self.covden_win,
@@ -429,7 +434,7 @@ class PRMSCanopy(ConservativeProcessHru):
     @staticmethod
     def _calculate_numpy(
         nactive_hrus,
-        active_hrus,
+        wh_active_hrus,
         cov_type,
         covden_sum,
         covden_win,
@@ -478,7 +483,7 @@ class PRMSCanopy(ConservativeProcessHru):
         intcp_form = np.full_like(hru_rain, -9999, dtype="int32")
 
         for aa in prange(nactive_hrus):
-            i = active_hrus[aa]
+            i = wh_active_hrus[aa]
 
             netrain = hru_rain[i]
             netsnow = hru_snow[i]

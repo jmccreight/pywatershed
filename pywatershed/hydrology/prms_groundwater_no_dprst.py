@@ -77,6 +77,7 @@ class PRMSGroundwaterNoDprst(PRMSGroundwater):
     def get_parameters() -> tuple:
         return (
             "hru_area",
+            "hru_type",
             "hru_in_to_cf",
             "gwflow_coef",
             "gwsink_coef",

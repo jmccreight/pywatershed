@@ -3,8 +3,8 @@ from warnings import warn
 
 import numpy as np
 
+from ..base import ConservativeProcess, HruMixin
 from ..base.adapter import adaptable, adapter_factory
-from ..base.conservative_process import ConservativeProcess
 from ..base.control import Control
 from ..constants import nan, numba_num_threads
 from ..parameters import Parameters
@@ -17,7 +17,7 @@ except ImportError:
     has_prmsgroundwater_f = False
 
 
-class PRMSGroundwater(ConservativeProcess):
+class PRMSGroundwater(ConservativeProcess, HruMixin):
     """PRMS groundwater reservoir.
 
     Implementation based on PRMS 5.2.1 with theoretical documentation given in
@@ -68,7 +68,8 @@ class PRMSGroundwater(ConservativeProcess):
             parameters=parameters,
         )
         self.name = "PRMSGroundwater"
-
+        self._set_active_hrus()
+        self._mask_inactive_hrus()
         self._set_inputs(locals())
         self._set_options(locals())
 
@@ -87,7 +88,12 @@ class PRMSGroundwater(ConservativeProcess):
                     control=self.control,
                 )
 
-        self._set_budget()
+        if (self.hru_type == 0).any():
+            ignore_nans = self.hru_type == 0
+        else:
+            ignore_nans = False
+
+        self._set_budget(ignore_nans=ignore_nans)
         self._init_calc_method()
 
         return
@@ -100,6 +106,7 @@ class PRMSGroundwater(ConservativeProcess):
     def get_parameters() -> tuple:
         return (
             "hru_area",
+            "hru_type",
             "hru_in_to_cf",
             "gwflow_coef",
             "gwsink_coef",

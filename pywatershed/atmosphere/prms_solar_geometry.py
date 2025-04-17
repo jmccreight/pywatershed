@@ -4,11 +4,11 @@ from typing import Tuple
 
 import numpy as np
 
-from pywatershed.base.process import Process
+from pywatershed.base import HruMixin, Process
 from pywatershed.utils.netcdf_utils import NetCdfWrite
 
 from ..base.control import Control
-from ..constants import HruType, dnearzero, nan, one, zero
+from ..constants import dnearzero, nan, one, zero
 from ..parameters import Parameters
 from ..utils.prms5util import load_soltab_debug
 from .solar_constants import ndoy, pi, pi_12, r1, solar_declination, two_pi
@@ -28,7 +28,7 @@ def tile_space_to_time(arr: np.ndarray) -> np.ndarray:
 #    return np.transpose(np.tile(arr, (n_hru, 1)))
 
 
-class PRMSSolarGeometry(Process):
+class PRMSSolarGeometry(Process, HruMixin):
     """PRMS solar geometry.
 
     Implementation based on PRMS 5.2.1 with theoretical documentation given in
@@ -77,11 +77,10 @@ class PRMSSolarGeometry(Process):
             discretization=discretization,
             parameters=parameters,
         )
-        self._set_active_mask()
-
+        self.name = "PRMSSolarGeometry"
+        self._set_active_hrus()
         self._set_inputs(locals())
         self._set_options(locals())
-        self.name = "PRMSSolarGeometry"
 
         if from_prms_file:
             (
@@ -138,28 +137,6 @@ class PRMSSolarGeometry(Process):
     def _set_initial_conditions(self):
         return
 
-    def _set_active_hrus(self):
-        """Not used because there are no loops."""
-        pass
-
-    def _set_active_mask(self):
-        if self.hru_type.min() == HruType.INACTIVE.value:
-            active_mask_2d = self.hru_type != HruType.INACTIVE.value
-            shape_3d = self["soltab_sunhrs"].data.shape
-            self._active_mask = np.broadcast_to(active_mask_2d, shape_3d)
-        else:
-            self._active_mask = None
-
-    def _active_mask_variables(self):
-        if self._active_mask is None:
-            return
-        else:
-            # TODO: use constants.fill_values_dict here for different types.
-            for var_name in self.get_variables():
-                self[var_name].data[:] = np.where(
-                    self._active_mask, self[var_name].data, np.nan
-                )
-
     def _calculate_all_time(self):
         self._hru_cossl = np.cos(np.arctan(self["hru_slope"]))
         # The potential radiation on horizontal surfce
@@ -183,7 +160,7 @@ class PRMSSolarGeometry(Process):
             self.func3,
         )
 
-        self._active_mask_variables()
+        self._mask_inactive_hrus()
 
         self._calculated = True
         return

@@ -123,7 +123,12 @@ class PRMSRunoffNoDprst(PRMSRunoff):
         self._set_inputs(locals())
         self._set_options(locals())
 
-        self._set_budget()
+        if (self.hru_type == 0).any():
+            ignore_nans = self.hru_type == 0
+        else:
+            ignore_nans = False
+
+        self._set_budget(ignore_nans=ignore_nans)
 
         self.basin_init()
 

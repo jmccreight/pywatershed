@@ -4,10 +4,17 @@ from warnings import warn
 import numpy as np
 from numba import prange
 
+from ..base import ConservativeProcess, HruMixin
 from ..base.adapter import adaptable
-from ..base.conservative_process_hru import ConservativeProcessHru
 from ..base.control import Control
-from ..constants import HruType, dnearzero, nearzero, numba_num_threads, zero
+from ..constants import (
+    HruType,
+    dnearzero,
+    nan,
+    nearzero,
+    numba_num_threads,
+    zero,
+)
 from ..parameters import Parameters
 
 RAIN = 0
@@ -25,7 +32,7 @@ LAKE = HruType.LAKE.value
 # TODO: using through_rain and not net_rain and net_ppt is a WIP
 
 
-class PRMSRunoff(ConservativeProcessHru):
+class PRMSRunoff(ConservativeProcess, HruMixin):
     """PRMS surface runoff.
 
     A surface runoff representation from PRMS.
@@ -98,21 +105,25 @@ class PRMSRunoff(ConservativeProcessHru):
         calc_method: Literal["numba", "numpy"] = None,
         verbose: bool = None,
     ) -> None:
-        if not hasattr(self, "name"):
-            self.name = "PRMSRunoff"
-
         super().__init__(
             control=control,
             discretization=discretization,
             parameters=parameters,
         )
-
+        self.name = "PRMSRunoff"
+        self._set_active_hrus()
+        self._mask_inactive_hrus()
         self._set_inputs(locals())
         self._set_options(locals())
         if self._dprst_flag is None:
             self._dprst_flag = True
 
-        self._set_budget()
+        if (self.hru_type == 0).any():
+            ignore_nans = self.hru_type == 0
+        else:
+            ignore_nans = False
+
+        self._set_budget(ignore_nans=ignore_nans)
 
         self._init_calc_method()
 
@@ -197,7 +208,7 @@ class PRMSRunoff(ConservativeProcessHru):
         return {
             "contrib_fraction": zero,
             "infil": zero,
-            "infil_hru": zero,
+            "infil_hru": nan,
             "sroff": zero,  # todo: privatize and only make vol public
             "sroff_vol": zero,
             "hru_sroffp": zero,
@@ -294,7 +305,7 @@ class PRMSRunoff(ConservativeProcessHru):
         # <
         if not hasattr(self, "hru_route_order"):
             # hru_route_order in cascades is 1-based index, keep it the same.
-            self.hru_route_order = self._active_hrus + 1
+            self.hru_route_order = self._wh_active_hrus + 1
 
         return
 
@@ -672,7 +683,11 @@ class PRMSRunoff(ConservativeProcessHru):
             # TODO: remove duplicated vars
             # TODO: move setting constants outside the loop.
             # note that i is 0-based index
+
             i = hru_route_order[k] - 1
+            # TODO: remove this check once we are sure cascades is wired correctly
+            if i == -1:
+                raise ValueError("Invalid index")
 
             runoff = zero
 
