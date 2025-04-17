@@ -104,12 +104,7 @@ class PRMSSoilzoneNoDprst(PRMSSoilzone):
             verbose=verbose,
         )
 
-        if (self.hru_type == 0).any():
-            ignore_nans = self.hru_type == 0
-        else:
-            ignore_nans = False
-
-        self._set_budget(ignore_nans=ignore_nans)
+        self._set_budget(ignore_nans=~self._active_hru_mask)
 
         return
 

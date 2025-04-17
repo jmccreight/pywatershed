@@ -154,12 +154,7 @@ class PRMSSnow(ConservativeProcess, HruMixin):
         self._set_inputs(locals())
         self._set_options(locals())
 
-        if (self.hru_type == 0).any():
-            ignore_nans = self.hru_type == 0
-        else:
-            ignore_nans = False
-
-        self._set_budget(ignore_nans=ignore_nans)
+        self._set_budget(ignore_nans=~self._active_hru_mask)
         self._init_calc_method()
 
         return

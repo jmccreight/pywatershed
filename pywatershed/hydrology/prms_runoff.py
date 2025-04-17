@@ -118,15 +118,8 @@ class PRMSRunoff(ConservativeProcess, HruMixin):
         if self._dprst_flag is None:
             self._dprst_flag = True
 
-        if (self.hru_type == 0).any():
-            ignore_nans = self.hru_type == 0
-        else:
-            ignore_nans = False
-
-        self._set_budget(ignore_nans=ignore_nans)
-
+        self._set_budget(ignore_nans=~self._active_hru_mask)
         self._init_calc_method()
-
         self.basin_init()
 
         if self._dprst_flag:
