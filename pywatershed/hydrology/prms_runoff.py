@@ -678,7 +678,9 @@ class PRMSRunoff(ConservativeProcess, HruMixin):
             # note that i is 0-based index
 
             i = hru_route_order[k] - 1
-            # TODO: remove this check once we are sure cascades is wired correctly
+
+            # TODO: remove this check once we are sure cascades is
+            # wired correctly
             if i == -1:
                 raise ValueError("Invalid index")
 

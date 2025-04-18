@@ -304,7 +304,8 @@ class PRMSCanopy(ConservativeProcess, HruMixin):
             self.intcp_changeover[:],
             self.intcp_transp_on[:],
         ) = self._calculate_canopy(
-            nhru=np.int32(self.nhru),
+            nactive_hrus=self._nactive_hrus,
+            wh_active_hrus=self._wh_active_hrus,
             cov_type=self.cov_type,
             covden_sum=self.covden_sum,
             covden_win=self.covden_win,
@@ -330,7 +331,7 @@ class PRMSCanopy(ConservativeProcess, HruMixin):
             transp_on=self.transp_on,
             wrain_intcp=self.wrain_intcp,
             time_length=time_length,
-            hru_type=self._hru_type,
+            hru_type=self.hru_type,
             nearzero=nearzero,
             dnearzero=dnearzero,
             baresoil=np.int32(BARESOIL),
