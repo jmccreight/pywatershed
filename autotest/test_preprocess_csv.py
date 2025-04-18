@@ -1,5 +1,4 @@
 import os
-import pathlib as pl
 
 import netCDF4 as nc
 import numpy as np
@@ -44,13 +43,12 @@ def test_single_csv(simulation):
     return
 
 
-def test_single_csv_to_netcdf(simulation):
+def test_single_csv_to_netcdf(simulation, tmp_path):
     var = "gwres_stor"
     path = simulation["output_dir"] / f"{var}.csv"
     csv = CsvFile(path=path)
 
-    basedir = pl.Path(path.parent)
-    nc_file = basedir / "single_variable.nc"
+    nc_file = tmp_path / "single_variable.nc"
     csv.to_netcdf(nc_file)
 
     compare_netcdf(csv, nc_file)
