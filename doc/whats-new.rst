@@ -12,9 +12,62 @@ What's New
     np.random.seed(123456)
 
 
+.. _whats-new.2.1.0:
+
+v2.1.0 (Unreleased)
+---------------------
+
+New Features
+~~~~~~~~~~~~~~~~
+- Option for :class:`Model` class to read from a single netcdf file or (not and,
+  the existing option,) from a directory containing multiple netcdf files.
+  (:pull:`333`) By `James McCreight <https://github.com/jmccreight>`_.
+- `SourceSinkFlowNode` adds or removes flow above some minimum flow parameter as
+  a data file.
+  (:pull:`327`) By `James McCreight <https://github.com/jmccreight>`_.
+- `Control` has new method `set_init_start_times` to manage changing these times.
+  (:pull:`335`) By `James McCreight <https://github.com/jmccreight>`_.
+
+Breaking Changes
+~~~~~~~~~~~~~~~~
+
+Bug fixes
+~~~~~~~~~
+
+Internal changes
+~~~~~~~~~~~~~~~~
+- Refactor of test_data/generate/convert_prms_output_to_nc.py to put final variables into
+  a separate file to run by pytests both after all other variables are generated and
+  so the final variables are run serially.
+  (:pull:`331`) By `James McCreight <https://github.com/jmccreight>`_.
+
+.. _whats-new.2.0.2:
+
+v2.0.2 (14 March 2025)
+---------------------
+
+Bug fixes
+~~~~~~~~~
+- Fixed setup.py to allow editable installs, keeping up with changes in
+  the pythonverse. Deprecated all fortran code built and interfaced using
+  f2py as it was not popular and had only maybe very slight speed advantages
+  compared to numba. This was not considered a breaking change because there
+  are redundant alternatives to the fortran.
+  (:pull:`331`) By `James McCreight <https://github.com/jmccreight>`_.
+
+.. _whats-new.2.0.1:
+
+v2.0.1 (19 December 2024)
+---------------------
+
+New Features
+~~~~~~~~~~~~~~~~
+- Corrected disclaimer on top-level README.md. Other minor fixes not to code base (CI, envs, etc).
+
+
 .. _whats-new.2.0.0:
 
-v2.0.0 (14 November 2024)
+v2.0.0 (16 December 2024)
 ---------------------
 
 New Features
@@ -172,7 +225,7 @@ Documentation
   (:pull:`257`) By `James McCreight <https://github.com/jmccreight>`_.
 - New gh-pages branch (without history) to publish
   `"pywatershed notes" <https://ec-usgs.github.io/pywatershed/>`_ including the
-  `extended release notes for v1.0.0 <https://ec-usgs.github.io/pywatershed/2023/11/14/v1-0-0-overview>`_.
+  `extended release notes for v1.0.0 <https://ec-usgs.github.io/pywatershed/2023/12/18/v1-0-0-overview>`_.
   This branch publishes analysis supporting the version 1.0.0 release.
 - Add about section for version 1.0 to describe how pywatershed matches PRMS'
   NHM configuration and how to perform the comparison.

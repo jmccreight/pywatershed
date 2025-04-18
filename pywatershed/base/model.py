@@ -328,7 +328,7 @@ class Model:
 
         self._categorize_model_dict()
         self._validate_model_dict()
-        self._set_input_dir()
+        self._set_input_path()
         self._solve_inputs()
         self._init_procs()
         self._connect_procs()
@@ -434,24 +434,24 @@ class Model:
                         # check?
 
         # If inputs dont come from other processes, assume they come from
-        # file in input_dir. Exception is that PRMSAtmosphere requires its
-        # files on init, so dont adapt these
-        file_input_names = set([])
+        # file in input_dir or input_file. Exception is that PRMSAtmosphere
+        # requires its files on init, so dont adapt these
+        input_names = set([])
         for k0, v0 in inputs_from.items():
             for k1, v1 in v0.items():
                 if not v1:
-                    file_input_names = file_input_names.union([k1])
+                    input_names = input_names.union([k1])
 
         # initiate the file inputs here rather than in the processes
         file_inputs = {}
         # Use dummy names for now
-        for name in file_input_names:
+        for name in input_names:
             file_inputs[name] = pl.Path(name)
 
         self._proc_dict = proc_dict
         self._inputs_from = inputs_from
         self._file_inputs = file_inputs
-        self._file_input_names = file_input_names
+        self._input_names = input_names
         return
 
     def _init_procs(self):
@@ -508,22 +508,30 @@ class Model:
         #   <   <   <
         return
 
-    def _set_input_dir(self):
-        if "input_dir" not in self.control.options.keys():
-            msg = "Required control option 'input_dir' not found"
+    def _set_input_path(self):
+        opt_keys = self.control.options.keys()
+        if ("input_dir" in opt_keys and "input_file" in opt_keys) or (
+            "input_dir" not in opt_keys and "input_file" not in opt_keys
+        ):
+            msg = (
+                "Exactly one of 'input_dir' or 'input_file' must be specified"
+            )
             raise ValueError(msg)
-        else:
-            self._input_dir = pl.Path(
-                self.control.options["input_dir"]
-            ).resolve()
+
+        for ii in ["input_dir", "input_file"]:
+            if ii in opt_keys:
+                self._input_path = pl.Path(self.control.options[ii]).resolve()
 
         return
 
     def _find_input_files(self) -> None:
-        file_inputs = {}
-        for name in self._file_input_names:
-            nc_path = self._input_dir / f"{name}.nc"
-            file_inputs[name] = adapter_factory(
+        input_adapters = {}
+        for name in self._input_names:
+            if self._input_path.is_dir():
+                nc_path = self._input_path / f"{name}.nc"
+            else:
+                nc_path = self._input_path
+            input_adapters[name] = adapter_factory(
                 nc_path,
                 name,
                 control=self.control,
@@ -531,10 +539,10 @@ class Model:
         for process in self.process_order:
             for input, frm in self._inputs_from[process].items():
                 if not frm:
-                    fname = file_inputs[input]._fname
+                    fname = input_adapters[input]._fname
                     self.process_input_from[process][input] = fname
                     self.processes[process].set_input_to_adapter(
-                        input, file_inputs[input]
+                        input, input_adapters[input]
                     )
 
         self._found_input_files = True

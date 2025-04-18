@@ -2,19 +2,20 @@ name: pws
 channels:
   - conda-forge
   - nodefaults
-  - pyviz
-  - bioconda
 dependencies:
+  - asv
   - cartopy
+  - click != 8.1.0
   - dataretrieval
   - contextily
-  - epiweeks
+  - epiweeks4cf
   - filelock
+  - flopy
   - folium
   - geopandas
   - geoviews
   - git
-  - holoviews
+  - holoviews<=1.20.0
   - hvplot
   - ipython
   - modflowapi
@@ -39,14 +40,16 @@ dependencies:
   - shapely
   - sphinx
   - sphinx-book-theme>=0.3.3
+  - sphinx-autodoc-typehints>=2.2.1
   - sphinx-autosummary-accessors
   - sphinx-copybutton
   - tqdm
   - xarray>=2024.06.0
+  - xmltodict
   - pip:
       - asv
       - git+https://github.com/modflowpy/flopy.git
-      - modflow-devtools
+      - modflow-devtools[dfn] @ git+https://github.com/MODFLOW-ORG/modflow-devtools.git
       - git+https://github.com/jararias/mpsplines.git
       - git+https://github.com/jlarsen-usgs/dany.git
       - git+https://github.com/pygsflow/pygsflow.git@develop

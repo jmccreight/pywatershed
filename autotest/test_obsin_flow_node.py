@@ -35,9 +35,12 @@ convert_to_vol = ["outflows", "node_storage_changes"]
 def control(simulation):
     if "drb_2yr:nhm_obsin" not in simulation["name"]:
         pytest.skip("Only testing obsin flow graph for drb_2yr:nhm_obsin")
-    return Control.load_prms(
+    control = Control.load_prms(
         simulation["control_file"], warn_unused_options=False
     )
+    control.options["netcdf_output_dir"] = None
+    control.options["netcdf_output_var_names"] = None
+    return control
 
 
 @pytest.fixture(scope="function")
@@ -67,6 +70,8 @@ def test_prms_channel_obsin_compare_prms(
         simulation["control_file"].parent / control.options["parameter_file"]
     )
     control_parameters = PrmsParameters.load(control_param_file)
+    # Constructed using obsout_segment to get the indices and poi ids,
+    # we will insert the new nodes below this segment.
     obsout_seg = control_parameters.parameters["obsout_segment"] - 1
     sf_data = PRMSStreamflowData(
         simulation["dir"] / "sf_data"
@@ -173,16 +178,16 @@ def test_prms_channel_obsin_compare_prms(
             "nnodes": nnodes,
         },
         coords={
-            "nnodes": np.arange(nnodes),
+            "node_coord": np.arange(nnodes),
         },
         data_vars={
-            "node_maker_name": node_maker_name,
+            "node_maker_name": np.array(node_maker_name),
             "node_maker_index": node_maker_index,
             "node_maker_id": node_maker_id,
             "to_graph_index": to_graph_index,
         },
         metadata={
-            "nnodes": {"dims": ["nnodes"]},
+            "node_coord": {"dims": ["nnodes"]},
             "node_maker_name": {"dims": ["nnodes"]},
             "node_maker_index": {"dims": ["nnodes"]},
             "node_maker_id": {"dims": ["nnodes"]},
@@ -198,11 +203,11 @@ def test_prms_channel_obsin_compare_prms(
         inflows=inflows_graph,
         node_maker_dict=node_maker_dict,
         budget_type="error",
+        addtl_output_vars=["sink_source"],
     )
 
-    if do_compare_output_files:
-        nc_parent = tmp_path / simulation["name"].replace(":", "_")
-        flow_graph.initialize_netcdf(nc_parent)
+    nc_parent = tmp_path / simulation["name"].replace(":", "_")
+    flow_graph.initialize_netcdf(nc_parent)
 
     if do_compare_in_memory:
         answers = {}
@@ -225,7 +230,7 @@ def test_prms_channel_obsin_compare_prms(
         control.advance()
         flow_graph.advance()
         flow_graph.calculate(1.0)
-        # flow_graph.output()
+        flow_graph.output()
 
         # check exchange
         lateral_inflow_answers.advance()

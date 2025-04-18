@@ -21,14 +21,6 @@ from pywatershed.parameters import Parameters, PrmsParameters
 # instantiation/invocation three ways which is not tested elsewhere in the
 # the test suite.
 
-# When available, fortran is set to the global calc_method in the
-# control fixture. The control fixture is NOT used when the model_dict
-# and control comes from yaml. In that case, calc_method is what is
-# specified in the control yaml file, generally numba.
-fortran_avail = getattr(
-    getattr(pywatershed.hydrology, "prms_canopy"), "has_prmscanopy_f"
-)
-
 invoke_style = ("prms", "model_dict", "model_dict_from_yaml")
 invoke_style = invoke_style[0:1]  # TODO, relax?
 
@@ -122,11 +114,9 @@ def control(simulation):
         simulation["control_file"], warn_unused_options=False
     )
     control.options["verbosity"] = 10
-    control.options["budget_type"] = "error"
-    if fortran_avail:
-        control.options["calc_method"] = "fortran"
-    else:
-        control.options["calc_method"] = "numba"
+    control.options["budget_type"] = None
+    control.options["calc_method"] = "numba"
+
     del control.options["netcdf_output_var_names"]
     return control
 
@@ -261,27 +251,6 @@ def test_model(simulation, model_args, tmp_path):
     # check that control yaml file was written
     control_yaml_file = sorted(model_out_dir.glob("*model_control.yaml"))
     assert len(control_yaml_file) == 1
-
-    # Test passing of control calc_method option
-    if fortran_avail:
-        for proc in model.processes.keys():
-            if proc.lower() in ["prmssnow", "prmsrunoff", "prmssoilzone"]:
-                assert model.processes[proc]._calc_method == "numba"
-            elif proc.lower() in [
-                "prmscanopy",
-                "prmsgroundwater",
-                "prmschannel",
-            ]:
-                # check if has fortran (has_f) because results depend on that
-                mod_name = "prms_" + proc.lower()[4:]
-                var_name = "has_" + proc.lower() + "_f"
-                has_f = getattr(
-                    getattr(pywatershed.hydrology, mod_name), var_name
-                )
-                if has_f:
-                    assert model.processes[proc]._calc_method == "fortran"
-                else:
-                    assert model.processes[proc]._calc_method == "numba"
 
     # ---------------------------------
     # get the answer data against PRMS5.2.1

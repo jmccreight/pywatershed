@@ -116,8 +116,7 @@ if [ -z "${i}" ]; then
 
     ## name: Upgrade pip and install build and twine
     python -m pip install --upgrade pip || exit 1
-    pip install wheel build 'twine<5.0.0' 'importlib_metadata<=7.0.1' || exit 1
-
+    pip install wheel build twine importlib_metadata || exit 1
     ## name: Base installation
     pip --verbose install . || exit 1
 
@@ -179,7 +178,6 @@ if [ -z "${m}" ]; then
     # Update flopy MODFLOW 6 classes in the current environment
     cd autotest || exit 1
     python update_flopy.py
-
 
     # Build mf6 locally instead of installing mf6 nightly build
     # install conda env for mf6
@@ -256,12 +254,10 @@ if [ -z "${t}" ]; then
 		  -n=$pytest_n --domain=sagehen_5yr \
 		  --control_pattern=cascades.control \
 		  --remove_prms_csvs --remove_prms_output_dirs || exit 1
-       fi
 
-       # - name: sagehen_5yr_no_cascades - list netcdf input files
-       #   working-directory: test_data
-       #   run: |
-       #     find sagehen_5yr/output_no_cascades -name '*.nc'
+	   echo "sagehen_5yr_no_cascades - list netcdf input files"
+	   find ../test_data/sagehen_5yr/output_no_cascades -name '*.nc' | sort -n
+       fi
 
        echo
        echo ".........."
@@ -438,13 +434,14 @@ if [ -z "${t}" ]; then
 fi
 
 if [ -z "${i}" ]; then
+    cd $start_dir || exit 3
     # If install was done, put the install back to its original, editable state.
     # Do it here so the tests use the test install if it is done.
     pip uninstall -y pywatershed || exit 1
     cd .. || exit 1
-    pip install -e . || exit 1
+    pip install -e . || exit 2
 
-    cd $start_dir || exit 1
+    cd $start_dir || exit 3
 fi
 
 exit 0
