@@ -27,7 +27,6 @@ dependencies:
   - networkx
   - numpy>=2.0.0
   - numba
-  - modflow-devtools
   - pandas>=1.4.0
   - pint
   - pip
@@ -53,3 +52,4 @@ dependencies:
   - pip:
       - git+https://github.com/jararias/mpsplines.git
       - pyPRMS
+      - modflow-devtools[dfn] @ git+https://github.com/MODFLOW-ORG/modflow-devtools.git
