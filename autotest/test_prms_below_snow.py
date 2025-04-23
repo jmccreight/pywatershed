@@ -2,8 +2,8 @@ import pathlib as pl
 import shutil
 from pprint import pprint
 
-import numpy as np
 import pytest
+from utils import check_timestep_results
 
 import pywatershed
 from pywatershed.base.adapter import adapter_factory
@@ -119,7 +119,7 @@ def control(simulation):
         simulation["control_file"], warn_unused_options=False
     )
     control.options["verbosity"] = 10
-    control.options["budget_type"] = None  # "warn"
+    control.options["budget_type"] = "warn"
     control.options["calc_method"] = "numba"
 
     del control.options["netcdf_output_var_names"]
@@ -350,51 +350,3 @@ def test_model(simulation, model_args, tmp_path):
 
     model.finalize()
     return
-
-
-def check_timestep_results(
-    storageunit,
-    istep,
-    ans,
-    tol,
-    failfast=False,
-    verbose=False,
-):
-    # print(storageunit)
-    all_success = True
-    for key in ans.keys():
-        # print(key)
-        a1 = ans[key].current[storageunit._active_hru_mask]
-        if not isinstance(storageunit[key], np.ndarray):
-            a2 = storageunit[key].current[storageunit._active_hru_mask]
-        else:
-            a2 = storageunit[key][storageunit._active_hru_mask]
-        success_a = np.isclose(a2, a1, atol=tol, rtol=0.0)
-        success_r = np.isclose(a2, a1, atol=0.0, rtol=tol)
-        success = success_a | success_r
-        if not success.all():
-            all_success = False
-            diff = a2 - a1
-            diffmin = diff.min()
-            diffmax = diff.max()
-            if True:
-                print(f"time step {istep}")
-                print(f"output variable {key}")
-                print(f"prms   {a1.min()}    {a1.max()}")
-                print(f"pywatershed  {a2.min()}    {a2.max()}")
-                print(f"diff   {diffmin}  {diffmax}")
-
-                if verbose:
-                    idx = np.where(~success)
-                    for i in idx:
-                        print(
-                            f"hru {i} prms {a1[i]} pywatershed {a2[i]} "
-                            f"diff {diff[i]}"
-                        )
-            if failfast:
-                raise (ValueError)
-        # <
-        elif verbose:
-            print(f"variable {key} matches")
-
-    return all_success

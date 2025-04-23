@@ -392,14 +392,26 @@ class Budget(Accessor):
                     "The nan values not identical for the two sides of the "
                     "equation."
                 )
-                assert (lhs_nan == rhs_nan).all(), msg
+                try:
+                    assert (lhs_nan == rhs_nan).all(), msg
+                except AssertionError:
+                    if self.imbalance_fatal:
+                        raise AssertionError(msg)
+                    else:
+                        warn(msg, UserWarning)
 
                 if hasattr(self, "_nan_mask"):
                     msg = (
                         "The nan values present do not match the nan mask "
                         "passed to Budget"
                     )
-                    assert (lhs_nan == self._nan_mask).all()
+                    try:
+                        assert (lhs_nan == self._nan_mask).all()
+                    except AssertionError:
+                        if self.imbalance_fatal:
+                            raise AssertionError(msg)
+                        else:
+                            warn(msg, UserWarning)
 
             abs_diff = abs(lhs - rhs)
             with np.errstate(divide="ignore", invalid="ignore"):

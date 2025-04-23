@@ -38,7 +38,7 @@ sagehen.data
 param_file
 1
 4
-myparam.params
+myparam.param
 ####
 mapOutVar_names
 1
@@ -329,4 +329,3 @@ dprst_flag
 1
 1
 1
-

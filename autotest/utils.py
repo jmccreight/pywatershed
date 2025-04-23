@@ -2,6 +2,9 @@ from types import MappingProxyType
 
 import numpy as np
 
+from pywatershed.base.process import Process
+from pywatershed.base.timeseries import TimeseriesArray
+
 print_ans = False
 
 
@@ -62,3 +65,56 @@ def assert_dicts_equal(dic1, dic2):
             ):
                 continue
             assert dic1[kk] == dic2[kk]
+
+
+def check_timestep_results(
+    process: Process,
+    istep: int,
+    ans: TimeseriesArray,
+    tol: float,
+    failfast: bool = False,
+    verbose: bool = False,
+):
+    # print(process)
+    all_success = True
+    for key in ans.keys():
+        # print(key)
+
+        a1 = ans[key].current
+        a2 = process[key]
+        if not isinstance(a2, np.ndarray):
+            a2 = a2.current
+
+        if hasattr(process, "_active_hru_mask"):
+            a1 = a1[process._active_hru_mask]
+            a2 = a2[process._active_hru_mask]
+
+        success_a = np.isclose(a2, a1, atol=tol, rtol=0.0)
+        success_r = np.isclose(a2, a1, atol=0.0, rtol=tol)
+        success = success_a | success_r
+        if not success.all():
+            all_success = False
+            diff = a2 - a1
+            diffmin = diff.min()
+            diffmax = diff.max()
+            if True:
+                print(f"time step {istep}")
+                print(f"output variable {key}")
+                print(f"prms   {a1.min()}    {a1.max()}")
+                print(f"pywatershed  {a2.min()}    {a2.max()}")
+                print(f"diff   {diffmin}  {diffmax}")
+
+                if verbose:
+                    idx = np.where(~success)
+                    for i in idx:
+                        print(
+                            f"hru {i} prms {a1[i]} pywatershed {a2[i]} "
+                            f"diff {diff[i]}"
+                        )
+            if failfast:
+                raise (ValueError)
+        # <
+        elif verbose:
+            print(f"variable {key} matches")
+
+    return all_success
