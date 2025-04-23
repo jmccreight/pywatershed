@@ -63,8 +63,10 @@ def collect_simulations(
     simulations = {}
     for dom_dir in all_domain_dirs:
         # ensure this is a self-contained run (all files in repo)
-
-        if not (dom_dir / "prcp.cbh").exists():
+        if (
+            not (dom_dir / "prcp.cbh").exists()
+            and not (dom_dir / "prcp.nc").exists()
+        ):
             # this is kind of a silly check... until something better needed
             continue
 

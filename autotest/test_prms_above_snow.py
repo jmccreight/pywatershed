@@ -38,6 +38,7 @@ test_models = {
     "nhm": all_configs_same,
     "nhm_no_dprst": all_configs_same,
     "sagehen_no_cascades": all_configs_same,
+    "sagehen_gridded_cascades": all_configs_same,
 }
 
 comparison_vars_dict_all = {
@@ -158,7 +159,7 @@ def model_args(simulation, control, discretization, request):
 
 
 def test_model(simulation, model_args, tmp_path):
-    """Run the full NHM model"""
+    """Run the model"""
     tmp_path = pl.Path(tmp_path)
     output_dir = simulation["output_dir"]
     sim_name = simulation["name"]
@@ -296,11 +297,11 @@ def check_timestep_results(
     all_success = True
     for key in ans.keys():
         # print(key)
-        a1 = ans[key].current
+        a1 = ans[key].current[storageunit._active_hru_mask]
         if not isinstance(storageunit[key], np.ndarray):
-            a2 = storageunit[key].current
+            a2 = storageunit[key].current[storageunit._active_hru_mask]
         else:
-            a2 = storageunit[key]
+            a2 = storageunit[key][storageunit._active_hru_mask]
         success_a = np.isclose(a2, a1, atol=tol, rtol=0.0)
         success_r = np.isclose(a2, a1, atol=0.0, rtol=tol)
         success = success_a | success_r

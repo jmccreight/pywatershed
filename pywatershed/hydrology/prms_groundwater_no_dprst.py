@@ -8,7 +8,7 @@ from .prms_groundwater import PRMSGroundwater
 
 
 class PRMSGroundwaterNoDprst(PRMSGroundwater):
-    """PRMS groundwater reservoir.
+    """PRMS groundwater reservoir without depression storage.
 
     Implementation based on PRMS 5.2.1 with theoretical documentation given in
     the PRMS-IV documentation:
@@ -128,6 +128,7 @@ class PRMSGroundwaterNoDprst(PRMSGroundwater):
             self.gwres_stor_change[:],
             self.gwres_flow_vol[:],
         ) = self._calculate_gw(
+            self._wh_inactive_hrus,
             self.hru_area,
             self.soil_to_gw,
             self.ssr_to_gw,

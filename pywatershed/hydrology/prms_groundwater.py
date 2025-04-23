@@ -70,6 +70,8 @@ class PRMSGroundwater(ConservativeProcess, HruMixin):
         self.name = "PRMSGroundwater"
         self._set_active_hrus()
         self._mask_inactive_hrus()
+        self._wh_inactive_hrus = np.where(~self._active_hru_mask)[0]
+
         self._set_inputs(locals())
         self._set_options(locals())
 
@@ -187,6 +189,7 @@ class PRMSGroundwater(ConservativeProcess, HruMixin):
 
             self._calculate_gw = nb.njit(
                 nb.types.UniTuple(nb.float64[:], 5)(
+                    nb.types.Array(nb.types.int64, 1, "C", readonly=True),
                     nb.types.Array(nb.types.float64, 1, "C", readonly=True),
                     nb.float64[:],
                     nb.float64[:],
@@ -222,20 +225,22 @@ class PRMSGroundwater(ConservativeProcess, HruMixin):
             self.gwres_stor_change[:],
             self.gwres_flow_vol[:],
         ) = self._calculate_gw(
-            self.hru_area,
-            self.soil_to_gw,
-            self.ssr_to_gw,
-            self.dprst_seep_hru,
-            self.gwres_stor,
-            self.gwflow_coef,
-            self.gwsink_coef,
-            self.gwres_stor_old,
-            self.hru_in_to_cf,
+            wh_inactive_hrus=self._wh_inactive_hrus,
+            gwarea=self.hru_area,
+            soil_to_gw=self.soil_to_gw,
+            ssr_to_gw=self.ssr_to_gw,
+            dprst_seep_hru=self.dprst_seep_hru,
+            gwres_stor=self.gwres_stor,
+            gwflow_coef=self.gwflow_coef,
+            gwsink_coef=self.gwsink_coef,
+            gwres_stor_old=self.gwres_stor_old,
+            hru_in_to_cf=self.hru_in_to_cf,
         )
         return
 
     @staticmethod
     def _calculate_numpy(
+        wh_inactive_hrus,
         gwarea,
         soil_to_gw,
         ssr_to_gw,
@@ -272,6 +277,16 @@ class PRMSGroundwater(ConservativeProcess, HruMixin):
 
         gwres_stor_change = gwres_stor - gwres_stor_old
         gwres_flow_vol = gwres_flow * hru_in_to_cf
+
+        # gwres_stor_vol = gwres_stor * gwarea
+
+        if len(wh_inactive_hrus) > 0:
+            gwres_flow[wh_inactive_hrus] = np.nan
+            gwres_flow_vol[wh_inactive_hrus] = np.nan
+            gwres_sink[wh_inactive_hrus] = np.nan
+            gwres_stor[wh_inactive_hrus] = np.nan
+            # gwres_stor_vol[wh_inactive_hrus] = np.nan
+            gwres_stor_change[wh_inactive_hrus] = np.nan
 
         return (
             gwres_stor,

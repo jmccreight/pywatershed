@@ -6,6 +6,14 @@ from flopy import run_model
 
 import pywatershed as pws
 
+"""This module contains functions for running PRMS simulations.
+
+This module provides functions for running PRMS simulations using the pywatershed
+library. If a control name contains "_cbh_" or "_CBH_", the simulation will
+generate CBH netcdf files.
+
+"""
+
 
 def test_exe_available(exe):
     assert exe.is_file(), f"'{exe}'...does not exist"
@@ -23,7 +31,7 @@ def test_run_prms(simulation, exe):
     for dom_req_cbh in domains_requiring_cbh_files:
         if dom_req_cbh in domain_dir_name:
             # if we got here, the simulation requires CBH files to be generated
-            if "make_cbh_only" in control_file_name:
+            if "_cbh_" in control_file_name or "_CBH_" in control_file_name:
                 # if we got here, this run will generate the cbh files
                 run_cbh = True
             else:
@@ -105,6 +113,11 @@ def test_run_prms(simulation, exe):
         prms_output_to_rm = [
             "potet.day",
             "swrad.day",
+            # currently using these files to drive the PRMS model
+            # may change that so they can be removed
+            # "precip.day",
+            # "tmin.day",
+            # "tmax.day",
             "transp.day",
         ]
         for ff in prms_output_to_rm:

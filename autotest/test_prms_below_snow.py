@@ -24,7 +24,7 @@ from pywatershed.parameters import Parameters, PrmsParameters
 invoke_style = ("prms", "model_dict", "model_dict_from_yaml")
 invoke_style = invoke_style[0:1]  # TODO, relax?
 
-failfast = False
+failfast = True
 verbose = True
 
 test_models = {
@@ -46,6 +46,11 @@ test_models = {
         pywatershed.PRMSGroundwaterNoDprst,
     ],
     "sagehen_no_gw_cascades": [
+        pywatershed.PRMSRunoffCascadesNoDprst,
+        pywatershed.PRMSSoilzoneCascadesNoDprst,
+        pywatershed.PRMSGroundwaterNoDprst,
+    ],
+    "sagehen_gridded_cascades": [
         pywatershed.PRMSRunoffCascadesNoDprst,
         pywatershed.PRMSSoilzoneCascadesNoDprst,
         pywatershed.PRMSGroundwaterNoDprst,
@@ -114,7 +119,7 @@ def control(simulation):
         simulation["control_file"], warn_unused_options=False
     )
     control.options["verbosity"] = 10
-    control.options["budget_type"] = None
+    control.options["budget_type"] = None  # "warn"
     control.options["calc_method"] = "numba"
 
     del control.options["netcdf_output_var_names"]
@@ -288,6 +293,8 @@ def test_model(simulation, model_args, tmp_path):
     # Read PRMS output into ans for comparison with pywatershed results
     ans = {key: {} for key in comparison_vars_dict.keys()}
     for process_name, var_names in comparison_vars_dict.items():
+        # print(f"{process_name}: {var_names}")
+        # continue
         for vv in var_names:
             # TODO: this is hacky, improve the design
             if (
@@ -357,11 +364,11 @@ def check_timestep_results(
     all_success = True
     for key in ans.keys():
         # print(key)
-        a1 = ans[key].current
+        a1 = ans[key].current[storageunit._active_hru_mask]
         if not isinstance(storageunit[key], np.ndarray):
-            a2 = storageunit[key].current
+            a2 = storageunit[key].current[storageunit._active_hru_mask]
         else:
-            a2 = storageunit[key]
+            a2 = storageunit[key][storageunit._active_hru_mask]
         success_a = np.isclose(a2, a1, atol=tol, rtol=0.0)
         success_r = np.isclose(a2, a1, atol=0.0, rtol=tol)
         success = success_a | success_r

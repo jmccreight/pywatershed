@@ -83,6 +83,14 @@ ACTIVE = 1
 
 
 class HruType(Enum):
+    """HRU Type
+    INACTIVE = 0
+    LAND = 1
+    LAKE = 2
+    SWALE = 3
+    GLACIER = 4
+    """
+
     INACTIVE = 0
     LAND = 1
     LAKE = 2
