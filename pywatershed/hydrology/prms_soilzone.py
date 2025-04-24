@@ -130,7 +130,7 @@ class PRMSSoilzone(ConservativeProcess, HruMixin):
         # This uses options
         self._initialize_soilzone_data()
 
-        self._set_budget(ignore_nans=~self._active_hru_mask)
+        self._set_budget(active_mask=self._active_hru_mask)
         self._init_calc_method()
 
         return

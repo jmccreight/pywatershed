@@ -118,7 +118,7 @@ class PRMSRunoff(ConservativeProcess, HruMixin):
         if self._dprst_flag is None:
             self._dprst_flag = True
 
-        self._set_budget(ignore_nans=~self._active_hru_mask)
+        self._set_budget(active_mask=self._active_hru_mask)
         self._init_calc_method()
         self.basin_init()
 
@@ -678,11 +678,7 @@ class PRMSRunoff(ConservativeProcess, HruMixin):
             # note that i is 0-based index
 
             i = hru_route_order[k] - 1
-
-            # TODO: remove this check once we are sure cascades is
-            # wired correctly
-            if i == -1:
-                raise ValueError("Invalid index")
+            # upslope_hortonian[i] = zero
 
             runoff = zero
 

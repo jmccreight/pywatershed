@@ -1,6 +1,8 @@
 import pathlib as pl
-from typing import Literal
+from typing import Literal, Union
 from warnings import warn
+
+import numpy as np
 
 from ..base import meta
 from ..base.adapter import Adapter
@@ -167,7 +169,7 @@ class ConservativeProcess(Process):
     def _set_budget(
         self,
         basis: str = None,
-        ignore_nans: bool = False,
+        active_mask: Union[bool, np.ndarray] = False,
         unit_desc: str = "volumes",
     ):
         if basis is None:
@@ -193,7 +195,7 @@ class ConservativeProcess(Process):
                 description=self.name,
                 imbalance_fatal=(self._budget_type == "error"),
                 basis=basis,
-                ignore_nans=ignore_nans,
+                active_mask=active_mask,
                 units=units,
                 unit_desc=unit_desc,
             )

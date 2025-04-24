@@ -114,7 +114,7 @@ class PRMSSoilzoneCascadesNoDprst(PRMSSoilzone):
             verbose=verbose,
         )
 
-        self._set_budget(ignore_nans=~self._active_hru_mask)
+        self._set_budget(active_mask=self._active_hru_mask)
 
         return
 

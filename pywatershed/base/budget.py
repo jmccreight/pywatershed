@@ -46,8 +46,8 @@ class Budget(Accessor):
       basis: The basis on which the budget is calculated, either "unit" or
         "global".
       imbalance_fatal: Boolean if an ValueError is raised on imbalance.
-      ignore_nans: A bool or numpy array mask of nan values (1 indicates NaN,
-        0 indicates valid value locations).
+      active_mask: False or a numpy array mask where (False indicates inactive
+        locations and True indicates active locations).
       unit_desc: A string description of the units used. Default is "volumes".
       verbose: A boolean if messages are to be printed.
 
@@ -67,8 +67,8 @@ class Budget(Accessor):
         rtol: float = 1e-5,
         atol: float = 1e-5,
         basis: Literal["unit", "global"] = "unit",
-        imbalance_fatal: Union[bool, np.ndarray] = False,
-        ignore_nans: bool = False,
+        imbalance_fatal: bool = False,
+        active_mask: Union[bool, np.ndarray] = False,
         unit_desc: str = "volumes",
         verbose: bool = True,
     ):
@@ -83,15 +83,10 @@ class Budget(Accessor):
         self.rtol = rtol
         self.atol = atol
         self.imbalance_fatal = imbalance_fatal
+        self.active_mask = active_mask
         self._unit_desc = unit_desc
         self.verbose = verbose
         self.basis = basis
-
-        if isinstance(ignore_nans, bool):
-            self._ignore_nans = ignore_nans
-        else:
-            self._ignore_nans = True
-            self._nan_mask = ignore_nans
 
         self._output_netcdf = False
         self._inputs_sum = None
@@ -371,34 +366,20 @@ class Budget(Accessor):
         unit_balance = self._inputs_sum - self._outputs_sum
         self._zero_sum = True
 
+        lhs = self._inputs_sum[self.active_mask]
+        rhs = (self._outputs_sum + self._storage_changes_sum)[self.active_mask]
+
         # compare i ?=? o + ds so that relative errors are not compared to
         # zero when ds is zero
-        if not np.allclose(
+        all_close = np.allclose(
             self._inputs_sum,
             self._outputs_sum + self._storage_changes_sum,
             rtol=self.rtol,
             atol=self.atol,
-            equal_nan=self._ignore_nans,
-        ):
+        )
+
+        if not all_close:
             self._zero_sum = False
-
-            lhs = self._inputs_sum
-            rhs = self._outputs_sum + self._storage_changes_sum
-
-            if self._ignore_nans:
-                lhs_nan = np.where(np.isnan(lhs), True, False)
-                rhs_nan = np.where(np.isnan(rhs), True, False)
-                msg = (
-                    "The nan values not identical for the two sides of the "
-                    "equation."
-                )
-                try:
-                    assert (lhs_nan == rhs_nan).all(), msg
-                except AssertionError:
-                    if self.imbalance_fatal:
-                        raise AssertionError(msg)
-                    else:
-                        warn(msg, UserWarning)
 
                 if hasattr(self, "_nan_mask"):
                     msg = (
@@ -422,25 +403,26 @@ class Budget(Accessor):
             rel_close = np.where(np.isnan(rel_close), False, rel_close)
 
             close = abs_close | rel_close
-            if self._ignore_nans:
-                close = np.where(np.isnan(abs_diff), True, close)
+            close = np.where(np.isnan(abs_diff), True, close)
 
             wh_not_close = np.where(~close)
-
             msg = (
-                "The flux unit balance not equal to the change in unit "
-                f"storage at time {self.control.current_time}.\n"
-                f"Maximum abs val of difference: {abs_diff.max()}\n"
-                f"Maximum abs val of relative diff "
-                f"{np.nanmax(rel_abs_diff)}\n."
-                f"With differencecs greater than atol or rtol at the "
+                # "The flux unit balance not equal to the change in unit "
+                # f"storage at time {self.control.current_time}.\n"
+                # f"Maximum abs val of difference: {abs_diff.max()}\n"
+                # f"Maximum abs val of relative diff "
+                # f"{np.nanmax(rel_abs_diff)}\n."
+                # f"With differencecs greater than atol or rtol at the "
                 f"following locations for {self.description}: {wh_not_close}."
             )
-
-            if self.imbalance_fatal:
-                raise ValueError(msg)
-            else:
-                warn(msg, UserWarning)
+            try:
+                assert len(wh_not_close[0]) == 0
+                # could probably move this out of the try.
+            except AssertionError:
+                if self.imbalance_fatal:
+                    raise ValueError(msg)
+                else:
+                    warn(msg, UserWarning)
 
         # <<
         return unit_balance

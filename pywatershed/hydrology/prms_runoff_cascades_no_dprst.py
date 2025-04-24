@@ -135,7 +135,7 @@ class PRMSRunoffCascadesNoDprst(PRMSRunoff):
         self._set_inputs(locals())
         self._set_options(locals())
 
-        self._set_budget(ignore_nans=~self._active_hru_mask)
+        self._set_budget(active_mask=self._active_hru_mask)
         self.basin_init()
 
         return

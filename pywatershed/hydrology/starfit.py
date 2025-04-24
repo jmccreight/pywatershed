@@ -113,7 +113,7 @@ class Starfit(ConservativeProcess):
         self._set_inputs(locals())
         self._set_options(locals())
 
-        self._set_budget(basis="unit", ignore_nans=True)
+        self._set_budget(basis="unit")
 
         return
 
