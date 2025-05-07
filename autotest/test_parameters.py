@@ -1,4 +1,4 @@
-from utils import assert_dicts_equal
+from utils_compare import assert_dicts_equal
 
 from pywatershed.parameters import Parameters
 

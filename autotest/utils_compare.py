@@ -6,16 +6,37 @@ import xarray as xr
 import pywatershed as pws
 
 
+def assert_dicts_equal(dic1, dic2):
+    assert set(dic1.keys()) == set(dic2.keys())
+
+    # add cases as needed
+    for kk, vv in dic1.items():
+        if isinstance(vv, (dict, MappingProxyType)):
+            assert_dicts_equal(dic1[kk], dic2[kk])
+        elif isinstance(vv, np.ndarray):
+            np.testing.assert_equal(dic1[kk], dic2[kk])
+        else:
+            if (
+                isinstance(vv, float)
+                and np.isnan(dic1[kk])
+                and np.isnan(dic2[kk])
+            ):
+                continue
+            assert dic1[kk] == dic2[kk]
+
+
 def assert_allclose(
     actual: np.ndarray,
     desired: np.ndarray,
+    var_name: str = "",
+    time_step: np.datetime64 = np.datetime64("NaT"),
     rtol: float = 1.0e-15,
     atol: float = 1.0e-15,
     equal_nan: bool = True,
     strict: bool = False,
     also_check_w_np: bool = True,
     print_max_errs: bool = False,
-    var_name: str = "",
+    verbosity: int = 0,
 ):
     """Reinvent np.testing.assert_allclose to get useful diagnostincs in debug
 
@@ -62,16 +83,36 @@ def assert_allclose(
     abs_close = abs_diff < atol
     rel_close = rel_abs_diff < rtol
     rel_close = np.where(np.isnan(rel_close), False, rel_close)
-
     close = abs_close | rel_close
 
-    if print_max_errs:
-        sp = "" if len(var_name) == 0 else " "
-        print(f"{var_name}{sp}max abs err: {abs_diff.max()}")
-        print(f"{var_name}{sp}max rel err: {rel_abs_diff.max()}")
+    # an alternate implementation of the above used previously
+    # success_a = np.isclose(a2, a1, atol=tol, rtol=0.0)
+    # success_r = np.isclose(a2, a1, atol=0.0, rtol=tol)
+    # success = success_a | success_r
 
-    assert close.all()
-    return
+    # assert close.all()
+    success = close.all()
+    if not success:
+        diff = actual - desired
+        diffmin = diff.min()
+        diffmax = diff.max()
+        if verbosity > 0:
+            print(f"{time_step=}")
+            print(f"{var_name=}")
+            print(f"{desired.min()=}, {desired.max()=}")
+            print(f"{actual.min()=}. {actual.max()=}")
+            print(f"{diffmin=}, {diffmax=}")
+
+            if verbosity > 0:
+                idx = np.where(~close)
+                for ii in idx:
+                    print(f"{ii=}:  {desired[ii]=}, {actual[ii]=} {diff[ii]=}")
+    # <
+    elif verbosity > 0:
+        print(f"success for {var_name}")
+
+    assert success
+    return None
 
 
 def compare_in_memory(
@@ -84,9 +125,12 @@ def compare_in_memory(
     also_check_w_np: bool = True,
     skip_missing_ans: bool = False,
     fail_after_all_vars: bool = True,
-    verbose: bool = False,
-):
+    verbosity: int = 0,
+) -> None:
     # TODO: docstring
+    # rename to "compare_process_in_memory"?
+    # why not "compare_model_in_memory" and loop over all model processes?
+    # could have both with the later just a wrapper on the former.
 
     fail_list = []
     for var in process.get_variables():
@@ -97,7 +141,7 @@ def compare_in_memory(
                 msg = f"Variable '{var}' not found in the answers provided."
                 raise KeyError(msg)
 
-        if verbose:
+        if verbosity > 0:
             print(f"checking {var}")
 
         if not isinstance(answers[var], np.ndarray):
@@ -109,9 +153,13 @@ def compare_in_memory(
             actual = process[var]
 
         if isinstance(answers[var], pws.base.adapter.Adapter):
-            desired = answers[var].current.data
+            desired = answers[var].current
         else:
             desired = answers[var]
+
+        if hasattr(process, "_active_hru_mask"):
+            actual = actual[process._active_hru_mask]
+            desired = desired[process._active_hru_mask]
 
         if not fail_after_all_vars:
             assert_allclose(
@@ -123,6 +171,7 @@ def compare_in_memory(
                 strict=strict,
                 also_check_w_np=also_check_w_np,
                 var_name=var,
+                time_step=process.control.current_time,
             )
 
         else:
@@ -136,17 +185,62 @@ def compare_in_memory(
                     strict=strict,
                     also_check_w_np=also_check_w_np,
                     var_name=var,
+                    time_step=process.control.current_time,
                 )
-                if verbose:
+                if verbosity > 0:
                     print(f"compare_netcdfs all close for variable: {var}")
 
             except AssertionError:
                 fail_list += [var]
-                if verbose:
+                if verbosity > 0:
                     print(f"compare_netcdfs NOT all close for variable: {var}")
 
     if len(fail_list) > 0:
         assert False, f"compare_netcdfs failed for variables: {fail_list}"
+
+    # <
+    return None
+
+
+def compare_model_in_memory(
+    model: pws.base.Model,
+    answers: dict,
+    rtol: dict,
+    atol: dict,
+    equal_nan: bool = True,
+    strict: bool = False,
+    also_check_w_np: bool = True,
+    skip_missing_ans: bool = False,
+    fail_after_all_vars: bool = True,
+    verbosity: int = 0,
+) -> None:
+    """Compare model values to answer dictionaries.
+
+    Parameters:
+        model: a pws.Model object.
+        answers: A dictionary where each process name contains a dictionary of
+          variable names with answers.
+        atol: A dictionary of tolerances to use for each process.
+        rtol: As for atol.
+    """
+
+    for process_name in model.processes.keys():
+        if process_name not in answers.keys():
+            continue
+
+        # <
+        _ = compare_in_memory(
+            process=model.processes[process_name],
+            answers=answers[process_name],
+            atol=atol[process_name],
+            rtol=rtol[process_name],
+            equal_nan=equal_nan,
+            strict=strict,
+            also_check_w_np=also_check_w_np,
+            skip_missing_ans=skip_missing_ans,
+            fail_after_all_vars=fail_after_all_vars,
+            verbosity=verbosity,
+        )
 
 
 def compare_netcdfs(
@@ -160,7 +254,7 @@ def compare_netcdfs(
     also_check_w_np: bool = True,
     print_var_max_errs: bool = False,
     fail_after_all_vars: bool = True,
-    verbose: bool = False,
+    verbosity: int = 0,
 ):
     # TODO: docstring
     # TODO: improve error message
@@ -186,7 +280,7 @@ def compare_netcdfs(
                 print_max_errs=print_var_max_errs,
                 var_name=var,
             )
-            if verbose:
+            if verbosity > 0:
                 print(f"compare_netcdfs all close for variable: {var}")
 
         else:
@@ -202,12 +296,12 @@ def compare_netcdfs(
                     print_max_errs=print_var_max_errs,
                     var_name=var,
                 )
-                if verbose:
+                if verbosity > 0:
                     print(f"compare_netcdfs all close for variable: {var}")
 
             except AssertionError:
                 fail_list += [var]
-                if verbose:
+                if verbosity > 0:
                     print(f"compare_netcdfs NOT all close for variable: {var}")
 
     if len(fail_list) > 0:

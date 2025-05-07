@@ -3,7 +3,7 @@ import shutil
 from pprint import pprint
 
 import pytest
-from utils import check_timestep_results
+from utils_compare import compare_model_in_memory
 
 import pywatershed
 from pywatershed.base.adapter import adapter_factory
@@ -24,8 +24,8 @@ from pywatershed.parameters import Parameters, PrmsParameters
 invoke_style = ("prms", "model_dict", "model_dict_from_yaml")
 invoke_style = invoke_style[0:1]  # TODO, relax?
 
-failfast = True
-verbose = True
+fail_after_all_vars = False
+verbosity = 0
 
 test_models = {
     "nhm": [
@@ -119,7 +119,7 @@ def control(simulation):
         simulation["control_file"], warn_unused_options=False
     )
     control.options["verbosity"] = 10
-    control.options["budget_type"] = "warn"
+    control.options["budget_type"] = "error"
     control.options["calc_method"] = "numba"
 
     del control.options["netcdf_output_var_names"]
@@ -181,7 +181,7 @@ def model_args(simulation, control, discretization, request):
             else:
                 proc["dis"] = "dis_hru"
 
-        if verbose:
+        if verbosity > 0:
             pprint(model_dict, sort_dicts=False)
 
         args = {
@@ -310,43 +310,22 @@ def test_model(simulation, model_args, tmp_path):
                 nc_pth, variable_name=vv, control=control
             )
 
-    all_success = True
-    fail_prms_compare = False
     for istep in range(control.n_times):
         model.advance()
         model.calculate()
         model.output()
 
-        # PRMS5 answers
-        # advance the answer, which is being read from a netcdf file
-        for process_name, var_names in ans.items():
-            for vv in var_names:
-                ans[process_name][vv].advance()
+        _ = compare_model_in_memory(
+            model=model,
+            answers=ans,
+            rtol=tol,
+            atol=tol,
+            fail_after_all_vars=fail_after_all_vars,
+            skip_missing_ans=True,
+            verbosity=verbosity,
+        )
 
-        # make a comparison check with answer
-        for process_name in ans.keys():
-            success = check_timestep_results(
-                model.processes[class_key[process_name]],
-                istep,
-                ans[process_name],
-                tol[process_name],
-                failfast,
-                verbose=verbose,
-            )
-            if not success:
-                fail_prms_compare = True
-                all_success = False
-                if failfast:
-                    assert False, "PRMS comparison failfast"
-
-    # check at the end and error if one or more steps didn't pass
-    if not all_success:
-        if fail_prms_compare:
-            msg = "pywatershed results failed comparison with prms5.2.1"
-        else:
-            assert False, "this should not be possible"
-
-        raise Exception(msg)
-
+    # <
     model.finalize()
+
     return
