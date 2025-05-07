@@ -32,6 +32,7 @@ pws_control_options_avail = [
     "cascadegw_flag",
     "budget_type",
     "calc_method",
+    "data_file",
     "dprst_flag",
     # "restart",
     "input_dir",  #
@@ -50,6 +51,7 @@ pws_control_options_avail = [
 prms_legacy_options_avail = [
     "cascade_flag",
     "cascadegw_flag",
+    "data_file",
     "dprst_flag",
     "end_time",
     # "init_vars_from_file",
@@ -99,6 +101,7 @@ class Control(Accessor):
       * cascadegw_flag: boolean if groundwater cascades are active. Currently
         these can not be run without cadcade_flag being true.
       * dprst_flag: boolean if depression storage is included (true) or not.
+      * data_file: The PRMS data file.
       * input_dir: str or pathlib.path directory to search for input data. Use
         exactly one of input_dir or input_file.
       * input_file: str or pathlib.path file name containing all input data.
@@ -122,6 +125,7 @@ class Control(Accessor):
       * end_time
       * cascade_flag: integer mapped to a boolean.
       * cascadegw_flag: integer mapped to a boolean.
+      * data_file: The PRMS data file.
       * dprst_flag: integer is converted to boolean.
       * initial_deltat: translates to "time_step"
       * init_vars_from_file: translates to "restart"
@@ -303,6 +307,9 @@ class Control(Accessor):
             # special cases, unmapped names
             if oo in ["dprst_flag", "cascade_flag", "cascadegw_flag"]:
                 opts[oo] = bool(opts[oo][0])
+
+            if oo in ["data_file"]:
+                opts[oo] = opts[oo][0]
 
         start_time = control.control["start_time"]
         end_time = control.control["end_time"]

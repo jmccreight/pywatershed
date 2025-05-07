@@ -9,10 +9,11 @@ import pathlib as pl
 from typing import Union
 
 import numpy as np
+import pyPRMS as pyprms
 
 from ..base.control import Control
 from ..base.timeseries import TimeseriesArray
-from ..constants import fileish
+from ..constants import fileish, nan
 from ..utils.netcdf_utils import NetCdfRead
 
 
@@ -43,7 +44,7 @@ class Adapter:
         return self._current_value
 
 
-class AdapterNetcdf(Adapter):
+class AdapterDatafile(Adapter):
     """Adapter subclass for a NetCDF file
 
     This requires that the NetCDF file have a time dimension named "time" or
@@ -52,8 +53,72 @@ class AdapterNetcdf(Adapter):
     Args:
         fname: filename of netcdf as string or Path
         variable: variable name string
-        dim_sizes: a tuple of dimension sizes
-        type: a variable dtype
+        control: a Control object
+        load_n_time_batches: number of times to read from file.
+
+    """
+
+    def __init__(
+        self,
+        fname: fileish,
+        variable: str,
+        control: Control,
+        missing: tuple[str] = ("-99.9", "-901.0", "-999.0", "-9999.0"),
+    ) -> None:
+        super().__init__(variable)
+        self.name = "AdapterNetcdf"
+
+        self._fname = fname
+        self._variable = variable
+        self.control = control
+
+        data = pyprms.DataFile(self._fname, missing=missing).data
+        data = data.loc[:, data.columns.str.match(self._variable)]
+        if len(data.columns) == 0:
+            raise ValueError(
+                f"Variable '{variable}' not found in file {fname}"
+            )
+
+        self.time = data.index.values
+        self._data = data.to_numpy()
+        del data
+        self._nstations = self._data.shape[1]
+
+        self._current_time = self.control.init_time.copy()
+        # should use constants.fill_values for these
+        self._current_value = np.full(self._nstations, nan, self._data.dtype)
+        # _time_index is to be advanced, so subtract one
+        self._time_index = (
+            np.where(self.time == self.control.start_time)[0][0] - 1
+        )
+
+        return
+
+    def advance(self):
+        if self._current_time >= self.control.current_time:
+            return
+
+        self._time_index += 1
+        self._current_time = self.time[self._time_index]
+        assert self.control.current_time == self._current_time
+
+        self._current_value[:] = self._data[self._time_index, :]
+        return None
+
+    @property
+    def data(self) -> np.array:
+        """Return the data for all time."""
+        return self._data
+
+
+class AdapterNetcdf(Adapter):
+    """Adapter subclass for a PRMS 'data file'.
+
+    This brings nstations of the selected variable for all time.
+
+    Args:
+        fname: path of the data file with extension '.data'
+        variable: variable name string
         control: a Control object
         load_n_time_batches: number of times to read from file.
 
@@ -103,14 +168,14 @@ class AdapterNetcdf(Adapter):
     def advance(self):
         if self._nc_read._itime_step[self._variable] > self.control.itime_step:
             return
-        self._current_value[:] = self._nc_read.advance(
-            self._variable, self.control.current_time
+        self._current_value[:] = np.array(
+            self._nc_read.advance(self._variable, self.control.current_time)
         )
         return None
 
     @property
     def data(self) -> np.array:
-        """Return the data for the current time."""
+        """Return the data for all time."""
         # TODO JLM: seems like we'd want to cache this data if we invoke once
         return self._nc_read.all_time(self._variable).data
 
@@ -174,6 +239,12 @@ def adapter_factory(
                 variable=variable_name,
                 control=control,
                 load_n_time_batches=load_n_time_batches,
+            )
+        elif pl.Path(var).suffix == ".data":
+            return AdapterDatafile(
+                var,
+                variable=variable_name,
+                control=control,
             )
 
     elif isinstance(var, np.ndarray) and len(var.shape) == 1:

@@ -53,6 +53,8 @@ class Budget(Accessor):
 
     """
 
+    # TODO: check global case, need ignore_nans?
+
     def __init__(
         self,
         control: Control,
@@ -339,16 +341,13 @@ class Budget(Accessor):
         """Sum over the individual terms in a budget component."""
         if self.basis == "unit":
             # keep nans on the units
-            vals = [val for val in self[attr].values()]
-            the_sum = sum(vals)
+            the_sum = sum([val for val in self[attr].values()])
         elif self.basis == "global":
             # in global case, the variable dims dont need to match, collapse
             # to a scalar
-            if self._ignore_nans:
-                vals = [np.nansum(val) for val in self[attr].values()]
-            else:
-                vals = [np.sum(val) for val in self[attr].values()]
-            the_sum = sum(vals)
+            the_sum = sum(
+                [np.sum(val[self.active_mask]) for val in self[attr].values()]
+            )
         else:
             raise ValueError(f"self.basis '{self.basis}' is invalid")
         return the_sum

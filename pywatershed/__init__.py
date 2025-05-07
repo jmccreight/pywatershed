@@ -2,6 +2,7 @@ from .analysis.model_graph import ModelGraph
 from .analysis.utils.colorbrewer import ColorBrewer
 from .atmosphere.prms_atmosphere import PRMSAtmosphere
 from .atmosphere.prms_solar_geometry import PRMSSolarGeometry
+from .atmosphere.prms_station_temp_forcing import PRMSStationTempForcing
 from .base import meta
 from .base.adapter import Adapter, AdapterNetcdf, adapter_factory
 from .base.budget import Budget
@@ -103,6 +104,7 @@ __all__ = (
     "PRMSSoilzone",
     "PRMSSoilzoneCascadesNoDprst",
     "PRMSSoilzoneNoDprst",
+    "PRMSStationTempForcing",
     "Starfit",
     "ControlVariables",
     "MmrToMf6Dfw",

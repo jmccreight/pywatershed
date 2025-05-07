@@ -21,6 +21,7 @@ params_expand_scalar = [
     "width_m",
     "hru_area",
     "hru_percent_imperv",
+    "hru_tsta",
     "pref_flow_den",
     "pref_flow_infil_frac",
     "sat_threshold",
@@ -32,7 +33,11 @@ params_expand_scalar = [
     "radmax",
     "radadj_intcp",
     "radadj_slope",
+    "tmax_adj",
+    "tmin_adj",
     "tmax_index",
+    "tmax_lapse",
+    "tmin_lapse",
     "ppt_rad_adj",
     "jh_coef",
     "transp_beg",
@@ -62,6 +67,15 @@ params_expand_scalar = [
     "fastcoef_lin",
     "fastcoef_sq",
     "ssr2gw_exp",
+    "rain_cbh_adj",
+    "snow_cbh_adj",
+    "tmin_cbh_adj",
+    "tmax_cbh_adj",
+]
+
+expand_hru_to_monthly = [
+    "tmax_adj",
+    "tmin_adj",
 ]
 
 var_meta_to_attrs = [

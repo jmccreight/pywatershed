@@ -75,11 +75,35 @@ cf_to_cm = cfs_to_cms
 cubic_ft_per_acre_in = ft2_per_acre / inches_per_foot
 
 
+def c_to_f(deg_c: np.ndarray) -> np.ndarray:
+    """Convert degrees Celsius to degrees Farenheit.
+
+    This is taken from PRMS directly.
+
+    Args:
+        deg_c: degrees Celsius to convert to Farenheit.
+
+    Returns:
+        deg_f: equivalent degrees Farenheit.
+    """
+    return deg_c * 1.8 + 32.0
+
+
 ndoy = 366
 nmonth = 12
 
 INACTIVE = 0
 ACTIVE = 1
+
+
+class TempUnits(Enum):
+    """Temp Units
+    Farenheit = 0
+    Celsius = 1
+    """
+
+    FARENHEIT = 0
+    CELSIUS = 1
 
 
 class HruType(Enum):

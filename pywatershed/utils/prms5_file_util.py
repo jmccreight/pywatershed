@@ -19,7 +19,10 @@ def rename_dims(dim_name):
 
 
 def expand_scalar_to_dims(param_dict, param_dim_dict):
-    from pywatershed.utils.separate_nhm_params import params_expand_scalar
+    from pywatershed.utils.separate_nhm_params import (
+        expand_hru_to_monthly,
+        params_expand_scalar,
+    )
 
     # sometimes a scalar is allowed to represent a uniform values for
     # the full dimensions of a parameter. Going to handle those on a
@@ -35,16 +38,26 @@ def expand_scalar_to_dims(param_dict, param_dim_dict):
             if param_shape == full_param_shape:
                 continue
             elif param_shape == (1,):
-                param_vals_full = np.zeros(full_param_shape)
-                param_dict[param_name] = param_vals_full + param_vals
+                param_dict[param_name] = (
+                    np.zeros(full_param_shape, dtype=param_vals.dtype)
+                    + param_vals
+                )
             elif param_shape == (12,):
                 if len(full_param_shape) != 2:
                     msg = "Unanticiapted shape"
                 rev_full_shape = full_param_shape[::-1]
-                param_vals_full = np.transpose(
+                # why the transpose? isnt the pws convention (time, space)?
+                param_dict[param_name] = np.transpose(
                     np.broadcast_to(param_vals, rev_full_shape)
                 )
-                param_dict[param_name] = param_vals_full
+            elif (param_name in expand_hru_to_monthly) and (
+                param_shape == full_param_shape[1:]
+            ):
+                # Some parameters come on hru and need to be (nmonths, nhru)
+                param_dict[param_name] = np.broadcast_to(
+                    param_vals, full_param_shape
+                )
+
             else:
                 msg = (
                     f"Expansion of variable {param_name} with shape "
@@ -364,9 +377,7 @@ class PrmsFile:
             )
         return dimension
 
-    def _parse_parameter(
-        self,
-    ) -> dict:
+    def _parse_parameter(self) -> dict:
         """Parse the data in a file to create parameter data
 
         Returns:
