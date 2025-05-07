@@ -139,17 +139,14 @@ class PRMSStationTempForcing(Process, HruMixin):
             self._tcrn[:],
             self._tcrx[:],
         ) = self._calculate_station(
-            nactive_hrus=self._nactive_hrus,
             wh_active_hrus=self._wh_active_hrus,
             current_month=self.control.current_month,
             elfac=self._elfac,
-            hru_elev=self.hru_elev,
             hru_tsta=self.hru_tsta,
             tmax_lapse=self.tmax_lapse,
             tmin_lapse=self.tmin_lapse,
             tmax_adj=self.tmax_adj,
             tmin_adj=self.tmin_adj,
-            tsta_elev=self.tsta_elev,
             temp_units=self.temp_units,
             check_min_max=self._check_min_max,
             c_to_f=c_to_f,
@@ -162,17 +159,14 @@ class PRMSStationTempForcing(Process, HruMixin):
 
     @staticmethod
     def _calculate_station(
-        nactive_hrus,
         wh_active_hrus,
         current_month,
         elfac,
-        hru_elev,
         hru_tsta,
         tmax_lapse,
         tmin_lapse,
         tmax_adj,
         tmin_adj,
-        tsta_elev,
         temp_units,
         check_min_max,
         c_to_f,
@@ -186,12 +180,13 @@ class PRMSStationTempForcing(Process, HruMixin):
 
         # IMPLEMENT CHECKS
 
-        tmax = hru_elev * nan
-        tmin = hru_elev * nan
+        # no memory here
+        tmax = tcrx * nan
+        tmin = tcrn * nan
 
         # vectorize the PRMS calculations
         jj = wh_active_hrus
-        kk = hru_tsta[jj] -1
+        kk = hru_tsta[jj] - 1
 
         if current_month != previous_month:
             cm = current_month - 1
