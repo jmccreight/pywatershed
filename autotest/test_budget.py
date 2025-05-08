@@ -132,7 +132,6 @@ def test_budget(control_simple):
         control_simple.advance()
         budget.advance()
         budget.calculate()
-        print(budget)
 
     with pytest.raises(ValueError):
         budget.calculate()

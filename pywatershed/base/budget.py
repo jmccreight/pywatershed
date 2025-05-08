@@ -345,9 +345,14 @@ class Budget(Accessor):
         elif self.basis == "global":
             # in global case, the variable dims dont need to match, collapse
             # to a scalar
-            the_sum = sum(
-                [np.sum(val[self.active_mask]) for val in self[attr].values()]
-            )
+            if self.active_mask is not False:
+                the_sum = sum(
+                    [np.sum(val[self.active_mask]) for val in self[attr].values()]
+                )
+            else:
+                the_sum = sum(
+                    [np.sum(val) for val in self[attr].values()]
+                )
         else:
             raise ValueError(f"self.basis '{self.basis}' is invalid")
         return the_sum
@@ -365,52 +370,23 @@ class Budget(Accessor):
         unit_balance = self._inputs_sum - self._outputs_sum
         self._zero_sum = True
 
-        lhs = self._inputs_sum[self.active_mask]
-        rhs = (self._outputs_sum + self._storage_changes_sum)[self.active_mask]
+        if self.active_mask is False:
+            lhs = self._inputs_sum
+            rhs = (self._outputs_sum + self._storage_changes_sum)
+        else:
+            lhs = self._inputs_sum[self.active_mask]
+            rhs = (self._outputs_sum + self._storage_changes_sum)[self.active_mask]
 
         # compare i ?=? o + ds so that relative errors are not compared to
         # zero when ds is zero
-        all_close = np.allclose(
-            self._inputs_sum,
-            self._outputs_sum + self._storage_changes_sum,
-            rtol=self.rtol,
-            atol=self.atol,
-        )
+        all_close = np.allclose(lhs, rhs, rtol=self.rtol, atol=self.atol)
 
         if not all_close:
             self._zero_sum = False
 
-            # if self._ignore_nans:
-            #     lhs_nan = np.where(np.isnan(lhs), True, False)
-            #     rhs_nan = np.where(np.isnan(rhs), True, False)
-            #     msg = (
-            #         "The nan values not identical for the two sides of the "
-            #         f"equation for Budget of {self.description}"
-            #     )
-            #     try:
-            #         assert (lhs_nan == rhs_nan).all(), msg
-            #     except AssertionError:
-            #         if self.imbalance_fatal:
-            #             raise AssertionError(msg)
-            #         else:
-            #             warn(msg, UserWarning)
-
-            #     if hasattr(self, "_nan_mask"):
-            #         msg = (
-            #             "The nan values present do not match the nan mask "
-            #             f"passed to Budget for {self.description}"
-            #         )
-            #         try:
-            #             assert (lhs_nan == self._nan_mask).all()
-            #         except AssertionError:
-            #             if self.imbalance_fatal:
-            #                 raise AssertionError(msg)
-            #             else:
-            #                 warn(msg, UserWarning)
-
             abs_diff = abs(lhs - rhs)
             with np.errstate(divide="ignore", invalid="ignore"):
-                rel_abs_diff = abs_diff / rhs
+                rel_abs_diff = abs(abs_diff / rhs)
 
             abs_close = abs_diff < self.atol
             rel_close = rel_abs_diff < self.rtol
@@ -421,14 +397,15 @@ class Budget(Accessor):
 
             wh_not_close = np.where(~close)
             msg = (
-                # "The flux unit balance not equal to the change in unit "
-                # f"storage at time {self.control.current_time}.\n"
-                # f"Maximum abs val of difference: {abs_diff.max()}\n"
-                # f"Maximum abs val of relative diff "
-                # f"{np.nanmax(rel_abs_diff)}\n."
-                # f"With differencecs greater than atol or rtol at the "
+                "The flux unit balance not equal to the change in unit "
+                f"storage at time {self.control.current_time}.\n"
+                f"Maximum abs val of difference: {abs_diff.max()}\n"
+                f"Maximum abs val of relative diff "
+                f"{np.nanmax(rel_abs_diff)}\n."
+                f"With differencecs greater than atol or rtol at the "
                 f"following locations for {self.description}: {wh_not_close}."
             )
+
             try:
                 assert len(wh_not_close[0]) == 0
                 # could probably move this out of the try.
@@ -581,11 +558,8 @@ class Budget(Accessor):
                             nk = len(keys[ll])
                             # subtract ": ", "m." and "e+ee"
                             prec_width = col_width - nk - 2 - 2 - 4
-                            if self._ignore_nans:
-                                if hasattr(self, "_nan_mask"):
-                                    vals_sum = vals[ll][~self._nan_mask].sum()
-                                else:
-                                    vals_sum = np.nansum(vals[ll])
+                            if self.active_mask is not False:
+                                vals_sum = vals[ll][self.active_mask].sum()
                             else:
                                 vals_sum = vals[ll].sum()
 
@@ -631,8 +605,8 @@ class Budget(Accessor):
             # TODO(JLM): This is a hack until i have some time to sort this out
             bal_line = "Balance: "
             for oper, vals_sum, col_width, col_key_width in term_data:
-                if self._ignore_nans:
-                    vals_sum_sum = np.nansum(vals_sum)
+                if self.active_mask is not False:
+                    vals_sum_sum = (vals_sum[self.active_mask]).sum()
                 else:
                     vals_sum_sum = vals_sum.sum()
                 if vals_sum_sum > 0:
