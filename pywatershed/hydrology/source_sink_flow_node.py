@@ -29,6 +29,8 @@ class SourceSinkFlowNode(FlowNode):
           source_sink_data: A pandas Series object of sources/sinks at this
             location. See SourceSinkFlowNodeMaker for a description of the
             pd.DataFrame passed to supply this data.
+          missing_data_as_zero: Bool option to treat missing times in the
+            timeseries as having zero source/sink.
         """
         self.control = control
         self._flow_min = flow_min
@@ -152,6 +154,7 @@ class SourceSinkFlowNodeMaker(FlowNodeMaker):
         self,
         parameters: Parameters,
         source_sink_df: pd.DataFrame,
+        missing_data_as_zero: bool = False,
     ) -> None:
         """Initialize a ObsInFlowNodeMaker.
 
@@ -164,14 +167,19 @@ class SourceSinkFlowNodeMaker(FlowNodeMaker):
             be collated with the input data vectors. The sign convention is:
             sources are positive and sinks are negative. That is, the sign is
             from the perspective of the node.
+          missing_data_as_zero: Bool option to treat missing times in the
+            timeseries as having zero source/sink.
 
         """
         self.name = "SourceSinkNodeMaker"
         self._parameters = parameters
         self._source_sink_df = source_sink_df
+        self._missing_data_as_zero = missing_data_as_zero
 
     def get_node(self, control: Control, index: int):
         flow_min = self._parameters.parameters["flow_min"][index]
         col_name = self._source_sink_df.columns[index]
         data_ts = self._source_sink_df[col_name]
-        return SourceSinkFlowNode(control, flow_min, data_ts)
+        return SourceSinkFlowNode(
+            control, flow_min, data_ts, self._missing_data_as_zero
+        )
