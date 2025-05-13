@@ -18,6 +18,7 @@ class SourceSinkFlowNode(FlowNode):
         control: Control,
         flow_min: np.float64,
         source_sink_data: pd.Series,
+        missing_data_as_zero: bool = False,
         # JLM TODO: budget
     ):
         """Initialize an SourceSinkFlowNode.
@@ -32,6 +33,7 @@ class SourceSinkFlowNode(FlowNode):
         self.control = control
         self._flow_min = flow_min
         self._source_sink_data = source_sink_data
+        self._missing_data_as_zero = missing_data_as_zero
         return
 
     # @staticmethod
@@ -52,7 +54,19 @@ class SourceSinkFlowNode(FlowNode):
 
     def prepare_timestep(self):
         ymd = self.control.current_datetime.strftime("%Y-%m-%d")
-        self._source_sink_requested = self._source_sink_data[ymd]
+        if ymd not in self._source_sink_data.index:
+            if not self._missing_data_as_zero:
+                msg = (
+                    "Missing data not handled by SourceSinkFlowNode unless "
+                    "missing_data_as_zero set to True."
+                )
+                raise ValueError(msg)
+            # <
+            self._source_sink_requested = zero
+        else:
+            self._source_sink_requested = self._source_sink_data[ymd]
+
+        # <
         self._sink_source_sum = zero
         return
 
