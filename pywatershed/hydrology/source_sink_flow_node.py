@@ -18,6 +18,7 @@ class SourceSinkFlowNode(FlowNode):
         control: Control,
         flow_min: np.float64,
         source_sink_data: pd.Series,
+        missing_data_as_zero: bool = False,
         # JLM TODO: budget
     ):
         """Initialize an SourceSinkFlowNode.
@@ -28,10 +29,13 @@ class SourceSinkFlowNode(FlowNode):
           source_sink_data: A pandas Series object of sources/sinks at this
             location. See SourceSinkFlowNodeMaker for a description of the
             pd.DataFrame passed to supply this data.
+          missing_data_as_zero: Bool option to treat missing times in the
+            timeseries as having zero source/sink.
         """
         self.control = control
         self._flow_min = flow_min
         self._source_sink_data = source_sink_data
+        self._missing_data_as_zero = missing_data_as_zero
         return
 
     # @staticmethod
@@ -52,7 +56,19 @@ class SourceSinkFlowNode(FlowNode):
 
     def prepare_timestep(self):
         ymd = self.control.current_datetime.strftime("%Y-%m-%d")
-        self._source_sink_requested = self._source_sink_data[ymd]
+        if ymd not in self._source_sink_data.index:
+            if not self._missing_data_as_zero:
+                msg = (
+                    "Missing data not handled by SourceSinkFlowNode unless "
+                    "missing_data_as_zero set to True."
+                )
+                raise ValueError(msg)
+            # <
+            self._source_sink_requested = zero
+        else:
+            self._source_sink_requested = self._source_sink_data[ymd]
+
+        # <
         self._sink_source_sum = zero
         return
 
@@ -138,6 +154,7 @@ class SourceSinkFlowNodeMaker(FlowNodeMaker):
         self,
         parameters: Parameters,
         source_sink_df: pd.DataFrame,
+        missing_data_as_zero: bool = False,
     ) -> None:
         """Initialize a ObsInFlowNodeMaker.
 
@@ -150,14 +167,19 @@ class SourceSinkFlowNodeMaker(FlowNodeMaker):
             be collated with the input data vectors. The sign convention is:
             sources are positive and sinks are negative. That is, the sign is
             from the perspective of the node.
+          missing_data_as_zero: Bool option to treat missing times in the
+            timeseries as having zero source/sink.
 
         """
         self.name = "SourceSinkNodeMaker"
         self._parameters = parameters
         self._source_sink_df = source_sink_df
+        self._missing_data_as_zero = missing_data_as_zero
 
     def get_node(self, control: Control, index: int):
         flow_min = self._parameters.parameters["flow_min"][index]
         col_name = self._source_sink_df.columns[index]
         data_ts = self._source_sink_df[col_name]
-        return SourceSinkFlowNode(control, flow_min, data_ts)
+        return SourceSinkFlowNode(
+            control, flow_min, data_ts, self._missing_data_as_zero
+        )
