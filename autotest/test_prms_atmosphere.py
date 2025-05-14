@@ -139,7 +139,7 @@ def test_compare_prms(
                 atol=atol,
                 rtol=rtol,
                 fail_after_all_vars=False,
-                verbose=False,
+                verbosity=0,
             )
 
             assert id(atm.tmaxf) == tmaxf_id

@@ -2,8 +2,8 @@ import pytest
 from utils_compare import compare_in_memory
 
 from pywatershed.atmosphere.prms_station_forcings import (
-    PRMSStationTempForcing,
     PRMSStationPrecipForcing,
+    PRMSStationTempForcing,
 )
 from pywatershed.base.adapter import adapter_factory
 from pywatershed.base.control import Control
@@ -22,6 +22,14 @@ def control(simulation):
     ctl = Control.load_prms(
         simulation["control_file"], warn_unused_options=False
     )
+    if (
+        "temp_module" not in ctl.options.keys()
+        or "precip_module" not in ctl.options.keys()
+    ) or (
+        ctl.options["temp_module"] != "temp_1sta"
+        or ctl.options["precip_module"] != "precip_1sta"
+    ):
+        pytest.skip("The configuraiton does not use temp AND precip 1sta: ")
     del ctl.options["netcdf_output_dir"]
     return ctl
 

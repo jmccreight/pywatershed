@@ -42,8 +42,10 @@ pws_control_options_avail = [
     "netcdf_output_var_names",
     "netcdf_output_separate_files",
     "parameter_file",
+    "precip_module",
     "start_time",
     "streamflow_module",
+    "temp_module",
     "time_step_units",
     "verbosity",
 ]
@@ -63,7 +65,9 @@ prms_legacy_options_avail = [
     "param_file",
     "start_time",
     "strmflow_module",
+    "precip_module",
     "print_debug",
+    "temp_module",
 ]
 
 prms_to_pws_option_map = {
@@ -111,9 +115,13 @@ class Control(Accessor):
       * netcdf_output_separate_files: bool if output is grouped by Process or
         if each variable is written to an individual file
       * parameter_file: the name of a parameter file to use
+      * precip_module: strictly informative of the value in the PRMS control
+        file, changes no behavior in pywatershed.
       * streamflow_module: the selected streamflow module in PRMS.
       * start_time: np.datetime64
       * end_time: np.datetime64
+      * temp_module: strictly informative of the value in the PRMS control
+        file, changes no behavior in pywatershed.
       * time_step_units: str containing single character code for
         np.timedelta64
       * verbosity: 0-10

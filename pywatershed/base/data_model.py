@@ -553,9 +553,8 @@ class DatasetDict(Accessor):
 
         if keep_dims is not None:
             for dd in keep_dims:
-                if dd in subset["dims"].keys():
-                    continue
-                subset["dims"][dd] = self.dims[dd]
+                if dd not in subset["dims"].keys() and dd in self.dims.keys():
+                    subset["dims"][dd] = self.dims[dd]
 
         # build metadata and encoding from coords and data_vars
         for cv in ["coords", "data_vars"]:
