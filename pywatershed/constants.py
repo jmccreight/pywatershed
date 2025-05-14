@@ -66,6 +66,7 @@ np_type_to_netcdf_type_dict = {
 }
 
 inch2cm = 2.54
+mm2in = 1.0 / inch2cm / 10.0
 ft2_per_acre = 43560.0
 inches_per_foot = 12.0
 cms_to_cfs = 35.314666721489
@@ -94,6 +95,15 @@ nmonth = 12
 
 INACTIVE = 0
 ACTIVE = 1
+
+class PrecipUnits(Enum):
+    """PrecipUnits
+      inches = 0
+      mm = 1
+    """
+    inches = 0
+    mm = 1
+
 
 
 class TempUnits(Enum):

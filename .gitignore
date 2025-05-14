@@ -99,3 +99,5 @@ starfit_minimal/
 
 # environment files
 .env
+
+pyrightconfig.json

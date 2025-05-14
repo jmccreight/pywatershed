@@ -479,6 +479,7 @@ class DatasetDict(Accessor):
         keep_global_metadata: bool = None,
         keep_global_encoding: bool = None,
         strict: bool = False,
+        keep_dims: list = None,
     ) -> "DatasetDict":
         """Subset a DatasetDict to keys in data_vars or coordinates
 
@@ -491,7 +492,7 @@ class DatasetDict(Accessor):
             keep_global_encoding: bool retain the global encoding in the subset
 
         Returns:
-          A subset Parameter object on the passed keys.
+            A subset Parameter object on the passed keys.
 
         """
         # Instantiate the DatasetDict at end as deepcopy will be used
@@ -549,6 +550,12 @@ class DatasetDict(Accessor):
                 for ck, cv in var_coord_data.items():
                     if ck not in subset["coords"].keys():
                         subset["coords"][ck] = cv
+
+        if keep_dims is not None:
+            for dd in keep_dims:
+                if dd in subset["dims"].keys():
+                    continue
+                subset["dims"][dd] = self.dims[dd]
 
         # build metadata and encoding from coords and data_vars
         for cv in ["coords", "data_vars"]:

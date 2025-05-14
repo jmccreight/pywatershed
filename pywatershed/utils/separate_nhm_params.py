@@ -22,6 +22,7 @@ params_expand_scalar = [
     "hru_area",
     "hru_percent_imperv",
     "hru_tsta",
+    "hru_psta",
     "pref_flow_den",
     "pref_flow_infil_frac",
     "sat_threshold",

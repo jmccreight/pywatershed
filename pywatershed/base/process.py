@@ -240,7 +240,7 @@ class Process(Accessor):
 
             self._params = type(parameters).merge(parameters, discretization)
         else:
-            self._params = parameters.subset(self.parameters)
+            self._params = parameters.subset(self.parameters, keep_dims=self.dimensions)
 
     def _initialize_self_variables(self, restart: bool = False):
         # dims
