@@ -2,7 +2,8 @@ import pytest
 from utils_compare import compare_in_memory
 
 from pywatershed.atmosphere.prms_station_forcings import (
-    PRMSStationTempForcing, PRMSStationPrecipForcing
+    PRMSStationTempForcing,
+    PRMSStationPrecipForcing,
 )
 from pywatershed.base.adapter import adapter_factory
 from pywatershed.base.control import Control
@@ -105,6 +106,7 @@ def test_compare_prms_temp_1sta(
 
     return
 
+
 def test_compare_prms_prcp_1sta(
     simulation, control, discretization, parameters, tmp_path
 ):
@@ -129,8 +131,6 @@ def test_compare_prms_prcp_1sta(
         tmax_sta=stns_dict["tmax"],
         tmin_sta=stns_dict["tmin"],
     )
-
-
 
     # precip second
     stns_dict = {}

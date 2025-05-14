@@ -7,7 +7,15 @@ from pywatershed.base.control import Control
 from pywatershed.base.hru_mixin import HruMixin
 from pywatershed.base.parameters import Parameters
 from pywatershed.base.process import Process
-from pywatershed.constants import c_to_f, mm2in, nan, nearzero, zero, PrecipUnits, TempUnits
+from pywatershed.constants import (
+    c_to_f,
+    mm2in,
+    nan,
+    nearzero,
+    zero,
+    PrecipUnits,
+    TempUnits,
+)
 
 
 class PRMSStationTempForcing(Process, HruMixin):
@@ -173,8 +181,12 @@ class PRMSStationTempForcing(Process, HruMixin):
 
         if current_month != previous_month:
             cm = current_month - 1
-            tcrx[wh_active_hrus] = tmax_lapse[cm, jj] * elfac[jj] - tmax_adj[cm, jj]
-            tcrn[wh_active_hrus] = tmin_lapse[cm, jj] * elfac[jj] - tmin_adj[cm, jj]
+            tcrx[wh_active_hrus] = (
+                tmax_lapse[cm, jj] * elfac[jj] - tmax_adj[cm, jj]
+            )
+            tcrn[wh_active_hrus] = (
+                tmin_lapse[cm, jj] * elfac[jj] - tmin_adj[cm, jj]
+            )
 
         tmax[wh_active_hrus] = tmax_sta[kk] - tcrx[wh_active_hrus]
         tmin[wh_active_hrus] = tmin_sta[kk] - tcrn[wh_active_hrus]
@@ -255,7 +267,6 @@ class PRMSStationPrecipForcing(Process, HruMixin):
             "temp_units",
             "tmax_allrain_offset",
             "tmax_allsnow",
-
         )
 
     @staticmethod
@@ -352,20 +363,22 @@ class PRMSStationPrecipForcing(Process, HruMixin):
             precip_sta *= mm2in
 
         hru_ppt = tmaxf * zero
-        hru_rain= tmaxf * zero
+        hru_rain = tmaxf * zero
         hru_snow = tmaxf * zero
         prmx = tmaxf * zero
         pptmix = tmaxf * 0
         newsnow = tmaxf * 0
 
         for ii in wh_active_hrus:
-
             if tmaxf[ii] <= tmax_allsnow_f[cm, ii]:
                 hru_ppt[ii] = precip_sta[hru_psta[ii] - 1] * snow_adj[cm, ii]
                 hru_snow[ii] = hru_ppt[ii]
                 newsnow[ii] = 1
 
-            elif  tminf[ii] > tmax_allsnow_f[cm, ii] or tmaxf[ii] >= tmax_allrain_f[cm, ii]:
+            elif (
+                tminf[ii] > tmax_allsnow_f[cm, ii]
+                or tmaxf[ii] >= tmax_allrain_f[cm, ii]
+            ):
                 # If minimum temperature is above base temperature for snow or
                 # maximum temperature is above all_rain temperature then
                 # precipitation is all rain
@@ -381,11 +394,13 @@ class PRMSStationPrecipForcing(Process, HruMixin):
                 # PRINT *, 'ERROR, tmax < tmin (degrees Fahrenheit), tmax:', Tmaxf, ' tmin:', TminF
                 # CALL print_date(1)
 
-                if abs(tdiff)<nearzero:
+                if abs(tdiff) < nearzero:
                     tdiff = 0.0001
 
                 # <
-                prmx[ii] = ((tmaxf[ii] - tmax_allsnow_f[cm, ii])/tdiff)*adjmix_rain[cm, ii]
+                prmx[ii] = (
+                    (tmaxf[ii] - tmax_allsnow_f[cm, ii]) / tdiff
+                ) * adjmix_rain[cm, ii]
                 if prmx[ii] < zero:
                     prmx[ii] = zero
 
@@ -394,12 +409,16 @@ class PRMSStationPrecipForcing(Process, HruMixin):
                     # greater than or equal to 1.0 in which case it all rain
                     # If not, it is a rain/snow mixture
                     pptmix[ii] = 1
-                    hru_ppt[ii] = precip_sta[hru_psta[ii] - 1] * snow_adj[cm, ii]
+                    hru_ppt[ii] = (
+                        precip_sta[hru_psta[ii] - 1] * snow_adj[cm, ii]
+                    )
                     hru_rain[ii] = prmx[ii] * hru_ppt[ii]
                     hru_snow[ii] = hru_ppt[ii] - hru_rain[ii]
                     newsnow[ii] = 1
                 else:
-                    hru_ppt[ii] = precip_sta[hru_psta[ii] - 1] * rain_adj[cm, ii]
+                    hru_ppt[ii] = (
+                        precip_sta[hru_psta[ii] - 1] * rain_adj[cm, ii]
+                    )
                     hru_rain[ii] = hru_ppt[ii]
                     prmx[ii] = 1.0
 

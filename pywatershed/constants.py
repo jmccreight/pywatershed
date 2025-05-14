@@ -96,14 +96,15 @@ nmonth = 12
 INACTIVE = 0
 ACTIVE = 1
 
+
 class PrecipUnits(Enum):
     """PrecipUnits
-      inches = 0
-      mm = 1
-    """
     inches = 0
     mm = 1
+    """
 
+    inches = 0
+    mm = 1
 
 
 class TempUnits(Enum):

@@ -1,4 +1,5 @@
 import pathlib as pl
+from types import MappingProxyType
 
 import numpy as np
 import xarray as xr

@@ -347,12 +347,13 @@ class Budget(Accessor):
             # to a scalar
             if self.active_mask is not False:
                 the_sum = sum(
-                    [np.sum(val[self.active_mask]) for val in self[attr].values()]
+                    [
+                        np.sum(val[self.active_mask])
+                        for val in self[attr].values()
+                    ]
                 )
             else:
-                the_sum = sum(
-                    [np.sum(val) for val in self[attr].values()]
-                )
+                the_sum = sum([np.sum(val) for val in self[attr].values()])
         else:
             raise ValueError(f"self.basis '{self.basis}' is invalid")
         return the_sum
@@ -372,10 +373,12 @@ class Budget(Accessor):
 
         if self.active_mask is False:
             lhs = self._inputs_sum
-            rhs = (self._outputs_sum + self._storage_changes_sum)
+            rhs = self._outputs_sum + self._storage_changes_sum
         else:
             lhs = self._inputs_sum[self.active_mask]
-            rhs = (self._outputs_sum + self._storage_changes_sum)[self.active_mask]
+            rhs = (self._outputs_sum + self._storage_changes_sum)[
+                self.active_mask
+            ]
 
         # compare i ?=? o + ds so that relative errors are not compared to
         # zero when ds is zero

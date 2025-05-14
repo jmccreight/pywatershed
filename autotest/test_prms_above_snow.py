@@ -200,9 +200,9 @@ def test_model(simulation, model_args, tmp_path):
     if isinstance(plomd, list):
         processes = [pp for pp in plomd if pp in config_processes]
         control = model_args["control"]
-        class_key = {
-            vv.__class__.__name__: kk for kk, vv in model.processes.items()
-        }
+        # class_key = {
+        #     vv.__class__.__name__: kk for kk, vv in model.processes.items()
+        # }
     else:
         processes = [
             vv["class"]
@@ -211,11 +211,11 @@ def test_model(simulation, model_args, tmp_path):
         ]
         processes = [pp for pp in processes if pp in config_processes]
         control = plomd["control"]
-        class_key = {
-            vv["class"].__name__: kk
-            for kk, vv in plomd.items()
-            if isinstance(vv, dict) and "class" in vv.keys()
-        }
+        # class_key = {
+        #     vv["class"].__name__: kk
+        #     for kk, vv in plomd.items()
+        #     if isinstance(vv, dict) and "class" in vv.keys()
+        # }
 
     for cls in processes:
         key = cls.__name__
