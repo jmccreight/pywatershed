@@ -485,7 +485,7 @@ def test_starfit_flow_graph_model_dict(
                 rtol=rtol,
                 skip_missing_ans=False,
                 fail_after_all_vars=False,
-                verbose=False,
+                verbosity=0,
             )
 
     # this checks that the budget was actually active for the starfit node
