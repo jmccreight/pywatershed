@@ -130,8 +130,6 @@ def test_compare_prms_prcp_1sta(
             control=control,
         )
 
-    # DEAL/CHECK missing values, the file has both -901.0 and -9999.0
-
     temp_forcings = PRMSStationTempForcing(
         control,
         discretization=discretization,
@@ -163,11 +161,12 @@ def test_compare_prms_prcp_1sta(
     check_vars = stn_vars
 
     ans_file_var_name = {"precip": "prcp"}
+    ans_file_var_comp_var = {"precip": "hru_ppt"}
     if do_compare_in_memory:
         answers = {}
         for var in check_vars:
             var_pth = simulation["dir"] / f"{ans_file_var_name[var]}.nc"
-            answers[var] = adapter_factory(
+            answers[ans_file_var_comp_var[var]] = adapter_factory(
                 var_pth, variable_name=ans_file_var_name[var], control=control
             )
 

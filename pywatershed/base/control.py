@@ -42,12 +42,12 @@ pws_control_options_avail = [
     "netcdf_output_var_names",
     "netcdf_output_separate_files",
     "parameter_file",
-    "precip_module",
     "start_time",
     "streamflow_module",
-    "temp_module",
     "time_step_units",
     "verbosity",
+    "precip_module",
+    "temp_module",
 ]
 
 prms_legacy_options_avail = [
@@ -65,8 +65,8 @@ prms_legacy_options_avail = [
     "param_file",
     "start_time",
     "strmflow_module",
-    "precip_module",
     "print_debug",
+    "precip_module",
     "temp_module",
 ]
 
@@ -80,6 +80,8 @@ prms_to_pws_option_map = {
     "param_file": "parameter_file",
     "print_debug": "verbosity",
     "strmflow_module": "streamflow_module",
+    "precip_module": "precip_module",
+    "temp_module": "temp_module",
 }
 
 assert (
@@ -267,7 +269,6 @@ class Control(Accessor):
             An instance of a Control object.
         """
         control = ControlVariables.load(control_file)
-
         if keep_unused_options and not warn_unused_options:
             warn_unused_options = True
 
@@ -309,6 +310,8 @@ class Control(Accessor):
                     "parameter_file",
                     "netcdf_output_dir",
                     "streamflow_module",
+                    "precip_module",
+                    "temp_module",
                 ]:
                     opts[pws_option_key] = val[0]
 

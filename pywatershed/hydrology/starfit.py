@@ -783,7 +783,6 @@ class StarfitFlowNode(FlowNode):
                 description=self.name,
                 imbalance_fatal=(self._budget_type == "error"),
                 basis="unit",
-                ignore_nans=False,
                 verbose=False,
             )
         else:
