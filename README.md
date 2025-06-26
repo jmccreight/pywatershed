@@ -108,7 +108,7 @@ _the best way to get started with pywatershed is to dive into the example
 notebooks_.
 
 For introductory example notebooks, look in the
-[`examples/`](https://github.com/EC-USGS/pywatershed/tree/main/examples>)
+[`examples/`](https://github.com/EC-USGS/pywatershed/tree/main/examples)
 directory in the repository. Numbered starting at 00, these are meant to be
 completed in order. Numbered starting at 00, these are meant to be completed
 in order. Notebook outputs are not saved in Github.
