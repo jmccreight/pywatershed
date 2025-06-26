@@ -180,7 +180,7 @@ if [ -z "${m}" ]; then
 
     # Update flopy MODFLOW 6 classes in the current environment
     cd autotest || exit 1
-    python update_flopy.py
+    python -m flopy.mf6.utils.generate_classes
 
     # Build mf6 locally instead of installing mf6 nightly build
     # install conda env for mf6
