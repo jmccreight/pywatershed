@@ -585,8 +585,12 @@ class FlowGraph(ConservativeProcess):
             self.meta[kk] = {"dims": ("nnodes",), "type": "float64"}
 
     def plot(self, notebook=True, cdn_resources="in_line"):
-        pyvisnetwork = import_optional_dependency("pyvis.network")
-        ipdisplay = import_optional_dependency("IPython.display")
+        pyvisnetwork = import_optional_dependency(
+            "pyvis.network", errors="warn"
+        )
+        ipdisplay = import_optional_dependency(
+            "IPython.display", errors="warn"
+        )
 
         nt = pyvisnetwork.Network(
             notebook=notebook, cdn_resources=cdn_resources
