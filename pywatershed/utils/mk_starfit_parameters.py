@@ -27,7 +27,7 @@ import xarray as xr
 import pywatershed as pws
 from pywatershed.utils import import_optional_dependency
 
-folium = import_optional_dependency("folium")
+folium = import_optional_dependency("folium", errors="warn")
 
 
 class MakeStarfitParams:
