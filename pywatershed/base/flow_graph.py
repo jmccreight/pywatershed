@@ -11,6 +11,7 @@ from pywatershed.base.conservative_process import ConservativeProcess
 from pywatershed.base.control import Control
 from pywatershed.constants import nan, zero
 from pywatershed.parameters import Parameters
+from pywatershed.utils import import_optional_dependency
 
 
 class FlowNode(Accessor):
@@ -494,7 +495,7 @@ class FlowGraph(ConservativeProcess):
 
         connectivity = []
         for inode in range(self.nnodes):
-            tonode = params["to_graph_index"][inode]
+            tonode = int(params["to_graph_index"][inode])
             if tonode < 0:
                 continue
             connectivity.append(
@@ -554,13 +555,20 @@ class FlowGraph(ConservativeProcess):
             inds_to_collect = []
             for uu in unique_makers:
                 wh_uu = np.where(np.array(params["node_maker_name"]) == uu)
-                if hasattr(self._nodes[wh_uu[0][0]], vv):
+                # if hasattr(self._nodes[wh_uu[0][0]], vv):
+                if vv in dir(self._nodes[wh_uu[0][0]]):
                     # do we need to get/set the type here? Would have to
                     # check the type over all nodes/node makers
                     # for now I'll just throw and error if it is not float64
                     msg = "Only currently handling float64, new code required"
                     assert self._nodes[wh_uu[0][0]][vv].dtype == "float64", msg
                     inds_to_collect += wh_uu[0].tolist()
+                else:
+                    msg = (
+                        f"{vv} not a property of "
+                        f"{type(self._nodes[wh_uu[0][0]]).__name__}"
+                    )
+                    warn(msg)
             # <<
             if len(inds_to_collect):
                 self._addtl_output_vars_wh_collect[vv] = inds_to_collect
@@ -575,6 +583,29 @@ class FlowGraph(ConservativeProcess):
             # elegant. I suppose there could be conflicts if multiple
             # nodes have the same variable and different metadata.
             self.meta[kk] = {"dims": ("nnodes",), "type": "float64"}
+
+    def plot(self, notebook=True, cdn_resources="in_line"):
+        pyvisnetwork = import_optional_dependency("pyvis.network")
+        ipdisplay = import_optional_dependency("IPython.display")
+
+        nt = pyvisnetwork.Network(
+            notebook=notebook, cdn_resources=cdn_resources
+        )
+        gg = self._graph
+
+        for igg in range(len(gg.nodes)):
+            title = ""
+            for kk in ["node_maker_name", "node_maker_index", "node_maker_id"]:
+                if title != "":
+                    title += " : "
+                title += str(self[kk][igg])
+            gg.nodes[igg]["group"] = self["node_maker_name"][igg]
+            gg.nodes[igg]["label"] = title
+
+        nt.from_nx(gg)
+        ipdisplay.display(nt.show("flow_graph.html"))
+
+        return None
 
     def initialize_netcdf(
         self,

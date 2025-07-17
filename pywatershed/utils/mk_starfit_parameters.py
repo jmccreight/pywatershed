@@ -19,13 +19,14 @@ Overview:
 
 from collections import defaultdict
 
-import folium
 import geopandas as gpd
 import numpy as np
 import pandas as pd
 import xarray as xr
 
 import pywatershed as pws
+
+folium = pws.utils.import_optional_dependency("folium")
 
 
 class MakeStarfitParams:
@@ -73,7 +74,6 @@ class MakeStarfitParams:
         self._resops_ingest()
 
         self._intersect_grand_segs()
-        # self._nreservoirs_per_seg() call this in _intersect_grand_segs?
 
     @property
     def dataset(self):
@@ -282,26 +282,9 @@ class MakeStarfitParams:
     def rm_small_duplicates(self):
         self._intersect_grand_segs(self._small_dups_to_rm)
 
-        # # ----
-
-        # # write list of the grand reservoirs to an external csv file. This could be read by another notebook
-        # pd_grand_in_model = pd.DataFrame(list_grand_in_model)
-        # # pd_grand_in_model.to_csv("grand_in_model.csv")
-
-        # # update the list of the segs in the model
-        # list_segs_to_keep = pd_grand_crosswalk[
-        #     pd_grand_crosswalk.grand_id.isin(list_grand_in_model)
-        # ].gfv11_id
-
-        # # write list to read in later
-        # # index is the row in the crosswalk, value is gfv11_id
-        # # pd_segs_to_keep = pd.DataFrame(list_segs_to_keep).to_csv("segs_with_reservoirs.csv")
-
-        # ----
-        # import full ISTARF dataset from csv
-
     def _merge_istarf_params(self):
-        # keep only the selected reservoirs that meet criteria (in the model, not duplicated on segments)
+        # keep only the selected reservoirs that meet criteria (in the model,
+        # not duplicated on segments)
         pd_local_starfit_params = self._pd_conus_starfit_params[
             self._pd_conus_starfit_params["GRanD_ID"].isin(
                 self._list_grand_in_model
@@ -342,7 +325,8 @@ class MakeStarfitParams:
         self._ds_local_starfit_params = ds_local_starfit_params
 
     def _merge_resops_params(self):
-        # assign ResOpsUS storage at start time as initial_storage parameter in starfit_params
+        # assign ResOpsUS storage at start time as initial_storage parameter in
+        # starfit_params
         pd_resops_storage_init = []
         for grand in self._ds_local_starfit_params.GRanD_ID.data:
             grand = str(grand)
@@ -372,7 +356,6 @@ class MakeStarfitParams:
             pd_resops_storage_init,
         )
 
-        # ----
         # add missing variables from the csv file to the dataset
         self._ds_local_starfit_params["initial_storage"] = xr.Variable(
             "nreservoirs",
