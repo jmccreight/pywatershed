@@ -200,9 +200,7 @@ jobs:
           path: modflow6
 
       - name: Update flopy MODFLOW 6 classes
-        working-directory: modflow6/autotest
-        run: |
-          python update_flopy.py
+        run: python -m flopy.mf6.utils.generate_classes
 
       - name: Install mf6 nightly build binaries
         uses: modflowpy/install-modflow-action@v1
