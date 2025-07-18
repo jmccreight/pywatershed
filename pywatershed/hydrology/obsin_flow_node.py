@@ -32,6 +32,7 @@ class ObsInFlowNode(FlowNode):
         """
         self.control = control
         self._node_obs_data = node_obs_data
+        self._sink_source = zero
         return
 
     def prepare_timestep(self):
