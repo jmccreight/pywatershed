@@ -50,6 +50,7 @@ from .utils import (
     gis_files,
 )
 from .utils.csv_utils import CsvFile
+from .utils.mk_starfit_parameters import MakeStarfitParams
 from .utils.mmr_to_mf6_dfw import MmrToMf6Dfw
 from .version import __version__
 
@@ -99,6 +100,7 @@ __all__ = (
     "PRMSSoilzoneNoDprst",
     "Starfit",
     "ControlVariables",
+    "MakeStarfitParams",
     "MmrToMf6Dfw",
     "NetCdfRead",
     "NetCdfWrite",

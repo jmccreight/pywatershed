@@ -39,6 +39,7 @@ dependencies:
   - pytest-xdist
   - python<3.12,>=3.10
   - pyyaml
+  - pyvis
   - ruff
   - shapely
   - sphinx

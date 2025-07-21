@@ -32,10 +32,25 @@ class SourceSinkFlowNode(FlowNode):
           missing_data_as_zero: Bool option to treat missing times in the
             timeseries as having zero source/sink.
         """
+        from datetime import datetime
+
         self.control = control
         self._flow_min = flow_min
         self._source_sink_data = source_sink_data
         self._missing_data_as_zero = missing_data_as_zero
+        self._sink_source = zero
+
+        first_time = source_sink_data.index[0]
+        if not isinstance(first_time, pd.Timestamp):
+            try:
+                _ = datetime.strptime(first_time, "%Y-%m-%d")
+            except ValueError as err_msg:
+                msg = (
+                    f"The source_sink_data index Date column is malformed: "
+                    f"{err_msg}"
+                )
+                raise ValueError(msg)
+
         return
 
     # @staticmethod
@@ -103,7 +118,6 @@ class SourceSinkFlowNode(FlowNode):
         self._seg_outflow = outflow
         self._sink_source_sum += source_sink
         self._sink_source = self._sink_source_sum / (isubstep + 1)
-
         return
 
     def finalize_timestep(self):
