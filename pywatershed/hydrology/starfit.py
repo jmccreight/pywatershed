@@ -979,6 +979,9 @@ class StarfitFlowNode(FlowNode):
             Release_p2=self._Release_p2,
         )  # output in m^3/d
 
+        self._post_daily_release_calculations(isubstep)
+
+    def _post_daily_release_calculations(self, isubstep) -> None:
         self._lake_release_sub *= m3ps_to_MCM_day / 24 / 60 / 60  # m3pd to MCM
 
         if (self._lake_storage - self._lake_release_sub) < zero:
@@ -1040,6 +1043,9 @@ class StarfitFlowNode(FlowNode):
             Release_p2=self._Release_p2,
         )  # output in m^3/d
 
+        self._post_hourly_release_calculations(isubstep)
+
+    def _post_hourly_release_calculations(self, isubstep) -> None:
         self._lake_release_sub[:] = (
             self._lake_release_sub / 24 / 60 / 60
         )  # m^3/s
