@@ -889,9 +889,12 @@ class StarfitFlowNode(FlowNode):
         # Ouflows on substeps are all the same flow rates, and
         # storages are only updated at the end of the timestep.
         #
+        self._return_from_substep = False
         self._pre_daily_release_calculations(
             isubstep, inflow_upstream, inflow_lateral
         )
+        if self._return_from_substep:
+            return
 
         # now calculate the (avg) outflows for the next timestep
         (
@@ -941,11 +944,11 @@ class StarfitFlowNode(FlowNode):
             self._lake_inflow_sub[:] *= cfs_to_cms
         self._lake_inflow_accum[:] += self._lake_inflow_sub
 
-        # Special case for the very first subtimestep, we use the very first
-        # inflow on the first subtimestep as representative of the mean
-        # inflow of the previous day so we can calculate an average outflow
-        # to use for the first timestep
-        if self.control.itime_step == 0 and isubstep == 0:
+        # # Special case for the very first subtimestep, we use the very first
+        # # inflow on the first subtimestep as representative of the mean
+        # # inflow of the previous day so we can calculate an average outflow
+        # # to use for the first timestep
+        if (self.control.itime_step == 0) and (isubstep == 0):
             # this is the representative for the nonexistent previous day
             self._lake_inflow[:] = self._lake_inflow_accum
             # two previous, we'll assume the same
@@ -956,6 +959,7 @@ class StarfitFlowNode(FlowNode):
             if isubstep == 0:
                 # already in cfs
                 self._lake_outflow_sub[:] = self._lake_outflow_sub_next
+            self._return_from_substep = True
             return
         else:
             if self.control.itime_step == 0:
