@@ -84,7 +84,8 @@ class StarfitSourceSinkFlowNode(StarfitFlowNode):
             Release_c: STARFIT parameter.
             GRanD_CAP_MCM: STARFIT parameter.
             Obs_MEANFLOW_CUMECS: STARFIT parameter.
-            source_sink_storage_min: A floating point value for the minium flow.
+            source_sink_storage_min: A floating point value for the minium
+              flow.
             source_sink_data: A pandas Series object of sources/sinks at this
               location. See SourceSinkFlowNodeMaker for a description of the
               pd.DataFrame passed to supply this data.
@@ -218,12 +219,13 @@ class StarfitSourceSinkFlowNodeMaker(StarfitFlowNodeMaker):
                 in :class:`StarfitFlowNode` dimensioned by number of
                 reservoirs/nodes to instantiate.
             source_sink_df: A pandas DataFrame of observations with a time
-                index which can be selected by '%Y-%m-%d' strftime of a datetime64.
-                The column names are not used and may be anything, for example the
-                nhm_seg of the upstream segment. However, the columns order MUST
-                be collated with the input data vectors. The sign convention is:
-                sources are positive and sinks are negative. That is, the sign is
-                from the perspective of the node.
+                index which can be selected by '%Y-%m-%d' strftime of a
+                datetime64. The column names are not used and may be anything,
+                for example the nhm_seg of the upstream segment. However, the
+                columns order MUST be collated with the input data vectors. The
+                sign convention is: sources are positive and sinks are
+                negative. That is, the sign is from the perspective of the
+                node.
             missing_data_as_zero: Bool option to treat missing times in the
                 timeseries as having zero source/sink.
             calc_method: One of "numba" or "numpy".
