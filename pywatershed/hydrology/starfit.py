@@ -1234,7 +1234,7 @@ class StarfitFlowNodeMaker(FlowNodeMaker):
         return
 
     @staticmethod
-    def get_dimensions() -> dict:
+    def get_dimensions() -> tuple:
         """Get a tuple of dimension names for this StarfitFlowNodeMaker."""
         return ("nreservoirs",)
 

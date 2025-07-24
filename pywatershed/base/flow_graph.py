@@ -32,7 +32,7 @@ class FlowNode(Accessor):
     See :class:`FlowGraph` for related examples and discussion.
     """
 
-    def __init__(self, control: Control):
+    def __init__(self, control: Control) -> None:
         """Initialize the FlowNode.
 
         Args:
@@ -40,13 +40,13 @@ class FlowNode(Accessor):
         """
         raise Exception("This must be overridden")
 
-    def prepare_timestep(self):
+    def prepare_timestep(self) -> None:
         "Prepare the subtimestep for subtimestep calculations."
         raise Exception("This must be overridden")
 
     def calculate_subtimestep(
         self, isubstep: int, inflow_upstream: float, inflow_lateral: float
-    ):
+    ) -> None:
         """Calculate the subtimestep.
 
         Args:
@@ -59,11 +59,11 @@ class FlowNode(Accessor):
         """
         raise Exception("This must be overridden")
 
-    def advance(self):
+    def advance(self) -> None:
         "Advance this FlowNode to the next timestep."
         raise Exception("This must be overridden")
 
-    def finalize_timestep(self):
+    def finalize_timestep(self) -> None:
         "Finalize the current timestep at this FlowNode."
         raise Exception("This must be overridden")
 
@@ -103,7 +103,7 @@ class FlowNodeMaker(Accessor):
         self,
         discretization: Parameters = None,
         parameters: Parameters = None,
-    ):
+    ) -> None:
         """Intitalize the FlowNodeMaker.
 
         Args:
@@ -113,7 +113,7 @@ class FlowNodeMaker(Accessor):
         self.name = "FlowNodeMaker"
         return
 
-    def get_node(control: Control, index: int) -> FlowNode:
+    def get_node(self, control: Control, index: int) -> FlowNode:
         """Instantiate FlowNode at a given index.
 
         Args:
@@ -124,7 +124,7 @@ class FlowNodeMaker(Accessor):
         raise Exception("This must be overridden")
 
 
-def type_check(scalar: float):
+def type_check(scalar: float) -> None:
     assert isinstance(scalar, float)
     return None
 
