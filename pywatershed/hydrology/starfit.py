@@ -889,7 +889,9 @@ class StarfitFlowNode(FlowNode):
         # Ouflows on substeps are all the same flow rates, and
         # storages are only updated at the end of the timestep.
         #
-        self._pre_daily_release_calculations()
+        self._pre_daily_release_calculations(
+            isubstep, inflow_upstream, inflow_lateral
+        )
 
         # now calculate the (avg) outflows for the next timestep
         (
@@ -926,7 +928,9 @@ class StarfitFlowNode(FlowNode):
         self._post_daily_release_calculations(isubstep)
         return
 
-    def _pre_daily_release_calculations(self) -> None:
+    def _pre_daily_release_calculations(
+        self, isubstep, inflow_upstream, inflow_lateral
+    ) -> None:
         # how to get the number of substeps in a timestep?  from control. this
         # might not even be a fixed number
         nsubsteps = 24
