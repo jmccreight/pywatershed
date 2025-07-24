@@ -888,7 +888,45 @@ class StarfitFlowNode(FlowNode):
         # Here we only calculate outflows on the last subtimestep.
         # Ouflows on substeps are all the same flow rates, and
         # storages are only updated at the end of the timestep.
+        #
+        self._pre_daily_release_calculations()
 
+        # now calculate the (avg) outflows for the next timestep
+        (
+            self._lake_release_sub[:],
+            self._lake_availability_status[:],
+        ) = Starfit._calc_istarf_release(
+            epiweek=np.minimum(self.control.current_epiweek, 52),
+            GRanD_CAP_MCM=self._GRanD_CAP_MCM,
+            grand_id=self._grand_id,
+            lake_inflow=self._lake_inflow,
+            lake_storage=self._lake_storage,
+            NORhi_alpha=self._NORhi_alpha,
+            NORhi_beta=self._NORhi_beta,
+            NORhi_max=self._NORhi_max,
+            NORhi_min=self._NORhi_min,
+            NORhi_mu=self._NORhi_mu,
+            NORlo_alpha=self._NORlo_alpha,
+            NORlo_beta=self._NORlo_beta,
+            NORlo_max=self._NORlo_max,
+            NORlo_min=self._NORlo_min,
+            NORlo_mu=self._NORlo_mu,
+            Obs_MEANFLOW_CUMECS=self._Obs_MEANFLOW_CUMECS,
+            Release_alpha1=self._Release_alpha1,
+            Release_alpha2=self._Release_alpha2,
+            Release_beta1=self._Release_beta1,
+            Release_beta2=self._Release_beta2,
+            Release_c=self._Release_c,
+            Release_max=self._Release_max,
+            Release_min=self._Release_min,
+            Release_p1=self._Release_p1,
+            Release_p2=self._Release_p2,
+        )  # output in m^3/d
+
+        self._post_daily_release_calculations(isubstep)
+        return
+
+    def _pre_daily_release_calculations(self) -> None:
         # how to get the number of substeps in a timestep?  from control. this
         # might not even be a fixed number
         nsubsteps = 24
@@ -947,39 +985,7 @@ class StarfitFlowNode(FlowNode):
             ) * MCM_to_m3ps_day
             # spill dosent affect the storage until the next timestep
 
-        # now calculate the (avg) outflows for the next timestep
-        (
-            self._lake_release_sub[:],
-            self._lake_availability_status[:],
-        ) = Starfit._calc_istarf_release(
-            epiweek=np.minimum(self.control.current_epiweek, 52),
-            GRanD_CAP_MCM=self._GRanD_CAP_MCM,
-            grand_id=self._grand_id,
-            lake_inflow=self._lake_inflow,
-            lake_storage=self._lake_storage,
-            NORhi_alpha=self._NORhi_alpha,
-            NORhi_beta=self._NORhi_beta,
-            NORhi_max=self._NORhi_max,
-            NORhi_min=self._NORhi_min,
-            NORhi_mu=self._NORhi_mu,
-            NORlo_alpha=self._NORlo_alpha,
-            NORlo_beta=self._NORlo_beta,
-            NORlo_max=self._NORlo_max,
-            NORlo_min=self._NORlo_min,
-            NORlo_mu=self._NORlo_mu,
-            Obs_MEANFLOW_CUMECS=self._Obs_MEANFLOW_CUMECS,
-            Release_alpha1=self._Release_alpha1,
-            Release_alpha2=self._Release_alpha2,
-            Release_beta1=self._Release_beta1,
-            Release_beta2=self._Release_beta2,
-            Release_c=self._Release_c,
-            Release_max=self._Release_max,
-            Release_min=self._Release_min,
-            Release_p1=self._Release_p1,
-            Release_p2=self._Release_p2,
-        )  # output in m^3/d
-
-        self._post_daily_release_calculations(isubstep)
+        return
 
     def _post_daily_release_calculations(self, isubstep) -> None:
         self._lake_release_sub *= m3ps_to_MCM_day / 24 / 60 / 60  # m3pd to MCM
@@ -1005,12 +1011,7 @@ class StarfitFlowNode(FlowNode):
     def _calculate_subtimestep_hourly(
         self, isubstep, inflow_upstream, inflow_lateral
     ) -> None:
-        self._lake_inflow_sub[:] = np.array([inflow_upstream + inflow_lateral])
-        if self._io_in_cfs:
-            self._lake_inflow_sub[:] *= cfs_to_cms
-
-        # <
-        self._lake_storage_old_sub[:] = self._lake_storage_sub
+        self._pre_hourly_release_calculations(inflow_upstream, inflow_lateral)
 
         (
             self._lake_release_sub[:],
@@ -1044,6 +1045,18 @@ class StarfitFlowNode(FlowNode):
         )  # output in m^3/d
 
         self._post_hourly_release_calculations(isubstep)
+        return
+
+    def _pre_hourly_release_calculations(
+        self, inflow_upstream, inflow_lateral
+    ) -> None:
+        self._lake_inflow_sub[:] = np.array([inflow_upstream + inflow_lateral])
+        if self._io_in_cfs:
+            self._lake_inflow_sub[:] *= cfs_to_cms
+
+        # <
+        self._lake_storage_old_sub[:] = self._lake_storage_sub
+        return
 
     def _post_hourly_release_calculations(self, isubstep) -> None:
         self._lake_release_sub[:] = (
