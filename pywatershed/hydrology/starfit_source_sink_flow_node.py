@@ -238,13 +238,9 @@ class StarfitSourceSinkFlowNode(StarfitFlowNode):
               m3ps_to_MCM_daily. Conversions can be made for other periods of
               time.
         """
-        from copy import deepcopy
-
         source_sink_vol = self._source_sink_requested * flow_to_vol_conversion
         min_storage = self._source_sink_storage_min
-        # TODO remove deepcopy
-        storage = deepcopy(self._lake_storage_sub)  # MCM
-        storage_before = deepcopy(self._lake_storage_sub)
+        storage = self._lake_storage_sub.copy()  # MCM
 
         if source_sink_vol >= zero:
             # a source is always applied
@@ -259,22 +255,14 @@ class StarfitSourceSinkFlowNode(StarfitFlowNode):
             if (storage + source_sink_vol) < min_storage:
                 # if the sink is too much, reduce it up to min storage
                 # The difference here is to get the negative sign
-                # print(f"{min_storage=}")
-                # print(f"{storage=}")
                 source_sink_vol = min_storage - storage
-                # print(f"{source_sink_vol=}")
                 storage = min_storage
-                # print(f"{storage=}")
             else:
                 storage += source_sink_vol
 
         # <
         self._lake_storage_after_source_sink[:] = storage  # MCM
         self._source_sink[:] = source_sink_vol * (one / flow_to_vol_conversion)
-        # print(f"{storage_before=}")
-        # print(f"{self._lake_storage_after_source_sink=}")
-        # print(f"{self._source_sink * flow_to_vol_conversion=}")
-        # print(f"{self._source_sink=}")
 
         return
 
