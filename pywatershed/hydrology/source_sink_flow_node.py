@@ -105,10 +105,10 @@ class SourceSinkFlowNode(FlowNode):
             # sink is not applied when inflow < min_flow
             outflow = inflow
             source_sink = zero
-            source_sink = zero
 
         elif (source_sink < zero) and (inflow >= min_flow):
-            if inflow + source_sink < min_flow:
+            if (inflow + source_sink) < min_flow:
+                # difference order is for negative sign convention for sink
                 source_sink = min_flow - inflow
                 outflow = min_flow
             else:

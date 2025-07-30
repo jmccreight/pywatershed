@@ -5,7 +5,14 @@ import pandas as pd
 
 from pywatershed.base.control import Control
 from pywatershed.constants import one, zero
-from pywatershed.hydrology.starfit import StarfitFlowNode, StarfitFlowNodeMaker
+from pywatershed.hydrology.starfit import (
+    Starfit,
+    StarfitFlowNode,
+    StarfitFlowNodeMaker,
+    cfs_to_cms,
+    cms_to_cfs,
+    nan1d,
+)
 from pywatershed.parameters import Parameters
 
 
@@ -100,6 +107,12 @@ class StarfitSourceSinkFlowNode(StarfitFlowNode):
         """
         from datetime import datetime
 
+        # needs to be above super.__init__ because of budget init in there.
+        self._lake_storage_after_source_sink = nan1d()
+        self._source_sink = nan1d()
+        self._source = nan1d()
+        self._sink = nan1d()
+
         super().__init__(
             control=control,
             grand_id=grand_id,
@@ -140,7 +153,6 @@ class StarfitSourceSinkFlowNode(StarfitFlowNode):
         self._source_sink_storage_min = source_sink_storage_min
         self._source_sink_data = source_sink_data
         self._missing_data_as_zero = missing_data_as_zero
-        self._sink_source = zero
 
         first_time = source_sink_data.index[0]
         if not isinstance(first_time, pd.Timestamp):
@@ -161,11 +173,12 @@ class StarfitSourceSinkFlowNode(StarfitFlowNode):
         return {
             "inputs": [
                 "_lake_inflow",
+                "_source",
             ],
             "outputs": [
                 "_lake_release",
                 "_lake_spill",
-                "_sink_source",
+                "_sink",
             ],
             "storage_changes": [
                 "_lake_storage_change_flow_units",
@@ -188,10 +201,182 @@ class StarfitSourceSinkFlowNode(StarfitFlowNode):
             self._source_sink_requested = zero
         else:
             self._source_sink_requested = self._source_sink_data[ymd]
+            if self._io_in_cfs:
+                self._source_sink_requested *= cfs_to_cms
+
+        return
+
+    def finalize_timestep(self):
+        if self._source_sink > 0:
+            self._source[:] = self._source_sink
+            self._sink[:] = zero
+        elif self._source_sink < 0:
+            self._source[:] = zero
+            self._sink[:] = np.abs(self._source_sink)
+        else:
+            self._source[:] = zero
+            self._sink[:] = zero
+
+        if self._io_in_cfs:
+            self._source[:] *= cms_to_cfs
+            self._sink[:] *= cms_to_cfs
+
+        super().finalize_timestep()
+
+    def _source_sink_calculations(
+        self,
+        flow_to_vol_conversion: float,
+    ) -> None:
+        """Calculate diversion from storage on the time basis supplied.
+
+        Args:
+            flow_to_vol_conversion: This conversion is from cubic meters per
+              second to millions of cubic meteres (MCM) for some period of
+              time. If the calculation is hourly, the conversion would be the
+              pywatershed constant m3ps_to_MCM_hourly. If the calculation is
+              daily, the conversion would be the pywatershed constant
+              m3ps_to_MCM_daily. Conversions can be made for other periods of
+              time.
+        """
+        from copy import deepcopy
+
+        source_sink_vol = self._source_sink_requested * flow_to_vol_conversion
+        min_storage = self._source_sink_storage_min
+        # TODO remove deepcopy
+        storage = deepcopy(self._lake_storage_sub)  # MCM
+        storage_before = deepcopy(self._lake_storage_sub)
+
+        if source_sink_vol >= zero:
+            # a source is always applied
+            storage += source_sink_vol
+
+        elif (source_sink_vol < zero) and (storage < min_storage):
+            # sink is not applied when storage < min_storage
+            # storage stays the same
+            source_sink_vol = zero
+
+        elif (source_sink_vol < zero) and (storage >= min_storage):
+            if (storage + source_sink_vol) < min_storage:
+                # if the sink is too much, reduce it up to min storage
+                # The difference here is to get the negative sign
+                # print(f"{min_storage=}")
+                # print(f"{storage=}")
+                source_sink_vol = min_storage - storage
+                # print(f"{source_sink_vol=}")
+                storage = min_storage
+                # print(f"{storage=}")
+            else:
+                storage += source_sink_vol
 
         # <
-        self._sink_source_sum = zero
+        self._lake_storage_after_source_sink[:] = storage  # MCM
+        self._source_sink[:] = source_sink_vol * (one / flow_to_vol_conversion)
+        # print(f"{storage_before=}")
+        # print(f"{self._lake_storage_after_source_sink=}")
+        # print(f"{self._source_sink * flow_to_vol_conversion=}")
+        # print(f"{self._source_sink=}")
 
+        return
+
+    def _calculate_subtimestep_daily(
+        self, isubstep: int, inflow_upstream: float, inflow_lateral: float
+    ) -> None:
+        # Here we only calculate outflows on the last subtimestep.
+        # Ouflows on substeps are all the same flow rates, and
+        # storages are only updated at the end of the timestep.
+        #
+        self._pre_daily_release_calculations(
+            isubstep, inflow_upstream, inflow_lateral
+        )
+        if self._return_from_substep:
+            return
+
+        self._source_sink_calculations(
+            flow_to_vol_conversion=self._m3ps_to_MCM
+        )
+
+        # now calculate the (avg) outflows for the next timestep
+        (
+            self._lake_release_sub[:],
+            self._lake_availability_status[:],
+        ) = Starfit._calc_istarf_release(
+            epiweek=np.minimum(self.control.current_epiweek, 52),
+            GRanD_CAP_MCM=self._GRanD_CAP_MCM,
+            grand_id=self._grand_id,
+            lake_inflow=self._lake_inflow,
+            lake_storage=self._lake_storage,
+            NORhi_alpha=self._NORhi_alpha,
+            NORhi_beta=self._NORhi_beta,
+            NORhi_max=self._NORhi_max,
+            NORhi_min=self._NORhi_min,
+            NORhi_mu=self._NORhi_mu,
+            NORlo_alpha=self._NORlo_alpha,
+            NORlo_beta=self._NORlo_beta,
+            NORlo_max=self._NORlo_max,
+            NORlo_min=self._NORlo_min,
+            NORlo_mu=self._NORlo_mu,
+            Obs_MEANFLOW_CUMECS=self._Obs_MEANFLOW_CUMECS,
+            Release_alpha1=self._Release_alpha1,
+            Release_alpha2=self._Release_alpha2,
+            Release_beta1=self._Release_beta1,
+            Release_beta2=self._Release_beta2,
+            Release_c=self._Release_c,
+            Release_max=self._Release_max,
+            Release_min=self._Release_min,
+            Release_p1=self._Release_p1,
+            Release_p2=self._Release_p2,
+        )  # output in m^3/d
+
+        self._post_daily_release_calculations(isubstep)
+        return
+
+    def _calc_hourly_storage_change_sub(self) -> None:
+        self._lake_storage_change_sub[:] = (
+            self._lake_inflow_sub - self._lake_release_sub + self._source_sink
+        ) * self._m3ps_to_MCM  # MCM: million cubic meters
+        return
+
+    def _calculate_subtimestep_hourly(
+        self, isubstep, inflow_upstream, inflow_lateral
+    ) -> None:
+        self._pre_hourly_release_calculations(inflow_upstream, inflow_lateral)
+        # given the existing storage, a storage minimum and a requested
+        # diversion, calculate the diversion and the reesulting storage
+        self._source_sink_calculations(
+            flow_to_vol_conversion=self._m3ps_to_MCM
+        )
+        (
+            self._lake_release_sub[:],
+            self._lake_availability_status_sub[:],
+        ) = Starfit._calc_istarf_release(
+            epiweek=np.minimum(self.control.current_epiweek, 52),
+            GRanD_CAP_MCM=self._GRanD_CAP_MCM,
+            grand_id=self._grand_id,
+            lake_inflow=self._lake_inflow_sub,
+            lake_storage=self._lake_storage_after_source_sink,
+            NORhi_alpha=self._NORhi_alpha,
+            NORhi_beta=self._NORhi_beta,
+            NORhi_max=self._NORhi_max,
+            NORhi_min=self._NORhi_min,
+            NORhi_mu=self._NORhi_mu,
+            NORlo_alpha=self._NORlo_alpha,
+            NORlo_beta=self._NORlo_beta,
+            NORlo_max=self._NORlo_max,
+            NORlo_min=self._NORlo_min,
+            NORlo_mu=self._NORlo_mu,
+            Obs_MEANFLOW_CUMECS=self._Obs_MEANFLOW_CUMECS,
+            Release_alpha1=self._Release_alpha1,
+            Release_alpha2=self._Release_alpha2,
+            Release_beta1=self._Release_beta1,
+            Release_beta2=self._Release_beta2,
+            Release_c=self._Release_c,
+            Release_max=self._Release_max,
+            Release_min=self._Release_min,
+            Release_p1=self._Release_p1,
+            Release_p2=self._Release_p2,
+        )  # output in m^3/d
+
+        self._post_hourly_release_calculations(isubstep)
         return
 
 

@@ -28,6 +28,8 @@ from pywatershed.utils.time_utils import datetime_epiweek
 # m^3/second = m3ps
 # m^3/week = m2pw
 
+# TODO: use these or the ones defined on self.nhrs_substep?
+#       both is killing me. Kind of need the later for regression tests.
 # daily conversions mass <-> volume
 m3ps_to_MCM_day = 24 * 60 * 60 / 1.0e6
 MCM_to_m3ps_day = 1.0 / m3ps_to_MCM_day
@@ -35,6 +37,10 @@ MCM_to_m3ps_day = 1.0 / m3ps_to_MCM_day
 # hourly conversions mass <-> volume
 m3ps_to_MCM_hour = 1 * 60 * 60 / 1.0e6
 MCM_to_m3ps_hour = 1.0 / m3ps_to_MCM_hour
+
+
+def nan1d():
+    return np.zeros(1) * nan
 
 
 # constant
@@ -117,7 +123,7 @@ class Starfit(ConservativeProcess):
         return
 
     @staticmethod
-    def get_dimensions() -> dict:
+    def get_dimensions() -> tuple:
         """Get a tuple of dimension names for this Starfit."""
         return ("nreservoirs",)
 
@@ -158,7 +164,7 @@ class Starfit(ConservativeProcess):
         return ("lake_inflow",)
 
     @staticmethod
-    def get_mass_budget_terms():
+    def get_mass_budget_terms() -> dict:
         """Get a dictionary of variable names for mass budget terms."""
         return {
             "inputs": [
@@ -251,7 +257,7 @@ class Starfit(ConservativeProcess):
         self.lake_storage_old[:] = self.lake_storage
         return
 
-    def _calculate(self, simulation_time):
+    def _calculate(self, simulation_time) -> None:
         """Calculate starfit for a time step (vectorized)
 
         Args:
@@ -598,7 +604,7 @@ class StarfitFlowNode(FlowNode):
         calc_method: Literal["numba", "numpy"] = None,
         io_in_cfs: bool = True,
         compute_daily: bool = False,
-        nhrs_substep: int = one,
+        nhrs_substep: int = 1,
         budget_type: Literal["defer", None, "warn", "error"] = None,
     ):
         """Initialize a StarfitFlowNode.
@@ -677,9 +683,6 @@ class StarfitFlowNode(FlowNode):
         self._MCM_to_m3ps = 1.0 / self._m3ps_to_MCM
 
         # These need to be numpy pointers for the Budget!
-        def nan1d():
-            return np.zeros(1) * nan
-
         self._lake_inflow = nan1d()
         self._lake_inflow_cms = nan1d()
         self._lake_inflow_accum = nan1d()
@@ -883,13 +886,12 @@ class StarfitFlowNode(FlowNode):
         return zero
 
     def _calculate_subtimestep_daily(
-        self, isubstep, inflow_upstream, inflow_lateral
+        self, isubstep: int, inflow_upstream: float, inflow_lateral: float
     ) -> None:
         # Here we only calculate outflows on the last subtimestep.
         # Ouflows on substeps are all the same flow rates, and
         # storages are only updated at the end of the timestep.
         #
-        self._return_from_substep = False
         self._pre_daily_release_calculations(
             isubstep, inflow_upstream, inflow_lateral
         )
@@ -948,6 +950,7 @@ class StarfitFlowNode(FlowNode):
         # # inflow on the first subtimestep as representative of the mean
         # # inflow of the previous day so we can calculate an average outflow
         # # to use for the first timestep
+        self._return_from_substep = False
         if (self.control.itime_step == 0) and (isubstep == 0):
             # this is the representative for the nonexistent previous day
             self._lake_inflow[:] = self._lake_inflow_accum
@@ -970,6 +973,7 @@ class StarfitFlowNode(FlowNode):
                 self._lake_outflow_sub[:] *= cfs_to_cms
                 self._lake_release_sub[:] *= cfs_to_cms
                 self._lake_spill_sub[:] *= cfs_to_cms
+
             self._lake_outflow[:] = self._lake_outflow_sub
             self._lake_release[:] = self._lake_release_sub
             self._lake_spill[:] = self._lake_spill_sub
@@ -1066,14 +1070,18 @@ class StarfitFlowNode(FlowNode):
         self._lake_storage_old_sub[:] = self._lake_storage_sub
         return
 
+    def _calc_hourly_storage_change_sub(self) -> None:
+        self._lake_storage_change_sub[:] = (
+            self._lake_inflow_sub - self._lake_release_sub
+        ) * self._m3ps_to_MCM  # MCM: million cubic meters
+        return
+
     def _post_hourly_release_calculations(self, isubstep) -> None:
         self._lake_release_sub[:] = (
             self._lake_release_sub / 24 / 60 / 60
         )  # m^3/s
 
-        self._lake_storage_change_sub[:] = (
-            self._lake_inflow_sub - self._lake_release_sub
-        ) * self._m3ps_to_MCM  # MCM: million cubic meters
+        self._calc_hourly_storage_change_sub()
 
         # can't release more than storage + inflow. This assumes zero
         # storage = deadpool which may not be accurate, but this situation
@@ -1089,9 +1097,7 @@ class StarfitFlowNode(FlowNode):
                 potential_release,
                 potential_release * zero,
             )  # m^3/s
-            self._lake_storage_change_sub[:] = (
-                self._lake_inflow_sub - self._lake_release_sub
-            ) * self._m3ps_to_MCM  # MCM: million cubic meters
+            self._calc_hourly_storage_change_sub()
 
         self._lake_storage_sub[:] = np.maximum(
             self._lake_storage_sub + self._lake_storage_change_sub,

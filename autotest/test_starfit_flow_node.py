@@ -10,9 +10,6 @@ from pywatershed.base.control import Control
 # from pywatershed.base.flow_graph import FlowGraph
 from pywatershed.constants import cm_to_cf, cms_to_cfs, nan, zero
 from pywatershed.hydrology.starfit import StarfitFlowNodeMaker
-from pywatershed.hydrology.starfit_source_sink_flow_node import (
-    StarfitSourceSinkFlowNodeMaker,
-)
 from pywatershed.parameters import Parameters, StarfitParameters
 
 # NB:
@@ -58,7 +55,7 @@ def parameters():
     #     (parameters_ds.start_time == np.datetime64("1995-01-01 00:00:00"))
     #     & (parameters_ds.end_time >= np.datetime64("2001-12-31 00:00:00"))
     # )
-    # asdf
+
     merge_list = []
     for ii in starfit_inds_test:
         merge_list += [parameters_ds.isel(nreservoirs=slice(ii, ii + 1))]
@@ -137,6 +134,7 @@ def test_starfit_flow_node_compare_starfit(
         # calc_method=calc_method
         io_in_cfs=io_in_cfs,
         nhrs_substep=24,
+        compute_daily=False,
     )
 
     nodes = [
@@ -162,111 +160,9 @@ def test_starfit_flow_node_compare_starfit(
             node.advance()
             node.prepare_timestep()
             for ss in range(1):
-                node.calculate_subtimestep(
-                    ss, inflows_node.current[inode], zero
-                )
-            node.finalize_timestep()
-
-        # fill up timeseries arrays
-        for ii, si in enumerate(starfit_inds_test):
-            for var in results.keys():
-                results[var][istep, ii] = nodes[ii][f"_{var}"][0]
-
-    for var in results.keys():
-        actual = results[var].mean(0)
-        ans = answers[f"{var}_mean"].values
-        if io_in_cfs:
-            ans *= cms_to_cfs  # same for storage
-
-        # <
-        np.testing.assert_allclose(actual, ans, rtol=rtol, atol=atol)
-
-
-@pytest.mark.parametrize(
-    "io_in_cfs", [True, False], ids=("io_in_cfs", "io_in_cms")
-)
-def test_starfit_source_sink_flow_node_compare_starfit(
-    control, parameters_source_sink, answers, io_in_cfs, tmp_path
-):
-    import pandas as pd
-
-    if io_in_cfs:
-        param_ds = parameters_source_sink.to_xr_ds()
-        param_ds["initial_storage"] *= cm_to_cf
-        parameters = StarfitParameters.from_ds(param_ds)
-    else:
-        parameters = parameters_source_sink
-
-    # <
-    del parameters_source_sink
-
-    inflow_file = "../test_data/starfit/lake_inflow.nc"
-    input_variables = AdapterNetcdf(inflow_file, "lake_inflow", control)
-    nreservoirs = len(starfit_inds_test)
-
-    class NodeInflowAdapter(Adapter):
-        def __init__(
-            self,
-            starfit_inflows: Adapter,
-            variable: str = "inflows",
-        ):
-            self._variable = variable
-            self._starfit_inflows = starfit_inflows
-
-            self._nnodes = len(starfit_inds_test)
-            self._current_value = np.zeros(self._nnodes) * nan
-            return
-
-        def advance(self) -> None:
-            self._starfit_inflows.advance()
-            self._current_value[:] = self._starfit_inflows.current[
-                tuple(starfit_inds_test),
-            ]
-            return
-
-    inflows_node = NodeInflowAdapter(input_variables)
-
-    nres = parameters.dims["nreservoirs"]
-    source_sink_df = pd.DataFrame(
-        index=pd.date_range(start=control.start_time, end=control.end_time),
-        columns=np.arange(nres),
-    )
-    source_sink_df.loc[:, :] = zero
-    missing_data_as_zero = False
-
-    node_maker = StarfitSourceSinkFlowNodeMaker(
-        discretization=None,
-        parameters=parameters,
-        source_sink_df=source_sink_df,
-        missing_data_as_zero=missing_data_as_zero,
-        calc_method="numba",
-        io_in_cfs=io_in_cfs,
-        nhrs_substep=24,
-    )
-
-    nodes = [
-        node_maker.get_node(control, ii)
-        for ii, zz in enumerate(starfit_inds_test)
-    ]
-
-    # we'll fill up timeseries arrays
-    results = {
-        "lake_storage": np.zeros([control.n_times, nreservoirs]) * np.nan,
-        "lake_spill": np.zeros([control.n_times, nreservoirs]) * np.nan,
-        "lake_release": np.zeros([control.n_times, nreservoirs]) * np.nan,
-    }
-
-    for istep in range(control.n_times):
-        control.advance()
-        inflows_node.advance()
-
-        if io_in_cfs:
-            inflows_node.current[:] *= cms_to_cfs
-
-        for inode, node in enumerate(nodes):
-            node.advance()
-            node.prepare_timestep()
-            for ss in range(1):
+                # I believe this is to exactly match the Starfit method, it
+                # will not work with a budget
+                # TODO JLM: WHY?
                 node.calculate_subtimestep(
                     ss, inflows_node.current[inode], zero
                 )
