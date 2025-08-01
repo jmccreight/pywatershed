@@ -4,13 +4,11 @@ import numpy as np
 import pandas as pd
 
 from pywatershed.base.control import Control
-from pywatershed.constants import one, zero
+from pywatershed.constants import cfs_to_cms, cms_to_cfs, one, zero
 from pywatershed.hydrology.starfit import (
     Starfit,
     StarfitFlowNode,
     StarfitFlowNodeMaker,
-    cfs_to_cms,
-    cms_to_cfs,
     nan1d,
 )
 from pywatershed.parameters import Parameters
@@ -95,7 +93,8 @@ class StarfitSourceSinkFlowNode(StarfitFlowNode):
               flow.
             source_sink_data: A pandas Series object of sources/sinks at this
               location. See SourceSinkFlowNodeMaker for a description of the
-              pd.DataFrame passed to supply this data.
+              pd.DataFrame passed to supply this data. Units are cubic feet
+              per second.
             missing_data_as_zero: Bool option to treat missing times in the
               timeseries as having zero source/sink.
             calc_method: One of "numba" or "numpy".
@@ -110,6 +109,8 @@ class StarfitSourceSinkFlowNode(StarfitFlowNode):
         # needs to be above super.__init__ because of budget init in there.
         self._lake_storage_after_source_sink = nan1d()
         self._source_sink = nan1d()
+        self._sink_source = nan1d()
+        self._negative_sink_source = nan1d()
         self._source = nan1d()
         self._sink = nan1d()
 
@@ -173,20 +174,25 @@ class StarfitSourceSinkFlowNode(StarfitFlowNode):
         return {
             "inputs": [
                 "_lake_inflow",
-                "_source",
             ],
             "outputs": [
                 "_lake_release",
                 "_lake_spill",
-                "_sink",
             ],
             "storage_changes": [
                 "_lake_storage_change_flow_units",
+                "_negative_sink_source",
             ],
         }
 
+    @property
+    def sink_source(self) -> np.float64:
+        return self._sink_source[0]
+
     def prepare_timestep(self) -> None:
         super().prepare_timestep()
+
+        self._sink_source_sum = zero
 
         # remaining code from source_sink_flow_node
         ymd = self.control.current_datetime.strftime("%Y-%m-%d")
@@ -207,24 +213,12 @@ class StarfitSourceSinkFlowNode(StarfitFlowNode):
         return
 
     def finalize_timestep(self):
-        if self._source_sink > 0:
-            self._source[:] = self._source_sink
-            self._sink[:] = zero
-        elif self._source_sink < 0:
-            self._source[:] = zero
-            self._sink[:] = np.abs(self._source_sink)
-        else:
-            self._source[:] = zero
-            self._sink[:] = zero
-
-        if self._io_in_cfs:
-            self._source[:] *= cms_to_cfs
-            self._sink[:] *= cms_to_cfs
-
+        self._negative_sink_source[:] = -1 * self._sink_source
         super().finalize_timestep()
 
     def _source_sink_calculations(
         self,
+        isubstep: int,
         flow_to_vol_conversion: float,
     ) -> None:
         """Calculate diversion from storage on the time basis supplied.
@@ -264,6 +258,12 @@ class StarfitSourceSinkFlowNode(StarfitFlowNode):
         self._lake_storage_after_source_sink[:] = storage  # MCM
         self._source_sink[:] = source_sink_vol * (one / flow_to_vol_conversion)
 
+        # very confusing, move self._source_sink to self._sink_source_sub
+        self._sink_source_sum += self._source_sink[0]
+        self._sink_source[:] = self._sink_source_sum / (isubstep + 1)
+        if self._io_in_cfs:
+            self._sink_source[:] *= cms_to_cfs
+
         return
 
     def _calculate_subtimestep_daily(
@@ -280,7 +280,7 @@ class StarfitSourceSinkFlowNode(StarfitFlowNode):
             return
 
         self._source_sink_calculations(
-            flow_to_vol_conversion=self._m3ps_to_MCM
+            isubstep=isubstep, flow_to_vol_conversion=self._m3ps_to_MCM
         )
 
         # now calculate the (avg) outflows for the next timestep
@@ -331,7 +331,7 @@ class StarfitSourceSinkFlowNode(StarfitFlowNode):
         # given the existing storage, a storage minimum and a requested
         # diversion, calculate the diversion and the reesulting storage
         self._source_sink_calculations(
-            flow_to_vol_conversion=self._m3ps_to_MCM
+            isubstep=isubstep, flow_to_vol_conversion=self._m3ps_to_MCM
         )
         (
             self._lake_release_sub[:],
@@ -398,7 +398,7 @@ class StarfitSourceSinkFlowNodeMaker(StarfitFlowNodeMaker):
                 columns order MUST be collated with the input data vectors. The
                 sign convention is: sources are positive and sinks are
                 negative. That is, the sign is from the perspective of the
-                node.
+                node. Units are cubic feet per second.
             missing_data_as_zero: Bool option to treat missing times in the
                 timeseries as having zero source/sink.
             calc_method: One of "numba" or "numpy".

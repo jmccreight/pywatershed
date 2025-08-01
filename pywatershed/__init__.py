@@ -40,6 +40,10 @@ from .hydrology.source_sink_flow_node import (
     SourceSinkFlowNodeMaker,
 )
 from .hydrology.starfit import Starfit, StarfitFlowNode, StarfitFlowNodeMaker
+from .hydrology.starfit_source_sink_flow_node import (
+    StarfitSourceSinkFlowNode,
+    StarfitSourceSinkFlowNodeMaker,
+)
 from .plot.domain_plot import DomainPlot
 from .utils import (
     ControlVariables,
@@ -88,6 +92,8 @@ __all__ = (
     "SourceSinkFlowNodeMaker",
     "StarfitFlowNode",
     "StarfitFlowNodeMaker",
+    "StarfitSourceSinkFlowNode",
+    "StarfitSourceSinkFlowNodeMaker",
     "PRMSCanopy",
     "PRMSChannel",
     "PRMSEt",

@@ -98,12 +98,11 @@ class Starfit(ConservativeProcess):
         load_n_time_batches: int = 1,
         io_in_cfs: bool = True,
     ) -> None:
+        metadata_patches = None
+        metadata_patch_conflicts = "error"
         if io_in_cfs:
             metadata_patches = metadata_patches_cfs
             metadata_patch_conflicts = "left"
-        else:
-            metadata_patches = None
-            metadata_patch_conflicts = "error"
 
         super().__init__(
             control=control,

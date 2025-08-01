@@ -180,7 +180,8 @@ class SourceSinkFlowNodeMaker(FlowNodeMaker):
             nhm_seg of the upstream segment. However, the columns order MUST
             be collated with the input data vectors. The sign convention is:
             sources are positive and sinks are negative. That is, the sign is
-            from the perspective of the node.
+            from the perspective of the node. The units are cubic feet per
+            second.
           missing_data_as_zero: Bool option to treat missing times in the
             timeseries as having zero source/sink.
 
