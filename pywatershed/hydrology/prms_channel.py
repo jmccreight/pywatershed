@@ -172,12 +172,9 @@ class PRMSChannel(ConservativeProcess):
         }
 
     @staticmethod
-    def get_restart_variables() -> dict:
+    def get_restart_variables() -> list:
         """Get a dict of restart varible names mapping current: previous."""
-        return {
-            "inflow_ts_prev": "inflow_ts_prev",
-            "outflow_ts": "outflow_ts",
-        }
+        return ["seg_inflow", "outflow_ts"]
 
     @staticmethod
     def get_mass_budget_terms() -> dict:
@@ -349,12 +346,12 @@ class PRMSChannel(ConservativeProcess):
         self._inflow_ts = np.zeros(self.nsegment, dtype=float)
         self._seg_current_sum = np.zeros(self.nsegment, dtype=float)
 
-        # initialize internal self_inflow variable
-        for iseg in range(self.nsegment):
-            jseg = self._tosegment[iseg]
-            if jseg < 0:
-                continue
-            self.seg_inflow[jseg] = self.seg_outflow[iseg]
+        if not self._restart_read:
+            for iseg in range(self.nsegment):
+                jseg = self._tosegment[iseg]
+                if jseg < 0:
+                    continue
+                self.seg_inflow[jseg] = self.seg_outflow[iseg]
 
         return
 
@@ -399,8 +396,10 @@ class PRMSChannel(ConservativeProcess):
             self._muskingum_mann = self._muskingum_mann_numpy
 
     def _advance_variables(self) -> None:
-        # The advance is handled in the sub-timestep loop and is
-        # for output_ts and inflow_ts_prev.
+        # Seems strange to set an instantaneous value to an avg one.
+        # Cant the method use instantaneous values across timesteps?
+        self.inflow_ts_prev[:] = self.seg_inflow
+
         return
 
     def _calculate(self, simulation_time: float) -> None:

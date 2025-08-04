@@ -261,11 +261,10 @@ class PRMSSnow(ConservativeProcess):
         }
 
     @staticmethod
-    def get_restart_variables() -> dict:
-        return {
-            "freeh2o": "freeh2o_prev",
-            "pk_ice": "pk_ice_prev",
-        }
+    def get_restart_variables() -> list:
+        return []
+        # not implemented
+        # return ["freeh2o", "pk_ice"]
 
     @staticmethod
     def get_mass_budget_terms():
@@ -493,6 +492,11 @@ class PRMSSnow(ConservativeProcess):
         else:
             self._calculate_snow = self._calculate_numpy
 
+        return
+
+    def _advance_variables(self) -> None:
+        self.freeh2o_prev[:] = self.freeh2o
+        self.pk_ice_prev[:] = self.pk_ice
         return
 
     def _calculate(self, simulation_time):

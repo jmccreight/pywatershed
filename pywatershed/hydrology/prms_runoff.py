@@ -242,14 +242,16 @@ class PRMSRunoff(ConservativeProcess):
         }
 
     @staticmethod
-    def get_restart_variables() -> dict:
-        return {
-            "hru_impervstor": "hru_impervstor_old",
-            "dprst_stor_hru": "dprst_stor_hru_old",
-            "dprst_area_open": "dprst_area_open",  # unnecessary ?
-            "dprst_area_clos": "dprst_area_clos",  # unnecessary ?
-            "dprst_vol_thres_open": "dprst_vol_thres_open",  # unnecessary ?
-        }
+    def get_restart_variables() -> list:
+        return []
+        # not implemented
+        # return [
+        #     "hru_impervstor",
+        #     "dprst_stor_hru",
+        #     "dprst_area_open",
+        #     "dprst_area_clos",
+        #     "dprst_vol_thres_open",
+        # ]
 
     @staticmethod
     def get_mass_budget_terms():

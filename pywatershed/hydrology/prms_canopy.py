@@ -153,8 +153,8 @@ class PRMSCanopy(ConservativeProcess):
         }
 
     @staticmethod
-    def get_restart_variables() -> dict:
-        return {"hru_intcpstor": "hru_intcpstor_old"}
+    def get_restart_variables() -> list:
+        return ["hru_intcpstor"]
 
     @staticmethod
     def get_mass_budget_terms():

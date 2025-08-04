@@ -236,16 +236,18 @@ class PRMSSoilzone(ConservativeProcess):
         }
 
     @staticmethod
-    def get_restart_variables() -> dict:
-        return {
-            "pref_flow_stor": "pref_flow_stor_prev",
-            "soil_rechr": "soil_rechr_prev",
-            "soil_lower": "soil_lower_prev",
-            "slow_stor": "slow_stor_prev",
-        }
+    def get_restart_variables() -> list:
+        return []
+        # not implemented
+        # return [
+        #     "pref_flow_stor",
+        #     "soil_rechr",
+        #     "soil_lower",
+        #     "slow_stor",
+        # ]
 
     @staticmethod
-    def get_mass_budget_terms():
+    def get_mass_budget_terms() -> dict:
         return {
             "inputs": [
                 "infil_hru",

@@ -12,7 +12,7 @@ nhm_processes = [
     ## pws.PRMSSnow,  #  what is going on here? hidden prognostic variables?
     ## pws.PRMSRunoff,
     ##  pws.PRMSSoilzone,
-    pws.PRMSGroundwater, # fixed 8/4
+    pws.PRMSGroundwater,  # fixed 8/4
     pws.PRMSChannel,
 ]
 

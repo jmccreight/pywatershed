@@ -153,9 +153,8 @@ class PRMSGroundwater(ConservativeProcess):
         }
 
     @staticmethod
-    def get_restart_variables() -> dict:
-        """Get a dict of restart varible names mapping current: previous."""
-        return {"gwres_stor": "gwres_stor_old"}
+    def get_restart_variables() -> list:
+        return ["gwres_stor"]
 
     def _set_initial_conditions(self):
         # initialize groundwater reservoir storage

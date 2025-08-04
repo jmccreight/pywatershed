@@ -251,8 +251,8 @@ class Process(Accessor):
         }
 
     @staticmethod
-    def get_restart_variables() -> dict:
-        """Get a dict of restart varible names mapping current: previous."""
+    def get_restart_variables() -> list:
+        """A list of restart varible names."""
         raise NotImplementedError("This must be implemented")
 
     @staticmethod
@@ -412,7 +412,11 @@ class Process(Accessor):
         from xarray import load_dataarray
 
         init_strftime = self.control.init_time.item().strftime("%Y-%m-%d")
-        for vv in self.restart_variables.keys():
+        if not len(self.restart_variables):
+            raise ValueError(
+                f"Restart capability not yet defined for {self.name}."
+            )
+        for vv in self.restart_variables:
             rst_file = self._restart_read / f"{init_strftime}-{vv}.nc"
             print(f"Restarting from file: {rst_file}")
             self[vv][:] = load_dataarray(rst_file).values
@@ -691,7 +695,11 @@ class Process(Accessor):
         cur_time = self.control.current_time
         time = np.atleast_1d(np.array(cur_time.astype("datetime64[ns]")))
 
-        for rv in self.restart_variables.keys():
+        if not len(self.restart_variables):
+            raise ValueError(
+                f"Restart capability not yet defined for {self.name}."
+            )
+        for rv in self.restart_variables:
             meta = self.meta[rv]
             da = DataArray(
                 data=np.expand_dims(self[rv], 0),
