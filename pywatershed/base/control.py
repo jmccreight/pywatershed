@@ -32,7 +32,8 @@ pws_control_options_avail = [
     "calc_method",
     "dprst_flag",
     # "restart",
-    "input_dir",
+    "input_dir",  #
+    "input_file",
     # "load_n_time_batches",
     "netcdf_output_dir",
     "netcdf_output_var_names",
@@ -94,7 +95,10 @@ class Control(Accessor):
       * budget_type: one of [None, "warn", "error"]
       * calc_method: one of ["numpy", "numba", "fortran"]
       * dprst_flag: boolean if depression storage is included (true) or not.
-      * input_dir: str or pathlib.path directory to search for input data
+      * input_dir: str or pathlib.path directory to search for input data. Use
+        exactly one of input_dir or input_file.
+      * input_file: str or pathlib.path file name containing all input data.
+        Use exactly one of input_dir or input_file.
       * netcdf_output_dir: str or pathlib.Path directory for output
       * netcdf_output_var_names: a list of variable names to output
       * netcdf_output_separate_files: bool if output is grouped by Process or
@@ -296,10 +300,14 @@ class Control(Accessor):
 
         start_time = control.control["start_time"]
         end_time = control.control["end_time"]
-        time_step = control.control["time_step"]
         del control.control["start_time"]
         del control.control["end_time"]
-        del control.control["time_step"]
+        # sometimes initial_deltat is missing... ?
+        if "time_step" in control.control.keys():
+            time_step = control.control["time_step"]
+            del control.control["time_step"]
+        else:
+            time_step = np.timedelta64(24, "h")
 
         return cls(
             start_time=start_time,
@@ -460,12 +468,14 @@ class Control(Accessor):
 
         The initialization time is the time of the restart files. The start
         time is generally one timestep later, the time of the end of the first
-        model advance. If new_start_time is not supplied, is is calculated
-        as one timestep greater than the required new_init_time.
+        model advance but not necessarily so. Initialization could happen from
+        an arbitrarty time/state. If new_start_time is not supplied, it is
+        calculated as one timestep greater than the required new_init_time.
 
         Args:
           new_init_time: The time of the restart files to use.
           new_start_time: The new time after the first advance of the model.
+
         """
 
         if self._itime_step > -1:
@@ -480,7 +490,11 @@ class Control(Accessor):
         else:
             self._start_time = self._init_time + self._time_step
 
-        assert self._end_time - self._start_time >= 0
+        msg = (
+            "You may need to use edit_end_time before using "
+            "edit_init_start_times."
+        )
+        assert self._end_time - self._start_time >= 0, msg
         self._n_times = (
             int((self._end_time - self._start_time) / self._time_step) + 1
         )
@@ -597,7 +611,6 @@ class Control(Accessor):
               availability)
             * end_time: ISO8601 string for numpy datetime64, e.g.
               1980-12-31T00:00:00.
-            * input_dir: path relative to this file.
             * start_time: ISO8601 string for numpy datetime64, e.g.
               1979-01-01T00:00:00.
             * time_step: The first argument to get a numpy.timedelta64, e.g. 24
@@ -606,6 +619,10 @@ class Control(Accessor):
             * verbosity: integer 0-10
 
         Optional key, value pairs:
+            * input_dir: path relative to this file. Use exactly one of
+              input_dir or input_file.
+            * input_file: path relative to this file. Use exactly one of
+              input_dir or input_file.
             * netcdf_output: boolean
             * netcdf_output_var_names: list of variable names to output, e.g.
               - albedo
@@ -630,7 +647,7 @@ class Control(Accessor):
         del control_dict["time_step"]
         del control_dict["time_step_units"]
 
-        paths_to_convert = ["input_dir"]
+        paths_to_convert = ["input_dir", "input_file"]
         for path_name in paths_to_convert:
             if path_name in control_dict.keys():
                 control_dict[path_name] = path_rel_to_yaml(

@@ -13,12 +13,14 @@ from .separate_nhm_params import separate_domain_params_dis_to_ncdf
 from .utils import timer
 
 from .optional_import import import_optional_dependency  # isort:skip
+from .mk_starfit_parameters import MakeStarfitParams
 
 __all__ = (
     "cbh_file_to_netcdf",
     "ControlVariables",
     "compare_control_files",
     "CsvFile",
+    "MakeStarfitParams",
     "NetCdfRead",
     "NetCdfWrite",
     "PrmsFile",

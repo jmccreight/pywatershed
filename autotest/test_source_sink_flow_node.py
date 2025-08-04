@@ -76,7 +76,13 @@ def source_sink_data(simulation, parameters_prms):
 
 
 @pytest.mark.parametrize(
-    "zero_data", [True, False], ids=["zero_data", "diversion_data"]
+    "case",
+    [
+        "base",
+        "all-zero",
+        "missing-fail",
+        "missing-as-zero",
+    ],
 )
 def test_prms_channel_obsin_compare_prms(
     simulation,
@@ -85,7 +91,7 @@ def test_prms_channel_obsin_compare_prms(
     parameters_prms,
     source_sink_data,
     tmp_path,
-    zero_data,
+    case,
 ):
     # Set the parameter(s)
     sink_nhm_seg = source_sink_data.columns
@@ -146,14 +152,30 @@ def test_prms_channel_obsin_compare_prms(
     inflows_graph = GraphInflowAdapter(inflows_prms, nsink)
 
     # FlowGraph
-    if zero_data:
+    missing_data_as_zero = False
+    if case == "base":
+        pass
+    elif case == "all-zero":
         source_sink_data *= 0.0
+
+    elif case == "missing-as-zero":
+        missing_data_as_zero = True
+        source_sink_data = source_sink_data.loc[
+            (source_sink_data != 0).any(axis=1)
+        ]
+
+    elif case == "missing-fail":
+        source_sink_data = source_sink_data.loc[
+            (source_sink_data != 0).any(axis=1)
+        ]
 
     node_maker_dict = {
         "prms_channel": PRMSChannelFlowNodeMaker(
             discretization_prms, parameters_prms
         ),
-        "sink": SourceSinkFlowNodeMaker(sink_params, source_sink_data),
+        "sink": SourceSinkFlowNodeMaker(
+            sink_params, source_sink_data, missing_data_as_zero
+        ),
     }
     nnodes = parameters_prms.dims["nsegment"] + nsink
     node_maker_name = ["prms_channel"] * nnodes
@@ -243,7 +265,7 @@ def test_prms_channel_obsin_compare_prms(
                 var_pth, variable_name=var, control=control
             )
 
-    if not zero_data:
+    if not case == "all-zero":
         # the sink inds are the indices of the nhm_segments just above
         # the diversions. we want to ignore all the indices below that.
         wh_ignore = []
@@ -258,6 +280,18 @@ def test_prms_channel_obsin_compare_prms(
         # also get the downstream inds for check that inflows are altered
         # by diversions at those locations
         downstream_reach_inds = [toseg[si] for si in sink_inds]
+
+    if case == "missing-fail":
+        match = (
+            "Missing data not handled by SourceSinkFlowNode unless "
+            "missing_data_as_zero set to True."
+        )
+        with pytest.raises(ValueError, match=match):
+            control.advance()
+            flow_graph.advance()
+            flow_graph.calculate(1.0)
+
+        return
 
     for istep in range(control.n_times):
         control.advance()
@@ -274,7 +308,7 @@ def test_prms_channel_obsin_compare_prms(
                     desired = val.current
 
                 actual = flow_graph[key][0:-nsink]
-                if not zero_data:
+                if not case == "all-zero":
                     # check that the inflows are altered by the data
                     if key == "node_upstream_inflows":
                         # this is an ad hoc version of the algorithm
@@ -283,7 +317,11 @@ def test_prms_channel_obsin_compare_prms(
                                 sink_inds[ii]
                             ]
                             dd = desired[ds]
-                            req_ss = source_sink_data[col_key].iloc[istep]
+                            ymd = control.current_datetime.strftime("%Y-%m-%d")
+                            if ymd in source_sink_data[col_key].index:
+                                req_ss = source_sink_data[col_key][ymd]
+                            else:
+                                req_ss = zero
                             if req_ss < 0:
                                 flo_min = sink_params_ds["flow_min"][ii].values
                                 aa = dd + req_ss

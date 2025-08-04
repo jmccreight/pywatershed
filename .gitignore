@@ -70,8 +70,10 @@ examples/runoff_errors
 examples/pynhm_gis
 examples/pywatershed_gis
 examples/model_loop_custom_output
+examples/make_starfit_parameters
 pywatershed/data/pynhm_gis
 pywatershed/data/pywatershed_gis
+
 
 
 # graphics
