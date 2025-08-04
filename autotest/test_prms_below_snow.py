@@ -61,7 +61,7 @@ comparison_vars_dict_all = {
     ),
     "PRMSGroundwater": pywatershed.PRMSGroundwater.get_variables(),
     "PRMSChannel": set(pywatershed.PRMSChannel.get_variables())
-    - {"seg_inflow0", "outflow_ts"},
+    - {"inflow_ts_prev", "outflow_ts"},
 }
 
 tol = {

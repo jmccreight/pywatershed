@@ -81,7 +81,7 @@ def test_compare_prms(
     )
 
     compare_vars = set(PRMSChannel.get_variables()) - {
-        "seg_inflow0",
+        "inflow_ts_prev",
         "outflow_ts",
     }
     if do_compare_output_files:

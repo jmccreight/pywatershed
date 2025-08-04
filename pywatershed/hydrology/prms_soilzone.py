@@ -593,6 +593,13 @@ class PRMSSoilzone(ConservativeProcess):
 
         return
 
+    def _advance_variables(self) -> None:
+        self.pref_flow_stor_prev[:] = self.pref_flow_stor
+        self.soil_rechr_prev[:] = self.soil_rechr
+        self.soil_lower_prev[:] = self.soil_lower
+        self.slow_stor_prev[:] = self.slow_stor
+        return
+
     def _calculate(self, simulation_time):
         (
             self.soil_to_gw[:],

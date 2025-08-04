@@ -4,14 +4,15 @@ import pytest
 import pywatershed as pws
 
 restart_freqs = ["y", "m", "d"]
+
 nhm_processes = [
-    pws.PRMSSolarGeometry,
-    pws.PRMSAtmosphere,
-    pws.PRMSCanopy,
-    # pws.PRMSSnow,  #  what is going on here? hidden prognostic variables?
-    # pws.PRMSRunoff,
-    # pws.PRMSSoilzone,
-    pws.PRMSGroundwater,
+    pws.PRMSSolarGeometry,  # works 8/4
+    pws.PRMSAtmosphere,  # works 8/4
+    pws.PRMSCanopy,  # works 8/4
+    ## pws.PRMSSnow,  #  what is going on here? hidden prognostic variables?
+    ## pws.PRMSRunoff,
+    ##  pws.PRMSSoilzone,
+    pws.PRMSGroundwater, # fixed 8/4
     pws.PRMSChannel,
 ]
 
@@ -41,7 +42,7 @@ def get_control(simulation, init_time=None, end_time=None):
     control = pws.Control.load_prms(
         simulation["control_file"], warn_unused_options=False
     )
-    control.options["budget_type"] = None
+    control.options["budget_type"] = "error"
     if init_time is not None:
         control.edit_init_start_times(init_time)
     if end_time is not None:
@@ -136,6 +137,7 @@ def test_restart(
 
     # make sure we all at c
     assert control_ac.current_time == control_bc.current_time
+    # print(f"Comparing states at time: {control_bc.current_time=}")
 
     # compare the end result that is in memory
     for vv in proc_ac.variables:

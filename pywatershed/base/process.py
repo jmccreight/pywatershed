@@ -376,10 +376,9 @@ class Process(Accessor):
         """Set initial conditions for variables not in get_init_values"""
         raise Exception("This must be implemented")
 
-    def _advance_variables(self):
-        # The prognostic variable dance
-        for cur, prev in self.restart_variables.items():
-            self[prev][:] = self[cur]
+    def _advance_variables(self) -> None:
+        """Advance prognostic variables."""
+        raise Exception("This must be implemented.")
 
     def _advance_inputs(self):
         for key, value in self._input_variables_dict.items():
@@ -496,7 +495,7 @@ class Process(Accessor):
         self._itime_step += 1
         return
 
-    def _calculate(self):
+    def _calculate(self) -> None:
         raise NotImplementedError("This must be implemented")
 
     def calculate(self, time_length: float, **kwargs) -> None:

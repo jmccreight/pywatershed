@@ -465,6 +465,11 @@ class PRMSRunoff(ConservativeProcess):
 
         return
 
+    def _advance_variables(self) -> None:
+        self.hru_impervstor_old[:] = self.hru_impervstor
+        self.dprst_stor_hru_old[:] = self.dprst_stor_hru
+        return None
+
     def _calculate(self, time_length, vectorized=False):
         """Perform the core calculations"""
         (

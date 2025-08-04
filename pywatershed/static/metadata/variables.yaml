@@ -1763,6 +1763,13 @@ inflows:
   type: float64
   units: cfs
   var_category: mass flux
+inflow_ts_prev:
+  desc: Segment inflow from the previous sub-timestep
+  dims:
+    0: nsegment
+  type: float64
+  units: cfs
+  var_category: mass flux
 inflows_vol:
   desc: Volumes entering the FlowGraph
   dims:
@@ -2533,13 +2540,6 @@ seg_humid:
   units: decimal fraction
 seg_inflow:
   desc: Total flow entering a segment
-  dims:
-    0: nsegment
-  type: float64
-  units: cfs
-  var_category: mass flux
-seg_inflow0:
-  desc: Total flow entering a segment at the previous timestep
   dims:
     0: nsegment
   type: float64

@@ -288,7 +288,12 @@ class PRMSCanopy(ConservativeProcess):
 
         return
 
-    def _calculate(self, time_length):
+    def _advance_variables(self) -> None:
+        """Advance canopy variables"""
+        self.hru_intcpstor_old[:] = self.hru_intcpstor
+        return
+
+    def _calculate(self, time_length) -> None:
         """Calculate canopy terms for a time step
 
         Args:
