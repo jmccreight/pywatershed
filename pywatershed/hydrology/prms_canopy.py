@@ -154,7 +154,11 @@ class PRMSCanopy(ConservativeProcess):
 
     @staticmethod
     def get_restart_variables() -> list:
-        return ["hru_intcpstor"]
+        return [
+            "hru_intcpstor",
+            "intcp_stor",
+            "intcp_transp_on",
+        ]
 
     @staticmethod
     def get_mass_budget_terms():

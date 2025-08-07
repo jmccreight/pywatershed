@@ -6,13 +6,13 @@ import pywatershed as pws
 restart_freqs = ["y", "m", "d"]
 
 nhm_processes = [
-    pws.PRMSSolarGeometry,  # works 8/4
-    pws.PRMSAtmosphere,  # works 8/4
-    pws.PRMSCanopy,  # works 8/4
-    ## pws.PRMSSnow,  #  what is going on here? hidden prognostic variables?
-    ## pws.PRMSRunoff,
-    ##  pws.PRMSSoilzone,
-    pws.PRMSGroundwater,  # fixed 8/4
+    pws.PRMSSolarGeometry,
+    # pws.PRMSAtmosphere,
+    pws.PRMSCanopy,
+    # pws.PRMSSnow,  # not working/implemented
+    # pws.PRMSRunoff,  # not working/implemented
+    # pws.PRMSSoilzone,  # not working/implemented
+    pws.PRMSGroundwater,
     pws.PRMSChannel,
 ]
 
@@ -161,7 +161,7 @@ def test_restart(
                 np.testing.assert_equal(ac_result, bc_result)
             except AssertionError:
                 failed = True
-                print(vv)
+                print(f"FAILED: {vv}")
 
             if failed:
                 raise AssertionError("Failed")
