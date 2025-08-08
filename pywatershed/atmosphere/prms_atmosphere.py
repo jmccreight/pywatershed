@@ -1,4 +1,5 @@
 import pathlib as pl
+from typing import Literal, Union
 from warnings import warn
 
 import numpy as np
@@ -80,9 +81,15 @@ class PRMSAtmosphere(Process):
         soltab_potsw: the solar table of potential shortwave radiation
         soltab_horad_potsw: the solar table of potential shortwave
             radiation on a horizontal plane
-
         verbose: Print extra information or not?
-
+        restart_read: If True, then the searched directory for reading is the
+          working directory. Files searched for in aspecifed or in the working
+          directory are read in the form YYYY-mm-dd-varname.nc.
+        restart_write: As for restart_read but for writing. The directory in either
+          case will be attempted to be created if it does not exist.
+        restart_write_freq: The frequency of restart output as "y", year, "m",
+          month, or "d" days. Written on the first day of the year or month. If
+          daily, then restartrs are written every day.
     """
 
     def __init__(
@@ -90,12 +97,15 @@ class PRMSAtmosphere(Process):
         control: Control,
         discretization: Parameters,
         parameters: Parameters,
-        prcp: [str, pl.Path],
-        tmax: [str, pl.Path],
-        tmin: [str, pl.Path],
+        prcp: Union[str, pl.Path],
+        tmax: Union[str, pl.Path],
+        tmin: Union[str, pl.Path],
         soltab_potsw: adaptable,
         soltab_horad_potsw: adaptable,
         verbose: bool = False,
+        restart_read: Union[pl.Path, bool] = False,
+        restart_write: Union[pl.Path, bool] = False,
+        restart_write_freq: Literal["y", "m", "d", False] = False,
     ):
         # Defering handling batch handling of time chunks but self.n_time_chunk
         # is a dimension used in the metadata/variables dimensions.
@@ -118,6 +128,9 @@ class PRMSAtmosphere(Process):
             parameters=parameters,
             metadata_patches=metadata_patches,
             metadata_patch_conflicts="left",
+            restart_read=restart_read,
+            restart_write=restart_write,
+            restart_write_freq=restart_write_freq,
         )
         self.name = "PRMSAtmosphere"
 
@@ -230,27 +243,6 @@ class PRMSAtmosphere(Process):
         )
 
     @staticmethod
-    def get_variables() -> tuple:
-        return (
-            "tmaxf",
-            "tminf",
-            "prmx",
-            "hru_ppt",
-            "hru_rain",
-            "hru_snow",
-            "swrad",
-            "potet",
-            # "hru_actet",
-            # "available_potet",
-            "transp_on",
-            "tmaxc",
-            "tavgc",
-            "tminc",
-            "pptmix",
-            "orad_hru",
-        )
-
-    @staticmethod
     def get_init_values() -> dict:
         return {
             "tmaxf": nan,
@@ -264,6 +256,7 @@ class PRMSAtmosphere(Process):
             # "hru_actet": zero,
             # "available_potet": nan,
             "transp_on": 0,
+            "tmax_sum": zero,
             "tmaxc": nan,
             "tavgc": nan,
             "tminc": nan,
@@ -272,8 +265,16 @@ class PRMSAtmosphere(Process):
         }
 
     @staticmethod
-    def get_restart_variables() -> dict:
-        return {}
+    def get_restart_variables() -> list:
+        # The restart capability in PRMS does not work, PRMS fails daily
+        # restart test starting on many days, including 1979-12-31
+        # as documented on
+        # nueva: ~/usgs/pywatershed/autotest/prms_restart_transp_on
+        # so a more in-depth solution is necessary.
+        # raise NotImplementedError(
+        #     "Restart capability not implemented for PRMSAtmosphere"
+        # )
+        return ["tmax_sum", "transp_on"]
 
     def _init_diagnostic_vars(self) -> None:
         return
@@ -695,14 +696,12 @@ class PRMSAtmosphere(Process):
             transp_tmax_f = (self.transp_tmax * (9.0 / 5.0)) + 32.0
 
         transp_check = self.transp_on.current.copy()  # dim nhrus only
-        tmax_sum = self.transp_on.current.copy().astype(
-            "float64"
-        )  # dim nhrus only
         start_day = self.control.start_doy
         start_month = self.control.start_month
 
         motmp = start_month + self.nmonth
 
+        # time zero calculations
         for hh in range(self.nhru):
             if start_month == self.transp_beg[hh]:
                 # rsr, why 10? if transp_tmax < 300, should be < 10
@@ -716,6 +715,7 @@ class PRMSAtmosphere(Process):
                     start_month < self.transp_end[hh]
                 ):
                     self.transp_on.data[0, hh] = 1
+
             else:
                 if (start_month > self.transp_beg[hh]) or (
                     motmp < self.transp_end[hh] + self.nmonth
@@ -744,13 +744,13 @@ class PRMSAtmosphere(Process):
                     if self._month[tt] == self.transp_end[hh]:
                         self.transp_on.data[tt, hh] = 0
                         transp_check[hh] = 0
-                        tmax_sum[hh] = zero
+                        self.tmax_sum.data[tt, hh] = zero
 
                     # <
                     # check for month to turn transpiration switch on or off
                     if self._month[tt] == self.transp_beg[hh]:
                         transp_check[hh] = 1
-                        tmax_sum[hh] = zero
+                        self.tmax_sum.data[tt, hh] = zero
 
                 # <<
                 # If in checking period, then for each day
@@ -760,13 +760,16 @@ class PRMSAtmosphere(Process):
                 # Fahrenheit
                 if transp_check[hh] == 1:
                     if self.tmaxf.data[tt, hh] > 32.0:
-                        tmax_sum[hh] = tmax_sum[hh] + self.tmaxf.data[tt, hh]
+                        self.tmax_sum.data[tt, hh] = (
+                            self.tmax_sum.data[tt, hh]
+                            + self.tmaxf.data[tt, hh]
+                        )
 
                     # <
-                    if tmax_sum[hh] > transp_tmax_f[hh]:
+                    if self.tmax_sum.data[tt, hh] > transp_tmax_f[hh]:
                         self.transp_on.data[tt, hh] = 1
                         transp_check[hh] = 0
-                        tmax_sum[hh] = 0.0
+                        self.tmax_sum.data[tt, hh] = 0.0
 
         # <<<
         return
@@ -886,10 +889,26 @@ class PRMSAtmosphere(Process):
 
     def output(self):
         if self._netcdf_initialized:
-            if self._verbose:
-                print(
-                    f"Writing FULL timeseries output for: {self.name}",
-                    flush=True,
-                )
+            # if self._verbose:
+            print(
+                f"Writing FULL timeseries output for: {self.name}",
+                flush=True,
+            )
             self._write_netcdf_timeseries()
+
+        if (
+            hasattr(self, "_restart_write")
+            and self._restart_write is not False
+            and self.control.itime_step >= 0
+        ):
+            current_count = int(
+                self.control.current_time.astype("datetime64[D]")
+                .item()
+                .strftime(self._restart_write_strf_code)
+            )
+            if self._restart_write_strf_code != "%H":
+                current_count -= 1
+            if current_count == 0:
+                self._output_restart()
+
         return

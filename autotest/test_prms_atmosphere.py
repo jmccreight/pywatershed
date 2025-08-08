@@ -55,7 +55,9 @@ def parameters(simulation, control, request):
 def test_compare_prms(
     simulation, control, discretization, parameters, tmp_path
 ):
-    comparison_var_names = PRMSAtmosphere.get_variables()
+    comparison_var_names = list(
+        set(PRMSAtmosphere.get_variables()) - set(["tmax_sum"])
+    )
 
     output_dir = simulation["output_dir"]
     cbh_dir = simulation["dir"]
@@ -140,6 +142,7 @@ def test_compare_prms(
                 rtol=rtol,
                 fail_after_all_vars=False,
                 verbose=False,
+                skip_missing_ans=True,
             )
 
             assert id(atm.tmaxf) == tmaxf_id

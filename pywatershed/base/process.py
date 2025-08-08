@@ -412,14 +412,14 @@ class Process(Accessor):
         from xarray import load_dataarray
 
         init_strftime = self.control.init_time.item().strftime("%Y-%m-%d")
-        if not len(self.restart_variables):
-            raise ValueError(
-                f"Restart capability not yet defined for {self.name}."
-            )
         for vv in self.restart_variables:
             rst_file = self._restart_read / f"{init_strftime}-{vv}.nc"
             print(f"Restarting from file: {rst_file}")
-            self[vv][:] = load_dataarray(rst_file).values
+            if isinstance(self[vv], TimeseriesArray):
+                self[vv].data[0, :] = load_dataarray(rst_file).values
+            else:
+                self[vv][:] = load_dataarray(rst_file).values
+
         return
 
     def _set_options(self, init_locals):
@@ -695,15 +695,16 @@ class Process(Accessor):
         cur_time = self.control.current_time
         time = np.atleast_1d(np.array(cur_time.astype("datetime64[ns]")))
 
-        if not len(self.restart_variables):
-            raise ValueError(
-                f"Restart capability not yet defined for {self.name}."
-            )
         for rv in self.restart_variables:
             meta = self.meta[rv]
+            data = self[rv]
+            dims = meta["dims"]
+            if isinstance(data, TimeseriesArray):
+                data = data.current
+                dims = dims[1:]
             da = DataArray(
-                data=np.expand_dims(self[rv], 0),
-                dims=("time", *meta["dims"]),
+                data=np.expand_dims(data, 0),
+                dims=("time", *dims),
                 coords=dict(
                     time=time,
                 ),

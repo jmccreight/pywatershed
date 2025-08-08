@@ -3367,6 +3367,12 @@ tmax_sta:
     0: ntemp
   type: float64
   units: degC
+tmax_sum:
+  desc: Sum of tmax (def F) since beginning of transp period in transp_tindex
+  dims:
+    0: nhru
+  type: float64
+  units: degF
 tmaxc:
   desc: Maximum air temperature distributed to each HRU
   dims:

@@ -5,9 +5,14 @@ import pywatershed as pws
 
 restart_freqs = ["y", "m", "d"]
 
+# PRMS fails daily restart test starting on many days, including 1979-12-31
+# as documented on nueva: ~/usgs/pywatershed/autotest/prms_restart_transp_on
+# A potential fix was to simply promote transp_on to a restart variable. And
+# that solves the restart test. Still pondering if that's appropriate in the
+# bigger picture.
 nhm_processes = [
     pws.PRMSSolarGeometry,
-    # pws.PRMSAtmosphere,
+    pws.PRMSAtmosphere,
     pws.PRMSCanopy,
     # pws.PRMSSnow,  # not working/implemented
     # pws.PRMSRunoff,  # not working/implemented
@@ -84,6 +89,7 @@ def test_restart(
 
     output_dir = simulation["output_dir"]
     restart_dir = tmp_path / "restarts"
+
     input_variables = {
         kk: output_dir / f"{kk}.nc" for kk in Process.get_inputs()
     }
@@ -101,10 +107,8 @@ def test_restart(
         "parameters": parameters,
         **input_variables,
     }
-    # Solar and Atmosphere dont need restarts, these tests confirm: all diag
-    if Process.__name__ not in ["PRMSSolarGeometry", "PRMSAtmosphere"]:
-        run_args["restart_write"] = restart_dir
-        run_args["restart_write_freq"] = restart_freq
+    run_args["restart_write"] = restart_dir
+    run_args["restart_write_freq"] = restart_freq
 
     proc_ac = Process(**run_args)
 
@@ -124,8 +128,7 @@ def test_restart(
         "parameters": parameters,
         **input_variables,
     }
-    if Process.__name__ not in ["PRMSSolarGeometry", "PRMSAtmosphere"]:
-        run_args["restart_read"] = restart_dir
+    run_args["restart_read"] = restart_dir
     proc_bc = Process(**run_args)
 
     for istep in range(control_bc.n_times):

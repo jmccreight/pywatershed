@@ -73,6 +73,14 @@ class PRMSRunoff(ConservativeProcess):
         calc_method: one of ["numba", "numpy"]. None defaults to
             "numba".
         verbose: Print extra information or not?
+        restart_read: If True, then the searched directory for reading is the
+          working directory. Files searched for in aspecifed or in the working
+          directory are read in the form YYYY-mm-dd-varname.nc.
+        restart_write: As for restart_read but for writing. The directory in either
+          case will be attempted to be created if it does not exist.
+        restart_write_freq: The frequency of restart output as "y", year, "m",
+          month, or "d" days. Written on the first day of the year or month. If
+          daily, then restartrs are written every day.
     """
 
     def __init__(
@@ -243,8 +251,9 @@ class PRMSRunoff(ConservativeProcess):
 
     @staticmethod
     def get_restart_variables() -> list:
-        return []
-        # not implemented
+        raise NotImplementedError(
+            "Restart capability not implemented for PRMSRunoff"
+        )
         # return [
         #     "hru_impervstor",
         #     "dprst_stor_hru",

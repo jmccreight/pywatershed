@@ -1,6 +1,6 @@
 import pathlib as pl
 import warnings
-from typing import Tuple
+from typing import Literal, Tuple, Union
 
 import numpy as np
 
@@ -54,7 +54,10 @@ class PRMSSolarGeometry(Process):
         verbose: Print extra information or not?
         from_prms_file: Load from a PRMS output file?
         from_nc_files_dir: [str, pl.Path] = None,
-
+        restart_read: If not False will issue warning that PRMSSolarGeometry
+          has no restart variables to read or write.
+        restart_write: As for restart_read.
+        restart_write_freq: As for restart_read.
     """
 
     def __init__(
@@ -65,7 +68,14 @@ class PRMSSolarGeometry(Process):
         verbose: bool = False,
         from_prms_file: [str, pl.Path] = None,
         from_nc_files_dir: [str, pl.Path] = None,
+        restart_read: Union[pl.Path, bool] = False,
+        restart_write: Union[pl.Path, bool] = False,
+        restart_write_freq: Literal["y", "m", "d", False] = False,
     ):
+        if (restart_read is not False) or (restart_write is not False):
+            warnings.warn(
+                "PRMSSolarGeometry has no restart variables to read or write."
+            )
         # self._time is needed by Process for timeseries arrays
         # TODO: this is redundant because the parameter doy is set
         #       on load of prms file. Could pass the name to use for
@@ -133,8 +143,8 @@ class PRMSSolarGeometry(Process):
         )
 
     @staticmethod
-    def get_restart_variables() -> dict:
-        return {}
+    def get_restart_variables() -> list:
+        return []
 
     def _init_diagnostic_vars(self) -> None:
         return
