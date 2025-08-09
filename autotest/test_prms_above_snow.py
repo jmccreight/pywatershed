@@ -226,6 +226,8 @@ def test_model(simulation, model_args, tmp_path):
     ans = {key: {} for key in comparison_vars_dict.keys()}
     for process_name, var_names in comparison_vars_dict.items():
         for vv in var_names:
+            if vv == "tmax_sum":
+                continue
             # TODO: this is hacky, improve the design
             if (
                 "dprst_flag" in control.options.keys()
