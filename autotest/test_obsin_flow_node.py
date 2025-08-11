@@ -1,4 +1,5 @@
 import numpy as np
+import pyPRMS as pyprms
 import pytest
 from pyPRMS import DataFile as PRMSStreamflowData
 
@@ -14,6 +15,8 @@ from pywatershed.hydrology.prms_channel_flow_graph import (
     PRMSChannelFlowNodeMaker,
 )
 from pywatershed.parameters import PrmsParameters
+
+pyprms_metadata = pyprms.MetaData(verbose=False).metadata
 
 do_compare_output_files = False
 do_compare_in_memory = True
@@ -74,7 +77,8 @@ def test_prms_channel_obsin_compare_prms(
     # we will insert the new nodes below this segment.
     obsout_seg = control_parameters.parameters["obsout_segment"] - 1
     sf_data = PRMSStreamflowData(
-        simulation["dir"] / "sf_data"
+        simulation["dir"] / "sf_data",
+        # metadata=pyprms_metadata  # future pyPRMS requirement
     ).data_by_variable("runoff")
     old_names = sf_data.columns.tolist()
     new_names = [cc.split("_")[1] for cc in sf_data.columns.tolist()]
