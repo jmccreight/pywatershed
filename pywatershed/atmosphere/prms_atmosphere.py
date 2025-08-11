@@ -736,6 +736,7 @@ class PRMSAtmosphere(Process):
                     self.transp_on.data[tt, hh] = self.transp_on.data[
                         tt - 1, hh
                     ]
+                    self.tmax_sum.data[tt, hh] = self.tmax_sum.data[tt - 1, hh]
 
                 # check for month to turn check switch on or
                 # transpiration switch off
@@ -889,12 +890,12 @@ class PRMSAtmosphere(Process):
 
     def output(self):
         if self._netcdf_initialized:
-            # if self._verbose:
-            print(
-                f"Writing FULL timeseries output for: {self.name}",
-                flush=True,
-            )
-            self._write_netcdf_timeseries()
+            if self._verbose:
+                print(
+                    f"Writing FULL timeseries output for: {self.name}",
+                    flush=True,
+                )
+                self._write_netcdf_timeseries()
 
         if (
             hasattr(self, "_restart_write")
