@@ -245,15 +245,14 @@ class PRMSSoilzone(ConservativeProcess):
 
     @staticmethod
     def get_restart_variables() -> list:
-        raise NotImplementedError(
-            "Restart capability not implemented for PRMSSoilzone"
-        )
-        # return [
-        #     "pref_flow_stor",
-        #     "soil_rechr",
-        #     "soil_lower",
-        #     "slow_stor",
-        # ]
+        return [
+            "soil_moist",
+            "soil_rechr",
+            # these might be necessary with different options...
+            # "pref_flow_stor",  # apparently not necessary
+            # "ssres_stor",  # apparently not necessary
+            # "slow_stor",  # apparently NOT necessary
+        ]
 
     @staticmethod
     def get_mass_budget_terms() -> dict:
@@ -337,7 +336,7 @@ class PRMSSoilzone(ConservativeProcess):
             raise ValueError(msg)
 
         # variables
-        if True:
+        if not self._restart_read:
             # For now there is no restart capability. we'll use the following
             # line when there is
             # if self.control.options["restart"] in [0, 2, 5]:
@@ -349,19 +348,13 @@ class PRMSSoilzone(ConservativeProcess):
             self.soil_rechr[:] = (
                 self.soil_rechr_init_frac * self.soil_rechr_max
             )
-        else:
-            # call ctl_data%read_restart_variable(
-            #    'soil_moist', this%soil_moist)
-            # call ctl_data%read_restart_variable(
-            #    'soil_rechr', this%soil_rechr)
-            raise RuntimeError("Soilzone restart capability not implemented")
 
         # Note that the following is often editing a copy of the parameters,
         # which is a bit odd in that it might be contrary to the users
         # expectations. Move this parameter business to __init__
 
         # ssres_stor
-        if True:
+        if not self._restart_read:
             # For now there is no restart capability. we'll use the following
             # line when there is
             # if self.control.options["restart"] in [0, 2, 5]:
@@ -373,11 +366,6 @@ class PRMSSoilzone(ConservativeProcess):
             )
             self.ssres_stor[wh_inactive_or_lake] = zero
             del self.ssstor_init_frac
-
-        else:
-            # call ctl_data%read_restart_variable(
-            #     'ssres_stor', this%ssres_stor)
-            raise RuntimeError("Soilzone restart capability not implemented")
 
         # Parameter edits in climateflow
         # JLM: some of these should just be runtime/value errors
@@ -512,7 +500,7 @@ class PRMSSoilzone(ConservativeProcess):
         self._pref_flow_flag[wh_land_and_prf_den] = True
 
         # can this one be combined with the restart read logic above?
-        if True:
+        if not self._restart_read:
             # For now there is no restart capability. we'll use the following
             # line when there is
             # if self.control.options["restart"] in [0, 2, 5]:
@@ -530,12 +518,6 @@ class PRMSSoilzone(ConservativeProcess):
                 self.ssres_stor[wh_land_or_swale]
                 - self.slow_stor[wh_land_or_swale]
             )
-
-        else:
-            # call ctl_data%read_restart_variable(
-            #    'pref_flow_stor', self.pref_flow_stor)
-            # call ctl_data%read_restart_variable('slow_stor', self.slow_stor)
-            raise RuntimeError("Soilzone restart capability not implemented")
 
         # <
         # need to set soil2gw_flag on self? move to variables?
