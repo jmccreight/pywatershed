@@ -895,7 +895,8 @@ class PRMSAtmosphere(Process):
                     f"Writing FULL timeseries output for: {self.name}",
                     flush=True,
                 )
-                self._write_netcdf_timeseries()
+            # <
+            self._write_netcdf_timeseries()
 
         if (
             hasattr(self, "_restart_write")
