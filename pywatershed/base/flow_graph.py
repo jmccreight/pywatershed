@@ -597,14 +597,14 @@ class FlowGraph(ConservativeProcess):
         )
         gg = self._graph
 
-        for igg in range(len(gg.nodes)):
+        for node in gg.nodes:
             title = ""
-            for kk in ["node_maker_name", "node_maker_index", "node_maker_id"]:
+            for kk in ["node_maker_name", "node_maker_id"]:
                 if title != "":
                     title += " : "
-                title += str(self[kk][igg])
-            gg.nodes[igg]["group"] = self["node_maker_name"][igg]
-            gg.nodes[igg]["label"] = title
+                title += str(self[kk][node])
+            gg.nodes[node]["group"] = self["node_maker_name"][node]
+            gg.nodes[node]["label"] = title
 
         nt.from_nx(gg)
         ipdisplay.display(nt.show("flow_graph.html"))
