@@ -78,7 +78,8 @@ def test_restart(
     tmp_path,
     restart_freq,
 ):
-    """Test outline/goals:
+    """Perfect restart test.
+    Test outline/goals:
     run 1, "ac": a -----> c starts at a, restart written at time b, ends at c
                      |
     run 2, "bc":     b -> c'
@@ -140,6 +141,110 @@ def test_restart(
 
     # make sure we all at c
     assert control_ac.current_time == control_bc.current_time
+    # print(f"Comparing states at time: {control_bc.current_time=}")
+
+    # compare the end result that is in memory
+    for vv in proc_ac.variables:
+        ac_result = proc_ac[vv]
+        bc_result = proc_bc[vv]
+        if isinstance(proc_ac[vv], pws.TimeseriesArray):
+            ac_result = ac_result.current
+            bc_result = bc_result.current
+        # <
+        # TODO: just use equal, should be bit matched
+        # Keep this around for checking Snow, Runoff, Soilzone
+
+        if True:
+            # np.testing.assert_allclose(ac_result, bc_result)
+            np.testing.assert_equal(ac_result, bc_result)
+
+        else:
+            failed = False
+            try:
+                # np.testing.assert_allclose(ac_result, bc_result)
+                np.testing.assert_equal(ac_result, bc_result)
+            except AssertionError:
+                failed = True
+                print(f"FAILED: {vv}")
+
+            if failed:
+                raise AssertionError("Failed")
+
+
+@pytest.mark.parametrize("Process", nhm_processes)
+def test_restart_f(
+    simulation,
+    discretization,
+    parameters,
+    Process,
+    tmp_path,
+):
+    """Test the "f" restart frequency option.
+    The "f" option does not conform to the test above, because restarts can not
+    be written at b when running from a->c. Since we can only write restarts at
+    the end of the run
+    Test outline/goals:
+    run 1, "ac": a ------> c starts at a, ends at c
+    run 2, "ab": a -> b'
+                      | restart files
+    run 3, "bc":      b -> c'
+    confirm c == c` in all variables. We'll just do that in memory.
+    """
+
+    times = {
+        "a": np.datetime64("1980-01-03"),
+        "b": np.datetime64("1980-01-09"),
+        "c": np.datetime64("1980-01-19"),
+    }
+
+    output_dir = simulation["output_dir"]
+    restart_dir = tmp_path / "restarts"
+
+    input_variables = {
+        kk: output_dir / f"{kk}.nc" for kk in Process.get_inputs()
+    }
+    # The "PRMS model" inputs, for PRMSAtmosphere, are one level up
+    if Process.__name__ == "PRMSAtmosphere":
+        for kk, vv in input_variables.items():
+            if not vv.exists():
+                input_variables[kk] = output_dir.parent / f"{kk}.nc"
+
+    def run_init_end(
+        init_time, end_time, restart_write=False, restart_read=False
+    ):
+        # run ac
+        control = get_control(simulation, init_time, end_time)
+        run_args = {
+            "control": control,
+            "discretization": discretization,
+            "parameters": parameters,
+            **input_variables,
+        }
+
+        if restart_write:
+            run_args["restart_write"] = restart_dir
+            run_args["restart_write_freq"] = "f"  # test namesake
+
+        if restart_read:
+            run_args["restart_read"] = restart_dir
+
+        proc = Process(**run_args)
+
+        for istep in range(control.n_times):
+            control.advance()
+            proc.advance()
+            proc.calculate(float(istep))
+            proc.output()
+
+        proc.finalize()
+        return proc
+
+    proc_ac = run_init_end(times["a"], times["c"])
+    _ = run_init_end(times["a"], times["b"], restart_write=True)
+    proc_bc = run_init_end(times["b"], times["c"], restart_read=True)
+
+    # make sure we all at c
+    assert proc_ac.control.current_time == proc_bc.control.current_time
     # print(f"Comparing states at time: {control_bc.current_time=}")
 
     # compare the end result that is in memory

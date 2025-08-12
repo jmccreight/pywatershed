@@ -903,14 +903,18 @@ class PRMSAtmosphere(Process):
             and self._restart_write is not False
             and self.control.itime_step >= 0
         ):
-            current_count = int(
-                self.control.current_time.astype("datetime64[D]")
-                .item()
-                .strftime(self._restart_write_strf_code)
-            )
-            if self._restart_write_strf_code != "%H":
-                current_count -= 1
-            if current_count == 0:
-                self._output_restart()
+            if self._restart_write_strf_code == "f":
+                if self.control.itime_step == (self.control.n_times - 1):
+                    self._output_restart()
+            else:
+                current_count = int(
+                    self.control.current_time.astype("datetime64[D]")
+                    .item()
+                    .strftime(self._restart_write_strf_code)
+                )
+                if self._restart_write_strf_code != "%H":
+                    current_count -= 1
+                if current_count == 0:
+                    self._output_restart()
 
         return

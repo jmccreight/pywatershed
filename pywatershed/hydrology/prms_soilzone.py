@@ -248,10 +248,10 @@ class PRMSSoilzone(ConservativeProcess):
         return [
             "soil_moist",
             "soil_rechr",
+            "slow_stor",
             # these might be necessary with different options...
             # "pref_flow_stor",  # apparently not necessary
             # "ssres_stor",  # apparently not necessary
-            # "slow_stor",  # apparently NOT necessary
         ]
 
     @staticmethod
