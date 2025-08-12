@@ -584,7 +584,12 @@ class FlowGraph(ConservativeProcess):
             # nodes have the same variable and different metadata.
             self.meta[kk] = {"dims": ("nnodes",), "type": "float64"}
 
-    def plot(self, notebook=True, cdn_resources="in_line"):
+    def plot(
+        self,
+        plot_name: pl.Path = pl.Path("flow_graph.html"),
+        notebook=True,
+        cdn_resources="in_line",
+    ):
         pyvisnetwork = import_optional_dependency(
             "pyvis.network", errors="warn"
         )
@@ -607,7 +612,7 @@ class FlowGraph(ConservativeProcess):
             gg.nodes[node]["label"] = title
 
         nt.from_nx(gg)
-        ipdisplay.display(nt.show("flow_graph.html"))
+        ipdisplay.display(nt.show(str(plot_name)))
 
         return None
 
