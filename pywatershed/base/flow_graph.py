@@ -589,7 +589,29 @@ class FlowGraph(ConservativeProcess):
         plot_name: pl.Path = pl.Path("flow_graph.html"),
         notebook=True,
         cdn_resources="in_line",
+        return_network_obj: bool = False,
     ):
+        """Plot an abstract representation of the FlowGraph.
+
+        Args:
+            plot_name: a Pathlib object saying where to write the html file
+              plot of the network. (It will still render in jupyter.)
+            notebook: Argument passed to pyvis.network.Network instantation
+              if using jupyter notebook or not. Defaults to True.
+            cdn_resources: Argument passed to pyvis.network.Network
+              instantation if using jupyter notebook or not.
+            return_network_obj: If True returns the pyvis.network.Network
+              instance/object.
+
+        This uses pyvis.network.Network with the internal networkx
+        representation of the FlowGraph to visualize the network with out
+        reference to geograph (abstractly).
+
+        In the output, the nodes are colored by "node_maker_name" and they are
+        labled on the the first line with "node_maker_name: node_maker_id" and
+        on the second line with "node index: to node index" where this later
+        is relative to the entire FlowGraph.
+        """
         pyvisnetwork = import_optional_dependency(
             "pyvis.network", errors="warn"
         )
@@ -603,18 +625,23 @@ class FlowGraph(ConservativeProcess):
         gg = self._graph
 
         for node in gg.nodes:
-            title = ""
-            for kk in ["node_maker_name", "node_maker_id"]:
-                if title != "":
-                    title += " : "
-                title += str(self[kk][node])
+            label = (
+                f"{self['node_maker_name'][node]} : "
+                f"{self['node_maker_id'][node]}"
+                "\n"
+                f"{node} ->"
+                f"{self['to_graph_index'][node]}"
+            )
+            gg.nodes[node]["label"] = label
             gg.nodes[node]["group"] = self["node_maker_name"][node]
-            gg.nodes[node]["label"] = title
 
         nt.from_nx(gg)
         ipdisplay.display(nt.show(str(plot_name)))
 
-        return None
+        if return_network_obj:
+            return nt
+        else:
+            return None
 
     def initialize_netcdf(
         self,
