@@ -26,6 +26,11 @@ one = np.ones([1])[0]
 nan = np.nan
 nat = np.datetime64("NaT")
 
+
+def nan1d():
+    return np.zeros(1) * nan
+
+
 epsilon = np.finfo(zero).eps
 # https://en.wikipedia.org/wiki/Machine_epsilon
 # use values slightly larger than the informal definition

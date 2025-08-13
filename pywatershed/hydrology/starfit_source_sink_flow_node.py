@@ -4,12 +4,11 @@ import numpy as np
 import pandas as pd
 
 from pywatershed.base.control import Control
-from pywatershed.constants import cfs_to_cms, cms_to_cfs, one, zero
+from pywatershed.constants import cfs_to_cms, cms_to_cfs, nan1d, one, zero
 from pywatershed.hydrology.starfit import (
     Starfit,
     StarfitFlowNode,
     StarfitFlowNodeMaker,
-    nan1d,
 )
 from pywatershed.parameters import Parameters
 
@@ -189,9 +188,17 @@ class StarfitSourceSinkFlowNode(StarfitFlowNode):
     def sink_source(self) -> np.float64:
         return self._sink_source[0]
 
-    def prepare_timestep(self) -> None:
-        super().prepare_timestep()
+    def _prepare_timestep_daily(self) -> None:
+        super()._prepare_timestep_daily()
+        self._prepare_timestep_source_sink()
+        return
 
+    def _prepare_timestep_hourly(self) -> None:
+        super()._prepare_timestep_hourly()
+        self._prepare_timestep_source_sink()
+        return
+
+    def _prepare_timestep_source_sink(self) -> None:
         self._sink_source_sum = zero
 
         # remaining code from source_sink_flow_node
@@ -221,7 +228,9 @@ class StarfitSourceSinkFlowNode(StarfitFlowNode):
         isubstep: int,
         flow_to_vol_conversion: float,
     ) -> None:
-        """Calculate diversion from storage on the time basis supplied.
+        """Calculate flow diversion from storage on the time basis supplied.
+
+        Note units are flow units
 
         Args:
             flow_to_vol_conversion: This conversion is from cubic meters per
@@ -261,38 +270,63 @@ class StarfitSourceSinkFlowNode(StarfitFlowNode):
         # very confusing, move self._source_sink to self._sink_source_sub
         self._sink_source_sum += self._source_sink[0]
         self._sink_source[:] = self._sink_source_sum / (isubstep + 1)
-        if self._io_in_cfs:
-            self._sink_source[:] *= cms_to_cfs
-
+        # conversion to cfs in self._release_calculations_post_hourly/daily
         return
 
-    def _calculate_subtimestep_daily(
+    def _calc_storage_change_daily(self) -> None:
+        self._lake_storage_change_flow_units[:] = (
+            self._lake_inflow - self._lake_outflow + self._source_sink
+        )
+        print(f"{self._lake_inflow=}")
+        print(f"{self._lake_outflow=}")
+        print(f"{self._source_sink=}")
+
+        self._lake_storage_change[:] = (
+            self._lake_storage_change_flow_units * self._m3ps_to_MCM
+        )
+        print(f"{self._lake_storage_change_flow_units * cms_to_cfs=}")
+        return
+
+    def _calc_storage_change_sub_hourly(self) -> None:
+        # spill is not included in this calculation
+        self._lake_storage_change_sub[:] = (
+            self._lake_inflow_sub - self._lake_release_sub + self._source_sink
+        ) * self._m3ps_to_MCM  # MCM: million cubic meters
+        return
+
+    def _calc_subtimestep_daily(
         self, isubstep: int, inflow_upstream: float, inflow_lateral: float
     ) -> None:
-        # Here we only calculate outflows on the last subtimestep.
-        # Ouflows on substeps are all the same flow rates, and
-        # storages are only updated at the end of the timestep.
+        # It is debatable if this daily calculation should be maintained. It
+        # is difficult to read and to understand compared to the hourly
+        # calculation. For this reason, I am inserting copious commentary.
+        # See super for more details.
         #
-        self._pre_daily_release_calculations(
-            isubstep, inflow_upstream, inflow_lateral
+        self._pre_release_calculations_daily(
+            isubstep=isubstep,
+            inflow_upstream=inflow_upstream,
+            inflow_lateral=inflow_lateral,
         )
         if self._return_from_substep:
             return
 
+        # spill before calculating release
+        self._calc_spill_daily()
+
+        self._lake_storage_sub[:] = self._lake_storage
         self._source_sink_calculations(
             isubstep=isubstep, flow_to_vol_conversion=self._m3ps_to_MCM
         )
-
         # now calculate the (avg) outflows for the next timestep
         (
-            self._lake_release_sub[:],
-            self._lake_availability_status[:],
+            self._lake_release_sub_next[:],
+            self._lake_availability_status_next[:],
         ) = Starfit._calc_istarf_release(
             epiweek=np.minimum(self.control.current_epiweek, 52),
             GRanD_CAP_MCM=self._GRanD_CAP_MCM,
             grand_id=self._grand_id,
             lake_inflow=self._lake_inflow,
-            lake_storage=self._lake_storage,
+            lake_storage=self._lake_storage_after_source_sink,
             NORhi_alpha=self._NORhi_alpha,
             NORhi_beta=self._NORhi_beta,
             NORhi_max=self._NORhi_max,
@@ -315,19 +349,22 @@ class StarfitSourceSinkFlowNode(StarfitFlowNode):
             Release_p2=self._Release_p2,
         )  # output in m^3/d
 
-        self._post_daily_release_calculations(isubstep)
+        if np.isnan(self._lake_release_sub_next[()]):
+            asdff
+
+        self._post_release_calculations_daily(isubstep)
         return
 
-    def _calc_hourly_storage_change_sub(self) -> None:
-        self._lake_storage_change_sub[:] = (
-            self._lake_inflow_sub - self._lake_release_sub + self._source_sink
-        ) * self._m3ps_to_MCM  # MCM: million cubic meters
+    def _post_release_calculations_daily(self, isubstep) -> None:
+        super()._post_release_calculations_daily(isubstep)
+        if self._io_in_cfs:
+            self._sink_source[:] *= cms_to_cfs
         return
 
-    def _calculate_subtimestep_hourly(
+    def _calc_subtimestep_hourly(
         self, isubstep, inflow_upstream, inflow_lateral
     ) -> None:
-        self._pre_hourly_release_calculations(inflow_upstream, inflow_lateral)
+        self._pre_release_calculations_hourly(inflow_upstream, inflow_lateral)
         # given the existing storage, a storage minimum and a requested
         # diversion, calculate the diversion and the reesulting storage
         self._source_sink_calculations(
@@ -364,7 +401,13 @@ class StarfitSourceSinkFlowNode(StarfitFlowNode):
             Release_p2=self._Release_p2,
         )  # output in m^3/d
 
-        self._post_hourly_release_calculations(isubstep)
+        self._post_release_calculations_hourly(isubstep)
+        return
+
+    def _post_release_calculations_hourly(self, isubstep) -> None:
+        super()._post_release_calculations_hourly(isubstep)
+        if self._io_in_cfs:
+            self._sink_source[:] *= cms_to_cfs
         return
 
 

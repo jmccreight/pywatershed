@@ -101,6 +101,10 @@ class ConservativeProcess(Process):
     @classmethod
     def get_mass_budget_terms(cls) -> dict:
         """Get a dictionary of variable names for mass budget terms."""
+        # TODO: this is nice in theory but this is probably better as a
+        # staticmethod from the POV of helping users. It could be nice to have
+        # this code to check that the staticmethod definition matches the
+        # metadata.
         mass_budget_terms = {
             "inputs": list(
                 meta.filter_vars(
