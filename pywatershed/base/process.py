@@ -69,9 +69,7 @@ class Process(Accessor):
         snow_liquid, then storage changes for snow_ice and snow_liquid
         should be tracked and not for snow_water_equiv).
 
-    See Also
-    --------
-    pywatershed.base.ConservativeProcess
+    See Also: pywatershed.base.ConservativeProcess
 
     Args:
       control: A Control object.
