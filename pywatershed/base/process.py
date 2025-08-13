@@ -96,9 +96,11 @@ class Process(Accessor):
         time of the states in the file with the exception of instantaneous
         variables from the hourly timesteps (e.g. outflow_ts in PRMSChannel,
         which is valid at the 23rd hour of the timestampped day).
-    restart_write: As for restart_read but for writing. The directory in either
+    restart_write:
+        As for restart_read but for writing. The directory in either
         case will be attempted to be created if it does not exist.
-    restart_write_freq: The frequency of restart output as "y" for yearly, "m"
+    restart_write_freq:
+        The frequency of restart output as "y" for yearly, "m"
         for monthly, "d" for daily, or "f" for final. "Final" means that
         restart files are written with the states of control.end_time to files
         timestampped the following day. Yearly and monthly restart options
