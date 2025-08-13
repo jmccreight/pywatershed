@@ -1,4 +1,5 @@
-from typing import Literal
+import pathlib as pl
+from typing import Literal, Union
 from warnings import warn
 
 import numpy as np
@@ -72,6 +73,26 @@ class PRMSRunoff(ConservativeProcess):
         calc_method: one of ["numba", "numpy"]. None defaults to
             "numba".
         verbose: Print extra information or not?
+        restart_read: May be boolean or a Pathlib.Path. If False,
+          control.options will be examined for this key. If True, the working
+          directory is searched for restart files. If a Pathlib.Path, this
+          specifies an alternative directory to search for restart files.
+          Files searched for are of the pattern YYYY-mm-dd-varname.nc where the
+          date is the control.init_time. The timestamp on the file is the valid
+          time of the states in the file with the exception of instantaneous
+          variables from the hourly timesteps (e.g. outflow_ts in PRMSChannel,
+          which is valid at the 23rd hour of the timestampped day).
+        restart_write: As for restart_read but for writing. The directory in
+          either case will be attempted to be created if it does not exist.
+        restart_write_freq: The frequency of restart output as "y" for yearly,
+          "m" for monthly, "d" for daily, or "f" for final. "Final" means that
+          restart files are written with the states of control.end_time to
+          files timestampped the following day. Yearly and monthly restart
+          options write files with timestamps on every first day each year or
+          month during the run. If daily, restarts are written every day. If
+          False, control.options will be examined for this key. If
+          restart_write is not False and restart_write_freq is False, the
+          default of "f" is used.
     """
 
     def __init__(
@@ -97,17 +118,28 @@ class PRMSRunoff(ConservativeProcess):
         budget_type: Literal["defer", None, "warn", "error"] = "defer",
         calc_method: Literal["numba", "numpy"] = None,
         verbose: bool = None,
+        restart_read: Union[pl.Path, bool] = False,
+        restart_write: Union[pl.Path, bool] = False,
+        restart_write_freq: Literal["y", "m", "d", None] = None,
     ) -> None:
+        self._dprst_flag = dprst_flag
+        if self._dprst_flag is None:
+            self._dprst_flag = True
+
         super().__init__(
             control=control,
             discretization=discretization,
             parameters=parameters,
+            restart_read=restart_read,
+            restart_write=restart_write,
+            restart_write_freq=restart_write_freq,
         )
 
         self.name = "PRMSRunoff"
 
         self._set_inputs(locals())
         self._set_options(locals())
+
         if self._dprst_flag is None:
             self._dprst_flag = True
 
@@ -119,24 +151,28 @@ class PRMSRunoff(ConservativeProcess):
         if self._dprst_flag:
             self.dprst_init()
 
+        if restart_read is not False or restart_write is not False:
+            self.restart_read = False
+            self.restart_write = False
+
         return
 
     def _set_initial_conditions(self):
-        # Where does the initial storage come from? Document here.
-        # apparently it's just zero?
-        # self.var1_stor[:] = np.zeros([1])[0]
-        # self.var1_stor_old = None
-
-        # cdl -- todo:
-        # this variable is calculated and stored by PRMS but does not seem
-        # to be used widely
+        """Set initial conditions for variables not in get_init_values"""
+        # These should probably be private
         self.dprst_in = np.zeros(self.nhru, dtype=float)
         self.dprst_vol_open_max = np.zeros(self.nhru, dtype=float)
         self.dprst_vol_clos_max = np.zeros(self.nhru, dtype=float)
         self.dprst_frac_clos = np.zeros(self.nhru, dtype=float)
         self.dprst_vol_thres_open = np.zeros(self.nhru, dtype=float)
+        # self.basin_init()
 
         return
+
+    def _init_diagnostic_vars(self):
+        # if self._dprst_flag:
+        #     self.dprst_init()
+        pass
 
     @staticmethod
     def get_dimensions() -> tuple:
@@ -222,7 +258,21 @@ class PRMSRunoff(ConservativeProcess):
             "dprst_stor_hru": zero,
             "dprst_stor_hru_old": zero,
             "dprst_stor_hru_change": zero,
+            "dprst_vol_thres_open": zero,
         }
+
+    @staticmethod
+    def get_restart_variables() -> list:
+        raise NotImplementedError(
+            "Restart capability not implemented for PRMSRunoff"
+        )
+        # return [
+        #     "hru_impervstor",
+        #     "dprst_stor_hru",
+        #     "dprst_area_open",
+        #     "dprst_area_clos",
+        #     "dprst_vol_thres_open",
+        # ]
 
     @staticmethod
     def get_mass_budget_terms():
@@ -262,6 +312,10 @@ class PRMSRunoff(ConservativeProcess):
         self.hru_frac_perv = np.zeros(self.nhru, float)
         self.hru_imperv = np.zeros(self.nhru, float)
         self.dprst_area_max = np.zeros(self.nhru, float)
+
+        self._dprst_open_flag = OFF
+        self._dprst_clos_flag = OFF
+
         for k in range(self.nhru):
             i = k
             harea = self.hru_area[k]
@@ -281,16 +335,23 @@ class PRMSRunoff(ConservativeProcess):
                         self.dprst_area_max[i] - self.dprst_area_open_max[i]
                     )
                     if self.dprst_area_clos_max[i] > 0.0:
-                        self.dprst_clos_flag = ACTIVE
+                        self._dprst_clos_flag = ACTIVE
                     if self.dprst_area_open_max[i] > 0.0:
-                        self.dprst_open_flag = ACTIVE
+                        self._dprst_open_flag = ACTIVE
                     perv_area = perv_area - self.dprst_area_max[i]
 
             self.hru_perv[i] = perv_area
             self.hru_frac_perv[i] = perv_area / harea
+
         return
 
     def dprst_init(self):
+        if self._dprst_clos_flag == OFF:
+            # This is a BAD practice of editing parameters.
+            # not possible if we use [:] on the LHS
+            self.dprst_seep_rate_clos = self.dprst_seep_rate_clos * 0.0
+            self.va_clos_exp = self.va_clos_exp * 0.0
+
         for j in range(self.nhru):
             i = j
             if self.dprst_frac[i] > 0.0:
@@ -303,26 +364,27 @@ class PRMSRunoff(ConservativeProcess):
                 # storage by HRU
                 # Dprst_area_open_max is the maximum open depression area
                 # (acres) that can generate surface runoff:
-                dprst_clos_flag = ACTIVE
-                if dprst_clos_flag == ACTIVE:
+                self._dprst_clos_flag = ACTIVE
+                if self._dprst_clos_flag == ACTIVE:
                     self.dprst_vol_clos_max[i] = (
                         self.dprst_area_clos_max[i] * self.dprst_depth_avg[i]
                     )
-                dprst_open_flag = ACTIVE
-                if dprst_open_flag == ACTIVE:
+                self._dprst_open_flag = ACTIVE
+                if self._dprst_open_flag == ACTIVE:
                     self.dprst_vol_open_max[i] = (
                         self.dprst_area_open_max[i] * self.dprst_depth_avg[i]
                     )
 
                 # calculate the initial open and closed depression storage
                 # volume:
-                dprst_open_flag = ACTIVE
-                if dprst_open_flag == ACTIVE:
+                # if not self._restart_read:
+                self._dprst_open_flag = ACTIVE
+                if self._dprst_open_flag == ACTIVE:
                     self.dprst_vol_open[i] = (
                         self.dprst_frac_init[i] * self.dprst_vol_open_max[i]
                     )
-                dprst_clos_flag = ACTIVE
-                if dprst_clos_flag == ACTIVE:
+                self._dprst_clos_flag = ACTIVE
+                if self._dprst_clos_flag == ACTIVE:
                     self.dprst_vol_clos[i] = (
                         self.dprst_frac_init[i] * self.dprst_vol_clos_max[i]
                     )
@@ -345,6 +407,7 @@ class PRMSRunoff(ConservativeProcess):
                         frac_op_ar = np.exp(
                             self.va_open_exp[i] * np.log(open_vol_r)
                         )
+                    # <
                     self.dprst_area_open[i] = (
                         self.dprst_area_open_max[i] * frac_op_ar
                     )

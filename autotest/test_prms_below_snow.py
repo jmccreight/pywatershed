@@ -46,7 +46,9 @@ test_models = {
 }
 
 comparison_vars_dict_all = {
-    "PRMSRunoff": pywatershed.PRMSRunoff.get_variables(),
+    "PRMSRunoff": list(
+        set(pywatershed.PRMSRunoff.get_variables()) - {"dprst_vol_thres_open"}
+    ),
     "PRMSSoilzone": list(
         set(pywatershed.PRMSSoilzone.get_variables())
         - {  # these variables not output by PRMS
@@ -58,7 +60,8 @@ comparison_vars_dict_all = {
         }
     ),
     "PRMSGroundwater": pywatershed.PRMSGroundwater.get_variables(),
-    "PRMSChannel": pywatershed.PRMSChannel.get_variables(),
+    "PRMSChannel": set(pywatershed.PRMSChannel.get_variables())
+    - {"inflow_ts_prev", "outflow_ts"},
 }
 
 tol = {

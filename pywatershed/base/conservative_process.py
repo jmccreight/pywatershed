@@ -1,5 +1,5 @@
 import pathlib as pl
-from typing import Literal
+from typing import Literal, Union
 from warnings import warn
 
 from ..base import meta
@@ -72,6 +72,9 @@ class ConservativeProcess(Process):
         budget_type: Literal["defer", None, "warn", "error"] = "defer",
         metadata_patches: dict[dict] = None,
         metadata_patch_conflicts: Literal["left", "warn", "error"] = "error",
+        restart_read: Union[pl.Path, bool] = False,
+        restart_write: Union[pl.Path, bool] = False,
+        restart_write_freq: Literal["y", "m", "d", False] = False,
     ):
         super().__init__(
             control=control,
@@ -79,6 +82,9 @@ class ConservativeProcess(Process):
             parameters=parameters,
             metadata_patches=metadata_patches,
             metadata_patch_conflicts=metadata_patch_conflicts,
+            restart_read=restart_read,
+            restart_write=restart_write,
+            restart_write_freq=restart_write_freq,
         )
 
         self.name = "ConservativeProcess"

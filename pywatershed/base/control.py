@@ -39,6 +39,9 @@ pws_control_options_avail = [
     "netcdf_output_var_names",
     "netcdf_output_separate_files",
     "parameter_file",
+    "restart_read",
+    "restart_write",
+    "restart_write_freq",
     "start_time",
     "streamflow_module",
     "time_step_units",
@@ -466,12 +469,13 @@ class Control(Accessor):
         The initialization time is the time of the restart files. The start
         time is generally one timestep later, the time of the end of the first
         model advance but not necessarily so. Initialization could happen from
-        an arbitrarty time/state. If new_start_time is not supplied, is is
+        an arbitrarty time/state. If new_start_time is not supplied, it is
         calculated as one timestep greater than the required new_init_time.
 
         Args:
-        new_init_time: The time of the restart files to use.
-        new_start_time: The new time after the first advance of the model.
+          new_init_time: The time of the restart files to use.
+          new_start_time: The new time after the first advance of the model.
+
         """
 
         if self._itime_step > -1:
@@ -502,9 +506,12 @@ class Control(Accessor):
         Args:
             new_end_time: the new time at which to end the simulation.
         """
+        if self._itime_step > -1:
+            warn("Control object can not be edited after first advance")
+            return
 
         self._end_time = new_end_time
-        assert self._end_time - self._start_time > 0
+        assert self._end_time - self._start_time >= 0
         self._n_times = (
             int((self._end_time - self._start_time) / self._time_step) + 1
         )

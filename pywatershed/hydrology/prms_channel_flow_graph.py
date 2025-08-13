@@ -70,7 +70,7 @@ class PRMSChannelFlowNode(FlowNode):
         self._c2 = c2
 
         self._outflow_ts = zero
-        self._seg_inflow0 = zero
+        self.inflow_ts_prev = zero
         self._seg_inflow = zero
         self._inflow_ts = zero
         self._seg_current_sum = zero
@@ -98,13 +98,13 @@ class PRMSChannelFlowNode(FlowNode):
             self._seg_inflow,
             self._inflow_ts,
             self._outflow_ts,
-            self._seg_inflow0,
+            self.inflow_ts_prev,
             self._seg_outflow,
         ) = self._calculate_subtimestep(
             ihr,
             inflow_upstream,
             inflow_lateral,
-            self._seg_inflow0,
+            self.inflow_ts_prev,
             self._seg_inflow,  # implied on RHS by +=
             self._inflow_ts,
             self._seg_outflow,
@@ -125,7 +125,7 @@ class PRMSChannelFlowNode(FlowNode):
         return
 
     def advance(self):
-        self._seg_inflow0 = self._seg_inflow
+        self.inflow_ts_prev = self._seg_inflow
 
         return
 
@@ -326,7 +326,7 @@ class PRMSChannelFlowNodeMaker(FlowNodeMaker):
 
         # local flow variables
         self._seg_inflow = np.zeros(self.nsegment, dtype=float)
-        self._seg_inflow0 = np.zeros(self.nsegment, dtype=float) * nan
+        self.inflow_ts_prev = np.zeros(self.nsegment, dtype=float) * nan
         self._inflow_ts = np.zeros(self.nsegment, dtype=float)
         self._outflow_ts = np.zeros(self.nsegment, dtype=float)
         self._seg_current_sum = np.zeros(self.nsegment, dtype=float)
@@ -340,7 +340,7 @@ def _calculate_subtimestep_numpy(
     ihr,
     inflow_upstream,
     inflow_lateral,
-    _seg_inflow0,
+    inflow_ts_prev,
     _seg_inflow,
     _inflow_ts,
     _seg_outflow,
@@ -364,12 +364,12 @@ def _calculate_subtimestep_numpy(
         if _tsi > 0:
             # Muskingum routing equation
             _outflow_ts = (
-                _inflow_ts * _c0 + _seg_inflow0 * _c1 + _outflow_ts * _c2
+                _inflow_ts * _c0 + inflow_ts_prev * _c1 + _outflow_ts * _c2
             )
         else:
             _outflow_ts = _inflow_ts
 
-        _seg_inflow0 = _inflow_ts
+        inflow_ts_prev = _inflow_ts
         _inflow_ts = 0.0
 
     _seg_outflow += _outflow_ts
@@ -378,7 +378,7 @@ def _calculate_subtimestep_numpy(
         _seg_inflow,
         _inflow_ts,
         _outflow_ts,
-        _seg_inflow0,
+        inflow_ts_prev,
         _seg_outflow,
     )
 
@@ -391,7 +391,7 @@ _calculate_subtimestep_numba = nb.njit(
         nb.int64,  # ihr
         nb.float64,  # inflow_upstream
         nb.float64,  # inflow_lateral
-        nb.float64,  # _seg_inflow0
+        nb.float64,  # inflow_ts_prev
         nb.float64,  # _seg_inflow
         nb.float64,  # _inflow_ts
         nb.float64,  # _seg_outflow
