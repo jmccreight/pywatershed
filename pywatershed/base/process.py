@@ -69,18 +69,26 @@ class Process(Accessor):
         snow_liquid, then storage changes for snow_ice and snow_liquid
         should be tracked and not for snow_water_equiv).
 
-    See Also: pywatershed.base.ConservativeProcess
+    See Also
+    --------
+    pywatershed.base.ConservativeProcess
 
-    Args:
-      control: A Control object.
-      discretization: A discretization object.
-      parameters: The parameters for this object.
-      metadata_patches: Override static metadata for any public parameter or
-        variable -- experimental.
-      metadata_patch_conflicts: How to handle metadata_patches conflicts.
-        Experimental.
-      restart_read: May be boolean or a Pathlib.Path. If False,
-        control.options will be examined for this key. If True, the working
+    Args
+    ----
+    control:
+        A Control object
+    discretization:
+        A discretization object
+    parameters:
+        The parameters for this object
+    metadata_patches:
+        Override static metadata for any public parameter or variable --
+        experimental.
+    metadata_patch_conflicts:
+        How to handle metadata_patches conflicts. Experimental.
+    restart_read:
+        May be boolean or a Pathlib.Path. If False, control.options
+        will be examined for this key. If True, the working
         directory is searched for restart files. If a Pathlib.Path, this
         specifies an alternative directory to search for restart files.
         Files searched for are of the pattern YYYY-mm-dd-varname.nc where the
@@ -88,17 +96,16 @@ class Process(Accessor):
         time of the states in the file with the exception of instantaneous
         variables from the hourly timesteps (e.g. outflow_ts in PRMSChannel,
         which is valid at the 23rd hour of the timestampped day).
-      restart_write: As for restart_read but for writing. The directory in
-        either case will be attempted to be created if it does not exist.
-      restart_write_freq: The frequency of restart output as "y" for yearly,
-        "m" for monthly, "d" for daily, or "f" for final. "Final" means that
-        restart files are written with the states of control.end_time to
-        files timestampped the following day. Yearly and monthly restart
-        options write files with timestamps on every first day each year or
-        month during the run. If daily, restarts are written every day. If
-        False, control.options will be examined for this key. If
-        restart_write is not False and restart_write_freq is False, the
-        default of "f" is used.
+    restart_write: As for restart_read but for writing. The directory in either
+        case will be attempted to be created if it does not exist.
+    restart_write_freq: The frequency of restart output as "y" for yearly, "m"
+        for monthly, "d" for daily, or "f" for final. "Final" means that
+        restart files are written with the states of control.end_time to files
+        timestampped the following day. Yearly and monthly restart options
+        write files with timestamps on every first day each year or month
+        during the run. If daily, restarts are written every day. If False,
+        control.options will be examined for this key. If restart_write is not
+        False and restart_write_freq is False, the default of "f" is used.
     """
 
     def __init__(
