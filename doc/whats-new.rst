@@ -22,11 +22,17 @@ New Features
 - Option for :class:`Model` class to read from a single netcdf file or (not and,
   the existing option,) from a directory containing multiple netcdf files.
   (:pull:`333`) By `James McCreight <https://github.com/jmccreight>`_.
-- `SourceSinkFlowNode` adds or removes flow above some minimum flow parameter as
-  a data file.
+- A new :class:`SourceSinkFlowNode` class adds or removes flow above some minimum
+  flow parameter as specified by an input data file.
   (:pull:`327`) By `James McCreight <https://github.com/jmccreight>`_.
-- `Control` has new method `set_init_start_times` to manage changing these times.
+- The :class:`Control` class has new method `set_init_start_times` to manage changing these times.
   (:pull:`335`) By `James McCreight <https://github.com/jmccreight>`_.
+- The :class:`FlowGraph` class has new method `plot` to show an abstract plot of the FlowGraph.
+  (:pull:`351`) By `James McCreight <https://github.com/jmccreight>`_.
+- The :class:`Process` class and subclasses have a new restart capability (with the
+  exceptions of PRMSSnow and PRMSRunoff and their subclasses which are
+  still to be implemented).
+  (:pull:`349`) By `James McCreight <https://github.com/jmccreight>`_.
 
 Breaking Changes
 ~~~~~~~~~~~~~~~~
