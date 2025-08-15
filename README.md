@@ -49,7 +49,7 @@ For more information on the goals and status of pywatershed, please see the [pyw
 
 ## Installation
 
-`pywatershed` uses Python 3.10 or 3.11.
+`pywatershed` uses Python 3.11 or 3.12.
 
 The `pywatershed` package is [available on
 PyPI](https://pypi.org/project/pywatershed/) but installation of all
