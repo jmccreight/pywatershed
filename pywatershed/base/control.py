@@ -287,11 +287,15 @@ class Control(Accessor):
                 else:
                     opts[pws_option_key] = val
                 # some special cases
-                if pws_option_key in [
-                    "parameter_file",
-                    "netcdf_output_dir",
-                    "streamflow_module",
-                ]:
+                if (
+                    pws_option_key
+                    in [
+                        "parameter_file",
+                        "netcdf_output_dir",
+                        "streamflow_module",
+                    ]
+                    and len(val) == 1
+                ):
                     opts[pws_option_key] = val[0]
 
             # special cases, unmapped names
