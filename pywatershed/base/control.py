@@ -85,11 +85,13 @@ class Control(Accessor):
     """Control manages global time and options, and provides metadata.
 
     Args:
-        start_time: the first time of integration NOT the restart time
-        end_time: the last integration time
-        time_step: length of the time step
-        init_time: the initialization time
-        options: a dictionary of global Process options.
+        init_time: The initialization or restart time. Typically one day prior
+          to start_time (but not necessarily).
+        start_time: The first time of model integration, NOT the restart or
+          init time.
+        end_time: The final integration time of the run.
+        time_step: Length of the time step (not currently optional).
+        options: A dictionary of global Process options.
 
     Available pywatershed options:
       * budget_type: one of [None, "warn", "error"]
