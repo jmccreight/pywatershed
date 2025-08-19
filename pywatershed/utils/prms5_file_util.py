@@ -62,6 +62,7 @@ class PrmsFile:
         self,
         file_path: fileish,
         file_type: str = None,
+        dims_from_previous_file: dict = None,
     ) -> "PrmsFile":
         self.file_path = file_path
         self.file_type = file_type
@@ -71,6 +72,7 @@ class PrmsFile:
         self.eof = None
         self.set_file_type(file_type)
         self.dimensions = None
+        self._dims_from_previous_file = dims_from_previous_file
 
     def set_file_type(
         self,
@@ -110,7 +112,7 @@ class PrmsFile:
             return {
                 self.file_type.value: {
                     "parameters": parameters,
-                    "parameter_dimensions": parameter_dimensions,
+                    "parameter_dimensions": self.dimensions,
                 }
             }
 
@@ -168,8 +170,15 @@ class PrmsFile:
         parameter_dimensions_dict = {}
         parameters_full_dict = {}
         parameter_dimensions_full_dict = {}
+        dimensions_start = -1
+        parameters_start = -1
+        previous_position = -1
         while True:
             current_position = self.file_object.tell()
+            if current_position == previous_position:
+                break
+            # <
+            previous_position = current_position
             line = self._get_line()
             if line == "** Dimensions **":
                 dimensions_start = current_position
@@ -177,20 +186,56 @@ class PrmsFile:
                 parameters_start = current_position
                 break
 
+        # <
+        self.eof = False
+
+        if dimensions_start == -1 and parameters_start == -1:
+            # then this is a "addendum" parameter file which basically
+            # relies on the header of another parameter file
+            self.file_object.seek(0)
+            previous_position = current_position = 0
+            while True:
+                line = self._get_line()
+                if line == "####":
+                    parameters_start = previous_position
+                    break
+                # <
+                previous_position = current_position
+                current_position = self.file_object.tell()
+
+        # <
+        self.eof = False
+
+        if parameters_start == -1:
+            raise ValueError(
+                f"Potentially malformed parameter file: {self.file_path}"
+            )
+
         # read dimensions data
-        self.file_object.seek(dimensions_start)
-        while self.file_object.tell() < parameters_start:
-            dim_temp = self._get_next_variable()
-            if dim_temp is None:
-                break
-            else:
-                for key, value in dim_temp.items():
-                    dimensions_dict[rename_dims(key)] = value
+        if dimensions_start != -1:
+            self.file_object.seek(dimensions_start)
+            while self.file_object.tell() < parameters_start:
+                dim_temp = self._get_next_variable()
+                if dim_temp is None:
+                    break
+                else:
+                    for key, value in dim_temp.items():
+                        dimensions_dict[rename_dims(key)] = value
+
+        else:
+            if not len(self._dims_from_previous_file):
+                raise ValueError(
+                    "Expecting dimensions to be passed from earlier file.\n"
+                    "Check the order of the passed parameter files to supply\n"
+                    "one with dimensions first."
+                )
+            dimensions_dict = self._dims_from_previous_file
 
         # read parameter data
         self.file_object.seek(parameters_start)
         self.section = PrmsFileSection.PARAMETER
         self.dimensions = dimensions_dict
+
         while True:
             par_temp = self._get_next_variable()
             if par_temp is None:

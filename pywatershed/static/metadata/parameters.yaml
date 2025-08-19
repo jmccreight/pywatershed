@@ -3,16 +3,17 @@ K_coef:
   desc: Muskingum storage coefficient
   dims:
     0: nsegment
-  help: Travel time of flood wave from one segment to the next downstream segment,
+  help:
+    Travel time of flood wave from one segment to the next downstream segment,
     called the Muskingum storage coefficient; enter 1.0 for reservoirs, diversions,
     and segment(s) flowing out of the basin
   maximum: 24.0
   minimum: 0.01
   modules:
-  - routing
-  - streamflow
-  - muskingum
-  - muskingum_mann
+    - routing
+    - streamflow
+    - muskingum
+    - muskingum_mann
   type: F
   units: hours
 adjmix_rain:
@@ -21,17 +22,47 @@ adjmix_rain:
   dims:
     0: nmonth
     1: nhru
-  help: Monthly (January to December) factor to adjust rain proportion in a mixed
+  help:
+    Monthly (January to December) factor to adjust rain proportion in a mixed
     rain/snow event
   maximum: 3.0
   minimum: 0.0
   modules:
-  - precip_1sta
-  - precip_laps
-  - precip_dist2
-  - precipitation_hru
+    - precip_1sta
+    - precip_laps
+    - precip_dist2
+    - precipitation_hru
   type: F
   units: decimal fraction
+ag_cov_type:
+  default: 3
+  desc: Agricultural cover type designation for HRU
+  dims:
+    0: nhru
+  help:
+    Agricultural cover type for each HRU (0=bare soil; 1=grasses; 2=shrubs; 3=trees;
+    4=coniferous)
+  maximum: 4
+  minimum: 0
+  modules:
+    - basin
+  type: I
+  units: none
+ag_soil_moist_max:
+  default: 2.0
+  desc: Maximum value of water for soil zone
+  dims:
+    0: nhru
+  help:
+    Maximum available water holding capacity of capillary reservoir from land
+    surface to rooting depth of the major vegetation type of each HRU
+  maximum: 20.0
+  minimum: 1.0e-05
+  modules:
+    - soilzone
+    - convert_params
+  type: F
+  units: inches
 albedo:
   default: 0.1
   desc: Short-wave solar radiation reflected by streams
@@ -41,20 +72,188 @@ albedo:
   maximum: 1.0
   minimum: 0.0
   modules:
-  - stream_temp
+    - stream_temp
   type: F
   units: decimal fraction
+
+ag_covden_sum:
+  default: 0.5
+  desc: Summer vegetation cover density for agricultural vegetation type
+  dims:
+    0: nhru
+  help: Summer vegetation cover density for the agricultural vegetation type in each HRU
+  maximum: 1.0
+  minimum: 0.0
+  type: F
+  units: decimal fraction
+ag_covden_win:
+  default: 0.5
+  desc: Winter vegetation cover density for major vegetation type
+  dims:
+    0: nhru
+  help: Winter vegetation cover density for the major vegetation type in each HRU
+  maximum: 1.0
+  minimum: 0.0
+  type: F
+  units: decimal fraction
+ag_frac:
+  default: 0.0
+  desc: Fraction of each HRU area that has agriculture
+  dims:
+    0: nhru
+  help: Fraction of each HRU area that has agriculture
+  maximum: 0.999
+  minimum: 0.0
+  modules:
+    - basin
+  type: F
+  units: decimal fraction
+ag_soil_moist_init_frac:
+  default: 0.0
+  desc: Initial fraction available water in the agriculture fraction soil moisture.
+  dims:
+    0: nhru
+  help: Initial fraction of available water in the agriculture fraction of soil moisture.
+  maximum: 1.0
+  minimum: 0.0
+  modules:
+    - soilzone
+    - convert_params
+  type: F
+  units: decimal fraction
+ag_soil_rechr_init_frac:
+  default: 0.0
+  desc:
+    Initial fraction of available water in the agricultural soil recharge zone within the capillary
+    reservoir
+  dims:
+    0: nhru
+  help:
+    Initial fraction of available water in the agricultural capillary reservoir where losses
+    occur as both evaporation and transpiration (upper zone of capillary reservoir)
+    for each HRU
+  maximum: 1.0
+  minimum: 0.0
+  modules:
+    - soilzone
+    - convert_params
+  type: F
+  units: decimal fraction
+ag_soil_rechr_max_frac:
+  default: 1.0
+  desc:
+    Fraction of agricultural capillary reservoir where losses occur as both evaporation and
+    transpiration (soil recharge zone)
+  dims:
+    0: nhru
+  help:
+    Fraction of the agricultural capillary reservoir water-holding capacity (soil_moist_max)
+    where losses occur as both evaporation and transpiration (upper zone of capillary
+    reservoir) for each HRU
+  maximum: 1.0
+  minimum: 1.0e-05
+  modules:
+    - soilzone
+    - convert_params
+  type: F
+  units: decimal fraction
+ag_soil_type:
+  default: 2
+  desc: HRU soil type in agricultural fraction
+  dims:
+    0: nhru
+  help: Soil type of each HRU agricultural fraction (1=sand; 2=loam; 3=clay)
+  maximum: 3
+  minimum: 1
+  modules:
+    - soilzone
+  type: I
+  units: none
+ag_soil2gw_max:
+  default: 0.0
+  desc: Maximum value for capillary reservoir excess to GWR in agricultural fraction
+  dims:
+    0: nhru
+  help:
+    Maximum amount of the capillary reservoir excess that is routed directly to
+    the GWR for each HRU in agricultural fraction
+  maximum: 5.0
+  minimum: 0.0
+  modules:
+    - soilzone
+  type: F
+  units: inches
+ag_soilwater_deficit_min:
+  default: 0.0
+  desc: Unknown
+  dims:
+    0: nhru
+  help: Unknown
+  maximum: -999
+  minimum: -999
+  type: F
+  units: unknown
+basin_fall_frost:
+  default: 264
+  desc:
+    The solar date (number of days after winter solstice) of the first killing
+    frost of the fall for the basin
+  dims:
+    0: nhru
+  help:
+    The solar date (number of days after winter solstice) of the first killing
+    frost of the fall for the basin
+  maximum: 366
+  minimum: 1
+  type: I
+  units: Solar date
+basin_spring_frost:
+  default: 111
+  desc:
+    The solar date (number of days after winter solstice) of the last killing
+    frost of the spring for the basin
+  dims:
+    0: nhru
+  help:
+    The solar date (number of days after winter solstice) of the last killing
+    frost of the spring basin
+  maximum: 366
+  minimum: 1
+  type: I
+  units: Solar date
+max_soilzone_ag_iter:
+  default: 0.0
+  desc: Unknown
+  dims:
+    0: nhru
+  help: Unknown
+  maximum: -999
+  minimum: -999
+  type: I
+  units: unknown
+soilzone_aet_converge:
+  default: 0.0
+  desc: Unknown
+  dims:
+    0: nhru
+  help: Unknown
+  maximum: -999
+  minimum: -999
+  type: F
+  units: unknown
+
 albset_rna:
   default: 0.8
   desc: Albedo reset - rain, accumulation stage
   dims:
     0: nhru
-  help: Fraction of rain in a mixed precipitation event above which the snow albedo
+  help:
+    Fraction of rain in a mixed precipitation event above which the snow albedo
     is not reset; applied during the snowpack accumulation stage
   maximum: 1.0
   minimum: 0.5
   modules:
-  - snowcomp
+    - snowcomp
   type: F
   units: decimal fraction
 albset_rnm:
@@ -62,12 +261,13 @@ albset_rnm:
   desc: Albedo reset - rain,  melt stage
   dims:
     0: nhru
-  help: Fraction of rain in a mixed precipitation event above which the snow albedo
+  help:
+    Fraction of rain in a mixed precipitation event above which the snow albedo
     is not reset; applied during the snowpack melt stage
   maximum: 1.0
   minimum: 0.4
   modules:
-  - snowcomp
+    - snowcomp
   type: F
   units: decimal fraction
 albset_sna:
@@ -75,12 +275,13 @@ albset_sna:
   desc: Albedo reset - snow, accumulation stage
   dims:
     0: nhru
-  help: Minimum snowfall, in water equivalent, needed to reset snow albedo during
+  help:
+    Minimum snowfall, in water equivalent, needed to reset snow albedo during
     the snowpack accumulation stage
   maximum: 1.0
   minimum: 0.01
   modules:
-  - snowcomp
+    - snowcomp
   type: F
   units: inches
 albset_snm:
@@ -88,12 +289,13 @@ albset_snm:
   desc: Albedo reset - snow, melt stage
   dims:
     0: nhru
-  help: Minimum snowfall, in water equivalent, needed to reset snow albedo during
+  help:
+    Minimum snowfall, in water equivalent, needed to reset snow albedo during
     the snowpack melt stage
   maximum: 1.0
   minimum: 0.1
   modules:
-  - snowcomp
+    - snowcomp
   type: F
   units: inches
 alte:
@@ -105,7 +307,7 @@ alte:
   maximum: 1.57079633
   minimum: 0.0
   modules:
-  - stream_temp
+    - stream_temp
   type: F
   units: radians
 altw:
@@ -117,7 +319,7 @@ altw:
   maximum: 1.57079633
   minimum: 0.0
   modules:
-  - stream_temp
+    - stream_temp
   type: F
   units: radians
 azrh:
@@ -129,7 +331,7 @@ azrh:
   maximum: 6.28296
   minimum: 0.0
   modules:
-  - stream_temp
+    - stream_temp
   type: F
   units: radians
 basin_solsta:
@@ -137,14 +339,15 @@ basin_solsta:
   desc: Index of main solar radiation station
   dims:
     0: scalar
-  help: Index of solar radiation station used to compute basin radiation values, used
+  help:
+    Index of solar radiation station used to compute basin radiation values, used
     when dimension nsol>0
   maximum: nsol
   minimum: bounded
   modules:
-  - ccsolrad
-  - ddsolrad
-  - solar_radiation_hru
+    - ccsolrad
+    - ddsolrad
+    - solar_radiation_hru
   type: I
   units: none
 basin_tsta:
@@ -156,9 +359,9 @@ basin_tsta:
   maximum: ntemp
   minimum: bounded
   modules:
-  - temp_1sta
-  - temp_laps
-  - temp_dist2
+    - temp_1sta
+    - temp_laps
+    - temp_dist2
   type: I
   units: none
 carea_max:
@@ -166,14 +369,15 @@ carea_max:
   desc: Maximum contributing area
   dims:
     0: nhru
-  help: Maximum possible area contributing to surface runoff expressed as a portion
+  help:
+    Maximum possible area contributing to surface runoff expressed as a portion
     of the HRU area
   maximum: 1.0
   minimum: 0.0
   modules:
-  - srunoff
-  - srunoff_smidx
-  - srunoff_carea
+    - srunoff
+    - srunoff_smidx
+    - srunoff_carea
   type: F
   units: decimal fraction
 carea_min:
@@ -181,12 +385,13 @@ carea_min:
   desc: Minimum contributing area
   dims:
     0: nhru
-  help: Minimum possible area contributing to surface runoff expressed as a portion
+  help:
+    Minimum possible area contributing to surface runoff expressed as a portion
     of the area for each HRU
   maximum: 1.0
   minimum: 0.0
   modules:
-  - srunoff_carea
+    - srunoff_carea
   type: F
   units: decimal fraction
 cascade_flg:
@@ -198,7 +403,7 @@ cascade_flg:
   maximum: 1
   minimum: 0
   modules:
-  - cascade
+    - cascade
   type: I
   units: none
 cascade_tol:
@@ -210,7 +415,7 @@ cascade_tol:
   maximum: 99.0
   minimum: 0.0
   modules:
-  - cascade
+    - cascade
   type: F
   units: acres
 ccov_intcp:
@@ -223,7 +428,7 @@ ccov_intcp:
   maximum: 5.0
   minimum: 0.0
   modules:
-  - ccsolrad
+    - ccsolrad
   type: F
   units: none
 ccov_slope:
@@ -236,7 +441,7 @@ ccov_slope:
   maximum: -0.01
   minimum: -0.5
   modules:
-  - ccsolrad
+    - ccsolrad
   type: F
   units: none
 cecn_coef:
@@ -245,12 +450,13 @@ cecn_coef:
   dims:
     0: nmonth
     1: nhru
-  help: Monthly (January to December) convection condensation energy coefficient for
+  help:
+    Monthly (January to December) convection condensation energy coefficient for
     each HRU
   maximum: 20.0
   minimum: 0.02
   modules:
-  - snowcomp
+    - snowcomp
   type: F
   units: calories per degree Celsius above 0
 circle_switch:
@@ -262,7 +468,7 @@ circle_switch:
   maximum: 1
   minimum: 0
   modules:
-  - cascade
+    - cascade
   type: I
   units: none
 cov_type:
@@ -270,12 +476,13 @@ cov_type:
   desc: Cover type designation for HRU
   dims:
     0: nhru
-  help: Vegetation cover type for each HRU (0=bare soil; 1=grasses; 2=shrubs; 3=trees;
+  help:
+    Vegetation cover type for each HRU (0=bare soil; 1=grasses; 2=shrubs; 3=trees;
     4=coniferous)
   maximum: 4
   minimum: 0
   modules:
-  - basin
+    - basin
   type: I
   units: none
 covden_sum:
@@ -287,7 +494,7 @@ covden_sum:
   maximum: 1.0
   minimum: 0.0
   modules:
-  - basin
+    - basin
   type: F
   units: decimal fraction
 covden_win:
@@ -299,7 +506,7 @@ covden_win:
   maximum: 1.0
   minimum: 0.0
   modules:
-  - basin
+    - basin
   type: F
   units: decimal fraction
 crad_coef:
@@ -308,12 +515,13 @@ crad_coef:
   dims:
     0: nmonth
     1: nhru
-  help: Coefficient(B) in Thompson(1976) equation; varies by region, contour map of
+  help:
+    Coefficient(B) in Thompson(1976) equation; varies by region, contour map of
     values in reference
   maximum: 0.7
   minimum: 0.1
   modules:
-  - ccsolrad
+    - ccsolrad
   type: F
   units: none
 crad_exp:
@@ -326,7 +534,7 @@ crad_exp:
   maximum: 0.8
   minimum: 0.2
   modules:
-  - ccsolrad
+    - ccsolrad
   type: F
   units: none
 crop_coef:
@@ -339,8 +547,8 @@ crop_coef:
   maximum: 2.0
   minimum: 0.0
   modules:
-  - potet_pm
-  - potet_pm_sta
+    - potet_pm
+    - potet_pm_sta
   type: F
   units: decimal fraction
 dday_intcp:
@@ -353,7 +561,7 @@ dday_intcp:
   maximum: 10.0
   minimum: -60.0
   modules:
-  - ddsolrad
+    - ddsolrad
   type: F
   units: dday
 dday_slope:
@@ -366,7 +574,7 @@ dday_slope:
   maximum: 1.4
   minimum: 0.1
   modules:
-  - ddsolrad
+    - ddsolrad
   type: F
   units: dday/temp_units
 den_init:
@@ -378,7 +586,7 @@ den_init:
   maximum: 0.5
   minimum: 0.01
   modules:
-  - snowcomp
+    - snowcomp
   type: F
   units: gm/cm3
 den_max:
@@ -390,7 +598,7 @@ den_max:
   maximum: 0.8
   minimum: 0.1
   modules:
-  - snowcomp
+    - snowcomp
   type: F
   units: gm/cm3
 dist_max:
@@ -402,8 +610,8 @@ dist_max:
   maximum: 1.0E9
   minimum: 0.0
   modules:
-  - precip_dist2
-  - temp_dist2
+    - precip_dist2
+    - temp_dist2
   type: F
   units: feet
 doy:
@@ -411,7 +619,7 @@ doy:
   dims:
     0: ndoy
   type: I
-  units: day index  # using 'days' will trigger an undesired xarray encoding
+  units: day index # using 'days' will trigger an undesired xarray encoding
 dprst_depth_avg:
   default: 132.0
   desc: Average depth of surface depressions at maximum storage capacity
@@ -421,25 +629,27 @@ dprst_depth_avg:
   maximum: 500.0
   minimum: 0.0
   modules:
-  - srunoff
-  - srunoff_smidx
-  - srunoff_carea
+    - srunoff
+    - srunoff_smidx
+    - srunoff_carea
   type: F
   units: inches
 dprst_et_coef:
   default: 1.0
-  desc: Fraction of unsatisfied potential evapotranspiration to apply to surface-depression
+  desc:
+    Fraction of unsatisfied potential evapotranspiration to apply to surface-depression
     storage
   dims:
     0: nhru
-  help: Fraction of unsatisfied potential evapotranspiration to apply to surface-depression
+  help:
+    Fraction of unsatisfied potential evapotranspiration to apply to surface-depression
     storage
   maximum: 1.5
   minimum: 0.5
   modules:
-  - srunoff
-  - srunoff_smidx
-  - srunoff_carea
+    - srunoff
+    - srunoff_smidx
+    - srunoff_carea
   type: F
   units: decimal fraction
 dprst_flow_coef:
@@ -447,14 +657,15 @@ dprst_flow_coef:
   desc: Coefficient in linear flow routing equation for open surface depressions
   dims:
     0: nhru
-  help: Coefficient in linear flow routing equation for open surface depressions for
+  help:
+    Coefficient in linear flow routing equation for open surface depressions for
     each HRU
   maximum: 0.5
   minimum: 1.0e-05
   modules:
-  - srunoff
-  - srunoff_smidx
-  - srunoff_carea
+    - srunoff
+    - srunoff_smidx
+    - srunoff_carea
   type: F
   units: fraction/day
 dprst_frac:
@@ -466,7 +677,7 @@ dprst_frac:
   maximum: 0.999
   minimum: 0.0
   modules:
-  - basin
+    - basin
   type: F
   units: decimal fraction
 dprst_frac_init:
@@ -474,28 +685,31 @@ dprst_frac_init:
   desc: Fraction of maximum storage that contains water at the start of a simulation
   dims:
     0: nhru
-  help: Fraction of maximum surface-depression storage that contains water at the
+  help:
+    Fraction of maximum surface-depression storage that contains water at the
     start of a simulation
   maximum: 1.0
   minimum: 0.0
   modules:
-  - srunoff
-  - srunoff_smidx
-  - srunoff_carea
+    - srunoff
+    - srunoff_smidx
+    - srunoff_carea
   type: F
   units: decimal fraction
 dprst_frac_open:
   default: 1.0
-  desc: Fraction of open surface-depression storage area within an HRU that can generate
+  desc:
+    Fraction of open surface-depression storage area within an HRU that can generate
     surface runoff as a function of storage volume
   dims:
     0: nhru
-  help: Fraction of open surface-depression storage area within an HRU that can generate
+  help:
+    Fraction of open surface-depression storage area within an HRU that can generate
     surface runoff as a function of storage volume
   maximum: 1.0
   minimum: 0.0
   modules:
-  - basin
+    - basin
   type: F
   units: decimal fraction
 dprst_seep_rate_clos:
@@ -503,14 +717,15 @@ dprst_seep_rate_clos:
   desc: Coefficient used in linear seepage flow equation for closed surface depressions
   dims:
     0: nhru
-  help: Coefficient used in linear seepage flow equation for closed surface depressions
+  help:
+    Coefficient used in linear seepage flow equation for closed surface depressions
     for each HRU
   maximum: 0.2
   minimum: 0.0
   modules:
-  - srunoff
-  - srunoff_smidx
-  - srunoff_carea
+    - srunoff
+    - srunoff_smidx
+    - srunoff_carea
   type: F
   units: fraction/day
 dprst_seep_rate_open:
@@ -518,14 +733,15 @@ dprst_seep_rate_open:
   desc: Coefficient used in linear seepage flow equation for open surface depressions
   dims:
     0: nhru
-  help: Coefficient used in linear seepage flow equation for open surface depressions
+  help:
+    Coefficient used in linear seepage flow equation for open surface depressions
     for each HRU
   maximum: 0.2
   minimum: 0.0
   modules:
-  - srunoff
-  - srunoff_smidx
-  - srunoff_carea
+    - srunoff
+    - srunoff_smidx
+    - srunoff_carea
   type: F
   units: fraction/day
 elev_outflow:
@@ -533,12 +749,13 @@ elev_outflow:
   desc: Elevation of the main outflow point
   dims:
     0: nlake
-  help: Elevation of the main outflow point for each lake using broad-crested weir
+  help:
+    Elevation of the main outflow point for each lake using broad-crested weir
     routing
   maximum: 10000.0
   minimum: -300.0
   modules:
-  - muskingum_lake
+    - muskingum_lake
   type: F
   units: feet
 elev_units:
@@ -550,7 +767,7 @@ elev_units:
   maximum: 1
   minimum: 0
   modules:
-  - basin
+    - basin
   type: I
   units: none
 elevlake_init:
@@ -558,12 +775,13 @@ elevlake_init:
   desc: Initial lake surface elevation
   dims:
     0: nlake
-  help: Initial lake surface elevation for each lake using broad-crested weir or gate
+  help:
+    Initial lake surface elevation for each lake using broad-crested weir or gate
     opening routing
   maximum: 10000.0
   minimum: -300.0
   modules:
-  - muskingum_lake
+    - muskingum_lake
   type: F
   units: feet
 emis_noppt:
@@ -575,7 +793,7 @@ emis_noppt:
   maximum: 1.0
   minimum: 0.757
   modules:
-  - snowcomp
+    - snowcomp
   type: F
   units: decimal fraction
 epan_coef:
@@ -588,21 +806,23 @@ epan_coef:
   maximum: 3.0
   minimum: 0.01
   modules:
-  - intcp
+    - intcp
   type: F
   units: decimal fraction
 fall_frost:
   default: 264
-  desc: The solar date (number of days after winter solstice) of the first killing
+  desc:
+    The solar date (number of days after winter solstice) of the first killing
     frost of the fall
   dims:
     0: nhru
-  help: The solar date (number of days after winter solstice) of the first killing
+  help:
+    The solar date (number of days after winter solstice) of the first killing
     frost of the fall
   maximum: 366
   minimum: 1
   modules:
-  - transp_frost
+    - transp_frost
   type: I
   units: Solar date
 fastcoef_lin:
@@ -610,12 +830,13 @@ fastcoef_lin:
   desc: Linear preferential-flow routing coefficient
   dims:
     0: nhru
-  help: Linear coefficient in equation to route preferential-flow storage downslope
+  help:
+    Linear coefficient in equation to route preferential-flow storage downslope
     for each HRU
   maximum: 1.0
   minimum: 0.0
   modules:
-  - soilzone
+    - soilzone
   type: F
   units: fraction/day
 fastcoef_sq:
@@ -623,12 +844,13 @@ fastcoef_sq:
   desc: Non-linear preferential-flow routing coefficient
   dims:
     0: nhru
-  help: Non-linear coefficient in equation used to route preferential-flow storage
+  help:
+    Non-linear coefficient in equation used to route preferential-flow storage
     downslope for each HRU
   maximum: 1.0
   minimum: 0.0
   modules:
-  - soilzone
+    - soilzone
   type: F
   units: none
 freeh2o_cap:
@@ -636,12 +858,13 @@ freeh2o_cap:
   desc: Free-water holding capacity of snowpack for each HRU
   dims:
     0: nhru
-  help: Free-water holding capacity of snowpack for each HRU, expressed as a decimal
+  help:
+    Free-water holding capacity of snowpack for each HRU, expressed as a decimal
     fraction of the frozen water content of the snowpack (pk_ice)
   maximum: 0.2
   minimum: 0.01
   modules:
-  - snowcomp
+    - snowcomp
   type: F
   units: decimal fraction
 frost_temp:
@@ -653,7 +876,7 @@ frost_temp:
   maximum: 32.0
   minimum: -10.0
   modules:
-  - frost_date
+    - frost_date
   type: F
   units: temp_units
 gvr_cell_id:
@@ -665,7 +888,7 @@ gvr_cell_id:
   maximum: nhrucell
   minimum: bounded
   modules:
-  - map_results
+    - map_results
   type: I
   units: none
 gvr_cell_pct:
@@ -677,7 +900,7 @@ gvr_cell_pct:
   maximum: 1.0
   minimum: 0.0
   modules:
-  - map_results
+    - map_results
   type: F
   units: decimal fraction
 gvr_hru_id:
@@ -689,8 +912,8 @@ gvr_hru_id:
   maximum: nhru
   minimum: bounded
   modules:
-  - soilzone
-  - map_results
+    - soilzone
+    - map_results
   type: I
   units: none
 gw_down_id:
@@ -702,7 +925,7 @@ gw_down_id:
   maximum: nhru
   minimum: bounded
   modules:
-  - cascade
+    - cascade
   type: I
   units: none
 gw_init:
@@ -710,12 +933,13 @@ gw_init:
   desc: Initial groundwater temperature
   dims:
     0: nsegment
-  help: Initial temperature of groundwater entering each segment; recommended value
+  help:
+    Initial temperature of groundwater entering each segment; recommended value
     equal to long-term average air temperature
   maximum: 45.0
   minimum: 0.0
   modules:
-  - stream_temp
+    - stream_temp
   type: F
   units: degrees Celsius
 gw_pct_up:
@@ -723,26 +947,29 @@ gw_pct_up:
   desc: Fraction of GWR area associated with cascade area
   dims:
     0: ncascdgw
-  help: Fraction of GWR area used to compute flow contributed to a downslope GWR or
+  help:
+    Fraction of GWR area used to compute flow contributed to a downslope GWR or
     stream segment for cascade area
   maximum: 1.0
   minimum: 0.0
   modules:
-  - cascade
+    - cascade
   type: F
   units: decimal fraction
 gw_seep_coef:
   default: 0.015
-  desc: Linear coefficient to compute seepage and groundwater discharge to and from
+  desc:
+    Linear coefficient to compute seepage and groundwater discharge to and from
     associated lake HRUs
   dims:
     0: nhru
-  help: Linear coefficient in equation to compute lakebed seepage to the GWR and groundwater
+  help:
+    Linear coefficient in equation to compute lakebed seepage to the GWR and groundwater
     discharge to each lake using broad-crested weir routing or gate opening routing
   maximum: 0.05
   minimum: 0.001
   modules:
-  - muskingum_lake
+    - muskingum_lake
   type: F
   units: fraction/day
 gw_strmseg_down_id:
@@ -754,7 +981,7 @@ gw_strmseg_down_id:
   maximum: nsegment
   minimum: bounded
   modules:
-  - cascade
+    - cascade
   type: I
   units: none
 gw_tau:
@@ -766,7 +993,7 @@ gw_tau:
   maximum: 365
   minimum: 1
   modules:
-  - stream_temp
+    - stream_temp
   type: I
   units: days
 gw_up_id:
@@ -778,7 +1005,7 @@ gw_up_id:
   maximum: nhru
   minimum: bounded
   modules:
-  - cascade
+    - cascade
   type: I
   units: none
 gwflow_coef:
@@ -786,12 +1013,13 @@ gwflow_coef:
   desc: Groundwater routing coefficient
   dims:
     0: nhru
-  help: Linear coefficient in the equation to compute groundwater discharge for each
+  help:
+    Linear coefficient in the equation to compute groundwater discharge for each
     GWR
   maximum: 0.5
   minimum: 0.0
   modules:
-  - gwflow
+    - gwflow
   type: F
   units: fraction/day
 gwsink_coef:
@@ -799,12 +1027,13 @@ gwsink_coef:
   desc: Groundwater sink coefficient
   dims:
     0: nhru
-  help: Linear coefficient in the equation to compute outflow to the groundwater sink
+  help:
+    Linear coefficient in the equation to compute outflow to the groundwater sink
     for each GWR
   maximum: 1.0
   minimum: 0.0
   modules:
-  - gwflow
+    - gwflow
   type: F
   units: fraction/day
 gwstor_init:
@@ -816,7 +1045,7 @@ gwstor_init:
   maximum: 50.0
   minimum: 0.0
   modules:
-  - gwflow
+    - gwflow
   type: F
   units: inches
 gwstor_min:
@@ -824,13 +1053,14 @@ gwstor_min:
   desc: Minimum storage in each GWR
   dims:
     0: nhru
-  help: Minimum storage in each GWR to ensure storage is greater than specified value
+  help:
+    Minimum storage in each GWR to ensure storage is greater than specified value
     to account for inflow from deep aquifers or injection wells with the water source
     outside the basin
   maximum: 1.0
   minimum: 0.0
   modules:
-  - gwflow
+    - gwflow
   type: F
   units: inches
 hamon_coef:
@@ -839,12 +1069,13 @@ hamon_coef:
   dims:
     0: nmonth
     1: nhru
-  help: Monthly (January to December) air temperature coefficient used in Hamon potential
+  help:
+    Monthly (January to December) air temperature coefficient used in Hamon potential
     ET computations for each HRU
   maximum: 0.008
   minimum: 0.004
   modules:
-  - potet_hamon
+    - potet_hamon
   type: F
   units: none
 hru_area:
@@ -856,8 +1087,8 @@ hru_area:
   maximum: 1.0E9
   minimum: 0.0001
   modules:
-  - basin
-  - convert_params
+    - basin
+    - convert_params
   type: F
   units: acres
 hru_aspect:
@@ -869,7 +1100,7 @@ hru_aspect:
   maximum: 360.0
   minimum: 0.0
   modules:
-  - basin
+    - basin
   type: F
   units: angular degrees
 hru_deplcrv:
@@ -881,7 +1112,7 @@ hru_deplcrv:
   maximum: ndepl
   minimum: bounded
   modules:
-  - snowcomp
+    - snowcomp
   type: I
   units: none
 hru_down_id:
@@ -893,7 +1124,7 @@ hru_down_id:
   maximum: nhru
   minimum: bounded
   modules:
-  - cascade
+    - cascade
   type: I
   units: none
 hru_elev:
@@ -905,7 +1136,7 @@ hru_elev:
   maximum: 30000.0
   minimum: -1000.0
   modules:
-  - basin
+    - basin
   type: F
   units: elev_units
 hru_humidity_sta:
@@ -917,7 +1148,7 @@ hru_humidity_sta:
   maximum: nhumid
   minimum: bounded
   modules:
-  - potet_pm_sta
+    - potet_pm_sta
   type: I
   units: none
 hru_in_to_cf:
@@ -939,7 +1170,7 @@ hru_lat:
   maximum: 90.0
   minimum: -90.0
   modules:
-  - basin
+    - basin
   type: F
   units: degrees North
 hru_lon:
@@ -951,7 +1182,7 @@ hru_lon:
   maximum: 360.0
   minimum: -360.0
   modules:
-  - basin
+    - basin
   type: F
   units: degrees East
 hru_pansta:
@@ -963,7 +1194,7 @@ hru_pansta:
   maximum: nevap
   minimum: bounded
   modules:
-  - potet_pan
+    - potet_pan
   type: I
   units: none
 hru_pct_up:
@@ -971,12 +1202,13 @@ hru_pct_up:
   desc: Fraction of HRU area associated with cascade area
   dims:
     0: ncascade
-  help: Fraction of HRU area used to compute flow contributed to a downslope HRU or
+  help:
+    Fraction of HRU area used to compute flow contributed to a downslope HRU or
     stream segment for cascade area
   maximum: 1.0
   minimum: 0.0
   modules:
-  - cascade
+    - cascade
   type: F
   units: decimal fraction
 hru_percent_imperv:
@@ -988,7 +1220,7 @@ hru_percent_imperv:
   maximum: 0.999
   minimum: 0.0
   modules:
-  - basin
+    - basin
   type: F
   units: decimal fraction
 hru_plaps:
@@ -996,12 +1228,13 @@ hru_plaps:
   desc: Index of precipitation station to lapse against hru_psta
   dims:
     0: nhru
-  help: Index of the lapse precipitation measurement station used for lapse rate calculations
+  help:
+    Index of the lapse precipitation measurement station used for lapse rate calculations
     for each HRU
   maximum: nrain
   minimum: bounded
   modules:
-  - precip_1sta_laps
+    - precip_1sta_laps
   type: I
   units: none
 hru_psta:
@@ -1009,12 +1242,13 @@ hru_psta:
   desc: Index of base precipitation station for HRU
   dims:
     0: nhru
-  help: Index of the base precipitation station used for lapse rate calculations for
+  help:
+    Index of the base precipitation station used for lapse rate calculations for
     each HRU
   maximum: nrain
   minimum: bounded
   modules:
-  - precip_1sta_laps
+    - precip_1sta_laps
   type: I
   units: none
 hru_segment:
@@ -1022,15 +1256,16 @@ hru_segment:
   desc: Segment index for HRU lateral inflows
   dims:
     0: nhru
-  help: Segment index to which an HRU contributes lateral flows (surface runoff, interflow,
+  help:
+    Segment index to which an HRU contributes lateral flows (surface runoff, interflow,
     and groundwater discharge)
   maximum: nsegment
   minimum: bounded
   modules:
-  - routing
-  - streamflow
-  - strmflow_in_out
-  - muskingum
+    - routing
+    - streamflow
+    - strmflow_in_out
+    - muskingum
   type: I
   units: none
 hru_segment_nhm:
@@ -1038,15 +1273,16 @@ hru_segment_nhm:
   desc: NHM segment index for HRU lateral inflows
   dims:
     0: nhru
-  help: NHM segment index to which an HRU contributes lateral flows (surface runoff,
+  help:
+    NHM segment index to which an HRU contributes lateral flows (surface runoff,
     interflow, and groundwater discharge)
   maximum: nsegment
   minimum: bounded
   modules:
-  - routing
-  - streamflow
-  - strmflow_in_out
-  - muskingum
+    - routing
+    - streamflow
+    - strmflow_in_out
+    - muskingum
   type: I
   units: none
 hru_slope:
@@ -1054,12 +1290,13 @@ hru_slope:
   desc: HRU slope
   dims:
     0: nhru
-  help: Slope of each HRU, specified as change in vertical length divided by change
+  help:
+    Slope of each HRU, specified as change in vertical length divided by change
     in horizontal length
   maximum: 10.0
   minimum: 0.0
   modules:
-  - basin
+    - basin
   type: F
   units: decimal fraction
 hru_solsta:
@@ -1071,9 +1308,9 @@ hru_solsta:
   maximum: nsol
   minimum: bounded
   modules:
-  - ccsolrad
-  - ddsolrad
-  - solar_radiation_hru
+    - ccsolrad
+    - ddsolrad
+    - solar_radiation_hru
   type: I
   units: none
 hru_strmseg_down_id:
@@ -1085,7 +1322,7 @@ hru_strmseg_down_id:
   maximum: nsegment
   minimum: bounded
   modules:
-  - cascade
+    - cascade
   type: I
   units: none
 hru_subbasin:
@@ -1097,8 +1334,8 @@ hru_subbasin:
   maximum: nsub
   minimum: bounded
   modules:
-  - subbasin
-  - nsub_summary
+    - subbasin
+    - nsub_summary
   type: I
   units: none
 hru_tlaps:
@@ -1110,7 +1347,7 @@ hru_tlaps:
   maximum: ntemp
   minimum: bounded
   modules:
-  - temp_1sta_laps
+    - temp_1sta_laps
   type: I
   units: none
 hru_tsta:
@@ -1122,8 +1359,8 @@ hru_tsta:
   maximum: ntemp
   minimum: bounded
   modules:
-  - temp_1sta
-  - temp_laps
+    - temp_1sta
+    - temp_laps
   type: I
   units: none
 hru_type:
@@ -1135,7 +1372,7 @@ hru_type:
   maximum: 3
   minimum: 0
   modules:
-  - basin
+    - basin
   type: I
   units: none
 hru_up_id:
@@ -1147,7 +1384,7 @@ hru_up_id:
   maximum: nhru
   minimum: bounded
   modules:
-  - cascade
+    - cascade
   requires:
     control: cascade_flag=1
     dimension: ncascade>0
@@ -1162,7 +1399,7 @@ hru_windspeed_sta:
   maximum: nwind
   minimum: bounded
   modules:
-  - potet_pm_sta
+    - potet_pm_sta
   type: I
   units: none
 hru_x:
@@ -1174,7 +1411,7 @@ hru_x:
   maximum: 1.0E7
   minimum: -1.0E7
   modules:
-  - setup_param
+    - setup_param
   type: F
   units: meters
 hru_xlong:
@@ -1186,8 +1423,8 @@ hru_xlong:
   maximum: 1.0E9
   minimum: -1.0E9
   modules:
-  - precip_dist2
-  - temp_dist2
+    - precip_dist2
+    - temp_dist2
   type: F
   units: feet
 hru_y:
@@ -1199,7 +1436,7 @@ hru_y:
   maximum: 1.0E7
   minimum: -1.0E7
   modules:
-  - setup_param
+    - setup_param
   type: F
   units: meters
 hru_ylat:
@@ -1211,8 +1448,8 @@ hru_ylat:
   maximum: 1.0E9
   minimum: -1.0E9
   modules:
-  - precip_dist2
-  - temp_dist2
+    - precip_dist2
+    - temp_dist2
   type: F
   units: feet
 hs_krs:
@@ -1221,12 +1458,13 @@ hs_krs:
   dims:
     0: nmonth
     1: nhru
-  help: Monthly (January to December) adjustment factor used in Hargreaves-Samani
+  help:
+    Monthly (January to December) adjustment factor used in Hargreaves-Samani
     potential ET computations for each HRU
   maximum: 0.24
   minimum: 0.01
   modules:
-  - potet_hs
+    - potet_hs
   type: F
   units: decimal fraction
 humidity_percent:
@@ -1239,14 +1477,14 @@ humidity_percent:
   maximum: 100.0
   minimum: 0.0
   modules:
-  - potet_hru
-  - potet_hamon
-  - potet_hs
-  - potet_jh
-  - potet_pan
-  - potet_pm
-  - potet_pm_sta
-  - potet_pt
+    - potet_hru
+    - potet_hamon
+    - potet_hs
+    - potet_jh
+    - potet_pan
+    - potet_pm
+    - potet_pm_sta
+    - potet_pt
   type: F
   units: percentage
 imperv_stor_max:
@@ -1258,9 +1496,9 @@ imperv_stor_max:
   maximum: 0.5
   minimum: 0.0
   modules:
-  - srunoff
-  - srunoff_area
-  - srunoff_smidx
+    - srunoff
+    - srunoff_area
+    - srunoff_smidx
   type: F
   units: inches
 irr_type:
@@ -1268,12 +1506,13 @@ irr_type:
   desc: Method of application of water for each application
   dims:
     0: nhru
-  help: Method of application of water for each application time-series (0=sprinkler
+  help:
+    Method of application of water for each application time-series (0=sprinkler
     (interception applies); 1=furrow/drip (no intercept); 2=ignore)
   maximum: 2
   minimum: 0
   modules:
-  - intcp
+    - intcp
   type: I
   units: none
 jh_coef:
@@ -1282,12 +1521,13 @@ jh_coef:
   dims:
     0: nmonth
     1: nhru
-  help: Monthly (January to December) air temperature coefficient used in Jensen-Haise
+  help:
+    Monthly (January to December) air temperature coefficient used in Jensen-Haise
     potential ET computations for each HRU
   maximum: 1.5
   minimum: -0.5
   modules:
-  - potet_jh
+    - potet_jh
   type: F
   units: per degrees Fahrenheit
 jh_coef_hru:
@@ -1295,12 +1535,13 @@ jh_coef_hru:
   desc: HRU air temperature coefficient - Jensen-Haise
   dims:
     0: nhru
-  help: Air temperature coefficient used in Jensen-Haise potential ET computations
+  help:
+    Air temperature coefficient used in Jensen-Haise potential ET computations
     for each HRU
   maximum: 150.0
   minimum: -99.0
   modules:
-  - potet_jh
+    - potet_jh
   type: F
   units: degrees Fahrenheit
 lake_coef:
@@ -1308,12 +1549,13 @@ lake_coef:
   desc: Linear lake routing coefficient
   dims:
     0: nlake
-  help: Coefficient in equation to route storage to streamflow for each lake using
+  help:
+    Coefficient in equation to route storage to streamflow for each lake using
     linear routing
   maximum: 1.0
   minimum: 0.0001
   modules:
-  - muskingum_lake
+    - muskingum_lake
   type: F
   units: fraction/day
 lake_din1:
@@ -1325,7 +1567,7 @@ lake_din1:
   maximum: 1.0E7
   minimum: 0.0
   modules:
-  - muskingum_lake
+    - muskingum_lake
   type: F
   units: cfs
 lake_evap_adj:
@@ -1334,12 +1576,13 @@ lake_evap_adj:
   dims:
     0: nmonth
     1: nlake
-  help: Monthly (January to December) adjustment factor for potential ET for each
+  help:
+    Monthly (January to December) adjustment factor for potential ET for each
     lake
   maximum: 1.0
   minimum: 0.5
   modules:
-  - muskingum_lake
+    - muskingum_lake
   type: F
   units: decimal fraction
 lake_hru_id:
@@ -1347,12 +1590,13 @@ lake_hru_id:
   desc: Identification number of the lake associated with an HRU
   dims:
     0: nhru
-  help: Identification number of the lake associated with an HRU; more than one HRU
+  help:
+    Identification number of the lake associated with an HRU; more than one HRU
     can be associated with each lake
   maximum: nlake
   minimum: bounded
   modules:
-  - muskingum_lake
+    - muskingum_lake
   type: I
   units: none
 lake_init:
@@ -1364,7 +1608,7 @@ lake_init:
   maximum: 1.0E7
   minimum: 0.0
   modules:
-  - muskingum_lake
+    - muskingum_lake
   type: F
   units: cfs-days
 lake_out2:
@@ -1372,12 +1616,13 @@ lake_out2:
   desc: Switch to specify a second outlet from a lake
   dims:
     0: nlake
-  help: Switch to specify a second outlet from each lake using gate opening routing
+  help:
+    Switch to specify a second outlet from each lake using gate opening routing
     (0=no; 1=yes)
   maximum: 1
   minimum: 0
   modules:
-  - muskingum_lake
+    - muskingum_lake
   type: I
   units: none
 lake_out2_a:
@@ -1385,12 +1630,13 @@ lake_out2_a:
   desc: Outflow coefficient A for each lake with second outlet
   dims:
     0: nlake
-  help: Coefficient A in outflow equation for each lake with a second outlet using
+  help:
+    Coefficient A in outflow equation for each lake with a second outlet using
     gate opening routing
   maximum: 10000.0
   minimum: 0.0
   modules:
-  - muskingum_lake
+    - muskingum_lake
   type: F
   units: cfs/ft
 lake_out2_b:
@@ -1398,12 +1644,13 @@ lake_out2_b:
   desc: Outflow coefficient A for each lake with second outlet
   dims:
     0: nlake
-  help: Coefficient B in outflow equation for each lake with a second outlet using
+  help:
+    Coefficient B in outflow equation for each lake with a second outlet using
     gate opening routing
   maximum: 10000.0
   minimum: 0.0
   modules:
-  - muskingum_lake
+    - muskingum_lake
   type: F
   units: cfs
 lake_qro:
@@ -1415,7 +1662,7 @@ lake_qro:
   maximum: 1.0E7
   minimum: 0.0
   modules:
-  - muskingum_lake
+    - muskingum_lake
   type: F
   units: cfs
 lake_seep_elev:
@@ -1423,12 +1670,13 @@ lake_seep_elev:
   desc: Elevation over which lakebed seepage to the GWR occurs
   dims:
     0: nlake
-  help: Elevation over which lakebed seepage to the GWR occurs for lake HRUs using
+  help:
+    Elevation over which lakebed seepage to the GWR occurs for lake HRUs using
     broad-crested weir routing or gate opening routing
   maximum: 10000.0
   minimum: -300.0
   modules:
-  - muskingum_lake
+    - muskingum_lake
   type: F
   units: feet
 lake_segment_id:
@@ -1440,7 +1688,7 @@ lake_segment_id:
   maximum: nlake
   minimum: bounded
   modules:
-  - muskingum_lake
+    - muskingum_lake
   type: I
   units: none
 lake_type:
@@ -1448,12 +1696,13 @@ lake_type:
   desc: Type of lake routing method
   dims:
     0: nlake
-  help: Type of lake routing method (1=Puls routing; 2=linear routing; 3=flow through;
+  help:
+    Type of lake routing method (1=Puls routing; 2=linear routing; 3=flow through;
     4=broad crested weir; 5=gate opening; 6=measured flow)
   maximum: 6
   minimum: 1
   modules:
-  - muskingum_lake
+    - muskingum_lake
   type: I
   units: none
 lake_vol_init:
@@ -1461,12 +1710,13 @@ lake_vol_init:
   desc: Initial lake volume
   dims:
     0: nlake
-  help: Initial lake volume for each lake using broad-crested weir or gate opening
+  help:
+    Initial lake volume for each lake using broad-crested weir or gate opening
     routing
   maximum: 1.0E7
   minimum: 0.0
   modules:
-  - muskingum_lake
+    - muskingum_lake
   type: F
   units: acre-feet
 lapsemax_max:
@@ -1474,13 +1724,14 @@ lapsemax_max:
   desc: Monthly maximum lapse rate for maximum temperature
   dims:
     0: nmonth
-  help: Monthly (January to December) maximum lapse rate to constrain lowest maximum
+  help:
+    Monthly (January to December) maximum lapse rate to constrain lowest maximum
     lapse rate on the basis of historical daily air temperatures for all air-temperature
     measurement stations
   maximum: 3.0
   minimum: -3.0
   modules:
-  - temp_dist2
+    - temp_dist2
   type: F
   units: temp_units/feet
 lapsemax_min:
@@ -1488,13 +1739,14 @@ lapsemax_min:
   desc: Monthly minimum lapse rate for maximum temperature
   dims:
     0: nmonth
-  help: Monthly (January to December) maximum lapse rate to constrain lowest minimum
+  help:
+    Monthly (January to December) maximum lapse rate to constrain lowest minimum
     lapse rate on the basis of historical daily air temperatures for all air-temperature
     measurement stations
   maximum: -3.0
   minimum: -7.0
   modules:
-  - temp_dist2
+    - temp_dist2
   type: F
   units: temp_units/feet
 lapsemin_max:
@@ -1502,13 +1754,14 @@ lapsemin_max:
   desc: Monthly maximum lapse rate for minimum temperature
   dims:
     0: nmonth
-  help: Monthly (January to December) minimum lapse rate to constrain lowest maximum
+  help:
+    Monthly (January to December) minimum lapse rate to constrain lowest maximum
     lapse rate on the basis of historical daily air temperatures for all air-temperature
     measurement stations
   maximum: 4.0
   minimum: -2.0
   modules:
-  - temp_dist2
+    - temp_dist2
   type: F
   units: temp_units/feet
 lapsemin_min:
@@ -1516,13 +1769,14 @@ lapsemin_min:
   desc: Monthly minimum lapse rate for minimum temperature
   dims:
     0: nmonth
-  help: Monthly (January to December) minimum lapse rate to constrain lowest minimum
+  help:
+    Monthly (January to December) minimum lapse rate to constrain lowest minimum
     lapse rate on the basis of historical daily air temperatures for all air-temperature
     measurement stations
   maximum: -3.0
   minimum: -7.0
   modules:
-  - temp_dist2
+    - temp_dist2
   type: F
   units: temp_units/feet
 lat_temp_adj:
@@ -1535,7 +1789,7 @@ lat_temp_adj:
   maximum: 5.0
   minimum: -5.0
   modules:
-  - stream_temp
+    - stream_temp
   type: F
   units: decimal fraction
 mann_n:
@@ -1548,8 +1802,8 @@ mann_n:
   minimum: 0.001
   model: PRMS
   modules:
-  - muskingum_mann
-  - mizuroute
+    - muskingum_mann
+    - mizuroute
   type: F
   units: seconds / meter ** (1/3)
 mapvars_freq:
@@ -1557,12 +1811,13 @@ mapvars_freq:
   desc: Mapped results frequency
   dims:
     0: scalar
-  help: Flag to specify the output frequency (0=none; 1=monthly; 2=yearly; 3=total;
+  help:
+    Flag to specify the output frequency (0=none; 1=monthly; 2=yearly; 3=total;
     4=monthly and yearly; 5=monthly, yearly, and total; 6=weekly; 7=daily)
   maximum: 7
   minimum: 0
   modules:
-  - map_results
+    - map_results
   type: I
   units: none
 mapvars_units:
@@ -1570,26 +1825,29 @@ mapvars_units:
   desc: Flag to specify the output units of mapped results
   dims:
     0: scalar
-  help: Flag to specify the output units of mapped results (0=units of the variable;
+  help:
+    Flag to specify the output units of mapped results (0=units of the variable;
     1=inches to feet; 2=inches to centimeters; 3=inches to meters; as states or fluxes)
   maximum: 3
   minimum: 0
   modules:
-  - map_results
+    - map_results
   type: I
   units: none
 max_missing:
   default: 3
-  desc: Maximum number of consecutive missing values allowed for any air-temperature-measurement
+  desc:
+    Maximum number of consecutive missing values allowed for any air-temperature-measurement
     station; 0=unlimited
   dims:
     0: scalar
-  help: Maximum number of consecutive missing values allowed for any air-temperature-measurement
+  help:
+    Maximum number of consecutive missing values allowed for any air-temperature-measurement
     station; missing value set to last valid value; 0=unlimited
   maximum: 10
   minimum: 0
   modules:
-  - temp_1sta_laps
+    - temp_1sta_laps
   type: I
   units: none
 max_psta:
@@ -1601,21 +1859,23 @@ max_psta:
   maximum: nrain
   minimum: bounded
   modules:
-  - precip_dist2
+    - precip_dist2
   type: I
   units: none
 max_tsta:
   default: 0
-  desc: Maximum number of temperature stations to use for distributing temperature
+  desc:
+    Maximum number of temperature stations to use for distributing temperature
     to any HRU
   dims:
     0: scalar
-  help: Maximum number of air-temperature measurement stations to use for distributing
+  help:
+    Maximum number of air-temperature measurement stations to use for distributing
     temperature to any HRU
   maximum: ntemp
   minimum: bounded
   modules:
-  - temp_dist2
+    - temp_dist2
   type: I
   units: none
 maxday_prec:
@@ -1623,12 +1883,13 @@ maxday_prec:
   desc: Maximum daily precipitation for any weather site
   dims:
     0: scalar
-  help: Maximum measured precipitation value above which precipitation is assumed
+  help:
+    Maximum measured precipitation value above which precipitation is assumed
     to be in error
   maximum: 20.0
   minimum: 0.0
   modules:
-  - precip_dist2
+    - precip_dist2
   type: F
   units: precip_units
 maxiter_sntemp:
@@ -1640,7 +1901,7 @@ maxiter_sntemp:
   maximum: 2000
   minimum: 10
   modules:
-  - stream_temp
+    - stream_temp
   type: I
   units: none
 melt_force:
@@ -1648,12 +1909,13 @@ melt_force:
   desc: Julian date to force snowpack to spring snowmelt stage for each HRU
   dims:
     0: nhru
-  help: Julian date to force snowpack to spring snowmelt stage for each HRU; varies
+  help:
+    Julian date to force snowpack to spring snowmelt stage for each HRU; varies
     with region depending on length of time that permanent snowpack exists
   maximum: 366
   minimum: 1
   modules:
-  - snowcomp
+    - snowcomp
   type: I
   units: Julian day
 melt_look:
@@ -1661,12 +1923,13 @@ melt_look:
   desc: Julian date to start looking for spring snowmelt for each HRU
   dims:
     0: nhru
-  help: Julian date to start looking for spring snowmelt stage for each HRU; varies
+  help:
+    Julian date to start looking for spring snowmelt stage for each HRU; varies
     with region depending on length of time that permanent snowpack exists
   maximum: 366
   minimum: 1
   modules:
-  - snowcomp
+    - snowcomp
   type: I
   units: Julian day
 melt_temp:
@@ -1678,7 +1941,7 @@ melt_temp:
   maximum: 10.0
   minimum: 0.0
   modules:
-  - stream_temp
+    - stream_temp
   type: F
   units: degrees Celsius
 monmax:
@@ -1686,12 +1949,13 @@ monmax:
   desc: Daily maximum temperature
   dims:
     0: nmonth
-  help: Monthly maximum air temperature to constrain lowest minimum measured air temperatures
+  help:
+    Monthly maximum air temperature to constrain lowest minimum measured air temperatures
     for bad values based on historical temperature for all measurement stations
   maximum: 115.0
   minimum: 0.0
   modules:
-  - temp_dist2
+    - temp_dist2
   type: F
   units: temp_units
 monmin:
@@ -1699,12 +1963,13 @@ monmin:
   desc: Daily minimum temperature
   dims:
     0: nmonth
-  help: Monthly minimum air temperature to constrain lowest minimum measured air temperatures
+  help:
+    Monthly minimum air temperature to constrain lowest minimum measured air temperatures
     for bad values based on historical temperature for all measurement stations
   maximum: 65.0
   minimum: -60.0
   modules:
-  - temp_dist2
+    - temp_dist2
   type: F
   units: temp_units
 ncol:
@@ -1716,7 +1981,7 @@ ncol:
   maximum: 50000
   minimum: 1
   modules:
-  - map_results
+    - map_results
   type: I
   units: none
 nhm_deplcrv:
@@ -1724,12 +1989,13 @@ nhm_deplcrv:
   desc: NHM index number for snowpack areal depletion curve
   dims:
     0: nhru
-  help: NHM index number for the snowpack areal depletion curve associated with each
+  help:
+    NHM index number for the snowpack areal depletion curve associated with each
     HRU
   maximum: ndepl
   minimum: bounded
   modules:
-  - snowcomp
+    - snowcomp
   type: I
   units: none
 nhm_id:
@@ -1741,9 +2007,9 @@ nhm_id:
   maximum: 9999999
   minimum: 1
   modules:
-  - basin
-  - setup_param
-  - nhru_summary
+    - basin
+    - setup_param
+    - nhru_summary
   type: I
   units: none
 nhm_seg:
@@ -1755,9 +2021,9 @@ nhm_seg:
   maximum: 9999999
   minimum: 0
   modules:
-  - basin
-  - setup_param
-  - nsegment_summary
+    - basin
+    - setup_param
+    - nsegment_summary
   type: I
   units: none
 nsos:
@@ -1769,7 +2035,7 @@ nsos:
   maximum: mxnsos
   minimum: bounded
   modules:
-  - muskingum_lake
+    - muskingum_lake
   type: I
   units: none
 o2:
@@ -1782,7 +2048,7 @@ o2:
   maximum: 1.0E7
   minimum: 0.0
   modules:
-  - muskingum_lake
+    - muskingum_lake
   type: F
   units: cfs
 obsin_segment:
@@ -1794,9 +2060,9 @@ obsin_segment:
   maximum: nobs
   minimum: bounded
   modules:
-  - routing
-  - streamflow
-  - muskingum
+    - routing
+    - streamflow
+    - muskingum
   type: I
   units: none
 obsout_lake:
@@ -1804,12 +2070,13 @@ obsout_lake:
   desc: Index of streamflow measurement station that specifies outflow from a lake
   dims:
     0: nlake
-  help: Index of streamflow measurement station that specifies outflow from each lake
+  help:
+    Index of streamflow measurement station that specifies outflow from each lake
     using measured flow replacement
   maximum: nobs
   minimum: bounded
   modules:
-  - muskingum_lake
+    - muskingum_lake
   type: I
   units: none
 obsout_segment:
@@ -1821,25 +2088,27 @@ obsout_segment:
   maximum: nobs
   minimum: bounded
   modules:
-  - routing
-  - streamflow
-  - muskingum
+    - routing
+    - streamflow
+    - muskingum
   type: I
   units: none
 op_flow_thres:
   default: 1.0
-  desc: Fraction of open depression storage above which surface runoff occurs for
+  desc:
+    Fraction of open depression storage above which surface runoff occurs for
     each timestep
   dims:
     0: nhru
-  help: Fraction of open depression storage above which surface runoff occurs; any
+  help:
+    Fraction of open depression storage above which surface runoff occurs; any
     water above maximum open storage capacity spills as surface runoff
   maximum: 1.0
   minimum: 0.01
   modules:
-  - srunoff
-  - srunoff_smidx
-  - srunoff_carea
+    - srunoff
+    - srunoff_smidx
+    - srunoff_carea
   type: F
   units: decimal fraction
 outlet_sta:
@@ -1851,7 +2120,7 @@ outlet_sta:
   maximum: nobs
   minimum: bounded
   modules:
-  - basin_sum
+    - basin_sum
   type: I
   units: none
 padj_rn:
@@ -1860,14 +2129,15 @@ padj_rn:
   dims:
     0: nrain
     1: nmonth
-  help: Monthly (January to December) factor to adjust precipitation lapse rate computed
+  help:
+    Monthly (January to December) factor to adjust precipitation lapse rate computed
     between station hru_psta and station hru_plaps; positive factors are mutiplied
     times the lapse rate and negative factors are made positive and substituted for
     the computed lapse rate
   maximum: 10.0
   minimum: -2.0
   modules:
-  - precip_1sta_laps
+    - precip_1sta_laps
   type: F
   units: precip_units
 padj_sn:
@@ -1876,14 +2146,15 @@ padj_sn:
   dims:
     0: nmonth
     1: nrain
-  help: Monthly (January to December) factor to adjust precipitation lapse rate computed
+  help:
+    Monthly (January to December) factor to adjust precipitation lapse rate computed
     between station hru_psta and station hru_plaps; positive factors are mutiplied
     times the lapse rate and negative factors are made positive and substituted for
     the computed lapse rate
   maximum: 10.0
   minimum: -2.0
   modules:
-  - precip_1sta_laps
+    - precip_1sta_laps
   type: F
   units: precip_units
 parent_gw:
@@ -1895,7 +2166,7 @@ parent_gw:
   maximum: 9999999
   minimum: 1
   modules:
-  - setup_param
+    - setup_param
   type: I
   units: none
 parent_hru:
@@ -1907,7 +2178,7 @@ parent_hru:
   maximum: 9999999
   minimum: 1
   modules:
-  - setup_param
+    - setup_param
   type: I
   units: none
 parent_poigages:
@@ -1919,8 +2190,8 @@ parent_poigages:
   maximum: 9999999
   minimum: 0
   modules:
-  - setup_param
-  - prms_summary
+    - setup_param
+    - prms_summary
   type: I
   units: none
 parent_segment:
@@ -1932,7 +2203,7 @@ parent_segment:
   maximum: 9999999
   minimum: 0
   modules:
-  - setup_param
+    - setup_param
   type: I
   units: none
 parent_ssr:
@@ -1944,7 +2215,7 @@ parent_ssr:
   maximum: 99999999
   minimum: 1
   modules:
-  - setup_param
+    - setup_param
   type: I
   units: none
 pm_d_coef:
@@ -1953,13 +2224,14 @@ pm_d_coef:
   dims:
     0: nmonth
     1: nhru
-  help: Monthly (January to December) Penman-Monteith potential ET D wind-speed coefficient
+  help:
+    Monthly (January to December) Penman-Monteith potential ET D wind-speed coefficient
     for each HRU
   maximum: 0.45
   minimum: 0.25
   modules:
-  - potet_pm
-  - potet_pm_sta
+    - potet_pm
+    - potet_pm_sta
   type: F
   units: seconds/meters
 pm_n_coef:
@@ -1968,13 +2240,14 @@ pm_n_coef:
   dims:
     0: nmonth
     1: nhru
-  help: Monthly (January to December) Penman-Monteith potential ET N temperauture
+  help:
+    Monthly (January to December) Penman-Monteith potential ET N temperauture
     coefficient for each HRU
   maximum: 950.0
   minimum: 850.0
   modules:
-  - potet_pm
-  - potet_pm_sta
+    - potet_pm
+    - potet_pm_sta
   type: F
   units: degrees Celsius per day
 pmn_mo:
@@ -1983,12 +2256,13 @@ pmn_mo:
   dims:
     0: nmonth
     1: nrain
-  help: Mean monthly (January to December) precipitation for each lapse precipitation
+  help:
+    Mean monthly (January to December) precipitation for each lapse precipitation
     measurement station
   maximum: 100.0
   minimum: 1.0e-05
   modules:
-  - precip_1sta_laps
+    - precip_1sta_laps
   type: F
   units: precip_units
 poi_gage_id:
@@ -1999,8 +2273,8 @@ poi_gage_id:
   maximum: 9999999
   minimum: 0
   modules:
-  - basin
-  - prms_summary
+    - basin
+    - prms_summary
   type: S
   units: none
 poi_gage_segment:
@@ -2012,8 +2286,8 @@ poi_gage_segment:
   maximum: nsegment
   minimum: bounded
   modules:
-  - basin
-  - prms_summary
+    - basin
+    - prms_summary
   type: I
   units: none
 poi_type:
@@ -2025,7 +2299,7 @@ poi_type:
   maximum: 1
   minimum: 0
   modules:
-  - basin
+    - basin
   type: I
   units: none
 potet_cbh_adj:
@@ -2034,12 +2308,13 @@ potet_cbh_adj:
   dims:
     0: nmonth
     1: nhru
-  help: Monthly (January to December) adjustment factor to potential evapotranspiration
+  help:
+    Monthly (January to December) adjustment factor to potential evapotranspiration
     specified in CBH Files for each HRU
   maximum: 1.5
   minimum: 0.5
   modules:
-  - potet_hru
+    - potet_hru
   type: F
   units: decimal fraction
 potet_sublim:
@@ -2047,12 +2322,13 @@ potet_sublim:
   desc: Fraction of potential ET that is sublimated from snow for each HRU
   dims:
     0: nhru
-  help: Fraction of potential ET that is sublimated from snow in the canopy and snowpack
+  help:
+    Fraction of potential ET that is sublimated from snow in the canopy and snowpack
     for each HRU
   maximum: 0.75
   minimum: 0.1
   modules:
-  - snowcomp
+    - snowcomp
   type: F
   units: decimal fraction
 ppt_rad_adj:
@@ -2061,14 +2337,15 @@ ppt_rad_adj:
   dims:
     0: nmonth
     1: nhru
-  help: Monthly minimum precipitation, if HRU precipitation exceeds this value, radiation
+  help:
+    Monthly minimum precipitation, if HRU precipitation exceeds this value, radiation
     is multiplied by radj_sppt or radj_wppt adjustment factor
   maximum: 0.5
   minimum: 0.0
   modules:
-  - ccsolrad
-  - ddsolrad
-  - solar_radiation_hru
+    - ccsolrad
+    - ddsolrad
+    - solar_radiation_hru
   type: F
   units: inches
 ppt_zero_thresh:
@@ -2091,10 +2368,10 @@ precip_units:
   maximum: 1
   minimum: 0
   modules:
-  - precip_1sta
-  - precip_laps
-  - precip_dist2
-  - precipitation_hru
+    - precip_1sta
+    - precip_laps
+    - precip_dist2
+    - precipitation_hru
   type: I
   units: none
 pref_flow_den:
@@ -2106,7 +2383,7 @@ pref_flow_den:
   maximum: 0.5
   minimum: 0.0
   modules:
-  - soilzone
+    - soilzone
   type: F
   units: decimal fraction
 pref_flow_infil_frac:
@@ -2118,7 +2395,7 @@ pref_flow_infil_frac:
   maximum: 1.0
   minimum: 0.0
   modules:
-  - soilzone
+    - soilzone
   type: F
   units: decimal fraction
 print_freq:
@@ -2126,13 +2403,14 @@ print_freq:
   desc: Frequency for the output frequency
   dims:
     0: scalar
-  help: Flag to select the output frequency; for combinations, add index numbers,
+  help:
+    Flag to select the output frequency; for combinations, add index numbers,
     e.g., daily plus yearly = 10; yearly plus total = 3 (0=none; 1=run totals; 2=yearly;
     4=monthly; 8=daily; or additive combinations)
   maximum: 15
   minimum: 0
   modules:
-  - basin_sum
+    - basin_sum
   type: I
   units: none
 print_type:
@@ -2140,12 +2418,13 @@ print_type:
   desc: Type of output written to output file
   dims:
     0: scalar
-  help: Flag to select the type of results written to the output file (0=measured
+  help:
+    Flag to select the type of results written to the output file (0=measured
     and simulated flow only; 1=water balance table; 2=detailed output)
   maximum: 2
   minimum: 0
   modules:
-  - basin_sum
+    - basin_sum
   type: I
   units: none
 psta_elev:
@@ -2157,9 +2436,9 @@ psta_elev:
   maximum: 30000.0
   minimum: -300.0
   modules:
-  - ide_dist
-  - xyz_dist
-  - precip_laps
+    - ide_dist
+    - xyz_dist
+    - precip_laps
   type: F
   units: elev_units
 psta_mon:
@@ -2168,13 +2447,14 @@ psta_mon:
   dims:
     0: nmonth
     1: nrain
-  help: Monthly (January to December) factor to precipitation at each measured station
+  help:
+    Monthly (January to December) factor to precipitation at each measured station
     to adjust precipitation distributed to each HRU to account for differences in
     elevation, and so forth
   maximum: 50.0
   minimum: 1.0e-07
   modules:
-  - precip_dist2
+    - precip_dist2
   type: F
   units: precip_units
 psta_xlong:
@@ -2182,12 +2462,13 @@ psta_xlong:
   desc: Precipitation station longitude, State Plane
   dims:
     0: nrain
-  help: Longitude of each precipitation measurement station, State Plane Coordinate
+  help:
+    Longitude of each precipitation measurement station, State Plane Coordinate
     System
   maximum: 1.0E9
   minimum: -1.0E9
   modules:
-  - precip_dist2
+    - precip_dist2
   type: F
   units: feet
 psta_ylat:
@@ -2195,12 +2476,13 @@ psta_ylat:
   desc: Precipitation station latitude, State Plane
   dims:
     0: nrain
-  help: Latitude of each precipitation measurement station, State Plane Coordinate
+  help:
+    Latitude of each precipitation measurement station, State Plane Coordinate
     System
   maximum: 1.0E9
   minimum: -1.0E9
   modules:
-  - precip_dist2
+    - precip_dist2
   type: F
   units: feet
 pt_alpha:
@@ -2209,12 +2491,13 @@ pt_alpha:
   dims:
     0: nmonth
     1: nhru
-  help: Monthly (January to December) adjustment factor used in Priestly-Taylor potential
+  help:
+    Monthly (January to December) adjustment factor used in Priestly-Taylor potential
     ET computations for each HRU
   maximum: 2.0
   minimum: 1.0
   modules:
-  - potet_pt
+    - potet_pt
   type: F
   units: decimal fraction
 rad_conv:
@@ -2226,9 +2509,9 @@ rad_conv:
   maximum: 100.0
   minimum: 0.1
   modules:
-  - ccsolrad
-  - ddsolrad
-  - solar_radiation_hru
+    - ccsolrad
+    - ddsolrad
+    - solar_radiation_hru
   type: F
   units: Langleys/radiation units
 rad_trncf:
@@ -2236,12 +2519,13 @@ rad_trncf:
   desc: Solar radiation transmission coefficient
   dims:
     0: nhru
-  help: Transmission coefficient for short-wave radiation through the winter vegetation
+  help:
+    Transmission coefficient for short-wave radiation through the winter vegetation
     canopy
   maximum: 1.0
   minimum: 0.0
   modules:
-  - snowcomp
+    - snowcomp
   type: F
   units: decimal fraction
 radadj_intcp:
@@ -2250,12 +2534,13 @@ radadj_intcp:
   dims:
     0: nmonth
     1: nhru
-  help: Monthly (January to December) intercept in air temperature range adjustment
+  help:
+    Monthly (January to December) intercept in air temperature range adjustment
     to degree-day equation for each HRU
   maximum: 1.0
   minimum: 0.0
   modules:
-  - ddsolrad
+    - ddsolrad
   type: F
   units: dday
 radadj_slope:
@@ -2264,12 +2549,13 @@ radadj_slope:
   dims:
     0: nmonth
     1: nhru
-  help: Monthly (January to December) slope in air temperature range adjustment to
+  help:
+    Monthly (January to December) slope in air temperature range adjustment to
     degree-day equation for each HRU
   maximum: 1.0
   minimum: 0.0
   modules:
-  - ddsolrad
+    - ddsolrad
   type: F
   units: dday/temp_units
 radj_sppt:
@@ -2277,14 +2563,15 @@ radj_sppt:
   desc: Adjustment to solar radiation on precipitation day - summer
   dims:
     0: nhru
-  help: Adjustment factor for computed solar radiation for summer day with greater
+  help:
+    Adjustment factor for computed solar radiation for summer day with greater
     than ppt_rad_adj inches of precipitation for each HRU
   maximum: 1.0
   minimum: 0.0
   modules:
-  - ccsolrad
-  - ddsolrad
-  - solar_radiation_hru
+    - ccsolrad
+    - ddsolrad
+    - solar_radiation_hru
   type: F
   units: decimal fraction
 radj_wppt:
@@ -2292,14 +2579,15 @@ radj_wppt:
   desc: Adjustment to solar radiation on precipitation day - winter
   dims:
     0: nhru
-  help: Adjustment factor for computed solar radiation for winter day with greater
+  help:
+    Adjustment factor for computed solar radiation for winter day with greater
     than ppt_rad_adj inches of precipitation for each HRU
   maximum: 1.0
   minimum: 0.0
   modules:
-  - ccsolrad
-  - ddsolrad
-  - solar_radiation_hru
+    - ccsolrad
+    - ddsolrad
+    - solar_radiation_hru
   type: F
   units: decimal fraction
 radmax:
@@ -2308,14 +2596,15 @@ radmax:
   dims:
     0: nmonth
     1: nhru
-  help: Monthly (January to December) maximum fraction of the potential solar radiation
+  help:
+    Monthly (January to December) maximum fraction of the potential solar radiation
     that may reach the ground due to haze, dust, smog, and so forth, for each HRU
   maximum: 1.0
   minimum: 0.1
   modules:
-  - ccsolrad
-  - ddsolrad
-  - solar_radiation_hru
+    - ccsolrad
+    - ddsolrad
+    - solar_radiation_hru
   type: F
   units: decimal fraction
 rain_adj:
@@ -2324,12 +2613,13 @@ rain_adj:
   dims:
     0: nmonth
     1: nhru
-  help: Monthly (January to December) factor to adjust measured precipitation on each
+  help:
+    Monthly (January to December) factor to adjust measured precipitation on each
     HRU to account for differences in elevation, and so forth
   maximum: 2.5
   minimum: 0.5
   modules:
-  - precip_1sta_laps
+    - precip_1sta_laps
   type: F
   units: decimal fraction
 rain_cbh_adj:
@@ -2338,13 +2628,14 @@ rain_cbh_adj:
   dims:
     0: nmonth
     1: nhru
-  help: Monthly (January to December) adjustment factor to measured precipitation
+  help:
+    Monthly (January to December) adjustment factor to measured precipitation
     determined to be rain on each HRU to account for differences in elevation, and
     so forth
   maximum: 2.0
   minimum: 0.5
   modules:
-  - precipitation_hru
+    - precipitation_hru
   type: F
   units: decimal fraction
 rain_code:
@@ -2352,7 +2643,8 @@ rain_code:
   desc: Flag indicating rule for precipitation station use
   dims:
     0: nmonth
-  help: Monthly (January to December) flag indicating rule for precipitation measurement
+  help:
+    Monthly (January to December) flag indicating rule for precipitation measurement
     station use (1=only precipitation if the regression stations have precipitation;
     2=only precipitation if any station in the basin has precipitation; 3=precipitation
     if xyz says so; 4=only precipitation if rain_day variable is set to 1; 5=only
@@ -2360,7 +2652,7 @@ rain_code:
   maximum: 5
   minimum: 1
   modules:
-  - xyz_dist
+    - xyz_dist
   type: I
   units: none
 rain_mon:
@@ -2369,12 +2661,13 @@ rain_mon:
   dims:
     0: nmonth
     1: nhru
-  help: Monthly (January to December) factor to rain on each HRU to adjust precipitation
+  help:
+    Monthly (January to December) factor to rain on each HRU to adjust precipitation
     distributed to each HRU to account for differences in elevation, and so forth
   maximum: 50.0
   minimum: 0.0
   modules:
-  - precip_dist2
+    - precip_dist2
   type: F
   units: precip_units
 rate_table:
@@ -2383,12 +2676,13 @@ rate_table:
   dims:
     0: nstage
     1: ngate
-  help: Rating table with stage (rows) and gate opening (cols) for rating table 1
+  help:
+    Rating table with stage (rows) and gate opening (cols) for rating table 1
     for lakes using gate opening routing and nratetbl>0
   maximum: 1000.0
   minimum: -100.0
   modules:
-  - muskingum_lake
+    - muskingum_lake
   type: F
   units: cfs
 rate_table2:
@@ -2397,12 +2691,13 @@ rate_table2:
   dims:
     0: nstage2
     1: ngate2
-  help: Rating table with stage (rows) and gate opening (cols) for rating table 2
+  help:
+    Rating table with stage (rows) and gate opening (cols) for rating table 2
     for lakes using gate opening routing and nratetbl>1
   maximum: 1000.0
   minimum: -100.0
   modules:
-  - muskingum_lake
+    - muskingum_lake
   type: F
   units: cfs
 rate_table3:
@@ -2411,12 +2706,13 @@ rate_table3:
   dims:
     0: nstage3
     1: ngate3
-  help: Rating table with stage (rows) and gate opening (cols) for rating table 3
+  help:
+    Rating table with stage (rows) and gate opening (cols) for rating table 3
     for lakes using gate opening routing and nratetbl>2
   maximum: 1000.0
   minimum: -100.0
   modules:
-  - muskingum_lake
+    - muskingum_lake
   type: F
   units: cfs
 rate_table4:
@@ -2425,12 +2721,13 @@ rate_table4:
   dims:
     0: nstage4
     1: ngate4
-  help: Rating table with stage (rows) and gate opening (cols) for rating table 4
+  help:
+    Rating table with stage (rows) and gate opening (cols) for rating table 4
     for lakes using gate opening routing and nratetbl>3
   maximum: 1000.0
   minimum: -100.0
   modules:
-  - muskingum_lake
+    - muskingum_lake
   type: F
   units: cfs
 ratetbl_lake:
@@ -2438,12 +2735,13 @@ ratetbl_lake:
   desc: Index of lake associated with each rating table
   dims:
     0: nratetbl
-  help: Index of lake associated with each rating table for each lake using gate opening
+  help:
+    Index of lake associated with each rating table for each lake using gate opening
     routing
   maximum: nlake
   minimum: bounded
   modules:
-  - muskingum_lake
+    - muskingum_lake
   type: I
   units: none
 runoff_units:
@@ -2455,7 +2753,7 @@ runoff_units:
   maximum: 1
   minimum: 0
   modules:
-  - obs
+    - obs
   type: I
   units: none
 s2:
@@ -2468,7 +2766,7 @@ s2:
   maximum: 1.0E7
   minimum: 0.0
   modules:
-  - muskingum_lake
+    - muskingum_lake
   type: F
   units: cfs-days
 sat_threshold:
@@ -2476,13 +2774,14 @@ sat_threshold:
   desc: Soil saturation threshold, above field-capacity threshold
   dims:
     0: nhru
-  help: Water holding capacity of the gravity and preferential-flow reservoirs; difference
+  help:
+    Water holding capacity of the gravity and preferential-flow reservoirs; difference
     between field capacity and total soil saturation for each HRU
   maximum: 999.0
   minimum: 1.0e-05
   modules:
-  - soilzone
-  - convert_params
+    - soilzone
+    - convert_params
   type: F
   units: inches
 seg_cum_area:
@@ -2508,7 +2807,7 @@ seg_depth:
   minimum: 0.03
   model: PRMS
   modules:
-  - muskingum_mann
+    - muskingum_mann
   type: F
   units: meter
 seg_elev:
@@ -2520,7 +2819,7 @@ seg_elev:
   maximum: 30000
   minimum: -1000.0
   modules:
-  - stream_temp
+    - stream_temp
   type: F
   units: meters
 seg_humidity:
@@ -2529,12 +2828,13 @@ seg_humidity:
   dims:
     0: nmonth
     1: nsegment
-  help: Mean monthly humidity for each segment, used when values not input in CBH
+  help:
+    Mean monthly humidity for each segment, used when values not input in CBH
     file
   maximum: 1.0
   minimum: 0.0
   modules:
-  - stream_temp
+    - stream_temp
   type: F
   units: decimal fraction
 seg_humidity_sta:
@@ -2546,7 +2846,7 @@ seg_humidity_sta:
   maximum: nhumid
   minimum: bounded
   modules:
-  - stream_temp
+    - stream_temp
   type: I
   units: none
 seg_lat:
@@ -2558,7 +2858,7 @@ seg_lat:
   maximum: 90.0
   minimum: -90.0
   modules:
-  - stream_temp
+    - stream_temp
   type: F
   units: degrees north
 seg_length:
@@ -2570,10 +2870,10 @@ seg_length:
   maximum: 200000.0
   minimum: 0.001
   modules:
-  - strmflow
-  - muskingum_mann
-  - mizuroute
-  - stream_temp
+    - strmflow
+    - muskingum_mann
+    - mizuroute
+    - stream_temp
   type: F
   units: meters
 seg_slope:
@@ -2585,10 +2885,10 @@ seg_slope:
   maximum: 2.0
   minimum: 1.0e-07
   modules:
-  - strmflow
-  - muskingum_mann
-  - mizuroute
-  - stream_temp
+    - strmflow
+    - muskingum_mann
+    - mizuroute
+    - stream_temp
   type: F
   units: decimal fraction
 seg_summer_humidity:
@@ -2600,7 +2900,7 @@ seg_summer_humidity:
   maximum: 1.0
   minimum: 0.0
   modules:
-  - stream_temp
+    - stream_temp
   type: F
   units: decimal fraction
 seg_width:
@@ -2613,7 +2913,7 @@ seg_width:
   minimum: 0.18
   model: PRMS
   modules:
-  - mizuroute
+    - mizuroute
   type: F
   units: meter
 seg_winter_humidity:
@@ -2625,7 +2925,7 @@ seg_winter_humidity:
   maximum: 1.0
   minimum: 0.0
   modules:
-  - stream_temp
+    - stream_temp
   type: F
   units: decimal fraction
 segment_flow_init:
@@ -2637,9 +2937,9 @@ segment_flow_init:
   maximum: 1.0E7
   minimum: 0.0
   modules:
-  - muskingum
-  - muskingum_lake
-  - muskingum_mann
+    - muskingum
+    - muskingum_lake
+    - muskingum_mann
   type: F
   units: cfs
 segment_type:
@@ -2647,15 +2947,16 @@ segment_type:
   desc: Segment type
   dims:
     0: nsegment
-  help: Segment type (0=segment; 1=headwater; 2=lake; 3=replace inflow; 4=inbound
+  help:
+    Segment type (0=segment; 1=headwater; 2=lake; 3=replace inflow; 4=inbound
     to NHM; 5=outbound from NHM; 6=inbound to region; 7=outbound from region; 8=drains
     to ocean; 9=sink; 10=inbound from Great Lakes; 11=outbound to Great Lakes)
   maximum: 111
   minimum: 0
   modules:
-  - routing
-  - streamflow
-  - muskingum
+    - routing
+    - streamflow
+    - muskingum
   type: I
   units: none
 segshade_sum:
@@ -2667,7 +2968,7 @@ segshade_sum:
   maximum: 1.0
   minimum: 0.0
   modules:
-  - stream_temp
+    - stream_temp
   type: F
   units: decimal fraction
 segshade_win:
@@ -2679,7 +2980,7 @@ segshade_win:
   maximum: 1.0
   minimum: 0.0
   modules:
-  - stream_temp
+    - stream_temp
   type: F
   units: decimal fraction
 settle_const:
@@ -2691,7 +2992,7 @@ settle_const:
   maximum: 0.5
   minimum: 0.01
   modules:
-  - snowcomp
+    - snowcomp
   type: F
   units: decimal fraction
 slowcoef_lin:
@@ -2699,12 +3000,13 @@ slowcoef_lin:
   desc: Linear gravity-flow reservoir routing coefficient
   dims:
     0: nhru
-  help: Linear coefficient in equation to route gravity-reservoir storage downslope
+  help:
+    Linear coefficient in equation to route gravity-reservoir storage downslope
     for each HRU
   maximum: 1.0
   minimum: 0.0
   modules:
-  - soilzone
+    - soilzone
   type: F
   units: fraction/day
 slowcoef_sq:
@@ -2712,12 +3014,13 @@ slowcoef_sq:
   desc: Non-linear gravity-flow reservoir routing coefficient
   dims:
     0: nhru
-  help: Non-linear coefficient in equation to route gravity-reservoir storage downslope
+  help:
+    Non-linear coefficient in equation to route gravity-reservoir storage downslope
     for each HRU
   maximum: 1.0
   minimum: 0.0
   modules:
-  - soilzone
+    - soilzone
   type: F
   units: none
 smidx_coef:
@@ -2729,8 +3032,8 @@ smidx_coef:
   maximum: 1.0
   minimum: 0.0
   modules:
-  - srunoff
-  - srunoff_smidx
+    - srunoff
+    - srunoff_smidx
   type: F
   units: decimal fraction
 smidx_exp:
@@ -2742,8 +3045,8 @@ smidx_exp:
   maximum: 5.0
   minimum: 0.0
   modules:
-  - srunoff
-  - srunoff_smidx
+    - srunoff
+    - srunoff_smidx
   type: F
   units: 1.0/inch
 snarea_curve:
@@ -2751,12 +3054,13 @@ snarea_curve:
   desc: Snow area depletion curve values
   dims:
     0: ndeplval
-  help: Snow area depletion curve values, 11 values for each curve (0.0 to 1.0 in
+  help:
+    Snow area depletion curve values, 11 values for each curve (0.0 to 1.0 in
     0.1 increments)
   maximum: 1.0
   minimum: 0.0
   modules:
-  - snowcomp
+    - snowcomp
   type: F
   units: decimal fraction
 snarea_thresh:
@@ -2764,12 +3068,13 @@ snarea_thresh:
   desc: Maximum threshold water equivalent for snow depletion
   dims:
     0: nhru
-  help: Maximum threshold snowpack water equivalent below which the snow-covered-area
+  help:
+    Maximum threshold snowpack water equivalent below which the snow-covered-area
     curve is applied
   maximum: 200.0
   minimum: 0.0
   modules:
-  - snowcomp
+    - snowcomp
   type: F
   units: inches
 snow_adj:
@@ -2778,12 +3083,13 @@ snow_adj:
   dims:
     0: nmonth
     1: nhru
-  help: Monthly (January to December) factor to adjust measured precipitation on each
+  help:
+    Monthly (January to December) factor to adjust measured precipitation on each
     HRU to account for differences in elevation, and so forth
   maximum: 2.5
   minimum: 0.5
   modules:
-  - precip_1sta_laps
+    - precip_1sta_laps
   type: F
   units: decimal fraction
 snow_cbh_adj:
@@ -2792,13 +3098,14 @@ snow_cbh_adj:
   dims:
     0: nmonth
     1: nhru
-  help: Monthly (January to December) adjustment factor to measured precipitation
+  help:
+    Monthly (January to December) adjustment factor to measured precipitation
     determined to be snow on each HRU to account for differences in elevation, and
     so forth
   maximum: 2.0
   minimum: 0.5
   modules:
-  - precipitation_hru
+    - precipitation_hru
   type: F
   units: decimal fraction
 snow_intcp:
@@ -2810,7 +3117,7 @@ snow_intcp:
   maximum: 1.0
   minimum: 0.0
   modules:
-  - intcp
+    - intcp
   type: F
   units: inches
 snow_mon:
@@ -2819,12 +3126,13 @@ snow_mon:
   dims:
     0: nmonth
     1: nhru
-  help: Monthly (January to December) factor to snow on each HRU to adjust precipitation
+  help:
+    Monthly (January to December) factor to snow on each HRU to adjust precipitation
     distributed to each HRU to account for differences in elevation, and so forth
   maximum: 50.0
   minimum: 0.0
   modules:
-  - precip_dist2
+    - precip_dist2
   type: F
   units: precip_units
 snowinfil_max:
@@ -2836,9 +3144,9 @@ snowinfil_max:
   maximum: 20.0
   minimum: 0.0
   modules:
-  - srunoff
-  - srunoff_area
-  - srunoff_smidx
+    - srunoff
+    - srunoff_area
+    - srunoff_smidx
   type: F
   units: inches/day
 snowpack_init:
@@ -2850,7 +3158,7 @@ snowpack_init:
   maximum: 5000.0
   minimum: 0.0
   modules:
-  - snowcomp
+    - snowcomp
   type: F
   units: inches
 soil2gw_max:
@@ -2858,12 +3166,13 @@ soil2gw_max:
   desc: Maximum value for capillary reservoir excess to GWR
   dims:
     0: nhru
-  help: Maximum amount of the capillary reservoir excess that is routed directly to
+  help:
+    Maximum amount of the capillary reservoir excess that is routed directly to
     the GWR for each HRU
   maximum: 5.0
   minimum: 0.0
   modules:
-  - soilzone
+    - soilzone
   type: F
   units: inches
 soil_moist_init_frac:
@@ -2871,13 +3180,14 @@ soil_moist_init_frac:
   desc: Initial fraction available water in the capillary reservoir
   dims:
     0: nhru
-  help: Initial fraction of available water in the capillary reservoir (fraction of
+  help:
+    Initial fraction of available water in the capillary reservoir (fraction of
     soil_moist_max for each HRU
   maximum: 1.0
   minimum: 0.0
   modules:
-  - soilzone
-  - convert_params
+    - soilzone
+    - convert_params
   type: F
   units: decimal fraction
 soil_moist_max:
@@ -2885,45 +3195,50 @@ soil_moist_max:
   desc: Maximum value of water for soil zone
   dims:
     0: nhru
-  help: Maximum available water holding capacity of capillary reservoir from land
+  help:
+    Maximum available water holding capacity of capillary reservoir from land
     surface to rooting depth of the major vegetation type of each HRU
   maximum: 20.0
   minimum: 1.0e-05
   modules:
-  - soilzone
-  - convert_params
+    - soilzone
+    - convert_params
   type: F
   units: inches
 soil_rechr_init_frac:
   default: 0.0
-  desc: Initial fraction of available water in the soil recharge zone within the capillary
+  desc:
+    Initial fraction of available water in the soil recharge zone within the capillary
     reservoir
   dims:
     0: nhru
-  help: Initial fraction of available water in the capillary reservoir where losses
+  help:
+    Initial fraction of available water in the capillary reservoir where losses
     occur as both evaporation and transpiration (upper zone of capillary reservoir)
     for each HRU
   maximum: 1.0
   minimum: 0.0
   modules:
-  - soilzone
-  - convert_params
+    - soilzone
+    - convert_params
   type: F
   units: decimal fraction
 soil_rechr_max_frac:
   default: 1.0
-  desc: Fraction of capillary reservoir where losses occur as both evaporation and
+  desc:
+    Fraction of capillary reservoir where losses occur as both evaporation and
     transpiration (soil recharge zone)
   dims:
     0: nhru
-  help: Fraction of the capillary reservoir water-holding capacity (soil_moist_max)
+  help:
+    Fraction of the capillary reservoir water-holding capacity (soil_moist_max)
     where losses occur as both evaporation and transpiration (upper zone of capillary
     reservoir) for each HRU
   maximum: 1.0
   minimum: 1.0e-05
   modules:
-  - soilzone
-  - convert_params
+    - soilzone
+    - convert_params
   type: F
   units: decimal fraction
 soil_type:
@@ -2935,21 +3250,23 @@ soil_type:
   maximum: 3
   minimum: 1
   modules:
-  - soilzone
+    - soilzone
   type: I
   units: none
 spring_frost:
   default: 111
-  desc: The solar date (number of days after winter solstice) of the last killing
+  desc:
+    The solar date (number of days after winter solstice) of the last killing
     frost of the spring
   dims:
     0: nhru
-  help: The solar date (number of days after winter solstice) of the last killing
+  help:
+    The solar date (number of days after winter solstice) of the last killing
     frost of the spring
   maximum: 366
   minimum: 1
   modules:
-  - transp_frost
+    - transp_frost
   type: I
   units: Solar date
 srain_intcp:
@@ -2957,12 +3274,13 @@ srain_intcp:
   desc: Summer rain interception storage capacity
   dims:
     0: nhru
-  help: Summer rain interception storage capacity for the major vegetation type in
+  help:
+    Summer rain interception storage capacity for the major vegetation type in
     each HRU
   maximum: 1.0
   minimum: 0.0
   modules:
-  - intcp
+    - intcp
   type: F
   units: inches
 sro_to_dprst_imperv:
@@ -2970,14 +3288,15 @@ sro_to_dprst_imperv:
   desc: Fraction of impervious surface runoff that flows into surface-depression storage
   dims:
     0: nhru
-  help: Fraction of impervious surface runoff that flows into surface-depression storage;
+  help:
+    Fraction of impervious surface runoff that flows into surface-depression storage;
     the remainder flows to a stream network for each HRU
   maximum: 1.0
   minimum: 0.0
   modules:
-  - srunoff
-  - srunoff_smidx
-  - srunoff_carea
+    - srunoff
+    - srunoff_smidx
+    - srunoff_carea
   type: F
   units: decimal fraction
 sro_to_dprst_perv:
@@ -2985,14 +3304,15 @@ sro_to_dprst_perv:
   desc: Fraction of pervious surface runoff that flows into surface-depression storage
   dims:
     0: nhru
-  help: Fraction of pervious surface runoff that flows into surface-depression storage;
+  help:
+    Fraction of pervious surface runoff that flows into surface-depression storage;
     the remainder flows to a stream network for each HRU
   maximum: 1.0
   minimum: 0.0
   modules:
-  - srunoff
-  - srunoff_smidx
-  - srunoff_carea
+    - srunoff
+    - srunoff_smidx
+    - srunoff_carea
   type: F
   units: decimal fraction
 ss_init:
@@ -3000,12 +3320,13 @@ ss_init:
   desc: Initial interflow temperature
   dims:
     0: nsegment
-  help: Initial temperature of interflow entering each segment; recommended value
+  help:
+    Initial temperature of interflow entering each segment; recommended value
     equal to long-term average air temperature
   maximum: 45.0
   minimum: 0.0
   modules:
-  - stream_temp
+    - stream_temp
   type: F
   units: degrees Celsius
 ss_tau:
@@ -3017,7 +3338,7 @@ ss_tau:
   maximum: 365
   minimum: 1
   modules:
-  - stream_temp
+    - stream_temp
   type: I
   units: days
 ssr2gw_exp:
@@ -3025,12 +3346,13 @@ ssr2gw_exp:
   desc: Coefficient to route water from subsurface to groundwater
   dims:
     0: nhru
-  help: Non-linear coefficient in equation used to route water from the gravity reservoir
+  help:
+    Non-linear coefficient in equation used to route water from the gravity reservoir
     to the GWR for each HRU
   maximum: 3.0
   minimum: 0.0
   modules:
-  - soilzone
+    - soilzone
   type: F
   units: none
 ssr2gw_rate:
@@ -3038,27 +3360,30 @@ ssr2gw_rate:
   desc: Coefficient to route water from gravity reservoir to GWR
   dims:
     0: nhru
-  help: Linear coefficient in equation used to route water from the gravity reservoir
+  help:
+    Linear coefficient in equation used to route water from the gravity reservoir
     to the GWR for each HRU
   maximum: 1.0
   minimum: 0.0001
   modules:
-  - soilzone
+    - soilzone
   type: F
   units: fraction/day
 ssstor_init_frac:
   default: 0.0
-  desc: Initial fraction of available water in the gravity plus preferential-flow
+  desc:
+    Initial fraction of available water in the gravity plus preferential-flow
     reservoirs
   dims:
     0: nhru
-  help: Initial fraction of available water in the gravity plus preferential-flow
+  help:
+    Initial fraction of available water in the gravity plus preferential-flow
     reservoirs (fraction of sat_threshold) for each HRU
   maximum: 1.0
   minimum: 0.0
   modules:
-  - soilzone
-  - convert_params
+    - soilzone
+    - convert_params
   type: F
   units: decimal fraction
 stream_tave_init:
@@ -3077,12 +3402,13 @@ subbasin_down:
   desc: Downstream subbasin for each subbasin
   dims:
     0: nsub
-  help: Index number for the downstream subbasin whose inflow is outflow from this
+  help:
+    Index number for the downstream subbasin whose inflow is outflow from this
     subbasin
   maximum: nsub
   minimum: bounded
   modules:
-  - subbasin
+    - subbasin
   type: I
   units: none
 tbl_gate:
@@ -3090,12 +3416,13 @@ tbl_gate:
   desc: Gate openings for each column of rating table 1
   dims:
     0: ngate
-  help: Gate openings for each column for rating table 1 for lakes using gate opening
+  help:
+    Gate openings for each column for rating table 1 for lakes using gate opening
     routing and nratetbl>0
   maximum: 20.0
   minimum: 0.0
   modules:
-  - muskingum_lake
+    - muskingum_lake
   type: F
   units: inches
 tbl_gate2:
@@ -3103,12 +3430,13 @@ tbl_gate2:
   desc: Gate openings for each column of rating table 2
   dims:
     0: ngate2
-  help: Gate openings for each column for rating table 2 for lakes using gate opening
+  help:
+    Gate openings for each column for rating table 2 for lakes using gate opening
     routing and nratetbl>1
   maximum: 20.0
   minimum: 0.0
   modules:
-  - muskingum_lake
+    - muskingum_lake
   type: F
   units: inches
 tbl_gate3:
@@ -3116,12 +3444,13 @@ tbl_gate3:
   desc: Gate openings for each column of rating table 3
   dims:
     0: ngate3
-  help: Gate openings for each column for rating table 3 for lakes using gate opening
+  help:
+    Gate openings for each column for rating table 3 for lakes using gate opening
     routing and nratetbl>2
   maximum: 20.0
   minimum: 0.0
   modules:
-  - muskingum_lake
+    - muskingum_lake
   type: F
   units: inches
 tbl_gate4:
@@ -3129,12 +3458,13 @@ tbl_gate4:
   desc: Gate openings for each column of rating table 4
   dims:
     0: ngate4
-  help: Gate openings for each column for rating table 4 for lakes using gate opening
+  help:
+    Gate openings for each column for rating table 4 for lakes using gate opening
     routing and nratetbl>3
   maximum: 20.0
   minimum: 0.0
   modules:
-  - muskingum_lake
+    - muskingum_lake
   type: F
   units: inches
 tbl_stage:
@@ -3142,12 +3472,13 @@ tbl_stage:
   desc: Stage values for each row of rating table 1
   dims:
     0: nstage
-  help: Stage values for each row for rating table 1 for lakes using gate opening
+  help:
+    Stage values for each row for rating table 1 for lakes using gate opening
     routing and nratetbl>0
   maximum: 1000.0
   minimum: -100.0
   modules:
-  - muskingum_lake
+    - muskingum_lake
   type: F
   units: feet
 tbl_stage2:
@@ -3155,12 +3486,13 @@ tbl_stage2:
   desc: Stage values for each row of rating table 2
   dims:
     0: nstage2
-  help: Stage values for each row for rating table 2 for lakes using gate opening
+  help:
+    Stage values for each row for rating table 2 for lakes using gate opening
     routing and nratetbl>1
   maximum: 1000.0
   minimum: -100.0
   modules:
-  - muskingum_lake
+    - muskingum_lake
   type: F
   units: feet
 tbl_stage3:
@@ -3168,12 +3500,13 @@ tbl_stage3:
   desc: Stage values for each row of rating table 3
   dims:
     0: nstage3
-  help: Stage values for each row for rating table 3 for lakes using gate opening
+  help:
+    Stage values for each row for rating table 3 for lakes using gate opening
     routing and nratetbl>2
   maximum: 1000.0
   minimum: -100.0
   modules:
-  - muskingum_lake
+    - muskingum_lake
   type: F
   units: feet
 tbl_stage4:
@@ -3181,12 +3514,13 @@ tbl_stage4:
   desc: Stage values for each row of rating table 4
   dims:
     0: nstage4
-  help: Stage values for each row for rating table 4 for lakes using gate opening
+  help:
+    Stage values for each row for rating table 4 for lakes using gate opening
     routing and nratetbl>3
   maximum: 1000.0
   minimum: -100.0
   modules:
-  - muskingum_lake
+    - muskingum_lake
   type: F
   units: feet
 temp_units:
@@ -3194,15 +3528,16 @@ temp_units:
   desc: Units flag for measured temperature
   dims:
     0: scalar
-  help: Flag to indicate the units of measured air-temperature values (0=Fahrenheit;
+  help:
+    Flag to indicate the units of measured air-temperature values (0=Fahrenheit;
     1=Celsius)
   maximum: 1
   minimum: 0
   modules:
-  - temp_1sta
-  - temp_laps
-  - temp_dist2
-  - temperature_hru
+    - temp_1sta
+    - temp_laps
+    - temp_dist2
+    - temperature_hru
   type: I
   units: none
 tmax_adj:
@@ -3211,16 +3546,17 @@ tmax_adj:
   dims:
     0: nmonth
     1: nhru
-  help: Adjustment to maximum temperature for each HRU, estimated on the basis of
+  help:
+    Adjustment to maximum temperature for each HRU, estimated on the basis of
     slope and aspect
   maximum: 10.0
   minimum: -10.0
   modules:
-  - temp_1sta
-  - temp_laps
-  - temp_dist2
-  - ide_dist
-  - xyz_dist
+    - temp_1sta
+    - temp_laps
+    - temp_dist2
+    - ide_dist
+    - xyz_dist
   type: F
   units: temp_units
 tmax_allrain_offset:
@@ -3229,17 +3565,18 @@ tmax_allrain_offset:
   dims:
     0: nmonth
     1: nhru
-  help: Monthly (January to December) maximum air temperature when precipitation is
+  help:
+    Monthly (January to December) maximum air temperature when precipitation is
     assumed to be rain; if HRU air temperature is greater than or equal to tmax_allsnow
     plus this value, precipitation is rain
   maximum: 50.0
   minimum: 0.0
   modules:
-  - precip_1sta
-  - precip_laps
-  - precip_dist2
-  - precipitation_hru
-  - convert_params
+    - precip_1sta
+    - precip_laps
+    - precip_dist2
+    - precipitation_hru
+    - convert_params
   type: F
   units: temp_units
 tmax_allsnow:
@@ -3248,16 +3585,17 @@ tmax_allsnow:
   dims:
     0: nmonth
     1: nhru
-  help: Maximum air temperature when precipitation is assumed to be snow; if HRU air
+  help:
+    Maximum air temperature when precipitation is assumed to be snow; if HRU air
     temperature is less than or equal to this value, precipitation is snow
   maximum: 40.0
   minimum: -10.0
   modules:
-  - precip_1sta
-  - precip_laps
-  - precip_dist2
-  - precipitation_hru
-  - convert_params
+    - precip_1sta
+    - precip_laps
+    - precip_dist2
+    - precipitation_hru
+    - convert_params
   type: F
   units: temp_units
 tmax_cbh_adj:
@@ -3266,12 +3604,13 @@ tmax_cbh_adj:
   dims:
     0: nmonth
     1: nhru
-  help: Monthly (January to December) adjustment factor to maximum air temperature
+  help:
+    Monthly (January to December) adjustment factor to maximum air temperature
     for each HRU, estimated on the basis of slope and aspect
   maximum: 10.0
   minimum: -10.0
   modules:
-  - temperature_hru
+    - temperature_hru
   type: F
   units: temp_units
 tmax_index:
@@ -3280,12 +3619,13 @@ tmax_index:
   dims:
     0: nmonth
     1: nhru
-  help: Monthly (January to December) index temperature used to determine precipitation
+  help:
+    Monthly (January to December) index temperature used to determine precipitation
     adjustments to solar radiation for each HRU
   maximum: 110.0
   minimum: -10.0
   modules:
-  - ddsolrad
+    - ddsolrad
   type: F
   units: temp_units
 tmax_lapse:
@@ -3294,12 +3634,13 @@ tmax_lapse:
   dims:
     0: nmonth
     1: nhru
-  help: Monthly (January to December) values representing the change in maximum air
+  help:
+    Monthly (January to December) values representing the change in maximum air
     temperature per 1000 elev_units of elevation change for each HRU
   maximum: 20.0
   minimum: -20.0
   modules:
-  - temp_1sta_laps
+    - temp_1sta_laps
   type: F
   units: temp_units/elev_units
 tmin_adj:
@@ -3308,16 +3649,17 @@ tmin_adj:
   dims:
     0: nmonth
     1: nhru
-  help: Adjustment to minimum temperature for each HRU, estimated on the basis of
+  help:
+    Adjustment to minimum temperature for each HRU, estimated on the basis of
     slope and aspect
   maximum: 10.0
   minimum: -10.0
   modules:
-  - temp_1sta
-  - temp_laps
-  - temp_dist2
-  - ide_dist
-  - xyz_dist
+    - temp_1sta
+    - temp_laps
+    - temp_dist2
+    - ide_dist
+    - xyz_dist
   type: F
   units: temp_units
 tmin_cbh_adj:
@@ -3326,12 +3668,13 @@ tmin_cbh_adj:
   dims:
     0: nmonth
     1: nhru
-  help: Monthly (January to December) adjustment factor to minimum air temperature
+  help:
+    Monthly (January to December) adjustment factor to minimum air temperature
     for each HRU, estimated on the basis of slope and aspect
   maximum: 10.0
   minimum: -10.0
   modules:
-  - temperature_hru
+    - temperature_hru
   type: F
   units: temp_units
 tmin_lapse:
@@ -3340,12 +3683,13 @@ tmin_lapse:
   dims:
     0: nmonth
     1: nhru
-  help: Monthly (January to December) values representing the change in minimum air
+  help:
+    Monthly (January to December) values representing the change in minimum air
     temperture per 1000 elev_units of elevation change for each HRU
   maximum: 20.0
   minimum: -20.0
   modules:
-  - temp_1sta_laps
+    - temp_1sta_laps
   type: F
   units: temp_units/elev_units
 tosegment:
@@ -3353,15 +3697,16 @@ tosegment:
   desc: The index of the downstream segment
   dims:
     0: nsegment
-  help: Index of downstream segment to which the segment streamflow flows, for segments
+  help:
+    Index of downstream segment to which the segment streamflow flows, for segments
     that do not flow to another segment enter 0
   maximum: 1000000
   minimum: -11
   modules:
-  - routing
-  - streamflow
-  - strmflow_in_out
-  - muskingum
+    - routing
+    - streamflow
+    - strmflow_in_out
+    - muskingum
   type: I
   units: none
 tosegment_nhm:
@@ -3373,7 +3718,7 @@ tosegment_nhm:
   maximum: 9999999
   minimum: 0
   modules:
-  - setup_param
+    - setup_param
   type: I
   units: none
 transp_beg:
@@ -3381,12 +3726,13 @@ transp_beg:
   desc: Month to begin testing for transpiration
   dims:
     0: nhru
-  help: Month to begin summing the maximum air temperature for each HRU; when sum
+  help:
+    Month to begin summing the maximum air temperature for each HRU; when sum
     is greater than or equal to transp_tmax, transpiration begins
   maximum: 12
   minimum: 1
   modules:
-  - transp_tindex
+    - transp_tindex
   type: I
   units: month
 transp_end:
@@ -3394,12 +3740,13 @@ transp_end:
   desc: Month to stop transpiration period
   dims:
     0: nhru
-  help: Month to stop transpiration computations; transpiration is computed thru end
+  help:
+    Month to stop transpiration computations; transpiration is computed thru end
     of previous month
   maximum: 13
   minimum: 1
   modules:
-  - transp_tindex
+    - transp_tindex
   type: I
   units: month
 transp_tmax:
@@ -3407,13 +3754,14 @@ transp_tmax:
   desc: Tmax index to determine start of transpiration
   dims:
     0: nhru
-  help: Temperature index to determine the specific date of the start of the transpiration
+  help:
+    Temperature index to determine the specific date of the start of the transpiration
     period; the maximum air temperature for each HRU is summed starting with the first
     day of month transp_beg; when the sum exceeds this index, transpiration begins
   maximum: 1000.0
   minimum: 0.0
   modules:
-  - transp_tindex
+    - transp_tindex
   type: F
   units: temp_units
 tsta_elev:
@@ -3425,9 +3773,9 @@ tsta_elev:
   maximum: 30000.0
   minimum: -300.0
   modules:
-  - temp_1sta
-  - temp_laps
-  - temp_dist2
+    - temp_1sta
+    - temp_laps
+    - temp_dist2
   type: F
   units: elev_units
 tsta_xlong:
@@ -3435,12 +3783,13 @@ tsta_xlong:
   desc: Temperature station longitude, State Plane
   dims:
     0: ntemp
-  help: Longitude of each air-temperature-measurement station, State Plane Coordinate
+  help:
+    Longitude of each air-temperature-measurement station, State Plane Coordinate
     System
   maximum: 1.0E9
   minimum: -1.0E9
   modules:
-  - temp_dist2
+    - temp_dist2
   type: F
   units: feet
 tsta_ylat:
@@ -3448,12 +3797,13 @@ tsta_ylat:
   desc: Temperature station latitude, State Plane
   dims:
     0: ntemp
-  help: Latitude of each air-temperature-measurement station, State Plane Coordinate
+  help:
+    Latitude of each air-temperature-measurement station, State Plane Coordinate
     System
   maximum: 1.0E9
   minimum: -1.0E9
   modules:
-  - temp_dist2
+    - temp_dist2
   type: F
   units: feet
 tstorm_mo:
@@ -3462,46 +3812,51 @@ tstorm_mo:
   dims:
     0: nmonth
     1: nhru
-  help: Monthly flag (January to December) for prevalent storm type for each HRU (0=frontal
+  help:
+    Monthly flag (January to December) for prevalent storm type for each HRU (0=frontal
     storms; 1=convective storms)
   maximum: 1
   minimum: 0
   modules:
-  - snowcomp
+    - snowcomp
   type: I
   units: none
 va_clos_exp:
   default: 0.001
-  desc: Coefficient in the exponential equation to compute current surface area of
+  desc:
+    Coefficient in the exponential equation to compute current surface area of
     closed surface-depression storage
   dims:
     0: nhru
-  help: Coefficient in the exponential equation relating maximum surface area to the
+  help:
+    Coefficient in the exponential equation relating maximum surface area to the
     fraction that closed depressions are full to compute current surface area for
     each HRU; 0.001 is an approximate rectangle; 1.0 is a triangle
   maximum: 10.0
   minimum: 0.0001
   modules:
-  - srunoff
-  - srunoff_smidx
-  - srunoff_carea
+    - srunoff
+    - srunoff_smidx
+    - srunoff_carea
   type: F
   units: none
 va_open_exp:
   default: 0.001
-  desc: Coefficient in the exponential equation to compute current surface area of
+  desc:
+    Coefficient in the exponential equation to compute current surface area of
     open surface-depression storage
   dims:
     0: nhru
-  help: Coefficient in the exponential equation relating maximum surface area to the
+  help:
+    Coefficient in the exponential equation relating maximum surface area to the
     fraction that open depressions are full to compute current surface area for each
     HRU; 0.001 is an approximate rectangle; 1.0 is a triangle
   maximum: 10.0
   minimum: 0.0001
   modules:
-  - srunoff
-  - srunoff_smidx
-  - srunoff_carea
+    - srunoff
+    - srunoff_smidx
+    - srunoff_carea
   type: F
   units: none
 vce:
@@ -3513,7 +3868,7 @@ vce:
   maximum: 15.0
   minimum: 0.0
   modules:
-  - stream_temp
+    - stream_temp
   type: F
   units: meters
 vcw:
@@ -3525,7 +3880,7 @@ vcw:
   maximum: 15.0
   minimum: 0.0
   modules:
-  - stream_temp
+    - stream_temp
   type: F
   units: meters
 vdemn:
@@ -3537,7 +3892,7 @@ vdemn:
   maximum: 1.0
   minimum: 0.0
   modules:
-  - stream_temp
+    - stream_temp
   type: F
   units: decimal fraction
 vdemx:
@@ -3549,7 +3904,7 @@ vdemx:
   maximum: 1.0
   minimum: 0.0
   modules:
-  - stream_temp
+    - stream_temp
   type: F
   units: decimal fraction
 vdwmx:
@@ -3561,7 +3916,7 @@ vdwmx:
   maximum: 1.0
   minimum: 0.0
   modules:
-  - stream_temp
+    - stream_temp
   type: F
   units: decimal fraction
 vdwmn:
@@ -3573,7 +3928,7 @@ vdwmn:
   maximum: 0.0
   minimum: 0.0
   modules:
-  - stream_temp
+    - stream_temp
   type: F
   units: decimal fraction
 vhe:
@@ -3585,7 +3940,7 @@ vhe:
   maximum: 30.0
   minimum: 0.0
   modules:
-  - stream_temp
+    - stream_temp
   type: F
   units: meters
 vhw:
@@ -3597,7 +3952,7 @@ vhw:
   maximum: 30.0
   minimum: 0.0
   modules:
-  - stream_temp
+    - stream_temp
   type: F
   units: meters
 voe:
@@ -3609,7 +3964,7 @@ voe:
   maximum: 100.0
   minimum: 0.0
   modules:
-  - stream_temp
+    - stream_temp
   type: F
   units: meters
 vow:
@@ -3621,7 +3976,7 @@ vow:
   maximum: 100.0
   minimum: 0.0
   modules:
-  - stream_temp
+    - stream_temp
   type: F
   units: meters
 weir_coef:
@@ -3633,7 +3988,7 @@ weir_coef:
   maximum: 3.0
   minimum: 2.0
   modules:
-  - muskingum_lake
+    - muskingum_lake
   type: F
   units: none
 weir_len:
@@ -3645,7 +4000,7 @@ weir_len:
   maximum: 1000.0
   minimum: 1.0
   modules:
-  - muskingum_lake
+    - muskingum_lake
   type: F
   units: feet
 width_alpha:
@@ -3657,7 +4012,7 @@ width_alpha:
   maximum: 2.0
   minimum: 0.0001
   modules:
-  - stream_temp
+    - stream_temp
   type: F
   units: unknown
 width_m:
@@ -3669,7 +4024,7 @@ width_m:
   maximum: 2.0
   minimum: 0.0001
   modules:
-  - stream_temp
+    - stream_temp
   type: F
   units: unknown
 wrain_intcp:
@@ -3677,12 +4032,13 @@ wrain_intcp:
   desc: Winter rain interception storage capacity
   dims:
     0: nhru
-  help: Winter rain interception storage capacity for the major vegetation type in
+  help:
+    Winter rain interception storage capacity for the major vegetation type in
     each HRU
   maximum: 1.0
   minimum: 0.0
   modules:
-  - intcp
+    - intcp
   type: F
   units: inches
 x_coef:
@@ -3690,15 +4046,16 @@ x_coef:
   desc: Routing weighting factor
   dims:
     0: nsegment
-  help: The amount of attenuation of the flow wave, called the Muskingum routing weighting
+  help:
+    The amount of attenuation of the flow wave, called the Muskingum routing weighting
     factor; enter 0.0 for reservoirs, diversions, and segment(s) flowing out of the
     basin
   maximum: 0.5
   minimum: 0.0
   modules:
-  - routing
-  - streamflow
-  - muskingum
-  - muksingum_mann
+    - routing
+    - streamflow
+    - muskingum
+    - muksingum_mann
   type: F
   units: decimal fraction
