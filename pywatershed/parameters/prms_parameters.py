@@ -1,6 +1,7 @@
 import json
 from copy import deepcopy
 from typing import Union
+from warnings import warn
 
 import numpy as np
 
@@ -148,7 +149,7 @@ class PrmsParameters(Parameters):
         if isinstance(parameter_file, fileish):
             data = PrmsFile(parameter_file, "parameter").get_data()
             data = data["parameter"]["parameters"]
-            
+
         elif isinstance(parameter_file, (list, np.ndarray)):
             print(
                 "Loading and merging the parameter files (order matters):\n"

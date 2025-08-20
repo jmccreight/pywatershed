@@ -35,34 +35,130 @@ adjmix_rain:
   type: F
   units: decimal fraction
 ag_cov_type:
-  default: 3
-  desc: Agricultural cover type designation for HRU
+  default: -1
+  desc: Cover type designation for agriculture area of each HRU
   dims:
     0: nhru
   help:
-    Agricultural cover type for each HRU (0=bare soil; 1=grasses; 2=shrubs; 3=trees;
+    Vegetation cover type for agriculture area of each HRU (-1=Not specified,
+    default to cov_type; 0=bare soil; 1=grasses; 2=shrubs; 3=trees;
     4=coniferous)
   maximum: 4
-  minimum: 0
-  modules:
-    - basin
+  minimum: -1
   type: I
   units: none
 ag_soil_moist_max:
-  default: 2.0
-  desc: Maximum value of water for soil zone
+  default: -1.0
+  desc: Maximum value of water content for agriculture fraction of the soilzone
   dims:
     0: nhru
   help:
-    Maximum available water holding capacity of capillary reservoir from land
-    surface to rooting depth of the major vegetation type of each HRU
+    Maximum available water holding capacity of the agriculture reservoir from
+    land surface to rooting depth of the crop type of each HRU
   maximum: 20.0
-  minimum: 1.0e-05
-  modules:
-    - soilzone
-    - convert_params
+  minimum: -1.0
   type: F
   units: inches
+ag_covden_sum:
+  default: -1.0
+  desc: Summer vegetation cover density for agriculture crop type.
+  dims:
+    0: nhru
+  help: Summer vegetation cover density for the agriculture crop type in each
+    HRU.
+  maximum: 1.0
+  minimum: -1.0
+  type: F
+  units: decimal fraction
+ag_covden_win:
+  default: -1.0
+  desc: Winter vegetation cover density for crop type.
+  dims:
+    0: nhru
+  help: Winter vegetation cover density for the crop type in each HRU.
+  maximum: 1.0
+  minimum: -1.0
+  type: F
+  units: decimal fraction
+ag_frac:
+  default: 0.0
+  desc: Fraction of each HRU area that has agriculture
+  dims:
+    0: nhru
+  help: Fraction of each HRU area that has agriculture
+  maximum: 1.0
+  minimum: 0.0
+  type: F
+  units: decimal fraction
+ag_soil_moist_init_frac:
+  default: -1.0
+  desc: Initial fraction available water in the soil agriculture reservoir
+  dims:
+    0: nhru
+  help: Initial fraction of available water in the soil agriculture reservoir
+    (fraction of ag_soil_moist_max for each HRU.
+  maximum: 1.0
+  minimum: -1.0
+  type: F
+  units: decimal fraction
+ag_soil_rechr_init_frac:
+  default: -1
+  desc: Initial fraction of available water in the soil recharge zone within the
+    agriculture reservoir
+  dims:
+    0: nhru
+  help: Initial fraction of available water in the agriculture reservoir where
+    losses occur as both evaporation and transpiration (upper zone of
+    agriculture reservoir) for each HRU.
+  maximum: 1.0
+  minimum: -1.0
+  type: F
+  units: decimal fraction
+ag_soil_rechr_max_frac:
+  default: -1.0
+  desc: Fraction of agriculture reservoir where losses occur as both
+    evaporation and transpiration (soil recharge zone)
+  dims:
+    0: nhru
+  help: Fraction of the agriculture reservoir water-holding capacity
+    (ag_soil_moist_max) where losses occur as both evaporation and
+    transpiration (upper zone of agriculture reservoir) for each HRU.
+  maximum: 1.0
+  minimum: -1.0
+  type: F
+  units: decimal fraction
+ag_soil_type:
+  default: -1
+  desc: Agriculture soil type
+  dims:
+    0: nhru
+  help: Soil type of agriculture fraction in each HRU (1=sand; 2=loam; 3=clay).
+  maximum: 3
+  minimum: -1
+  type: I
+  units: none
+ag_soil2gw_max:
+  default: -1.0
+  desc: Maximum value for agriculture capillary reservoir excess to groundwater
+    storage
+  dims:
+    0: nhru
+  help: Maximum amount of the agriculture capillary reservoir excess that is
+    routed directly to groundwater storage for each HRU
+  maximum: 5.0
+  minimum: -1.0
+  type: F
+  units: inches
+ag_soilwater_deficit_min:
+  default: 0.0
+  desc: Minimum soil-water deficit to begin agriculture irrigation
+  dims:
+    0: nhru
+  help: Minimum soil-water deficit fraction to begin agriculture irrigation
+  maximum: 1.0
+  minimum: 0.0
+  type: F
+  units: fraction
 albedo:
   default: 0.1
   desc: Short-wave solar radiation reflected by streams
@@ -75,173 +171,26 @@ albedo:
     - stream_temp
   type: F
   units: decimal fraction
-
-ag_covden_sum:
-  default: 0.5
-  desc: Summer vegetation cover density for agricultural vegetation type
+max_soilzone_ag_iter:
+  default: 10
+  desc: Maximum number of iterations to optimize computed AET and input AET.
   dims:
-    0: nhru
-  help: Summer vegetation cover density for the agricultural vegetation type in each HRU
-  maximum: 1.0
-  minimum: 0.0
-  type: F
-  units: decimal fraction
-ag_covden_win:
-  default: 0.5
-  desc: Winter vegetation cover density for major vegetation type
-  dims:
-    0: nhru
-  help: Winter vegetation cover density for the major vegetation type in each HRU
-  maximum: 1.0
-  minimum: 0.0
-  type: F
-  units: decimal fraction
-ag_frac:
-  default: 0.0
-  desc: Fraction of each HRU area that has agriculture
-  dims:
-    0: nhru
-  help: Fraction of each HRU area that has agriculture
-  maximum: 0.999
-  minimum: 0.0
-  modules:
-    - basin
-  type: F
-  units: decimal fraction
-ag_soil_moist_init_frac:
-  default: 0.0
-  desc: Initial fraction available water in the agriculture fraction soil moisture.
-  dims:
-    0: nhru
-  help: Initial fraction of available water in the agriculture fraction of soil moisture.
-  maximum: 1.0
-  minimum: 0.0
-  modules:
-    - soilzone
-    - convert_params
-  type: F
-  units: decimal fraction
-ag_soil_rechr_init_frac:
-  default: 0.0
-  desc:
-    Initial fraction of available water in the agricultural soil recharge zone within the capillary
-    reservoir
-  dims:
-    0: nhru
-  help:
-    Initial fraction of available water in the agricultural capillary reservoir where losses
-    occur as both evaporation and transpiration (upper zone of capillary reservoir)
-    for each HRU
-  maximum: 1.0
-  minimum: 0.0
-  modules:
-    - soilzone
-    - convert_params
-  type: F
-  units: decimal fraction
-ag_soil_rechr_max_frac:
-  default: 1.0
-  desc:
-    Fraction of agricultural capillary reservoir where losses occur as both evaporation and
-    transpiration (soil recharge zone)
-  dims:
-    0: nhru
-  help:
-    Fraction of the agricultural capillary reservoir water-holding capacity (soil_moist_max)
-    where losses occur as both evaporation and transpiration (upper zone of capillary
-    reservoir) for each HRU
-  maximum: 1.0
-  minimum: 1.0e-05
-  modules:
-    - soilzone
-    - convert_params
-  type: F
-  units: decimal fraction
-ag_soil_type:
-  default: 2
-  desc: HRU soil type in agricultural fraction
-  dims:
-    0: nhru
-  help: Soil type of each HRU agricultural fraction (1=sand; 2=loam; 3=clay)
-  maximum: 3
+    0: scalar
+  help: Maximum number of iterations to optimize computed AET and input AET.
+  maximum: 9999
   minimum: 1
-  modules:
-    - soilzone
   type: I
   units: none
-ag_soil2gw_max:
-  default: 0.0
-  desc: Maximum value for capillary reservoir excess to GWR in agricultural fraction
-  dims:
-    0: nhru
-  help:
-    Maximum amount of the capillary reservoir excess that is routed directly to
-    the GWR for each HRU in agricultural fraction
-  maximum: 5.0
-  minimum: 0.0
-  modules:
-    - soilzone
-  type: F
-  units: inches
-ag_soilwater_deficit_min:
-  default: 0.0
-  desc: Unknown
-  dims:
-    0: nhru
-  help: Unknown
-  maximum: -999
-  minimum: -999
-  type: F
-  units: unknown
-basin_fall_frost:
-  default: 264
-  desc:
-    The solar date (number of days after winter solstice) of the first killing
-    frost of the fall for the basin
-  dims:
-    0: nhru
-  help:
-    The solar date (number of days after winter solstice) of the first killing
-    frost of the fall for the basin
-  maximum: 366
-  minimum: 1
-  type: I
-  units: Solar date
-basin_spring_frost:
-  default: 111
-  desc:
-    The solar date (number of days after winter solstice) of the last killing
-    frost of the spring for the basin
-  dims:
-    0: nhru
-  help:
-    The solar date (number of days after winter solstice) of the last killing
-    frost of the spring basin
-  maximum: 366
-  minimum: 1
-  type: I
-  units: Solar date
-max_soilzone_ag_iter:
-  default: 0.0
-  desc: Unknown
-  dims:
-    0: nhru
-  help: Unknown
-  maximum: -999
-  minimum: -999
-  type: I
-  units: unknown
 soilzone_aet_converge:
-  default: 0.0
-  desc: Unknown
+  default: 0.00001
+  desc: Convergence criteria to iterate computed AET compared to input AET.
   dims:
-    0: nhru
-  help: Unknown
-  maximum: -999
-  minimum: -999
+    0: scalar
+  help: Convergence criteria to iterate computed AET compared to input AET.
+  maximum: 1.0
+  minimum: 0.0
   type: F
   units: unknown
-
 albset_rna:
   default: 0.8
   desc: Albedo reset - rain, accumulation stage
@@ -821,8 +770,6 @@ fall_frost:
     frost of the fall
   maximum: 366
   minimum: 1
-  modules:
-    - transp_frost
   type: I
   units: Solar date
 fastcoef_lin:
@@ -1503,16 +1450,17 @@ imperv_stor_max:
   units: inches
 irr_type:
   default: 0
-  desc: Method of application of water for each application
+  desc: Application method of irrigation water.
   dims:
     0: nhru
-  help:
-    Method of application of water for each application time-series (0=sprinkler
-    (interception applies); 1=furrow/drip (no intercept); 2=ignore)
+  help: Application method of irrigation water for each HRU (0 = sprinkler
+    method with interception only; 1=ditch/drip method with no interception;
+    2=ignore; 3=sprinkler across whole HRU with interception and throughfall;
+    4=sprinkler method with amount of water applied based on cover density such
+    as a living filter), for options 1, 2, and 3 irrigation water is specified
+    as an HRU-area weighted average value.
   maximum: 2
   minimum: 0
-  modules:
-    - intcp
   type: I
   units: none
 jh_coef:
@@ -3265,8 +3213,6 @@ spring_frost:
     frost of the spring
   maximum: 366
   minimum: 1
-  modules:
-    - transp_frost
   type: I
   units: Solar date
 srain_intcp:
