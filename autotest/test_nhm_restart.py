@@ -3,7 +3,11 @@ import pytest
 
 import pywatershed as pws
 
-restart_freqs = ["y", "m", "d"]
+# this module/test can probably be renamed to drop "NHM" at some point. The
+# NHM processes were just a convenient starting place for developing the
+# restart capabilities.
+
+dt_1d = np.timedelta64(24, "h")
 
 # PRMS fails daily restart test starting on many days, including 1979-12-31
 # as documented on nueva: ~/usgs/pywatershed/autotest/prms_restart_transp_on
@@ -21,23 +25,30 @@ nhm_processes = [
     pws.PRMSChannel,
 ]
 
-times_dict = {
+# The domain inputs start on 1979-01-01.
+# These "a", "b", "c" in the restart test cant be achieved with the "f" option.
+# So it is tested separately below. Below we show "start_times" and subtract a
+# day to get init_times, since it's not always obvious what the last day of the
+# month is. Restarts with "y" and "m" are always written on the last day of the
+# period.
+init_times_dict = {
     "d": {
-        "a": np.datetime64("1979-12-31"),
-        "b": np.datetime64("1980-01-01"),
-        "c": np.datetime64("1980-01-02"),
+        "a": np.datetime64("1979-12-31") - dt_1d,
+        "b": np.datetime64("1980-01-01") - dt_1d,
+        "c": np.datetime64("1980-01-02") - dt_1d,
     },
     "m": {
-        "a": np.datetime64("1979-12-31"),
-        "b": np.datetime64("1980-01-01"),
-        "c": np.datetime64("1980-02-01"),
+        "a": np.datetime64("1979-12-31") - dt_1d,
+        "b": np.datetime64("1980-01-01") - dt_1d,
+        "c": np.datetime64("1980-02-01") - dt_1d,
     },
     "y": {
-        "a": np.datetime64("1979-12-31"),
-        "b": np.datetime64("1980-01-01"),
-        "c": np.datetime64("1980-12-31"),
+        "a": np.datetime64("1979-12-31") - dt_1d,
+        "b": np.datetime64("1980-01-01") - dt_1d,
+        "c": np.datetime64("1980-12-31") - dt_1d,
     },
 }
+restart_freqs = list(init_times_dict.keys())
 
 
 def get_control(simulation, init_time=None, end_time=None):
@@ -86,7 +97,7 @@ def test_restart(
     confirm c == c` in all variables. We'll just do that in memory.
     """
 
-    times = times_dict[restart_freq]
+    times = init_times_dict[restart_freq]
 
     output_dir = simulation["output_dir"]
     restart_dir = tmp_path / "restarts"
@@ -191,7 +202,7 @@ def test_restart_f(
     confirm c == c` in all variables. We'll just do that in memory.
     """
 
-    times = {
+    init_times = {
         "a": np.datetime64("1980-01-03"),
         "b": np.datetime64("1980-01-09"),
         "c": np.datetime64("1980-01-19"),
@@ -239,9 +250,9 @@ def test_restart_f(
         proc.finalize()
         return proc
 
-    proc_ac = run_init_end(times["a"], times["c"])
-    _ = run_init_end(times["a"], times["b"], restart_write=True)
-    proc_bc = run_init_end(times["b"], times["c"], restart_read=True)
+    proc_ac = run_init_end(init_times["a"], init_times["c"])
+    _ = run_init_end(init_times["a"], init_times["b"], restart_write=True)
+    proc_bc = run_init_end(init_times["b"], init_times["c"], restart_read=True)
 
     # make sure we all at c
     assert proc_ac.control.current_time == proc_bc.control.current_time
