@@ -1,4 +1,5 @@
-from typing import Literal
+import pathlib as pl
+from typing import Literal, Union
 
 from ..base.adapter import adaptable
 from ..base.control import Control
@@ -36,7 +37,31 @@ class PRMSGroundwaterNoDprst(PRMSGroundwater):
         calc_method: one of ["fortran", "numba", "numpy"]. None defaults to
             "numba".
         verbose: Print extra information or not?
-
+        restart_read:
+            May be boolean or a Pathlib.Path. If False, control.options
+            will be examined for this key. If True, the working
+            directory is searched for restart files. If a Pathlib.Path, this
+            specifies an alternative directory to search for restart files.
+            Files searched for are of the pattern YYYY-mm-dd-varname.nc where
+            the date is the control.init_time. The timestamp on the file is the
+            valid time of the states in the file with the exception of
+            processes with sub-daily timesteps. For example, the outflow_ts
+            variable of PRMSChannel is instantaneous and valid at the 23rd hour
+            of the timestampped day whereas its variable seg_outflow is the
+            daily averge value over the timestampped day.
+        restart_write:
+            As for restart_read but for writing. The directory in either
+            case will be attempted to be created if it does not exist.
+        restart_write_freq:
+            If False, then control.options is examined for this key. The
+            follwing values set the frequency of restart output with "y" for
+            yearly, "m" for monthly, "d" for daily, or "f" for final. "Final"
+            means that restart files are written with the states at
+            control.end_time to files timestampped with control.end_time.
+            Yearly and monthly restart options write files with timestamps on
+            the last day of each year or month during the run. If daily,
+            restarts are written every day. If restart_write is not False and
+            restart_write_freq is False, the default of "f" is used.
     """
 
     def __init__(
@@ -49,6 +74,9 @@ class PRMSGroundwaterNoDprst(PRMSGroundwater):
         budget_type: Literal["defer", None, "warn", "error"] = "defer",
         calc_method: Literal["fortran", "numba", "numpy"] = None,
         verbose: bool = None,
+        restart_read: Union[pl.Path, bool] = False,
+        restart_write: Union[pl.Path, bool] = False,
+        restart_write_freq: Literal["y", "m", "d", "f", False] = False,
     ) -> None:
         self._dprst_flag = False
 
@@ -62,6 +90,9 @@ class PRMSGroundwaterNoDprst(PRMSGroundwater):
             budget_type=budget_type,
             calc_method=calc_method,
             verbose=verbose,
+            restart_read=restart_read,
+            restart_write=restart_write,
+            restart_write_freq=restart_write_freq,
         )
 
         self.name = "PRMSGroundwaterNoDprst"
@@ -116,6 +147,10 @@ class PRMSGroundwaterNoDprst(PRMSGroundwater):
             "gwres_stor_old": nan,
             "gwres_stor_change": nan,
         }
+
+    @staticmethod
+    def get_restart_variables() -> list:
+        return ["gwres_stor"]
 
     def _calculate(self, simulation_time):
         zero_array = self.gwres_stor * zero

@@ -1,4 +1,5 @@
-from typing import Literal
+import pathlib as pl
+from typing import Literal, Union
 
 from ..base.adapter import adaptable
 from ..base.control import Control
@@ -57,6 +58,31 @@ class PRMSSoilzoneNoDprst(PRMSSoilzone):
             selected then no parameters are adjusted and there will be no
             warnings or errors.
         verbose: Print extra information or not?
+        restart_read:
+            May be boolean or a Pathlib.Path. If False, control.options
+            will be examined for this key. If True, the working
+            directory is searched for restart files. If a Pathlib.Path, this
+            specifies an alternative directory to search for restart files.
+            Files searched for are of the pattern YYYY-mm-dd-varname.nc where
+            the date is the control.init_time. The timestamp on the file is the
+            valid time of the states in the file with the exception of
+            processes with sub-daily timesteps. For example, the outflow_ts
+            variable of PRMSChannel is instantaneous and valid at the 23rd hour
+            of the timestampped day whereas its variable seg_outflow is the
+            daily averge value over the timestampped day.
+        restart_write:
+            As for restart_read but for writing. The directory in either
+            case will be attempted to be created if it does not exist.
+        restart_write_freq:
+            If False, then control.options is examined for this key. The
+            follwing values set the frequency of restart output with "y" for
+            yearly, "m" for monthly, "d" for daily, or "f" for final. "Final"
+            means that restart files are written with the states at
+            control.end_time to files timestampped with control.end_time.
+            Yearly and monthly restart options write files with timestamps on
+            the last day of each year or month during the run. If daily,
+            restarts are written every day. If restart_write is not False and
+            restart_write_freq is False, the default of "f" is used.
     """
 
     def __init__(
@@ -77,7 +103,10 @@ class PRMSSoilzoneNoDprst(PRMSSoilzone):
         calc_method: Literal["numba", "numpy"] = None,
         adjust_parameters: Literal["warn", "error", "no"] = "warn",
         verbose: bool = None,
-    ) -> "PRMSSoilzone":
+        restart_read: Union[pl.Path, bool] = False,
+        restart_write: Union[pl.Path, bool] = False,
+        restart_write_freq: Literal["y", "m", "d", "f", False] = False,
+    ) -> None:
         self._dprst_flag = False
 
         super().__init__(
@@ -100,6 +129,9 @@ class PRMSSoilzoneNoDprst(PRMSSoilzone):
             calc_method=calc_method,
             adjust_parameters=adjust_parameters,
             verbose=verbose,
+            restart_read=restart_read,
+            restart_write=restart_write,
+            restart_write_freq=restart_write_freq,
         )
 
         self.name = "PRMSSoilzoneNoDprst"
@@ -153,10 +185,6 @@ class PRMSSoilzoneNoDprst(PRMSSoilzone):
         )
 
     @staticmethod
-    def get_restart_variables() -> tuple:
-        return ()
-
-    @staticmethod
     def get_init_values() -> dict:
         return {
             "cap_infil_tot": zero,
@@ -203,6 +231,12 @@ class PRMSSoilzoneNoDprst(PRMSSoilzone):
             "swale_actet": zero,
             "unused_potet": zero,
         }
+
+    @staticmethod
+    def get_restart_variables() -> list:
+        raise NotImplementedError(
+            "Restart capability not implemented for PRMSSoilzoneNoDprst"
+        )
 
     @staticmethod
     def get_mass_budget_terms():
