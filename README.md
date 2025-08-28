@@ -78,7 +78,7 @@ Without using `git` (directly), you may:
 ```
 curl -L -O https://raw.githubusercontent.com/EC-USGS/pywatershed/<branch>/environment_w_jupyter.yml
 mamba env create -f environment_w_jupyter.yml
-conda activate pws
+mamba activate pws
 pip install git+https://github.com/EC-USGS/pywatershed.git@<branch>
 ```
 
@@ -88,7 +88,7 @@ Or to use `git` and to be able to develop:
 git clone https://github.com/EC-USGS/pywatershed.git
 cd pywatershed
 mamba env create -f environment_w_jupyter.yml
-activate pws
+mamba activate pws
 pip install -e .
 ```
 

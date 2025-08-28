@@ -156,9 +156,8 @@ def test_starfit_flow_node_compare_starfit(
             node.advance()
             node.prepare_timestep()
             for ss in range(1):
-                # I believe this is to exactly match the Starfit method, it
-                # will not work with a budget
-                # TODO JLM: WHY?
+                # A single step with nhrus_substep to mimic the daily starfit
+                # test data. (Which do not have substep flow inputs.)
                 node.calculate_subtimestep(
                     ss, inflows_node.current[inode], zero
                 )

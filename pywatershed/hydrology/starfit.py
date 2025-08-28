@@ -33,17 +33,6 @@ from pywatershed.utils.time_utils import datetime_epiweek
 # m^3/second = m3ps
 # m^3/week = m2pw
 
-# TODO: use these or the ones defined on self.nhrs_substep?
-#       both is killing me. Kind of need the later for regression tests.
-# daily conversions mass <-> volume
-# m3ps_to_MCM_day = 24 * 60 * 60 / 1.0e6
-# MCM_to_m3ps_day = 1.0 / m3ps_to_MCM_day
-
-# hourly conversions mass <-> volume
-# m3ps_to_MCM_hour = 1 * 60 * 60 / 1.0e6
-# MCM_to_m3ps_hour = 1.0 / m3ps_to_MCM_hour
-
-
 # local constant
 omega = 1.0 / 52.0
 
@@ -119,6 +108,9 @@ class Starfit(ConservativeProcess):
         self._set_options(locals())
 
         self._set_budget(basis="unit", ignore_nans=True)
+
+        self.m3ps_to_MCM_day = 24 * 60 * 60 / 1.0e6
+        self.MCM_to_m3ps_day = 1.0 / self.m3ps_to_MCM_day
 
         return
 
@@ -329,7 +321,7 @@ class Starfit(ConservativeProcess):
         # test data. \_(`@`)_/
         self.lake_storage_change[:] = (
             self.lake_inflow - self.lake_release
-        ) * m3ps_to_MCM_day
+        ) * self.m3ps_to_MCM_day
         # Note: no lake_storage calculation here
 
         # can't release more than storage + inflow. This assumes zero
@@ -343,7 +335,7 @@ class Starfit(ConservativeProcess):
             potential_release = self.lake_release[wh_neg_storage] + (
                 self.lake_storage[wh_neg_storage]
                 + self.lake_storage_change[wh_neg_storage]
-            ) * (MCM_to_m3ps_day)  # both terms in m3ps
+            ) * (self.MCM_to_m3ps_day)  # both terms in m3ps
             self.lake_release[wh_neg_storage] = np.maximum(
                 potential_release,
                 zero,
@@ -351,7 +343,7 @@ class Starfit(ConservativeProcess):
             self.lake_storage_change[wh_neg_storage] = (
                 self.lake_inflow[wh_neg_storage]
                 - self.lake_release[wh_neg_storage]
-            ) * m3ps_to_MCM_day
+            ) * self.m3ps_to_MCM_day
 
         self.lake_storage[:] = np.maximum(
             self.lake_storage + self.lake_storage_change, zero
@@ -363,11 +355,11 @@ class Starfit(ConservativeProcess):
         wh_spill = np.where(self.lake_storage > self.GRanD_CAP_MCM)
         self.lake_spill[wh_spill] = (
             self.lake_storage[wh_spill] - self.GRanD_CAP_MCM[wh_spill]
-        ) * MCM_to_m3ps_day
+        ) * self.MCM_to_m3ps_day
         self.lake_storage[wh_spill] = self.GRanD_CAP_MCM[wh_spill]
         self.lake_storage_change[:] = self.lake_storage - self.lake_storage_old
         self.lake_storage_change_flow_units[:] = (
-            self.lake_storage_change * MCM_to_m3ps_day
+            self.lake_storage_change * self.MCM_to_m3ps_day
         )
         self.lake_outflow[:] = self.lake_release + self.lake_spill
 
