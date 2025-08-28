@@ -13,14 +13,18 @@ from pywatershed.hydrology.starfit import StarfitFlowNodeMaker
 from pywatershed.parameters import Parameters, StarfitParameters
 
 # NB:
-#   Here we are comparing a daily offline starfit against an hourly
-#   StarfitNode. The reference output is the mean value from offline runs run
+#   Here we are comparing a daily offline starfit against an "hourly"
+#   StarfitNode that is computed with a 24 hour timestep, sort of faking the
+#   daily results. The reference output is the mean value from offline runs run
 #   from 1995-2001 in the file
 #   ../test_data/starfit/starfit_mean_output_1995-2001.nc
 #   We only advance the hourly StarfitNode one substepper day. It's
 #   resulting flow rates are identical but the change in storage is 1/24
 #   of the daily value, so we check this. We have to track previous storage
 #   to do this and get the delta storages.
+#   TODO: Test daily mode or delete the capability (probably the later since
+#   daily runs can be mimicked as noted above, however they require
+#   inflows to be pre-averaged over the day to the first subtimestep.)
 #   TODO: There is no comparison of output files at the moment.
 do_compare_output_files = True
 do_compare_in_memory = True
@@ -62,14 +66,6 @@ def parameters():
     parameters_ds = xr.concat(merge_list, dim="nreservoirs")
     parameters = StarfitParameters.from_ds(parameters_ds)
 
-    return parameters
-
-
-@pytest.fixture(scope="function")
-def parameters_source_sink(parameters):
-    param_ds = parameters.to_xr_ds()
-    param_ds["source_sink_storage_min"] = zero * param_ds["GRanD_CAP_MCM"]
-    parameters = StarfitParameters.from_ds(param_ds)
     return parameters
 
 

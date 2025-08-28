@@ -15,14 +15,16 @@ from pywatershed.hydrology.starfit_source_sink_flow_node import (
 from pywatershed.parameters import Parameters, StarfitParameters
 
 # NB:
-#   Here we are comparing a daily offline starfit against an hourly
-#   StarfitNode. The reference output is the mean value from offline runs run
+#   Here we are comparing a daily offline starfit against an "hourly"
+#   StarfitNode that is computed with a 24 hour timestep, sort of faking the
+#   daily results. The reference output is the mean value from offline runs run
 #   from 1995-2001 in the file
 #   ../test_data/starfit/starfit_mean_output_1995-2001.nc
 #   We only advance the hourly StarfitNode one substepper day. It's
 #   resulting flow rates are identical but the change in storage is 1/24
 #   of the daily value, so we check this. We have to track previous storage
 #   to do this and get the delta storages.
+#   There is no StarfitSourceSinkFlowNode daily calculation to test.
 #   TODO: There is no comparison of output files at the moment.
 do_compare_output_files = True
 do_compare_in_memory = True
@@ -155,7 +157,6 @@ def test_starfit_source_sink_flow_node_compare_starfit(
         io_in_cfs=io_in_cfs,
         nhrs_substep=24,
         budget_type="error",
-        compute_daily=False,
     )
 
     nodes = [

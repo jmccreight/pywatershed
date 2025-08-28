@@ -1004,8 +1004,6 @@ class StarfitFlowNode(FlowNode):
         # accumulate inflows across all subtimesteps
         self._lake_inflow_sub[:] = np.array([inflow_upstream + inflow_lateral])
         print(f"{self._lake_inflow_sub=}")
-        if np.isnan(self._lake_inflow_sub):
-            asdff
         if self._io_in_cfs:
             self._lake_inflow_sub[:] *= cfs_to_cms
         self._lake_inflow_accum[:] += self._lake_inflow_sub
@@ -1022,7 +1020,6 @@ class StarfitFlowNode(FlowNode):
             # two previous, we'll assume the same
             self._lake_storage[:] = self._lake_storage_sub
             self._lake_storage_old[:] = self._lake_storage_sub
-            print(f"lake_storage: {self._lake_storage}")
             self._lake_storage_change[:] = zero
 
             # Note that this case does not return, it continues with the
