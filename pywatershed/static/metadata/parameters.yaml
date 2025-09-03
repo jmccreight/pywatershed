@@ -283,6 +283,34 @@ azrh:
     - stream_temp
   type: F
   units: radians
+basin_fall_frost:
+  default: 264
+  desc:
+    The solar date (number of days after winter solstice) of the first killing
+    frost of the fall
+  dims:
+    0: nhru
+  help:
+    The solar date (number of days after winter solstice) of the first killing
+    frost of the fall
+  maximum: 366
+  minimum: 1
+  type: I
+  units: Solar date
+basin_spring_frost:
+  default: 264
+  desc:
+    The solar date (number of days after winter solstice) of the first killing
+    frost of the fall
+  dims:
+    0: nhru
+  help:
+    The solar date (number of days after winter solstice) of the first killing
+    frost of the fall
+  maximum: 366
+  minimum: 1
+  type: I
+  units: Solar date
 basin_solsta:
   default: 0
   desc: Index of main solar radiation station

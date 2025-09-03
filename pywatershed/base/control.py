@@ -390,6 +390,19 @@ class Control(Accessor):
         return datetime_doy(self._current_time)
 
     @property
+    def current_jsol(self) -> int:
+        """The number of days since the last winter solstice.
+        Currently ASSUMES Norther Hemisphere.
+
+        This is based on GSFLOW 2.4.0:rc/prms/sm_utils_prms.f90:L470
+        julian_day function with argument "solar".
+
+        """
+        from ..utils.time_utils import datetime_jsol
+
+        return datetime_jsol(self.current_time)
+
+    @property
     def current_dowy(self) -> int:
         """Get the current day of water year in 1-366 (unless zero-based)."""
         return datetime_dowy(self._current_time)
