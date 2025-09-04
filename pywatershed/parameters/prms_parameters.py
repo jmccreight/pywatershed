@@ -183,7 +183,7 @@ class PrmsParameters(Parameters):
                 data.update(dd)
 
         else:
-            raise ValueError(f"Unacceptable type: {parameter_file=}")
+            raise ValueError(f"Unacceptable type: {parameter_files=}")
 
         # <
         params = PrmsParameters._process_file_input(data)
