@@ -132,32 +132,33 @@ class PrmsParameters(Parameters):
 
     @staticmethod
     def load(
-        parameter_file: Union[
+        parameter_files: Union[
             fileish,
             list,
         ],
     ) -> "PrmsParameters":
-        """Load parameters from a PRMS parameter file
+        """Load parameters from PRMS parameter files
 
         Args:
-            parameter_file: parameter file path
+            parameter_files: parameter file path(s). Files beyond the first
+            are "addenda" inheriting the dimensions of the first file.
 
         Returns:
             PrmsParameters: full PRMS parameter dictionary
 
         """
-        if isinstance(parameter_file, fileish):
-            data = PrmsFile(parameter_file, "parameter").get_data()
+        if isinstance(parameter_files, fileish):
+            data = PrmsFile(parameter_files, "parameter").get_data()
             data = data["parameter"]["parameters"]
 
-        elif isinstance(parameter_file, (list, np.ndarray)):
+        elif isinstance(parameter_files, (list, np.ndarray)):
             print(
                 "Loading and merging the parameter files (order matters):\n"
-                f"{parameter_file}"
+                f"{parameter_files}"
             )
             param_list = []
             dims_from_previous_file = {}
-            for pf in parameter_file:
+            for pf in parameter_files:
                 data = PrmsFile(
                     pf,
                     "parameter",
