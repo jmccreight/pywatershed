@@ -928,6 +928,19 @@ class PRMSAtmosphere(Process):
 
 
 class PRMSAtmosphereTranspFrost(PRMSAtmosphere):
+    """PRMS atmospheric boundary layer model with a frost transpiration model.
+
+    In this subclass, the `PRMSAtmosphere` transpiration model using
+    temperature index is replaced by a specified active period between the
+    parameteres of (last) spring_frost and (first, killing) fall frost. This is
+    as implemented in the PRMS module transp_frost.f90.
+
+    See Also
+    --------
+    PRMSAtmosphere
+
+    """
+
     def __init__(
         self,
         control: Control,
