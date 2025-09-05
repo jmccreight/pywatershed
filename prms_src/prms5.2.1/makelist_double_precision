@@ -61,7 +61,7 @@ ifeq ($(detected_OS), Windows)
 	endif
 else
 	ifeq ($(FC), gfortran)
-		OPTLEVEL = -O -Bstatic
+		OPTLEVEL = -O
 		LDFLAGS = $(OPTLEVEL)
 	endif
 	ifeq ($(FC), $(filter $(FC), ifort mpiifort))
