@@ -1,6 +1,3 @@
-# This requires flopy to be installed
-# which is not in the requirements.
-
 import os
 import pathlib as pl
 import shutil

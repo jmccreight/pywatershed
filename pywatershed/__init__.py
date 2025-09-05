@@ -1,6 +1,9 @@
 from .analysis.model_graph import ModelGraph
 from .analysis.utils.colorbrewer import ColorBrewer
-from .atmosphere.prms_atmosphere import PRMSAtmosphere
+from .atmosphere.prms_atmosphere import (
+    PRMSAtmosphere,
+    PRMSAtmosphereTranspFrost,
+)
 from .atmosphere.prms_solar_geometry import PRMSSolarGeometry
 from .base import meta
 from .base.adapter import Adapter, AdapterNetcdf, adapter_factory
@@ -65,6 +68,7 @@ __all__ = (
     "ModelGraph",
     "ColorBrewer",
     "PRMSAtmosphere",
+    "PRMSAtmosphereTranspFrost",
     "PRMSSolarGeometry",
     "meta",
     "Adapter",

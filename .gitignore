@@ -74,7 +74,8 @@ examples/make_starfit_parameters
 pywatershed/data/pynhm_gis
 pywatershed/data/pywatershed_gis
 
-
+pyrightconfig.json
+.DS_Store
 
 # graphics
 *.png

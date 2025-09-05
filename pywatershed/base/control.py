@@ -289,11 +289,15 @@ class Control(Accessor):
                 else:
                     opts[pws_option_key] = val
                 # some special cases
-                if pws_option_key in [
-                    "parameter_file",
-                    "netcdf_output_dir",
-                    "streamflow_module",
-                ]:
+                if (
+                    pws_option_key
+                    in [
+                        "parameter_file",
+                        "netcdf_output_dir",
+                        "streamflow_module",
+                    ]
+                    and len(val) == 1
+                ):
                     opts[pws_option_key] = val[0]
 
             # special cases, unmapped names
@@ -384,6 +388,19 @@ class Control(Accessor):
     def current_doy(self) -> int:
         """Get the current day of year in 1-366 (unless zero based)."""
         return datetime_doy(self._current_time)
+
+    @property
+    def current_jsol(self) -> int:
+        """The number of days since the last winter solstice.
+        Currently ASSUMES Norther Hemisphere.
+
+        This is based on GSFLOW 2.4.0:rc/prms/sm_utils_prms.f90:L470
+        julian_day function with argument "solar".
+
+        """
+        from ..utils.time_utils import datetime_jsol
+
+        return datetime_jsol(self.current_time)
 
     @property
     def current_dowy(self) -> int:

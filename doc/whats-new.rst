@@ -29,10 +29,16 @@ New Features
   (:pull:`335`) By `James McCreight <https://github.com/jmccreight>`_.
 - The :class:`FlowGraph` class has new method `plot` to show an abstract plot of the FlowGraph.
   (:pull:`351`) By `James McCreight <https://github.com/jmccreight>`_.
-- The :class:`Process` class and subclasses have a new restart capability (with the
+- The :class:`base.Process` class and subclasses have a new restart capability (with the
   exceptions of PRMSSnow and PRMSRunoff and their subclasses which are
   still to be implemented).
   (:pull:`349`) By `James McCreight <https://github.com/jmccreight>`_.
+- The :class:`PRMSAtmosphereTranspFrost` implements the transp_frost module of PRMS.
+  (:pull:`354`) By `James McCreight <https://github.com/jmccreight>`_.
+- The `load()` method of :class:`parameters.PrmsParameters` now supports reading multiple parameter
+  files which are treated as addenda to the first parameter file in the list which
+  contains the dimension information.
+  (:pull:`354`) By `James McCreight <https://github.com/jmccreight>`_.
 
 Breaking Changes
 ~~~~~~~~~~~~~~~~
@@ -50,7 +56,7 @@ Internal changes
 .. _whats-new.2.0.2:
 
 v2.0.2 (14 March 2025)
----------------------
+----------------------
 
 Bug fixes
 ~~~~~~~~~
@@ -64,7 +70,7 @@ Bug fixes
 .. _whats-new.2.0.1:
 
 v2.0.1 (19 December 2024)
----------------------
+-------------------------
 
 New Features
 ~~~~~~~~~~~~~~~~
@@ -74,7 +80,7 @@ New Features
 .. _whats-new.2.0.0:
 
 v2.0.0 (16 December 2024)
----------------------
+-------------------------
 
 New Features
 ~~~~~~~~~~~~~~~~

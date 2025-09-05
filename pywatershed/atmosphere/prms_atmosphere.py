@@ -11,7 +11,11 @@ from ..base.adapter import adaptable
 from ..base.control import Control
 from ..constants import inch2cm, nan, nearzero, one, zero
 from ..parameters import Parameters
-from ..utils.time_utils import datetime_day_of_month, datetime_month
+from ..utils.time_utils import (
+    datetime_day_of_month,
+    datetime_jsol,
+    datetime_month,
+)
 from .solar_constants import solf
 
 
@@ -123,7 +127,7 @@ class PRMSAtmosphere(Process):
         restart_read: Union[pl.Path, bool] = False,
         restart_write: Union[pl.Path, bool] = False,
         restart_write_freq: Literal["y", "m", "d", False] = False,
-    ):
+    ) -> None:
         # Defering handling batch handling of time chunks but self.n_time_chunk
         # is a dimension used in the metadata/variables dimensions.
         # TODO: make time chunking options work (esp with output)
@@ -153,6 +157,8 @@ class PRMSAtmosphere(Process):
 
         self._set_inputs(locals())
         self._set_options(locals())
+
+        self.calculate_transp = self.calc_transp_tindex
 
         self._calculated = False
         self._netcdf_initialized = False
@@ -190,7 +196,7 @@ class PRMSAtmosphere(Process):
         self.adjust_precip()
         self.calculate_sw_rad_degree_day()
         self.calculate_potential_et_jh()
-        self.calculate_transp_tindex()
+        self.calculate_transp()
 
         # JLM todo: delete large variables on self for memory management
         self._calculated = True
@@ -702,7 +708,7 @@ class PRMSAtmosphere(Process):
     #     self.pot_et_consumed += et
     #     return et
 
-    def calculate_transp_tindex(self):
+    def calc_transp_tindex(self):
         # INIT: Process_flag==INIT
         # transp_on inited to 0 everywhere above
 
@@ -917,5 +923,117 @@ class PRMSAtmosphere(Process):
 
         # logic for when to write restarts in the function
         self._output_restart()
+
+        return
+
+
+class PRMSAtmosphereTranspFrost(PRMSAtmosphere):
+    """PRMS atmospheric boundary layer model with a frost transpiration model.
+
+    In this subclass, the `PRMSAtmosphere` transpiration model using
+    temperature index is replaced by a specified active period between the
+    parameteres of (last) spring_frost and (first, killing) fall frost. This is
+    as implemented in the PRMS module transp_frost.f90.
+
+    See Also
+    --------
+    PRMSAtmosphere
+
+    """
+
+    def __init__(
+        self,
+        control: Control,
+        discretization: Parameters,
+        parameters: Parameters,
+        prcp: Union[str, pl.Path],
+        tmax: Union[str, pl.Path],
+        tmin: Union[str, pl.Path],
+        soltab_potsw: adaptable,
+        soltab_horad_potsw: adaptable,
+        verbose: bool = False,
+        restart_read: Union[pl.Path, bool] = False,
+        restart_write: Union[pl.Path, bool] = False,
+        restart_write_freq: Literal["y", "m", "d", False] = False,
+    ) -> None:
+        super().__init__(
+            control,
+            discretization,
+            parameters,
+            prcp,
+            tmax,
+            tmin,
+            soltab_potsw,
+            soltab_horad_potsw,
+            verbose,
+            restart_read,
+            restart_write,
+            restart_write_freq,
+        )
+
+        self.calculate_transp = self.calc_transp_frost
+
+        return
+
+    @staticmethod
+    def get_parameters():
+        return (
+            "doy",
+            "radadj_intcp",
+            "radadj_slope",
+            "tmax_index",
+            "dday_slope",
+            "dday_intcp",
+            "radmax",
+            "ppt_rad_adj",
+            "tmax_allsnow",
+            "tmax_allrain_offset",
+            "hru_slope",
+            "radj_sppt",
+            "radj_wppt",
+            "hru_lat",
+            "hru_area",
+            "hru_aspect",
+            "jh_coef",
+            "jh_coef_hru",
+            "tmax_cbh_adj",
+            "tmin_cbh_adj",
+            "tmax_allsnow",
+            "tmax_allrain_offset",
+            "snow_cbh_adj",
+            "rain_cbh_adj",
+            "adjmix_rain",
+            "fall_frost",
+            "spring_frost",
+            "radadj_intcp",  # below are solar params used by Atmosphere
+            "radadj_slope",
+            "tmax_index",
+            "dday_slope",
+            "dday_intcp",
+            "radmax",
+            "ppt_rad_adj",
+            "tmax_allsnow",
+            "tmax_allrain_offset",
+            "hru_slope",
+            "radj_sppt",
+            "radj_wppt",
+            "hru_lat",
+            "hru_area",
+            "temp_units",
+        )
+
+    def _calculate_all_time(self):
+        super()._calculate_all_time()
+
+    def calc_transp_frost(self) -> None:
+        self._jsol = tile_time_to_space(
+            datetime_jsol(self._time), self.nhru
+        )  # (time)
+        spring_frost = tile_space_to_time(self.spring_frost, self.ntime)
+        fall_frost = tile_space_to_time(self.fall_frost, self.ntime)
+
+        self.transp_on.data[:, :] = np.where(
+            (self._jsol >= spring_frost) & (self._jsol <= fall_frost), 1, 0
+        )
 
         return
