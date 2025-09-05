@@ -172,14 +172,15 @@ jobs:
           if [[ "$MF6_REMOTE" != "$req_remote" ]]; then echo "bad mf6 remote in .mf6_ci_ref_remote"; exit 1; fi
 
       - name: Setup gfortran
+        if: runner.os != 'macOS'
         uses: fortran-lang/setup-fortran@v1
         with:
           compiler: gcc
           version: 11
 
-      - name: Link gfortran dylibs on Mac
-        if: runner.os == 'macOS'
-        run: .github/scripts/symlink_gfortran_mac.sh
+      # - name: Link gfortran dylibs on Mac
+      #   if: runner.os == 'macOS'
+      #   run: .github/scripts/symlink_gfortran_mac.sh
 
       - name: Install Dependencies via Micromamba
         uses: mamba-org/setup-micromamba@v1.9.0
