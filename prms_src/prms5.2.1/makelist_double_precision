@@ -102,7 +102,7 @@ ifeq ($(detected_OS), Windows)
 		CFLAGS = -Dfloat=double $(OPTLEVEL) -D$(ARC) -D_UF -Wall
 	endif
 else
-	ifeq ($(CC), gcc)
+	ifeq ($(CC), $(filter $(CC), gcc clang))
 		CFLAGS = -Dfloat=double $(OPTLEVEL) -D$(ARC) -D_UF -Wall
 	endif
 	ifeq ($(CC), $(filter $(CC), icc mpiicc))

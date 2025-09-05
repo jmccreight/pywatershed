@@ -64,7 +64,9 @@ def exe():
         exe_name = "prms_win_gfort_dbl_prec.exe"
     elif platform == "darwin":
         if processor() == "arm":
-            exe_name = "prms_mac_m1_ifort_dbl_prec"
+            # exe_name = "prms_mac_m1_ifort_dbl_prec"
+            # Revert this to ifort in final PR
+            exe_name = "prms_mac_m1_gfortran_clang_dbl_prec"
         else:
             exe_name = "prms_mac_intel_gfort_dbl_prec"
     elif platform == "linux":
