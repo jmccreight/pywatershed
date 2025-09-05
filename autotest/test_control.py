@@ -56,6 +56,8 @@ def test_control_simple(control_simple):
     assert control_simple.itime_step == -1
     prev_time = control_simple.current_time
     n_times = control_simple.n_times
+    assert control_simple.current_jsol == 12
+    assert control_simple.current_epiweek == 1
     assert n_times == 4
 
     for ii in range(n_times):
@@ -85,6 +87,7 @@ def test_control_simple(control_simple):
         assert dowy == (control_simple.current_dowy - 1)
 
         prev_time = control_simple.current_time
+        assert control_simple.current_jsol == 12 + ii + 1
 
     with pytest.raises(ValueError):
         control_simple.advance()

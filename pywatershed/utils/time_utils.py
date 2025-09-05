@@ -1,4 +1,5 @@
 import datetime
+from typing import Union
 
 import epiweeks as ew
 import numpy as np
@@ -22,12 +23,16 @@ def dt64_to_dt(dt64: np.datetime64, dt_precision="s") -> datetime.datetime:
     return val
 
 
-def datetime_year(dt64: np.datetime64) -> int:
+def datetime_year(
+    dt64: Union[np.datetime64, np.ndarray],
+) -> Union[np.ndarray, int]:
     """Get the year from np.datetime64"""
     return dt64.astype("datetime64[Y]").astype(int) + 1970
 
 
-def datetime_month(dt64: np.datetime64, zero_based=False) -> int:
+def datetime_month(
+    dt64: Union[np.datetime64, np.ndarray], zero_based=False
+) -> Union[np.ndarray, int]:
     """Get the month from np.datetime64
     Args:
          zero_based: count as a zero-based index.
@@ -35,7 +40,9 @@ def datetime_month(dt64: np.datetime64, zero_based=False) -> int:
     return dt64.astype("datetime64[M]").astype(int) % 12 + _offset(zero_based)
 
 
-def datetime_day_of_month(dt64: np.datetime64, zero_based=False) -> int:
+def datetime_day_of_month(
+    dt64: Union[np.datetime64, np.ndarray], zero_based=False
+) -> Union[np.ndarray, int]:
     """Get the month from np.datetime64
     Args:
          zero_based: count as a zero-based index.
@@ -46,7 +53,9 @@ def datetime_day_of_month(dt64: np.datetime64, zero_based=False) -> int:
     return diff + _offset(zero_based)
 
 
-def datetime_doy(dt64: np.datetime64, zero_based=False) -> int:
+def datetime_doy(
+    dt64: Union[np.datetime64, np.ndarray], zero_based=False
+) -> Union[np.ndarray, int]:
     """Get day of year from np.datetime64
     Args:
         zero_based: count as a zero-based index.
@@ -56,7 +65,9 @@ def datetime_doy(dt64: np.datetime64, zero_based=False) -> int:
     ).astype(int) + _offset(zero_based)
 
 
-def datetime_dowy(dt64: np.datetime64, zero_based=False) -> int:
+def datetime_dowy(
+    dt64: Union[np.datetime64, np.ndarray], zero_based=False
+) -> Union[np.ndarray, int]:
     """Get day of water year from np.datetime64
     Args:
         zero_based: count as a zero-based index.
@@ -68,7 +79,28 @@ def datetime_dowy(dt64: np.datetime64, zero_based=False) -> int:
     return diff.astype("timedelta64[D]").astype(int) + _offset(zero_based)
 
 
-def datetime_epiweek(dt64: np.datetime64) -> int:
+def datetime_jsol(
+    dt64: Union[np.datetime64, np.ndarray], zero_based=False
+) -> Union[np.ndarray, int]:
+    """Get day since winter solstice using np.datetime64
+    Args:
+        zero_based: count as a zero-based index.
+
+    """
+    year_start = datetime_year(dt64)
+    year_start = np.where(
+        (datetime_month(dt64) == 12) & (datetime_day_of_month(dt64) > 21),
+        datetime_year(dt64).astype(str) + "-12-22T00",
+        (datetime_year(dt64) - 1).astype(str) + "-12-22T00",
+    )
+    year_start = np.array(year_start, dtype=np.datetime64)
+    diff = dt64 - year_start
+    return diff.astype("timedelta64[D]").astype(int) + _offset(zero_based)
+
+
+def datetime_epiweek(
+    dt64: Union[np.datetime64, np.ndarray],
+) -> Union[np.ndarray, int]:
     """Get CDC eipweek [1, 53] from np.datetime64"""
     return ew.Week.fromdate(dt64_to_dt(dt64)).week
 

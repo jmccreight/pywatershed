@@ -1,5 +1,7 @@
 import json
 from copy import deepcopy
+from typing import Union
+from warnings import warn
 
 import numpy as np
 
@@ -129,21 +131,62 @@ class PrmsParameters(Parameters):
         return params
 
     @staticmethod
-    def load(parameter_file: fileish) -> "PrmsParameters":
-        """Load parameters from a PRMS parameter file
+    def load(
+        parameter_files: Union[
+            fileish,
+            list,
+        ],
+    ) -> "PrmsParameters":
+        """Load parameters from PRMS parameter files
 
         Args:
-            parameter_file: parameter file path
+            parameter_files: parameter file path(s). Files beyond the first
+            are "addenda" inheriting the dimensions of the first file.
 
         Returns:
             PrmsParameters: full PRMS parameter dictionary
 
         """
-        data = PrmsFile(parameter_file, "parameter").get_data()
-        params = PrmsParameters._process_file_input(
-            data["parameter"]["parameters"],
-            # data["parameter"]["parameter_dimensions"],
-        )
+        if isinstance(parameter_files, fileish):
+            data = PrmsFile(parameter_files, "parameter").get_data()
+            data = data["parameter"]["parameters"]
+
+        elif isinstance(parameter_files, (list, np.ndarray)):
+            print(
+                "Loading and merging the parameter files (order matters):\n"
+                f"{parameter_files}"
+            )
+            param_list = []
+            dims_from_previous_file = {}
+            for pf in parameter_files:
+                data = PrmsFile(
+                    pf,
+                    "parameter",
+                    dims_from_previous_file=dims_from_previous_file,
+                ).get_data()
+                dims_from_previous_file = data["parameter"][
+                    "parameter_dimensions"
+                ]
+                param_list += [data["parameter"]["parameters"]]
+
+            data = {}
+            for dd in param_list:
+                dd_keys_in_data = set(dd.keys()).intersection(data.keys())
+                for ddk in dd_keys_in_data:
+                    if np.testing.assert_equal(dd[ddk], data[ddk]):
+                        msg = (
+                            f"Multiple copies of parameter {ddk} found, "
+                            "keeping the last one found in the "
+                            "parameter_files."
+                        )
+                        warn(msg)
+                data.update(dd)
+
+        else:
+            raise ValueError(f"Unacceptable type: {parameter_files=}")
+
+        # <
+        params = PrmsParameters._process_file_input(data)
 
         return params
 
