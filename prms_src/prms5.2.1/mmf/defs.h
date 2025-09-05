@@ -16,7 +16,7 @@
 #define FALSE 0
 
 #define ftnint int
-#define ftnlen int
+#define ftnlen long
 
 #define M_LONG 1
 #define M_FLOAT 2
@@ -73,4 +73,3 @@
 //#define MAX_SAVE_MAP 5
 
 #endif /* MMS_DEF_H */
-
