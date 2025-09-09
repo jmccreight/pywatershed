@@ -14,7 +14,8 @@ from pywatershed.parameters import Parameters
 
 
 class StarfitSourceSinkFlowNode(StarfitFlowNode):
-    """
+    """A StarfitFlowNode where sinks and sources interact with storage.
+
     James McCreight (UCAR/USGS), John Engott (USGS), and Noah Knowles (USGS)
     """
 
@@ -55,7 +56,7 @@ class StarfitSourceSinkFlowNode(StarfitFlowNode):
         nhrs_substep: int = one,
         budget_type: Literal["defer", None, "warn", "error"] = None,
     ) -> None:
-        """Initialize a StarfitFlowNode.
+        """Initialize a StarfitSourceSinkFlowNode.
 
         Args:
             control: A Control object

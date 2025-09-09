@@ -39,6 +39,9 @@ New Features
   files which are treated as addenda to the first parameter file in the list which
   contains the dimension information.
   (:pull:`354`) By `James McCreight <https://github.com/jmccreight>`_.
+- The :class:`StarfitSourceSinkFlowNode` allows sources and sinks to interact
+  with storage of a Starfit reservoir/FlowNode.
+  (:pull:`348`) By `James McCreight <https://github.com/jmccreight>`_.
 
 Breaking Changes
 ~~~~~~~~~~~~~~~~
