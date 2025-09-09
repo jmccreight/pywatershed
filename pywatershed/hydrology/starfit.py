@@ -633,7 +633,7 @@ class StarfitFlowNode(FlowNode):
             Obs_MEANFLOW_CUMECS: STARFIT parameter.
             calc_method: One of "numba" or "numpy".
             io_in_cfs: Are the units in cubic feet per second? False gives
-                units of cubic meters per second.
+              units of cubic meters per second.
             compute_daily: Daily or subtimestep calculation?
             nhrs_substep: Number of hours in the subtimestep. If not passed,
               compute_daily defaults to 24, otherwise 1.
@@ -681,9 +681,8 @@ class StarfitFlowNode(FlowNode):
         self._m3ps_to_MCM = nhrs_substep * 60 * 60 / 1.0e6
         self._MCM_to_m3ps = 1.0 / self._m3ps_to_MCM
 
+        # These need to be numpy (nan1d) pointers for the Budget.
         # TODO: make more init of variables conditional
-
-        # These need to be numpy pointers for the Budget!
         self._lake_inflow = nan1d()
         self._lake_inflow_cms = nan1d()
         self._lake_inflow_accum = nan1d()
@@ -830,12 +829,12 @@ class StarfitFlowNode(FlowNode):
         if self._io_in_cfs:
             self._lake_storage[:] *= cf_to_cm
             self._lake_storage_old[:] *= cf_to_cm
+        # <
         return
 
     def _prepare_timestep_hourly(self) -> None:
         # all of the subtimestep output is to be in cfs?
         # so putting cfs conversion here is maybe impractical
-        self._lake_inflow_accum[:] = np.array([zero])
         self._lake_inflow_accum[:] = np.array([zero])
         self._lake_outflow_accum[:] = np.array([zero])
         self._lake_storage_accum[:] = np.array([zero])
@@ -843,7 +842,6 @@ class StarfitFlowNode(FlowNode):
         self._lake_release_accum[:] = np.array([zero])
         self._lake_spill_accum[:] = np.array([zero])
         self._lake_availability_status_accum[:] = np.array([zero])
-
         return
 
     def finalize_timestep(self):
@@ -900,61 +898,75 @@ class StarfitFlowNode(FlowNode):
     def sink_source(self) -> np.float64:
         return zero
 
-    def _calc_spill_daily(self) -> None:
-        # Note that spill and release dont affect storage change until
-        # the subsequent final subtimestep.
-        self._lake_spill_sub_next[:] = np.array([zero])
+    def _calc_subtimestep_daily(
+        self, isubstep, inflow_upstream, inflow_lateral
+    ) -> None:
+        # Here we only calculate outflows on the last subtimestep.
+        # Ouflows on substeps are all the same flow rates, and
+        # storages are only updated at the end of the timestep.
+
+        # how to get the number of substeps in a timestep?  from control. this
+        # might not even be a fixed number
+        nsubsteps = 24
+
+        # accumulate inflows
+        self._lake_inflow_sub[:] = np.array([inflow_upstream + inflow_lateral])
+        if self._io_in_cfs:
+            self._lake_inflow_sub[:] *= cfs_to_cms
+        self._lake_inflow_accum[:] += self._lake_inflow_sub
+
+        # Special case for the very first subtimestep, we use the very first
+        # inflow on the first subtimestep as representative of the mean
+        # inflow of the previous day so we can calculate an average outflow
+        # to use for the first timestep
+        if self.control.itime_step == 0 and isubstep == 0:
+            # this is the representative for the nonexistent previous day
+            self._lake_inflow[:] = self._lake_inflow_accum
+            # two previous, we'll assume the same
+            self._lake_storage[:] = self._lake_storage_sub
+            self._lake_storage_old[:] = self._lake_storage_sub
+            self._lake_storage_change[:] = zero
+        elif isubstep < (nsubsteps - 1):
+            if isubstep == 0:
+                # already in cfs
+                self._lake_outflow_sub[:] = self._lake_outflow_sub_next
+            return
+        else:
+            if self.control.itime_step == 0:
+                # the end of the first timestep doesnt pass through advance()
+                self._lake_storage_old[:] = self._lake_storage
+            self._lake_inflow[:] = self._lake_inflow_accum / (isubstep + 1)
+            if self._io_in_cfs:
+                self._lake_outflow_sub[:] *= cfs_to_cms
+                self._lake_release_sub[:] *= cfs_to_cms
+                self._lake_spill_sub[:] *= cfs_to_cms
+            self._lake_outflow[:] = self._lake_outflow_sub
+            self._lake_release[:] = self._lake_release_sub
+            self._lake_spill[:] = self._lake_spill_sub
+
+            # calculate storage
+            self._lake_storage_change_flow_units[:] = (
+                self._lake_inflow - self._lake_outflow
+            )
+            # below, releases are never more than storage for the day, so this
+            # should never be negative since inflows are never negative
+            self._lake_storage_change[:] = (
+                self._lake_storage_change_flow_units * self._m3ps_to_MCM
+            )
+            self._lake_storage[:] += self._lake_storage_change
+
+        # <
+        self._lake_spill_sub[:] = np.array([zero])
         if self._lake_storage > self._GRanD_CAP_MCM:
-            self._lake_spill_sub_next[:] = (
+            self._lake_spill_sub[:] = (
                 self._lake_storage - self._GRanD_CAP_MCM
             ) * self._MCM_to_m3ps
+            # spill dosent affect the storage until the next timestep
 
-        return
-
-    def _calc_storage_change_daily(self) -> None:
-        # outflow = release + spill
-        self._lake_storage_change_flow_units[:] = (
-            self._lake_inflow - self._lake_outflow
-        )
-        self._lake_storage_change[:] = (
-            self._lake_storage_change_flow_units * self._m3ps_to_MCM
-        )
-        return
-
-    def _calc_storage_change_sub_hourly(self) -> None:
-        # TODO: should release be changed to outflow?
-        self._lake_storage_change_sub[:] = (
-            self._lake_inflow_sub - self._lake_release_sub
-        ) * self._m3ps_to_MCM  # MCM: million cubic meters
-        return
-
-    def _calc_subtimestep_daily(
-        self, isubstep: int, inflow_upstream: float, inflow_lateral: float
-    ) -> None:
-        # It is debatable if this daily calculation should be maintained. It
-        # is difficult to read and to understand compared to the hourly
-        # calculation. For this reason, I am inserting copious commentary.
-
-        # In the daily case, calculations are performed only on the last
-        # subtimestep using 1) average inflows for the day, and 2) average
-        # outflows (release, spill) for the day which were calculated from
-        # storage on the last subtimestep of the previous timestep.
-
-        self._pre_release_calculations_daily(
-            isubstep=isubstep,
-            inflow_upstream=inflow_upstream,
-            inflow_lateral=inflow_lateral,
-        )
-        if self._return_from_substep:
-            return
-
-        # spill before calculating release
-        self._calc_spill_daily()
-
-        # now calculate the (avg) release for the next timestep
+        # now calculate the (avg) outflows for the next timestep
         (
-            self._lake_release_sub_next[:],
-            self._lake_availability_status_next[:],
+            self._lake_release_sub[:],
+            self._lake_availability_status[:],
         ) = Starfit._calc_istarf_release(
             epiweek=np.minimum(self.control.current_epiweek, 52),
             GRanD_CAP_MCM=self._GRanD_CAP_MCM,
@@ -983,132 +995,26 @@ class StarfitFlowNode(FlowNode):
             Release_p2=self._Release_p2,
         )  # output in m^3/d
 
-        self._post_release_calculations_daily(isubstep)
-        return
-
-    def _pre_release_calculations_daily(
-        self, isubstep, inflow_upstream, inflow_lateral
-    ) -> None:
-        # in the future, get the number of substeps in a timestep from control.
-        # it might not even be a fixed number from timestep to timestep.
-        nsubsteps = 24
-
-        # accumulate inflows across all subtimesteps
-        self._lake_inflow_sub[:] = np.array([inflow_upstream + inflow_lateral])
-        print(f"{self._lake_inflow_sub=}")
-        if self._io_in_cfs:
-            self._lake_inflow_sub[:] *= cfs_to_cms
-        self._lake_inflow_accum[:] += self._lake_inflow_sub
-
-        # Special case (case 1) for the very first subtimestep: use the very
-        # first inflow on the first subtimestep as representative of the mean
-        # inflow of the previous day so we can calculate an average outflow
-        # to use for the first timestep
-        self._return_from_substep = False
-        if (self.control.itime_step == 0) and (isubstep == 0):
-            # case 1
-            # This is the representative for the nonexistent previous day
-            self._lake_inflow[:] = self._lake_inflow_accum
-            # two previous, we'll assume the same
-            self._lake_storage[:] = self._lake_storage_sub
-            self._lake_storage_old[:] = self._lake_storage_sub
-            self._lake_storage_change[:] = zero
-
-            # Note that this case does not return, it continues with the
-            # calculations typically reserved only for the final subtimestep of
-            # each timestep: it calculates both spill and release from
-            # initial storage and the first subtimestep inflows so that
-            # there is outflow for the remaining subtimesteps of timestep
-            # zero. However, I dont need to update storage until the end of the
-            # timestep, just need to get initial average inflows, release, and
-            # spill.
-
-        elif isubstep < (nsubsteps - 1):
-            # case 2
-            # if not case 1 and also not the final subtimestep (case 3)
-            # Then we only need to start using the "next" outflows as
-            # calculated on the last subtimestep of the previous timestep
-            # as the current outflows when we start the current timestep.
-            # Otherwise, nothing to do until the last subtimestep.
-            if isubstep == 0:
-                # already in cfs
-                self._lake_outflow_sub[:] = self._lake_outflow_sub_next
-                self._lake_release_sub[:] = self._lake_release_sub_next
-                self._lake_spill_sub[:] = self._lake_spill_sub_next
-                self._lake_availability_status_next[:] = (
-                    self._lake_availability_status_next
-                )
-
-            self._return_from_substep = True
-            return
-
-        else:
-            # case 3: Using 1) accumulated inflows with 2) outflows claculated
-            # at the end (last subtimestep) of last timestep, calculate a new
-            # storage, which will result in new release and potentially spill
-            # (outflow = release + spill) over the NEXT timestep.
-
-            # the average inflow for the day
-            self._lake_inflow[:] = self._lake_inflow_accum / (isubstep + 1)
-
-            if self.control.itime_step == 0:
-                # the end of the first timestep (case 1) doesnt pass through
-                # advance(), so must set this manually
-                # TODO: should be removable because these should be identical
-                # per the code in case 1
-                self._lake_storage_old[:] = self._lake_storage
-
-            if self._io_in_cfs:
-                # because these were converted to cfs at the end of the last
-                # subtimestep.
-                self._lake_outflow_sub[:] *= cfs_to_cms
-                self._lake_release_sub[:] *= cfs_to_cms
-                self._lake_spill_sub[:] *= cfs_to_cms
-
-            # daily are same as subtimestep values
-            self._lake_outflow[:] = self._lake_outflow_sub
-            self._lake_release[:] = self._lake_release_sub
-            self._lake_spill[:] = self._lake_spill_sub
-
-            # Outside the very initial subtimestep, update storage.
-            print("\\\\\\\\\\")
-            print(f"lake_storage: {self._lake_storage}")
-            self._calc_storage_change_daily()
-            self._lake_storage[:] += self._lake_storage_change
-            print(f"lake_storage: {self._lake_storage}")
-            print("/////////////")
-
-    def _post_release_calculations_daily(self, isubstep) -> None:
-        self._lake_release_sub_next[:] *= (
+        self._lake_release_sub *= (
             self._m3ps_to_MCM / 24 / 60 / 60
         )  # m3pd to MCM
 
-        if self._lake_release_sub_next > self._lake_storage:
-            self._lake_release_sub_next[:] = self._lake_storage
-        self._lake_release_sub_next[:] *= self._MCM_to_m3ps
+        if (self._lake_storage - self._lake_release_sub) < zero:
+            self._lake_release_sub[:] = self._lake_storage
+        self._lake_release_sub[:] *= self._MCM_to_m3ps
 
         self._lake_outflow_sub_next[:] = (
-            self._lake_release_sub_next + self._lake_spill_sub_next
+            self._lake_release_sub + self._lake_spill_sub
         )
-        if np.isnan(self._lake_outflow_sub_next):
-            asdff
 
         if self._io_in_cfs:
-            # self._lake_outflow_sub[:] *= cms_to_cfs
-            # self._lake_release_sub[:] *= cms_to_cfs
-            # self._lake_spill_sub[:] *= cms_to_cfs
+            self._lake_outflow_sub[:] *= cms_to_cfs
             self._lake_outflow_sub_next[:] *= cms_to_cfs
-            self._lake_release_sub_next[:] *= cms_to_cfs
-            self._lake_spill_sub_next[:] *= cms_to_cfs
+            self._lake_release_sub[:] *= cms_to_cfs
+            self._lake_spill_sub[:] *= cms_to_cfs
 
         if self.control.itime_step == 0 and isubstep == 0:
             self._lake_outflow_sub[:] = self._lake_outflow_sub_next
-            self._lake_release_sub[:] = self._lake_release_sub_next
-            self._lake_spill_sub[:] = self._lake_spill_sub_next
-            self._lake_availability_status[:] = (
-                self._lake_availability_status_next
-            )
-
         return
 
     def _calc_subtimestep_hourly(
@@ -1150,6 +1056,13 @@ class StarfitFlowNode(FlowNode):
         self._post_release_calculations_hourly(isubstep)
         return
 
+    def _calc_storage_change_sub_hourly(self) -> None:
+        # TODO: should release be changed to outflow?
+        self._lake_storage_change_sub[:] = (
+            self._lake_inflow_sub - self._lake_release_sub
+        ) * self._m3ps_to_MCM  # MCM: million cubic meters
+        return
+
     def _pre_release_calculations_hourly(
         self, inflow_upstream, inflow_lateral
     ) -> None:
@@ -1184,6 +1097,7 @@ class StarfitFlowNode(FlowNode):
             )  # m^3/s
             self._calc_storage_change_sub_hourly()
 
+        # <
         self._lake_storage_sub[:] = np.maximum(
             self._lake_storage_sub + self._lake_storage_change_sub,
             zero,
