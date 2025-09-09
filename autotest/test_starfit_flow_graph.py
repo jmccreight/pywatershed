@@ -167,9 +167,10 @@ def test_starfit_flow_graph_postprocess(
     # The starfit node flows to the third passthrough node, in index 3.
     # The first passthrough node flows to some random nhm_seg, not connected to
     # the other new nodes.
-    # The second passthrough flows to the starfit node in index 0.
+    # The second passthrough flows to the starfit node in index 0 (above
+    # starfit).
     # The last passthrough node flows to the seg above which the reservoir
-    # is placed.
+    # is placed (below starfit).
     new_nodes_flow_to_nhm_seg = [-3, 44409, 0, 44426]
 
     # the first in the list is for the disconnected node
@@ -403,7 +404,7 @@ def test_starfit_flow_graph_model_dict(
         new_nodes_maker_indices=new_nodes_maker_indices,
         new_nodes_maker_ids=new_nodes_maker_ids,
         new_nodes_flow_to_nhm_seg=new_nodes_flow_to_nhm_seg,
-        graph_budget_type="error",  # move to error
+        graph_budget_type="error",
         addtl_output_vars=addtl_output_vars,
     )
     model = Model(model_dict)

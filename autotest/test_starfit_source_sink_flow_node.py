@@ -9,7 +9,9 @@ from pywatershed.base.control import Control
 
 # from pywatershed.base.flow_graph import FlowGraph
 from pywatershed.constants import cm_to_cf, cms_to_cfs, nan, zero
-from pywatershed.hydrology.starfit import StarfitFlowNodeMaker
+from pywatershed.hydrology.starfit_source_sink_flow_node import (
+    StarfitSourceSinkFlowNodeMaker,
+)
 from pywatershed.parameters import Parameters, StarfitParameters
 
 # NB:
@@ -22,9 +24,7 @@ from pywatershed.parameters import Parameters, StarfitParameters
 #   resulting flow rates are identical but the change in storage is 1/24
 #   of the daily value, so we check this. We have to track previous storage
 #   to do this and get the delta storages.
-#   TODO: Test daily mode or delete the capability (probably the later since
-#   daily runs can be mimicked as noted above, however they require
-#   inflows to be pre-averaged over the day to the first subtimestep.)
+#   There is no StarfitSourceSinkFlowNode daily calculation to test.
 #   TODO: There is no comparison of output files at the moment.
 do_compare_output_files = True
 do_compare_in_memory = True
@@ -70,6 +70,14 @@ def parameters():
 
 
 @pytest.fixture(scope="function")
+def parameters_source_sink(parameters):
+    param_ds = parameters.to_xr_ds()
+    param_ds["source_sink_storage_min"] = zero * param_ds["GRanD_CAP_MCM"]
+    parameters = StarfitParameters.from_ds(param_ds)
+    return parameters
+
+
+@pytest.fixture(scope="function")
 def control(parameters):
     control = Control(
         parameters.variables["start_time"].min(),
@@ -90,13 +98,20 @@ def answers():
 @pytest.mark.parametrize(
     "io_in_cfs", [True, False], ids=("io_in_cfs", "io_in_cms")
 )
-def test_starfit_flow_node_compare_starfit(
-    control, parameters, answers, io_in_cfs, tmp_path
+def test_starfit_source_sink_flow_node_compare_starfit(
+    control, parameters_source_sink, answers, io_in_cfs, tmp_path
 ):
+    import pandas as pd
+
     if io_in_cfs:
-        param_ds = parameters.to_xr_ds()
+        param_ds = parameters_source_sink.to_xr_ds()
         param_ds["initial_storage"] *= cm_to_cf
         parameters = StarfitParameters.from_ds(param_ds)
+    else:
+        parameters = parameters_source_sink
+
+    # <
+    del parameters_source_sink
 
     inflow_file = "../test_data/starfit/lake_inflow.nc"
     input_variables = AdapterNetcdf(inflow_file, "lake_inflow", control)
@@ -124,13 +139,24 @@ def test_starfit_flow_node_compare_starfit(
 
     inflows_node = NodeInflowAdapter(input_variables)
 
-    node_maker = StarfitFlowNodeMaker(
+    nres = parameters.dims["nreservoirs"]
+    source_sink_df = pd.DataFrame(
+        index=pd.date_range(start=control.start_time, end=control.end_time),
+        columns=np.arange(nres),
+    )
+    source_sink_df.loc[:, :] = zero - 28.0e-17
+    missing_data_as_zero = False
+
+    # these options are very different fromthe above test
+    node_maker = StarfitSourceSinkFlowNodeMaker(
         discretization=None,
         parameters=parameters,
-        # calc_method=calc_method
+        source_sink_df=source_sink_df,
+        missing_data_as_zero=missing_data_as_zero,
+        # calc_method="numba",
         io_in_cfs=io_in_cfs,
         nhrs_substep=24,
-        compute_daily=False,
+        budget_type="error",
     )
 
     nodes = [
@@ -153,11 +179,12 @@ def test_starfit_flow_node_compare_starfit(
             inflows_node.current[:] *= cms_to_cfs
 
         for inode, node in enumerate(nodes):
+            # print(f"{inode=}")
             node.advance()
             node.prepare_timestep()
+            # in the test for StarfitFlowNode, i use range(1) in order to match
+            # starfit results exactly (i believe that's why)
             for ss in range(1):
-                # A single step with nhrus_substep to mimic the daily starfit
-                # test data. (Which do not have substep flow inputs.)
                 node.calculate_subtimestep(
                     ss, inflows_node.current[inode], zero
                 )

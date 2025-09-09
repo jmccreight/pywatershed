@@ -359,7 +359,7 @@ class Budget(Accessor):
 
             abs_diff = abs(lhs - rhs)
             with np.errstate(divide="ignore", invalid="ignore"):
-                rel_abs_diff = abs_diff / rhs
+                rel_abs_diff = abs(abs_diff / rhs)
 
             abs_close = abs_diff < self.atol
             rel_close = rel_abs_diff < self.rtol
