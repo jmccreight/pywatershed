@@ -1,6 +1,7 @@
 from .cbh_utils import cbh_file_to_netcdf
 from .control import ControlVariables, compare_control_files
 from .csv_utils import CsvFile
+from .domain_subset import DomainSubset
 from .netcdf_utils import NetCdfRead, NetCdfWrite
 from .prms5_file_util import PrmsFile
 from .prms5util import (
@@ -20,6 +21,7 @@ __all__ = (
     "ControlVariables",
     "compare_control_files",
     "CsvFile",
+    "DomainSubset",
     "MakeStarfitParams",
     "NetCdfRead",
     "NetCdfWrite",

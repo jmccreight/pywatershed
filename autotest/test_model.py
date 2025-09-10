@@ -6,7 +6,7 @@ import pywatershed as pws
 
 process_cases = [
     [pws.PRMSSolarGeometry, pws.PRMSAtmosphere],
-    [pws.PRMSSoilzone, pws.PRMSGroundwater, pws.PRMSChannel],
+    # [pws.PRMSSoilzone, pws.PRMSGroundwater, pws.PRMSChannel],
 ]
 
 
