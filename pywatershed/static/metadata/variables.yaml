@@ -4,6 +4,12 @@ KKITER:
     0: one
   type: int32
   units: none
+actet:
+  desc: Input actual ET for each HRU
+  dims:
+    0: nhru
+  type: float64
+  units: inches
 aet_external:
   desc: Actual evapotranspiration for each HRU that is read from a CBH File.
   dims:
