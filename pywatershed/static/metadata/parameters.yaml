@@ -842,6 +842,40 @@ freeh2o_cap:
     - snowcomp
   type: F
   units: decimal fraction
+from_segment:
+  default: None
+  desc: Unstructured/sparse array which gives potentially multiple upstream
+    indices. The start:end indices in this array for a given segment index
+    are obtained by from_segment_starts[ind] and likewise for from_segment_ends.
+    If those two values are the same, the segment has no upstream segments.
+  dims:
+    0: from_nhm_seg_unstruct
+  help: See desc.
+  maximum: None
+  minimum: 1
+  type: I
+  units: 1-based index
+from_segment_ends:
+  default: None
+  desc: Look up end index in unstructured from_segment array for upstream
+    indices. This value is one less than what python would use and is 1-based.
+  dims:
+    0: from_nhm_seg_unstruct
+  help: Look up start index in unstructured from_segment array for upstream indices.
+  maximum: None
+  minimum: 1
+  type: I
+  units: 1-based index
+from_segment_starts:
+  default: None
+  desc: Look up start index in unstructured from_segment array for upstream indices.
+  dims:
+    0: from_nhm_seg_unstruct
+  help: Look up start index in unstructured from_segment array for upstream indices.
+  maximum: None
+  minimum: 1
+  type: I
+  units: 1-based index
 frost_temp:
   default: 28.0
   desc: Temperature of killing frost
