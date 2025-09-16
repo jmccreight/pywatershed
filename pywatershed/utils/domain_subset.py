@@ -447,15 +447,12 @@ class DomainSubset:
         if output_format.lower() == "pywatershed":
             self._write_pws(write_dir=write_dir)
         elif output_format.lower() == "prms":
-            # ensure
-            for kk, vv in self._sub_cbh_files_dict.items():
-                # what if the key is not in the control file? let it error
-                sub_control.control_variables[kk].values = vv.name
+            raise ValueError("PRMS output format not yet implemented.")
 
             self._write_prms(write_dir=write_dir)
         pass
 
-    def _write_prms(self, write_dir: pl.Path()) -> None:
+    def _write_prms(self, write_dir: pl.Path) -> None:
         # write ascii cbh files
         # write ascii parameter file
         # write control file
