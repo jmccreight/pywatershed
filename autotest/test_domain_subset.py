@@ -35,20 +35,20 @@ use_nhm = False
 domain_name = "ucb_2yr"
 domain_seg_outlet = {"ucb_2yr": np.int64(44425)}
 
-cbh_types = ("ascii", "netcdf")[1:]  # until implemented
-output_types = ("pywatershed", "prms")[0:1]  # until implemented
+cbh_types = [("ascii", "netcdf")[1:]]  # until implemented
+output_types = [("pywatershed", "prms")[0:1]]  # until implemented
+
+# compound test configs
 subset_styles = ("known", "single_seg")[1:]
 ind_order = ["orig", "shuffle"]
 # id_seg_params = [("known", True), ("known", False), ("single_seg", None)][2:]
-test_configs = []
-for cc in cbh_types:
-    for oo in output_types:
-        for ss in subset_styles:
-            for io in ind_order:
-                # there is no way to shuffle single_seg subsetting
-                if ss == "single_seg" and io == "shuffle":
-                    continue
-                test_configs += [(cc, oo, ss, io)]
+sub_ids_segs_types = []
+for ss in subset_styles:
+    for io in ind_order:
+        # there is no way to shuffle single_seg subsetting
+        if ss == "single_seg" and io == "shuffle":
+            continue
+        sub_ids_segs_types += [(ss, io)]
 
 
 @pytest.fixture(scope="function")
@@ -62,7 +62,7 @@ def full_control_file(simulation):
         return simulation["control_file"]
 
 
-@pytest.fixture(scope="function", params=test_configs)
+@pytest.fixture(scope="function", params=cbh_types)
 def full_cbh_nc_file_dict(simulation, request):
     cbh_type = request.param[0]
     if cbh_type == "netcdf":
@@ -84,12 +84,10 @@ def full_cbh_nc_file_dict(simulation, request):
         return full_cbh_nc_file_dict
 
 
-@pytest.fixture(scope="function", params=test_configs)
+@pytest.fixture(scope="function", params=sub_ids_segs_types)
 def sub_ids_segs(simulation, request):
-    # cbh_type = request.param[0]
-    # output_type = request.param[1]
-    subset_style = request.param[2]
-    ind_order = request.param[3]
+    subset_style = request.param[0]
+    ind_order = request.param[1]
 
     if subset_style == "known":
         ctl = pws.Control.load_prms(
@@ -116,9 +114,9 @@ def sub_ids_segs(simulation, request):
     return sub_ids_segs
 
 
-@pytest.fixture(scope="function", params=test_configs)
+@pytest.fixture(scope="function", params=output_types)
 def output_format(simulation, request):
-    return request.param[1]
+    return request.param[0]
 
 
 def test_pws_subset_known_ids_segs(
