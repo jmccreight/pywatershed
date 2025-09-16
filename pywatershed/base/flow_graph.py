@@ -179,7 +179,7 @@ class FlowGraph(ConservativeProcess):
     For users specifically interested in adding new nodes into the
     :class:`PRMSChannel` MuskingumMann routing solutions, there are helper
     functions available which greatly simplify the code. See the notebook
-    `examples/06_flow_graph_starfit.ipynb <https://github.com/EC-USGS/pywatershed/blob/develop/examples/06_flow_graph_starfit.ipynb>`__
+    `examples/06_flow_graph_starfit.ipynb <https://github.com/DOI-USGS/pywatershed/blob/develop/examples/06_flow_graph_starfit.ipynb>`__
     which highlights both helper functions
     :func:`prms_channel_flow_graph_to_model_dict`
     and :func:`prms_channel_flow_graph_postprocess`.

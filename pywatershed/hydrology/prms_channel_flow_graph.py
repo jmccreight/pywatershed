@@ -32,7 +32,7 @@ class PRMSChannelFlowNode(FlowNode):
     the solution is the so-called Muskingum-Mann method.
 
     See :class:`FlowGraph` for discussion and a worked example. The notebook
-    `examples/06_flow_graph_starfit.ipynb <https://github.com/EC-USGS/pywatershed/blob/develop/examples/06_flow_graph_starfit.ipynb>`__
+    `examples/06_flow_graph_starfit.ipynb <https://github.com/DOI-USGS/pywatershed/blob/develop/examples/06_flow_graph_starfit.ipynb>`__
     highlights adding a StarfitFlowNode a :class:`FlowGraph` otherwised
     comprised of :class:`PRMSChannelFlowNode`\ s using the helper functions
     :func:`prms_channel_flow_graph_to_model_dict`
@@ -163,7 +163,7 @@ class PRMSChannelFlowNodeMaker(FlowNodeMaker):
     parameters.
 
     See :class:`FlowGraph` for discussion and a worked example. The notebook
-    `examples/06_flow_graph_starfit.ipynb <https://github.com/EC-USGS/pywatershed/blob/develop/examples/06_flow_graph_starfit.ipynb>`__
+    `examples/06_flow_graph_starfit.ipynb <https://github.com/DOI-USGS/pywatershed/blob/develop/examples/06_flow_graph_starfit.ipynb>`__
     highlights adding a StarfitFlowNode a :class:`FlowGraph` otherwised
     comprised of :class:`PRMSChannelFlowNode`\ s using the helper functions
     :func:`prms_channel_flow_graph_to_model_dict`
@@ -649,7 +649,7 @@ def prms_channel_flow_graph_postprocess(
 
     See :class:`FlowGraph` for additional details and discussion.
 
-    Please see the example notebook `examples/06_flow_graph_starfit.ipynb <https://github.com/EC-USGS/pywatershed/blob/develop/examples/06_flow_graph_starfit.ipynb>`__
+    Please see the example notebook `examples/06_flow_graph_starfit.ipynb <https://github.com/DOI-USGS/pywatershed/blob/develop/examples/06_flow_graph_starfit.ipynb>`__
     which highlights both this helper function and
     :func:`prms_channel_flow_graph_to_model_dict`.
 
@@ -772,7 +772,7 @@ def prms_channel_flow_graph_to_model_dict(
     :class:`base.Process`\ es in a :class:`Model`), then the helper function
     :func:`prms_channel_flow_graph_postprocess` is for you.
 
-    Please see the example notebook `examples/06_flow_graph_starfit.ipynb <https://github.com/EC-USGS/pywatershed/blob/develop/examples/06_flow_graph_starfit.ipynb>`__
+    Please see the example notebook `examples/06_flow_graph_starfit.ipynb <https://github.com/DOI-USGS/pywatershed/blob/develop/examples/06_flow_graph_starfit.ipynb>`__
     which highlights both this helper function and
     :func:`prms_channel_flow_graph_postprocess`.
 

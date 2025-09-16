@@ -63,7 +63,7 @@ class Model:
     * parameters: A PrmsParameters object.
 
     The first example below provides details. An extended example is given by
-    `examples/02_prms_legacy_models.ipynb <https://github.com/EC-USGS/pywatershed/blob/develop/examples/02_prms_legacy_models.ipynb>`__.
+    `examples/02_prms_legacy_models.ipynb <https://github.com/DOI-USGS/pywatershed/blob/develop/examples/02_prms_legacy_models.ipynb>`__.
 
     pywatershed-centric instatiation
     ------------------------------------
@@ -90,7 +90,7 @@ class Model:
     different.
 
     See the second and third examples below for more details and see
-    `examples/01_multi-process_models.ipynb <https://github.com/EC-USGS/pywatershed/blob/develop/examples/01_multi-process_models.ipynb>`__
+    `examples/01_multi-process_models.ipynb <https://github.com/DOI-USGS/pywatershed/blob/develop/examples/01_multi-process_models.ipynb>`__
     for an extended example.
 
     Model dictionary values description:

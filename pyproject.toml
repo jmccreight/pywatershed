@@ -86,8 +86,8 @@ all = ["pywatershed[lint, test, optional, doc]"]
 
 [project.urls]
 Documentation = "https://pywatershed.readthedocs.io"
-"Bug Tracker" = "https://github.com/EC-USGS/pywatershed/issues"
-"Source Code" = "https://github.com/EC-USGS/pywatershed"
+"Bug Tracker" = "https://github.com/DOI-USGS/pywatershed/issues"
+"Source Code" = "https://github.com/DOI-USGS/pywatershed"
 
 [tool.setuptools]
 include-package-data = true

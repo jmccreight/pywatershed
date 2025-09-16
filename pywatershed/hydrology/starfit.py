@@ -555,7 +555,7 @@ class StarfitFlowNode(FlowNode):
     [Computer software]. https://github.com/IMMM-SFA/mosartwmpy
 
     See :class:`FlowGraph` for discussion and a worked example. The notebook
-    `examples/06_flow_graph_starfit.ipynb <https://github.com/EC-USGS/pywatershed/blob/develop/examples/06_flow_graph_starfit.ipynb>`__
+    `examples/06_flow_graph_starfit.ipynb <https://github.com/DOI-USGS/pywatershed/blob/develop/examples/06_flow_graph_starfit.ipynb>`__
     highlights adding a StarfitFlowNode a :class:`FlowGraph` otherwised
     comprised of :class:`PRMSChannelFlowNode`\ s using the helper functions
     :func:`prms_channel_flow_graph_to_model_dict`
@@ -1168,7 +1168,7 @@ class StarfitFlowNodeMaker(FlowNodeMaker):
     :class:`FlowGraph`.
 
     See :class:`FlowGraph` for discussion and a worked example. The notebook
-    `examples/06_flow_graph_starfit.ipynb <https://github.com/EC-USGS/pywatershed/blob/develop/examples/06_flow_graph_starfit.ipynb>`__
+    `examples/06_flow_graph_starfit.ipynb <https://github.com/DOI-USGS/pywatershed/blob/develop/examples/06_flow_graph_starfit.ipynb>`__
     highlights adding a StarfitFlowNode a :class:`FlowGraph` otherwised
     comprised of :class:`PRMSChannelFlowNode`\ s using the helper functions
     :func:`prms_channel_flow_graph_to_model_dict`

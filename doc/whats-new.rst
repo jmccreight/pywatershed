@@ -95,7 +95,7 @@ New Features
   observations with sink and source tracking in mass balance),
   :class:`PRMSChannelFlowNode`\ s, and :class:`StarfitFlowNode`\ s. A new
   example notebook,
-  `examples/06_flow_graph_starfit.ipynb <https://github.com/EC-USGS/pywatershed/blob/develop/examples/06_flow_graph_starfit.ipynb>`__
+  `examples/06_flow_graph_starfit.ipynb <https://github.com/DOI-USGS/pywatershed/blob/develop/examples/06_flow_graph_starfit.ipynb>`__
   demonstrates adding STARFIT reservoir nodes into a FlowGraph otherwise
   simulating `PRMSChannel` and highlights helper functions for this use case.
   (:pull:`233`) By `James McCreight <https://github.com/jmccreight>`_.
@@ -103,7 +103,7 @@ New Features
   (DFW) routing from PRMS NHM input files and a few simple assumptions. The
   lateral (to-channel) fluxes from a PRMS are used as time varying boundary
   conditions. A new notebook runs the Delaware River Basin using MF6 DFW:
-  `examples/07_mmr_to_mf6_chf_dfw.ipynb <https://github.com/EC-USGS/pywatershed/blob/develop/examples/07_mmr_to_mf6_chf_dfw.ipynb>`__.
+  `examples/07_mmr_to_mf6_chf_dfw.ipynb <https://github.com/DOI-USGS/pywatershed/blob/develop/examples/07_mmr_to_mf6_chf_dfw.ipynb>`__.
   (:pull:`290`) By `James McCreight <https://github.com/jmccreight>`_.
 - No depression storage subclasses are available for PRMSRunoff, PRMSSoilzone,
   and PRMSGroundwater by adding "NoDprst" to the end of the names. Depression
@@ -239,8 +239,8 @@ Documentation
 - Implement sphinx_autodoc_typehints.
   (:pull:`257`) By `James McCreight <https://github.com/jmccreight>`_.
 - New gh-pages branch (without history) to publish
-  `"pywatershed notes" <https://ec-usgs.github.io/pywatershed/>`_ including the
-  `extended release notes for v1.0.0 <https://ec-usgs.github.io/pywatershed/2023/12/18/v1-0-0-overview>`_.
+  `"pywatershed notes" <https://doi-usgs.github.io/pywatershed/>`_ including the
+  `extended release notes for v1.0.0 <https://doi-usgs.github.io/pywatershed/2023/12/18/v1-0-0-overview>`_.
   This branch publishes analysis supporting the version 1.0.0 release.
 - Add about section for version 1.0 to describe how pywatershed matches PRMS'
   NHM configuration and how to perform the comparison.
