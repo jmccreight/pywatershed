@@ -464,30 +464,30 @@ if [ -z "${t}" ]; then
             --domain=ucb_2yr \
             --control_pattern=nhm.control \
             --durations=0 || exit 1
-    fi
 
-    if [ -z "${g}" ]; then
-        echo
-        echo ".........."
-        echo "ucb_2yr_nhm_transp_frost - generate and manage test data"
-        echo ".........."
-        echo
-        python generate_test_data.py \
-            -n=$pytest_n --domain=ucb_2yr --control_pattern=frost.control \
-            --remove_prms_csvs --remove_prms_output_dirs || exit 1
-    fi
+        if [ -z "${g}" ]; then
+            echo
+            echo ".........."
+            echo "ucb_2yr_nhm_transp_frost - generate and manage test data"
+            echo ".........."
+            echo
+            python generate_test_data.py \
+                -n=$pytest_n --domain=ucb_2yr --control_pattern=frost.control \
+                --remove_prms_csvs --remove_prms_output_dirs || exit 1
+        fi
 
-    echo ".........."
-    echo "ucb_2yr_nhm_transp_frost - pywatershed tests"
-    echo ".........."
-    echo
-    pytest \
-        -vv \
-        -n=$pytest_n \
-        test_prms_atmosphere_transp_frost.py \
-        --domain=ucb_2yr \
-        --control_pattern=frost.control \
-        --durations=0 || exit 1
+        echo ".........."
+        echo "ucb_2yr_nhm_transp_frost - pywatershed tests"
+        echo ".........."
+        echo
+        pytest \
+            -vv \
+            -n=$pytest_n \
+            test_prms_atmosphere_transp_frost.py \
+            --domain=ucb_2yr \
+            --control_pattern=frost.control \
+            --durations=0 || exit 1
+    fi
 fi
 
 if [ -z "${i}" ]; then

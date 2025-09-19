@@ -1,4 +1,5 @@
 import pathlib as pl
+import shutil
 from typing import Literal, Union
 
 import numpy as np
@@ -16,6 +17,7 @@ pyprms_meta = pp.MetaData(verbose=False).metadata
 
 # TODO: revisit subset parameters now that isel is being used, may be much
 #       simpler
+# TODO: subset sf_data
 # TODO: subset restarts
 # TODO: maybe something todo, there are no real checks on time or subsetting
 #       in time.
@@ -471,6 +473,10 @@ class DomainSubset:
         # but making it relative to the write_dir.
         self._cbh_dataset_to_ascii(write_dir=write_dir)
         self._parameters_to_ascii(write_dir=write_dir)
+
+        # todo: subset the data file
+        data_file = pl.Path(self._sub_control.get("data_file").values)
+        _ = shutil.copy(data_file, write_dir / data_file.name)
 
         self._sub_control.write(write_dir / self._sub_control_file_name)
 

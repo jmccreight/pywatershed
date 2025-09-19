@@ -1,4 +1,5 @@
 import pathlib as pl
+import shutil
 
 import numpy as np
 import pyPRMS as pp
@@ -79,7 +80,7 @@ def full_control_file(simulation, tmp_path):
     # param_file.)
     control_file = simulation["control_file"]
     control_parent = control_file.parent.resolve()
-    new_control_file = tmp_path / "shortend.control"
+    new_control_file = tmp_path / "shortened.control"
 
     control = pws.utils.utils.pyprms_control_no_defaults(
         control_file, metadata=pyprms_meta, verbose=False
@@ -87,10 +88,11 @@ def full_control_file(simulation, tmp_path):
     cv = control.control_variables
     # edit time
     cv["end_time"].values = cv["start_time"].values + np.timedelta64(30, "D")
-    # param_file path
-    param_file = pl.Path(cv["param_file"].values)
-    if not param_file.is_absolute():
-        cv["param_file"].values = str(control_parent / param_file)
+    # param_file and data_file paths
+    for ff in ["param_file", "data_file"]:
+        file_name = pl.Path(cv[ff].values)
+        if not file_name.is_absolute():
+            cv[ff].values = str(control_parent / file_name)
     # cbh file paths
     # This is such a mess. Because pyPRMS loads defaults into unpopulated
     # fields, it's a very difficult proposition to tell if any CBH file is
@@ -204,6 +206,9 @@ def test_pws_subset_known_ids_segs(
     sub_domain_dir = tmp_path / "subdomain"
     subdomain.write(write_dir=sub_domain_dir, output_format=output_format)
 
+    full_run_dir = tmp_path / "full_run"
+    full_run_dir.mkdir()
+
     if output_format.lower() == "pywatershed":
         # test NHM
         nhm_proc_list = [
@@ -218,7 +223,6 @@ def test_pws_subset_known_ids_segs(
         ]
         # full domain run
         full_dir = full_control_file.parent
-        full_run_dir = tmp_path / "full_run"
         full_ctl = pws.Control.load_prms(
             full_control_file, warn_unused_options=False
         )
@@ -267,8 +271,67 @@ def test_pws_subset_known_ids_segs(
                 raise ValueError(f"Comparison failed for {var_name=}")
 
     elif output_format.lower() == "prms":
+        # full domain
+        control = pws.utils.utils.pyprms_control_no_defaults(
+            full_control_file, metadata=pyprms_meta, verbose=False
+        )
+        cv = control.control_variables
+        for ff in [
+            "param_file",
+            "data_file",
+            "tmax_day",
+            "tmin_day",
+            "precip_day",
+        ]:
+            file_path = pl.Path(cv[ff].values)
+            cv[ff].values = file_path.name
+            shutil.copy(file_path, full_run_dir / file_path.name)
+        control.write(full_run_dir / full_control_file.name)
+        control_file = list(full_run_dir.glob("*.control"))[0]
+        run_prms(control_file)
+        full_output_dir = full_run_dir / cv["nhruOutBaseFileName"].values
+
+        # subset domain
         control_file = list(sub_domain_dir.glob("*.control"))[0]
         run_prms(control_file)
+        # the path is the same in the subdomain control
+        sub_output_dir = sub_domain_dir / cv["nhruOutBaseFileName"].values
+
+        vars_compare = [
+            "seg_outflow",
+            "sroff",
+            "slow_flow",
+            "gwres_flow",
+            "pkwater_equiv",
+        ]
+
+        for output_dir in [full_output_dir, sub_output_dir]:
+            for vv in vars_compare:
+                csv_path = output_dir / f"{vv}.csv"
+                nc_path = output_dir / f"{vv}.nc"
+                pws.CsvFile(csv_path).to_netcdf(nc_path)
+
+        for vv in vars_compare:
+            file_name = f"{vv}.nc"
+            full_var = xr.open_dataset(
+                full_output_dir / file_name
+            ).to_dataframe()
+            sub_var = xr.open_dataset(
+                sub_output_dir / file_name
+            ).to_dataframe()
+            var_name = full_var.columns[0]
+            mg = sub_var.join(
+                full_var, how="left", lsuffix="_sub", rsuffix="_full"
+            )
+            if not (mg[f"{var_name}_sub"] == mg[f"{var_name}_full"]).all():
+                full_var = mg[f"{vv}_full"].values
+                sub_var = mg[f"{vv}_sub"].values
+                try:
+                    np.testing.assert_allclose(
+                        full_var, sub_var, atol=1e-7, rtol=1e-7
+                    )
+                except AssertionError:
+                    raise ValueError(f"Comparison failed for {vv=}")
 
     else:
         raise ValueError("How'd we get here?")
