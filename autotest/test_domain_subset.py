@@ -53,8 +53,8 @@ domain_known_nhm_segs = np.array(
     [44409, 44412, 44417, 44418, 44420, 44421, 44422, 44423, 44425, 44430]
 )
 
-cbh_types = [("ascii", "netcdf")[1:]]  # until implemented
-output_types = [("pywatershed", "prms")[1:]]  # until implemented
+cbh_types = ("ascii", "netcdf")[1:]  # until implemented
+output_types = ["pywatershed", "prms"]
 
 # compound test configs
 subset_styles = ("known", "single_seg")
@@ -67,6 +67,11 @@ for ss in subset_styles:
         if ss == "single_seg" and io == "shuffle":
             continue
         sub_ids_segs_types += [(ss, io)]
+
+
+sub_ids_segs_type_ids = [
+    f"{tt[0][0:2]}-{tt[1][0:2]}" for tt in sub_ids_segs_types
+]
 
 
 @pytest.fixture(scope="function")
@@ -129,7 +134,7 @@ def full_control_file(simulation, tmp_path):
 
 @pytest.fixture(scope="function", params=cbh_types)
 def full_cbh_nc_file_dict(simulation, request):
-    cbh_type = request.param[0]
+    cbh_type = request.param
     if cbh_type == "netcdf":
         # for domains in test_data, the netcdf cbh files are found in
         # simulation["dir"]
@@ -151,7 +156,9 @@ def full_cbh_nc_file_dict(simulation, request):
         return full_cbh_nc_file_dict
 
 
-@pytest.fixture(scope="function", params=sub_ids_segs_types)
+@pytest.fixture(
+    scope="function", params=sub_ids_segs_types, ids=sub_ids_segs_type_ids
+)
 def sub_ids_segs(simulation, request):
     subset_style = request.param[0]
     ind_order = request.param[1]
@@ -181,9 +188,9 @@ def sub_ids_segs(simulation, request):
     return sub_ids_segs
 
 
-@pytest.fixture(scope="function", params=output_types)
+@pytest.fixture(scope="function", params=output_types, ids=output_types)
 def output_format(simulation, request):
-    return request.param[0]
+    return request.param
 
 
 def test_pws_subset_known_ids_segs(

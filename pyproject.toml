@@ -107,7 +107,7 @@ include = ["pywatershed", "pywatershed.*"]
 
 [tool.ruff]
 line-length = 79
-target-version = "py39"
+target-version = "py312"
 include = [
     "pyproject.toml",
     "pywatershed/**/*.py",
@@ -127,4 +127,4 @@ ignore = [
 # that dont yet support ruff
 [tool.black]
 line-length = 79
-target_version = ["py39"]
+target_version = ["py312"]

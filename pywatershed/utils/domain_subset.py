@@ -531,16 +531,19 @@ class DomainSubset:
         return None
 
     def _cbh_dataset_to_ascii(self, write_dir):
-        test_data_dir = pl.Path(
-            pws.constants.__pywatershed_root__ / "../test_data"
-        )
-        # simply load a dummy CBH netcdf file from the pywatershed repo
-        # and replace its dataset with ours.
+        data_dir = pl.Path(pws.constants.__pywatershed_root__ / "data")
+        # simply build and load a dummy CBH netcdf file from the pywatershed
+        # repo and replace its dataset with ours.
+
+        dum_file_path = data_dir / "dummy_cbh.nc"
+        make_dummy_netcdf_cbh_file(dum_file_path)
+
         pp_cbh = pp.Cbh(
-            src_path=test_data_dir / "drb_2yr/cbh.nc",
+            src_path=dum_file_path,
             metadata=pyprms_meta,
             engine="netcdf",
         )
+        dum_file_path.unlink()
         cbh_ds = xr.merge(self._sub_cbh_files_dict.values())
         pp_cbh._Cbh__dataset = cbh_ds
         for kk, vv in self._sub_cbh_files_dict.items():
@@ -631,3 +634,23 @@ class DomainSubset:
         pp_params.write_parameter_file(filename=write_dir / file_name)
 
         return None
+
+
+def make_dummy_netcdf_cbh_file(file_path: pl.Path):
+    # it appears that any basic netcdf file works, no other requirements
+    # imposed by pp.CBH()
+    ds = xr.Dataset(
+        data_vars=dict(
+            foo=(
+                ("time", "hru"),
+                np.zeros([7, 3]),
+                {"units": "parsec", "long_name": "foooo"},
+            ),
+        ),
+        attrs=dict(
+            title="Dummy",
+        ),
+    )
+    ds.to_netcdf(file_path)
+
+    return None
