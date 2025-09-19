@@ -70,8 +70,6 @@ def detect_prms_exe():
     import sys
     from platform import processor
 
-    from pywatershed.constants import __pywatershed_root__ as pws_root
-
     platform = sys.platform.lower()
     if platform == "win32":
         exe_name = "prms_win_gfort_dbl_prec.exe"
@@ -84,7 +82,7 @@ def detect_prms_exe():
         exe_name = "prms_linux_gfort_dbl_prec"
     else:
         exe_name = "---"  # this will raise an error
-    exe_pth = pl.Path(pws_root.parent.resolve() / f"bin/{exe_name}")
+    exe_pth = pl.Path(f"../bin/{exe_name}")
     return exe_pth
 
 
