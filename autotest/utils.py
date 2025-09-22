@@ -125,6 +125,8 @@ def run_prms(
     )
 
     if not success:
-        raise RuntimeError(f"PRMS failed to run: {control_file.name}")
+        raise RuntimeError(
+            f"PRMS failed to run {control_file} using {exe_path}."
+        )
 
     return None
