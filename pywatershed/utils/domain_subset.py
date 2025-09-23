@@ -702,6 +702,8 @@ class DomainSubset:
             metadata=pyprms_meta,
             engine="netcdf",
         )
+        pp_cbh._Cbh__dataset.load()
+        pp_cbh._Cbh__dataset.close()
         dum_file_path.unlink()
         cbh_ds = xr.merge(self._sub_cbh_files_dict.values())
         pp_cbh._Cbh__dataset = cbh_ds
