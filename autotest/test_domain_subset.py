@@ -164,7 +164,6 @@ def sub_ids_segs(simulation, request):
     ind_order = request.param[1]
 
     if subset_style == "known":
-        )
         nhm_ids = domain_known_nhm_ids
         nhm_segs = domain_known_nhm_segs
 
