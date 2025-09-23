@@ -1,6 +1,6 @@
 import pathlib as pl
-import shutil
 from typing import Literal, Union
+from warnings import warn
 
 import numpy as np
 import pyPRMS as pp
@@ -8,6 +8,7 @@ import xarray as xr
 
 import pywatershed as pws
 
+from ..base import meta as pws_meta
 from .segment_from_tracing import (
     get_from_segment_params,
     get_nhm_segs_ids_above_seg,
@@ -22,17 +23,8 @@ pyprms_meta = pp.MetaData(verbose=False).metadata
 # TODO: maybe something todo, there are no real checks on time or subsetting
 #       in time.
 
+# Only some of these are in the GSFLOW 2.4.0 input instruction word doc.
 additional_cbh_meta = {
-    "PET_cbh_file": {
-        "datatype": "string",
-        "description": (
-            "Pathname of the CBH file of pre-processed potential "
-            "evapotransipration input data for each HRU to specify "
-            "variable potet."
-        ),
-        "context": "scalar",
-        # "default": np.str_(""),
-    },
     "AET_cbh_file": {
         "datatype": "string",
         "description": (
@@ -41,9 +33,86 @@ additional_cbh_meta = {
             "variable actet."
         ),
         "context": "scalar",
-        # "default": np.str_("tmin.day"),
+    },
+    "AET_module": {
+        "datatype": "string",
+        "description": (
+            "Module to read actual evapotranspiration CBH File; specify "
+            "climate_hru to activate."
+        ),
+        "context": "scalar",
+    },
+    "ag_frac_dynamic": {
+        "datatype": "string",
+        "description": "Pathname to the dynamic ag fraction parameter file.",
+        "context": "scalar",
+    },
+    "dyn_ag_frac_flag": {
+        "datatype": "int32",
+        "description": "Flag governing the use of ag_frac_dynamic fie data.",
+        "context": "scalar",
+    },
+    "forcing_check_flag": {
+        "datatype": "int32",
+        "description": (
+            "Flag to indicate performance of precipitation and temperature "
+            "checks for hru_ppt < 0.0, hru_rain < 0.0, hru_snow < 0.0, "
+            "tmax < tmin, tminf < -150.0 and tmaxf > 200.0 (0=no; 1=yes)."
+        ),
+        "context": "scalar",
+    },
+    "PET_ag_module": {
+        "datatype": "string",
+        "description": (
+            "Module to read potential evapotranspiration CBH File; specify "
+            "climate_hru to activate."
+        ),
+        "context": "scalar",
+    },
+    "PET_cbh_file": {
+        "datatype": "string",
+        "description": (
+            "Pathname of the CBH file of pre-processed potential "
+            "evapotransipration input data for each HRU to specify "
+            "variable potet."
+        ),
+        "context": "scalar",
+    },
+    "iter_aet_flag": {
+        "datatype": "int32",
+        "description": (
+            "Flag to indicate to estimate irrigation water based on the "
+            "difference between actual evapotranspiration and specified "
+            "actual evapotranspiration; computed in soilzone_ag (0=no; 1=yes)"
+        ),
+        "context": "scalar",
     },
 }
+
+# TODO move this code in to a global function to be called. like init_module.
+pyprms_meta["control"] = pyprms_meta["control"] | additional_cbh_meta
+
+ppmp = pyprms_meta["parameters"]
+dt_conv = {"I": "int32", "F": "float32"}
+
+
+class id_dict(dict):
+    @staticmethod
+    def __missing__(key):
+        return key
+
+
+dim_remap = id_dict(scalar="one", ndoy="ndays")
+
+for kk in pws_meta.parameters.keys():
+    if kk not in ppmp.keys():
+        kk_pws_meta = pws_meta.parameters[kk].copy()
+        kk_pws_meta["dimensions"] = list(kk_pws_meta.pop("dims"))
+        kk_pws_meta["datatype"] = dt_conv[kk_pws_meta.pop("type")]
+        kk_pws_meta["dimensions"] = [
+            dim_remap[ii] for ii in kk_pws_meta["dimensions"]
+        ]
+        ppmp[kk] = kk_pws_meta
 
 """Notes:
 At the moment the assumption is that the full domain is provided PRMS input
@@ -112,9 +181,21 @@ class DomainSubset:
         self._from_seg_calc_parallel = from_seg_calc_parallel
         self._from_seg_calc_check = from_seg_calc_check
         # Get the full domain parameters
+        # TODO: probably rename this one _full_control_pws and also track
+        #       a _full_control_pp as well?
         self._full_control = pws.Control.load_prms(
             self._full_control_file, warn_unused_options=False
         )
+
+        control = pws.utils.utils.pyprms_control_no_defaults(
+            self._full_control_file, metadata=pyprms_meta, verbose=False
+        )
+        self._full_control_var_names = control.control_variables.keys()
+        del control
+        self._cbh_control_names = list(
+            set(cbh_control_names).intersection(self._full_control_var_names)
+        )
+
         param_file = self._full_control.options["parameter_file"]
         if not isinstance(param_file, str) and len(param_file) > 1:
             raise NotImplementedError(
@@ -128,7 +209,7 @@ class DomainSubset:
                 "Currently only Netcdf CBH files accepted."
             )
             self._full_cbh_nc_files_dict = {}
-            for kk in cbh_control_names:
+            for kk in self._cbh_control_names:
                 if kk in self._full_control.control_variables.keys():
                     self._full_cbh_nc_files_dict[kk] = (
                         self._full_control.control_variables[kk]
@@ -144,8 +225,23 @@ class DomainSubset:
 
         # <
         self._set_subset_masks_order()
-        self._subset_cbh()
+
+        # TODO: make these individual methods available externally?
+        #       IE the case of Noah's parameter files.
+
+        print("Subsetting parameters.")
         self._subset_params()
+
+        print("Subsetting CBH files.")
+        self._subset_cbh()
+
+        # make this conditional/lazy on output format?
+        if self._output_format.lower == "prms":
+            print("Subsetting data file.")
+            self._subset_data_file()
+
+        # Make this conditional on restart being active in the control file
+        # print("Subsetting restarts.")
         # self._subset_restarts()
 
         return None
@@ -257,6 +353,9 @@ class DomainSubset:
         return None
 
     def _set_subset_masks_order(self) -> None:
+        """Only masks are solved here. Recalculating indexed variables happens
+        later in _subset_params, etc...
+        """
         self._sub_nhm_ids_mask = self._full_params.nhm_id.isin(
             self._sub_nhm_ids
         )
@@ -275,6 +374,31 @@ class DomainSubset:
         assert (np.diff(sub_nhm_seg_df.nsegment.values) > 0).all()
         self._sub_nhm_segs_order = sub_nhm_seg_df.nhm_seg.values
 
+        # poi
+        # associate poi with nhm_seg first, since that's actually useful. then
+        # solve indices.
+        poi_gage_segment_nhm = []
+        for ii in self._full_params.npoigages:
+            poi_gage_segment_nhm += [
+                self._full_params.nhm_seg[
+                    self._full_params.poi_gage_segment[ii]
+                ].values.tolist()
+            ]
+        self._full_params["poi_gage_segment_nhm"] = (
+            self._full_params["poi_gage_segment"] * 0 - 1
+        )
+        self._full_params["poi_gage_segment_nhm"].values = np.array(
+            poi_gage_segment_nhm, dtype=np.int32
+        )
+        # now only keep the pois with nhm_seg in nhm_seg_df
+        self._sub_pois_mask = self._full_params["poi_gage_segment_nhm"].isin(
+            sub_nhm_seg_df.nhm_seg
+        )
+        nhm_poi_df = self._full_params["poi_gage_id"].to_pandas().reset_index()
+        sub_poi_df = nhm_poi_df.iloc[self._sub_pois_mask.values]
+        assert (np.diff(sub_poi_df.npoigages.values) > 0).all()
+        self._sub_pois_order = sub_poi_df.poi_gage_id.values
+
         return None
 
     def _subset_cbh(self) -> None:
@@ -287,21 +411,24 @@ class DomainSubset:
         raise NotImplementedError
 
     def _subset_cbh_netcdf_files(self):
+        keys_drop = []
         for kk, vv in self._full_cbh_nc_files_dict.items():
-            if kk not in cbh_control_names:
-                raise ValueError(
-                    f"Supplied key, '{kk}', for CBH file invalid. It must be "
-                    f"in: {cbh_control_names}"
+            if kk not in self._cbh_control_names:
+                warn(
+                    f"'{kk}' CBH file not present in: "
+                    f"{self._cbh_control_names}. Skipping"
                 )
+                keys_drop.append(kk)
             if not vv.exists():
                 raise ValueError("Supplied CBH file path, '{vv}', not found.")
+
+        for kk in keys_drop:
+            del self._full_cbh_nc_files_dict[kk]
 
         # bit of a silly pipeline, dont see another way to rename dim
         # independently of the coordinate with a dataarray
         self._sub_cbh_files_dict = {
-            kk: xr.load_dataset(vv).rename_dims(
-                nhm_id="nhru"
-            )  # .to_dataarray()
+            kk: xr.load_dataset(vv).rename_dims(nhm_id="nhru")
             for kk, vv in self._full_cbh_nc_files_dict.items()
         }
         for kk in self._sub_cbh_files_dict.keys():
@@ -322,51 +449,23 @@ class DomainSubset:
             "from_segment_ends",
             "tosegment",
             "from_nhm_seg_unstruct",
+            "poi_gage_segment",
         ]
 
-        # where(drop=True) causes dimensions to be expanded, so we have to
-        # drop on hrus and segments separately, we separate all these dims that
-        # are not time. the we reassemble
-        params_sub = self._full_params.copy()
+        # drop the indexed vars in advance of re-solving them
+        self._sub_params = self._full_params.copy()
         indexed_vars_in_ds = set(indexed_vars).intersection(
-            set(params_sub.variables)
+            set(self._sub_params.variables)
         )
-        params_sub = params_sub.drop_vars(indexed_vars_in_ds)
-        all_dims_drop = set(
-            [
-                "nhru",
-                "nsegment",
-                "scalar",
-                "npoigages",
-                "ndeplval",
-            ]
-        )
-        grouped_param_subs = {}
-        for gg in all_dims_drop:
-            grouped_param_subs[gg] = params_sub.drop_dims(
-                all_dims_drop - set([gg])
-            )
+        self._sub_params = self._sub_params.drop_vars(indexed_vars_in_ds)
 
-        grouped_param_subs["nhru"] = grouped_param_subs["nhru"].isel(
-            nhru=self._sub_nhm_ids_mask
+        # actually subset on npoigages=self._sub_poi_gages_mask
+        # need to recalculate poi_gage_segment upon subsetting
+        self._sub_params = (
+            self._sub_params.isel(nhru=self._sub_nhm_ids_mask)
+            .isel(nsegment=self._sub_nhm_segs_mask)
+            .isel(npoigages=self._sub_pois_mask)
         )
-        grouped_param_subs["nsegment"] = grouped_param_subs["nsegment"].isel(
-            nsegment=self._sub_nhm_segs_mask
-        )
-
-        self._sub_params = xr.merge(grouped_param_subs.values())
-        assert len(self._sub_params) == len(params_sub)
-        # preserve the types (seems like this should be unnecessary)
-        for vv in params_sub.variables:
-            self._sub_params[vv] = self._sub_params[vv].astype(
-                params_sub[vv].dtype
-            )
-            if params_sub[vv].dtype != self._sub_params[vv].dtype:
-                print(
-                    f"{vv}: {params_sub[vv].dtype=} "
-                    f"{self._sub_params[vv].dtype=}"
-                )
-        del grouped_param_subs, params_sub
 
         assert (
             self._sub_params.nhm_id.values == self._sub_nhm_ids_order
@@ -374,8 +473,11 @@ class DomainSubset:
         assert (
             self._sub_params.nhm_seg.values == self._sub_nhm_segs_order
         ).all()
+        assert (
+            self._sub_params.poi_gage_id.values == self._sub_pois_order
+        ).all()
 
-        # re-solve tosegment and hru_segment
+        # re-solve: tosegment, hru_segment, poi_gage_segment
         tosegment_sub = []
         for ii in self._sub_params.nsegment.values:
             result = np.where(
@@ -410,12 +512,63 @@ class DomainSubset:
         self._sub_params["hru_segment"] = self._sub_params["hru_segment"] * 0
         self._sub_params["hru_segment"].values = np.array(hru_segment_sub) + 1
 
-        # Need upstream tracing parameters
+        # Add upstream tracing parameters
         self._get_from_segment_params(
             self_attr_key="_sub_params",
             parallel=self._from_seg_calc_parallel,
             check=self._from_seg_calc_check,
         )
+
+        poi_gage_segment = []
+        for ii in self._sub_params.npoigages.values:
+            result = np.where(
+                self._sub_params.poi_gage_segment_nhm.values[ii]
+                == self._sub_params.nhm_seg.values
+            )[0]
+            len_result = len(result)
+            if len_result == 1:
+                poi_gage_segment += result.tolist()
+            elif len_result == 0:
+                poi_gage_segment += [-1]
+            else:
+                raise ValueError
+
+        self._sub_params["poi_gage_segment"] = (
+            self._sub_params["poi_gage_segment_nhm"] * 0
+        )
+        self._sub_params["poi_gage_segment"].values = (
+            np.array(poi_gage_segment) + 1
+        )
+
+        return None
+
+    def _subset_data_file(self):
+        if hasattr(self, "_sub_data_file"):
+            return None
+
+        # _full_control is pws control, sub_control is pp
+        data_file_name = pl.Path(self._sub_control.get("data_file").values)
+        # since this path is likely relative to the control_file
+        if not data_file_name.exists():
+            data_file_name = self._full_control_file.parent / str(
+                data_file_name
+            )
+
+        self._data_file_name = data_file_name
+        # <
+        data_file = pp.DataFile(data_file_name)
+        # for now only handle runoff, throw an error if there are other
+        # variables, mostly because I'm unsure how that will work for certain.
+        runoff_mask = data_file.data.columns.str.contains("runoff")
+        if not runoff_mask.all():
+            raise NotImplementedError("")
+        # <
+        file_poi_ids = data_file.data.columns.str.slice(7).values
+        file_poi_keep_mask = np.isin(
+            file_poi_ids, self._sub_params.poi_gage_id.values
+        )
+        cols_to_drop = data_file.data.columns[~file_poi_keep_mask].tolist()
+        self._sub_data_file = data_file.data.drop(columns=cols_to_drop)
 
         return None
 
@@ -448,8 +601,10 @@ class DomainSubset:
 
         if output_format is None:
             output_format = self._output_format
+        else:
+            self._output_format = output_format
 
-        if output_format is None:
+        if self._output_format is None:
             raise ValueError(
                 "output_format not specified on initialization or write."
             )
@@ -461,23 +616,25 @@ class DomainSubset:
             f"{self._full_control_file.stem}_subset.control"
         )
 
-        if output_format.lower() == "pywatershed":
+        if self._output_format.lower() == "pywatershed":
             self._write_pws(write_dir=write_dir)
-        elif output_format.lower() == "prms":
+        elif self._output_format.lower() == "prms":
             self._write_prms(write_dir=write_dir)
 
         return None
 
     def _write_prms(self, write_dir: pl.Path) -> None:
-        # these functions set the control, reusing the filename in it
+        # the following methods set the control, reusing the filename in it
         # but making it relative to the write_dir.
         self._cbh_dataset_to_ascii(write_dir=write_dir)
+
+        # not an approved PRMS parameter, remove before writing
+        del self._sub_params["poi_gage_segment_nhm"]
         self._parameters_to_ascii(write_dir=write_dir)
 
-        # todo: subset the data file
-        data_file = pl.Path(self._sub_control.get("data_file").values)
-        _ = shutil.copy(data_file, write_dir / data_file.name)
+        self._data_file_to_ascii(write_dir=write_dir)
 
+        # TODO: rename the data file in to the write_dir
         self._sub_control.write(write_dir / self._sub_control_file_name)
 
         return None
@@ -504,7 +661,6 @@ class DomainSubset:
 
         # write netcdf cbh files
         for kk, vv in self._sub_cbh_files_dict.items():
-            print(f"{kk=}")
             # check the order before output
             assert (vv.nhm_id.values == self._sub_nhm_ids_order).all()
             # The naming of cbh files, their control parameters, and their
@@ -531,11 +687,14 @@ class DomainSubset:
         return None
 
     def _cbh_dataset_to_ascii(self, write_dir):
+        import uuid
+
         data_dir = pl.Path(pws.constants.__pywatershed_root__ / "data")
         # simply build and load a dummy CBH netcdf file from the pywatershed
         # repo and replace its dataset with ours.
 
-        dum_file_path = data_dir / "dummy_cbh.nc"
+        random_filename = str(uuid.uuid4()) + ".nc"
+        dum_file_path = data_dir / random_filename
         make_dummy_netcdf_cbh_file(dum_file_path)
 
         pp_cbh = pp.Cbh(
@@ -571,7 +730,7 @@ class DomainSubset:
             "from_segment",
             "hru_in_to_cf",
         ]
-        sub_params_ds = sub_params_ds.drop(drop_vars)
+        sub_params_ds = sub_params_ds.drop_vars(drop_vars)
 
         pp_params = pp.Parameters(metadata=pyprms_meta, verbose=verbose)
         pp_params.__verbose = verbose
@@ -632,6 +791,19 @@ class DomainSubset:
         file_name = pl.Path(self._sub_control["param_file"].values).name
         self._sub_control["param_file"].values = file_name
         pp_params.write_parameter_file(filename=write_dir / file_name)
+
+        return None
+
+    def _data_file_to_ascii(self, write_dir: pl.Path):
+        # _subset_data_file is lazy and wont do anything if
+        # hasattr(self, "_sub_data_file")
+        self._subset_data_file()
+
+        # there is no method for writing out the Datafile in pyprms.
+        output_data_file = write_dir / self._data_file_name.name
+        pws.utils.utils.write_data_file(self._sub_data_file, output_data_file)
+        # edit the path to the data_file in the output control
+        self._sub_control["data_file"].values = output_data_file.name
 
         return None
 

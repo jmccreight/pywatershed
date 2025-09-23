@@ -58,7 +58,7 @@ output_types = ["pywatershed", "prms"]
 
 # compound test configs
 subset_styles = ("known", "single_seg")
-ind_order = ["orig", "shuffle"][0:1]
+ind_order = ["orig", "shuffle"]
 
 sub_ids_segs_types = []
 for ss in subset_styles:
@@ -164,13 +164,9 @@ def sub_ids_segs(simulation, request):
     ind_order = request.param[1]
 
     if subset_style == "known":
-        ctl = pws.Control.load_prms(
-            simulation["control_file"], warn_unused_options=False
         )
-        param_file = simulation["dir"] / ctl.options["parameter_file"]
-        params = pws.parameters.PrmsParameters.load(param_file)
-        nhm_ids = params.parameters["nhm_id"].copy()
-        nhm_segs = params.parameters["nhm_seg"].copy()
+        nhm_ids = domain_known_nhm_ids
+        nhm_segs = domain_known_nhm_segs
 
         if ind_order == "shuffle":
             np.random.shuffle(nhm_ids)

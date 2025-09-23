@@ -4,6 +4,7 @@ from time import time
 from typing import Optional
 
 import numpy as np
+import pandas as pd
 
 
 def timer(func):
@@ -87,3 +88,42 @@ def pyprms_control_no_defaults(
             pp_control.remove(cv)
 
     return pp_control
+
+
+def write_data_file(df: pd.DataFrame, output_file_path: pl.Path) -> None:
+    df = df.copy().fillna(value=-999.0)
+    runoff_mask = df.columns.str.contains("runoff")
+    if not runoff_mask.all():
+        raise NotImplementedError("")
+    # >
+    hash_57 = "#" * 57
+    slash_73 = "/" * 73
+    slash_2 = "/" * 2
+    lb = "\n"
+
+    stn_ids = df.columns.str.slice(7).tolist()
+
+    with open(output_file_path, "w") as file:
+        file.write("Created by pywatershed" + lb)
+        file.write(slash_73 + lb)
+        file.write(slash_2 + " Station IDs for runoff" + lb)
+        file.write(slash_2 + " ID" + lb)
+        for ss in stn_ids:
+            file.write(slash_2 + " " + ss + lb)
+        # <
+        file.write(slash_73 + lb)
+        file.write(slash_2 + " Unit: runoff = cfs" + lb)
+        file.write(slash_73 + lb)
+        file.write("runoff " + f"{len(stn_ids)}" + lb)
+        file.write(hash_57 + lb)
+        for index, row in df.iterrows():
+            time = index.strftime("%Y %m %d 0 0 0")
+            data = ""
+            for ii, ss in enumerate(stn_ids):
+                value = row[f"runoff_{ss}"]
+                data += f" {value:.1f}"
+            # <
+            file.write(time + data + lb)
+
+    # <<
+    return None
