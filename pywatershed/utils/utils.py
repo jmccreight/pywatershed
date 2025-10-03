@@ -77,6 +77,10 @@ def pyprms_control_no_defaults(
     metadata,
     verbose: Optional[bool] = False,
 ):
+    """Get a pyPRMS Control object where no defaults are applied.
+
+    Only necessary until pypRMS PR #40 is merged.
+    """
     import pyPRMS as pp
 
     pp_control = pp.ControlFile(
@@ -91,6 +95,16 @@ def pyprms_control_no_defaults(
 
 
 def write_data_file(df: pd.DataFrame, output_file_path: pl.Path) -> None:
+    """pyPRMS does not have this capability to write PRMS data files.
+
+    Currently only implemented for data_files containing only runoff obs, if
+    other variables are present a NotImplementedError will be raised.
+
+    Args:
+        df: pd.DataFrame obtained from pyPRMS via DataFile(file).data and
+          potentially subset in columns or rows.
+        output_file_path: The path where to write the new data file.
+    """
     df = df.copy().fillna(value=-999.0)
     runoff_mask = df.columns.str.contains("runoff")
     if not runoff_mask.all():

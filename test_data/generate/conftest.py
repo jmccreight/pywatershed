@@ -169,7 +169,7 @@ def collect_simulations(
     return simulations
 
 
-def collect_csv_files(simulations: list) -> List[tuple]:
+def collect_csv_files(simulations: dict) -> List[tuple]:
     csv_files = []
     for key, value in simulations.items():
         control = value["control_file"]

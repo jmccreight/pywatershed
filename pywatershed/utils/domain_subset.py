@@ -236,7 +236,10 @@ class DomainSubset:
         self._subset_cbh()
 
         # make this conditional/lazy on output format?
-        if self._output_format.lower == "prms":
+        if (
+            self._output_format is not None
+            and self._output_format.lower == "prms"
+        ):
             print("Subsetting data file.")
             self._subset_data_file()
 
@@ -702,9 +705,12 @@ class DomainSubset:
             metadata=pyprms_meta,
             engine="netcdf",
         )
+        # the following two operation are only required on windows before
+        # deleting the file, else it is busy.
         pp_cbh._Cbh__dataset.load()
         pp_cbh._Cbh__dataset.close()
         dum_file_path.unlink()
+
         cbh_ds = xr.merge(self._sub_cbh_files_dict.values())
         pp_cbh._Cbh__dataset = cbh_ds
         for kk, vv in self._sub_cbh_files_dict.items():

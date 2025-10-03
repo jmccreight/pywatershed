@@ -3398,7 +3398,7 @@ stream_tave_init:
   default: NaN
   desc: Cold-start stream average stream temperature
   dims:
-    0: scalar
+    0: nsegment
   help: Cold-start stream average stream temperature
   maximum: unbounded
   minimum: unbounded
