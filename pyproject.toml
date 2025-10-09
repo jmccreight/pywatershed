@@ -51,7 +51,7 @@ test = [
     "coverage",
     "flaky",
     "filelock",
-    "modflow-devtools[dfn] @ git+https://github.com/MODFLOW-ORG/modflow-devtools.git",
+    "modflow-devtools[dfn]==1.7.0",
     "pre-commit",
     "pytest!=8.1.0",
     "pytest-cov",
