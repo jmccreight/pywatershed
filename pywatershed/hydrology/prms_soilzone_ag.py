@@ -81,7 +81,8 @@ class PRMSSoilzoneAg(ConservativeProcess):
     soilzone_ag.f90. The key differences from the base PRMSSoilzone are:
 
     1. **Dual Area Treatment**: Each HRU is divided into pervious and
-       agricultural/irrigated areas, each with separate soil moisture accounting.
+       agricultural/irrigated areas, each with separate soil moisture
+       accounting.
 
     2. **Iterative AET Matching**: When observed actual ET (AET_external) is
        provided, the code iteratively adjusts irrigation to match the observed
@@ -113,8 +114,8 @@ class PRMSSoilzoneAg(ConservativeProcess):
             canopy for each HRU
         infil_hru: Infiltration to the capillary reservoir for pervious area,
             depth on HRU pervious area
-        infil_ag: Infiltration to the capillary reservoir for agricultural area,
-            depth on HRU agricultural area
+        infil_ag: Infiltration to the capillary reservoir for agricultural
+            area, depth on HRU agricultural area
         sroff: Surface runoff to the stream network for each HRU
         sroff_vol: Surface runoff volume to the stream network for each HRU
         potet: Potential ET for each HRU
@@ -764,7 +765,10 @@ class PRMSSoilzoneAg(ConservativeProcess):
         if self._calc_method.lower() == "numpy":
             self._calculate_soilzone_ag = self._calculate_numpy
         else:
-            msg = f"calc_method '{self._calc_method}' not supported for PRMSSoilzoneAg, using 'numpy'"
+            msg = (
+                f"calc_method '{self._calc_method}' not supported for "
+                "PRMSSoilzoneAg, using 'numpy'"
+            )
             warn(msg, UserWarning)
             self._calculate_soilzone_ag = self._calculate_numpy
 
@@ -1149,7 +1153,7 @@ class PRMSSoilzoneAg(ConservativeProcess):
                 continue
 
             # Initial AET from impervious, interception, and snow
-            # Fortran: hruactet = Hru_impervevap(i) + Hru_intcpevap(i) + Snow_evap(i)
+            # Fortran: hruactet = Hru_impervevap(i) + Hru_intcpevap(i) + Snow_evap(i)  # noqa
             hruactet = (
                 hru_impervevap[ihru] + hru_intcpevap[ihru] + snow_evap[ihru]
             )
@@ -1182,7 +1186,7 @@ class PRMSSoilzoneAg(ConservativeProcess):
             # Initialize flow components
             dunnianflw = 0.0
             dunnianflw_pfr = 0.0
-            interflow = 0.0
+            # interflow = 0.0
 
             # ****** Add infiltration to soil
             # Fortran: capwater_maxin = Infil(i)
@@ -1290,7 +1294,8 @@ class PRMSSoilzoneAg(ConservativeProcess):
                 ag_cap_infil_tot[ihru] = ag_water_maxin * agfrac
 
             # ****** Compute slow interflow and ssr_to_gw
-            # Fortran: compute_interflow and compute_gwflow (simplified, no GSFLOW)
+            # Fortran: compute_interflow and compute_gwflow (simplified, no
+            # GSFLOW)
             availh2o = slow_stor[ihru] + soil_to_ssr[ihru]
             topfr = 0.0
 
@@ -1443,7 +1448,7 @@ class PRMSSoilzoneAg(ConservativeProcess):
             # Compute interflow and excess flow
             # Fortran: IF ( compute_lateral==ACTIVE ) THEN (lines ~1009-1048)
             if hru_type[ihru] != HruType.SWALE.value:
-                interflow = slow_flow[ihru] + prefflow
+                # interflow = slow_flow[ihru] + prefflow
                 dunnianflw = dunnianflw_gvr + dunnianflw_pfr
                 dunnian_flow[ihru] = dunnianflw
 

@@ -69,8 +69,10 @@ def exe(simulation):
         keep_unused_options=True,
         warn_unused_options=False,
     )
-
-    exe_desc = ctl.options["executable_desc"][0].lower()
+    if "executable_desc" in ctl.options.keys():
+        exe_desc = ctl.options["executable_desc"][0].lower()
+    else:
+        exe_desc = "prms"
 
     platform = sys.platform.lower()
 
