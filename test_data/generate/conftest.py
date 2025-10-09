@@ -10,6 +10,11 @@ import pytest
 
 import pywatershed as pws
 
+# Note: Either PRMS or GSFLOW exectuables may be executed. The choice is
+# triggered by the control file field executable_desc. If "gsflow" is
+# found in the lower case version of its value, then gsflow is used. Otherwise,
+# PRMS is used.
+
 test_data_dir = pl.Path("..")
 
 # Subset this to speed up tests by eliminating some domains
@@ -57,19 +62,42 @@ def pytest_addoption(parser):
     )
 
 
-@pytest.fixture()
-def exe():
+@pytest.fixture(scope="function")
+def exe(simulation):
+    ctl = pws.Control.load_prms(
+        simulation["control_file"],
+        keep_unused_options=True,
+        warn_unused_options=False,
+    )
+
+    exe_desc = ctl.options["executable_desc"][0].lower()
+
     platform = sys.platform.lower()
-    if platform == "win32":
-        exe_name = "prms_win_gfort_dbl_prec.exe"
-    elif platform == "darwin":
-        if processor() == "arm":
-            exe_name = "prms_mac_m1_ifort_dbl_prec"
-        else:
-            exe_name = "prms_mac_intel_gfort_dbl_prec"
-    elif platform == "linux":
-        exe_name = "prms_linux_gfort_dbl_prec"
+
+    if "gsflow" in exe_desc:
+        if platform == "win32":
+            pytest.skip(f"GSFLOW binary not yet provided for {platform}")
+        elif platform == "darwin":
+            if processor() == "arm":
+                exe_name = "prms_mac_m1_ifort_dbl_prec"
+            else:
+                exe_name = "prms_mac_intel_gfort_dbl_prec"
+        elif platform == "linux":
+            pytest.skip(f"GSFLOW binary not yet provided for {platform}")
+    else:
+        if platform == "win32":
+            exe_name = "prms_win_gfort_dbl_prec.exe"
+        elif platform == "darwin":
+            if processor() == "arm":
+                exe_name = "prms_mac_m1_ifort_dbl_prec"
+            else:
+                exe_name = "prms_mac_intel_gfort_dbl_prec"
+        elif platform == "linux":
+            exe_name = "prms_linux_gfort_dbl_prec"
+
+    # <<
     exe_pth = pl.Path(f"../../bin/{exe_name}").resolve()
+
     return exe_pth
 
 

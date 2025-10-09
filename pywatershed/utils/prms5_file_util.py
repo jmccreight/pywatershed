@@ -358,7 +358,7 @@ class PrmsFile:
             elif data_type == PrmsDataType.CHARACTER.value:
                 arr = np.zeros(num_values, dtype="O")
                 for idx in range(num_values):
-                    arr[idx] = self._get_line().split()[0]
+                    arr[idx] = self._get_line()  # .split()[0]
             else:
                 raise TypeError(
                     f"data type ({data_type}) can only be "

@@ -16,7 +16,9 @@ def test_run_prms(simulation, exe):
     output_dir = simulation["output_dir"]
     print(f"\n\n\n{'*' * 70}\n{'*' * 70}")
     print(
-        f"run_domains.py: Running '{control_file.name}' in {ws}\n\n",
+        "run_domains.py: "
+        f"Running '{exe} {control_file.name}  -MAXDATALNLEN 60000' "
+        f"in {ws}\n\n",
         flush=True,
     )
 
