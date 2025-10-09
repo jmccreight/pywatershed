@@ -16,9 +16,6 @@ from .segment_from_tracing import (
 
 pyprms_meta = pp.MetaData(verbose=False).metadata
 
-# TODO: revisit subset parameters now that isel is being used, may be much
-#       simpler
-# TODO: subset sf_data
 # TODO: subset restarts
 # TODO: maybe something todo, there are no real checks on time or subsetting
 #       in time.
@@ -156,6 +153,8 @@ class DomainSubset:
         output_format: Literal["pywatershed", "PRMS", None] = None,
         from_seg_calc_parallel: bool = False,
         from_seg_calc_check: bool = False,
+        start_time: Union[np.datetime64, None] = None,
+        end_time: Union[np.datetime64, None] = None,
     ) -> None:
         # Bring in arguments with vetting.
         self._full_control_file = full_control_file
@@ -180,6 +179,9 @@ class DomainSubset:
         self._output_format = output_format
         self._from_seg_calc_parallel = from_seg_calc_parallel
         self._from_seg_calc_check = from_seg_calc_check
+        self._start_time = start_time
+        self._end_time = end_time
+
         # Get the full domain parameters
         # TODO: probably rename this one _full_control_pws and also track
         #       a _full_control_pp as well?
@@ -443,6 +445,21 @@ class DomainSubset:
                 == self._sub_nhm_ids_order
             ).all()
 
+        if self._start_time is not None and self._end_time is not None:
+            if self._start_time is None:
+                start_time = self._sub_cbh_files_dict[kk].time[0]
+            else:
+                start_time = self._start_time
+            if self._end_time is None:
+                end_time = self._sub_cbh_files_dict[kk].time[-1]
+            else:
+                end_time = self._end_time
+            # <
+            self._sub_cbh_files_dict = {
+                kk: vv.sel(time=slice(start_time, end_time))
+                for kk, vv in self._sub_cbh_files_dict.items()
+            }
+
         return None
 
     def _subset_params(self) -> None:
@@ -618,6 +635,11 @@ class DomainSubset:
         self._sub_control_file_name = (
             f"{self._full_control_file.stem}_subset.control"
         )
+
+        if self._start_time is not None:
+            self._sub_control["start_time"].values = self._start_time
+        if self._end_time is not None:
+            self._sub_control["end_time"].values = self._end_time
 
         if self._output_format.lower() == "pywatershed":
             self._write_pws(write_dir=write_dir)

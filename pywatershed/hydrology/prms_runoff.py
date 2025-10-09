@@ -191,7 +191,6 @@ class PRMSRunoff(ConservativeProcess):
             "hru_in_to_cf",
             "hru_percent_imperv",
             "imperv_stor_max",
-            "dprst_frac",
             "carea_max",
             "smidx_coef",
             "smidx_exp",
@@ -283,8 +282,6 @@ class PRMSRunoff(ConservativeProcess):
     def get_mass_budget_terms():
         return {
             "inputs": [
-                # "net_rain",
-                # "net_snow",
                 "through_rain",
                 "snowmelt",
                 "intcp_changeover",
