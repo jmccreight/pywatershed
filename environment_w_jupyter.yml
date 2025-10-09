@@ -53,4 +53,4 @@ dependencies:
   - pip:
       - git+https://github.com/jararias/mpsplines.git
       - pyPRMS
-      - modflow-devtools[dfn] @ git+https://github.com/MODFLOW-ORG/modflow-devtools.git
+      - modflow-devtools[dfn]==1.7.0
