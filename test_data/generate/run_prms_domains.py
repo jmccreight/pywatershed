@@ -27,6 +27,12 @@ def test_run_prms(simulation, exe):
         shutil.rmtree(output_dir)
     output_dir.mkdir(parents=True)
 
+    if "prms" in str(exe):
+        success_msg = "Normal completion of PRMS"
+    else:
+        # gsflow in this case
+        success_msg = "Normal completion of GSFLOW"
+
     # the command to run the model looks like this
     # exe control_file -MAXDATALNLEN 60000
     success, buff = run_model(
@@ -37,7 +43,7 @@ def test_run_prms(simulation, exe):
             "-MAXDATALNLEN",
             "60000",
         ],
-        normal_msg="Normal completion of PRMS",
+        normal_msg=success_msg,
     )
 
     assert success, f"could not run prms model in '{ws}'"

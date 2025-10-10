@@ -245,15 +245,16 @@ class Control(Accessor):
             control_file: PRMS control file
             warn_unused_options: bool if warnings are to be issued for unused
                 options from the PRMS control file. Recommended and True by
-                default. See below for a list of used/available legacy options.
-
+                default. See Control for a list of used/available legacy
+                options. "Invalid" options will still be warned and can only be
+                silenced by trapping warnings.
+            keep_unused_options: Retain all key information in the control
+                file. "Invalid" options will still be warned and can only be
+                silenced by trapping warnings.
         Returns:
             An instance of a Control object.
         """
         control = ControlVariables.load(control_file)
-
-        if keep_unused_options and not warn_unused_options:
-            warn_unused_options = True
 
         if warn_unused_options:
             for vv in control.control.keys():

@@ -64,11 +64,17 @@ def pytest_addoption(parser):
 
 @pytest.fixture(scope="function")
 def exe(simulation):
-    ctl = pws.Control.load_prms(
-        simulation["control_file"],
-        keep_unused_options=True,
-        warn_unused_options=False,
-    )
+    import warnings
+
+    with warnings.catch_warnings():
+        # This is the only way to silence "invalid" options.
+        warnings.simplefilter("ignore")
+        ctl = pws.Control.load_prms(
+            simulation["control_file"],
+            keep_unused_options=True,
+            warn_unused_options=False,
+        )
+
     if "executable_desc" in ctl.options.keys():
         exe_desc = ctl.options["executable_desc"][0].lower()
     else:
@@ -81,9 +87,11 @@ def exe(simulation):
             pytest.skip(f"GSFLOW binary not yet provided for {platform}")
         elif platform == "darwin":
             if processor() == "arm":
-                exe_name = "prms_mac_m1_ifort_dbl_prec"
+                exe_name = "gsflow_2.4.0_ifort_apple_silicon"
             else:
-                exe_name = "prms_mac_intel_gfort_dbl_prec"
+                pytest.skip(
+                    f"GSFLOW binary not yet provided for {platform}:intel"
+                )
         elif platform == "linux":
             pytest.skip(f"GSFLOW binary not yet provided for {platform}")
     else:

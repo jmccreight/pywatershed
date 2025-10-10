@@ -34,6 +34,8 @@ def soltab_netcdf_file(tmp_path_factory, control_soltab_file):
     """Convert soltab files to NetCDF, one file for each variable"""
     control_file = control_soltab_file[0]
     soltab_file = control_soltab_file[1]
+    if not soltab_file.exists():
+        pytest.skip("No soltab file found")
     domain_dir = soltab_file.parent
     control = pws.Control.load_prms(control_file, warn_unused_options=False)
     output_dir = control_file.parent / control.options["netcdf_output_dir"]

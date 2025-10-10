@@ -1,5 +1,3 @@
-from warnings import warn
-
 import pytest
 from prms_diagnostic_variables import (
     diagnose_final_vars_to_nc,
@@ -29,9 +27,8 @@ def final_netcdf_file(control_final_file):
     )
 
     if not success:
-        warn(
-            "make_final_netcdf_files False PASS above: "
-            f"unable to diagnose {final_file}"
+        pytest.skip(
+            f"make_final_netcdf_files: unable to diagnose {final_file}"
         )
 
 
