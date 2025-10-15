@@ -174,7 +174,7 @@ class PRMSSoilzoneAg(ConservativeProcess):
         snow_evap: adaptable,
         snowcov_area: adaptable,
         ag_frac: adaptable,
-        AET_external: adaptable = None,
+        aet_external: adaptable = None,
         dprst_flag: bool = None,
         iter_aet_flag: bool = False,
         budget_type: Literal["defer", None, "warn", "error"] = "defer",
@@ -215,10 +215,10 @@ class PRMSSoilzoneAg(ConservativeProcess):
                     control=self.control,
                 )
 
-        # Validate AET_external input when iter_aet_flag is True
+        # Validate aet_external input when iter_aet_flag is True
         if self._iter_aet_flag:
-            if AET_external is None:
-                msg = "AET_external input is required when iter_aet_flag=True"
+            if aet_external is None:
+                msg = "aet_external input is required when iter_aet_flag=True"
                 raise ValueError(msg)
 
         # This uses options
@@ -289,7 +289,7 @@ class PRMSSoilzoneAg(ConservativeProcess):
             "snow_evap",
             "snowcov_area",
             "ag_frac",
-            "AET_external",
+            "aet_external",
         )
 
     @staticmethod
@@ -354,15 +354,11 @@ class PRMSSoilzoneAg(ConservativeProcess):
             "ag_soil_to_gvr": zero,
             "ag_hortonian": zero,
             "ag_soil_saturated": zero,
-            "ag_cap_infil_tot": zero,
-            "ag_water_in": zero,
             "unused_ag_et": zero,
             "ag_soilwater_deficit": zero,
             "ag_irrigation_add": zero,
             "ag_irrigation_add_vol": zero,
-            "ag_AET_external_vol": zero,
-            # Iteration tracking
-            "soil_iter": zero,
+            "ag_aet_external_vol": zero,
         }
 
     @staticmethod
@@ -412,6 +408,9 @@ class PRMSSoilzoneAg(ConservativeProcess):
 
         Fortran reference: szinit_ag() and initialization in szdecl_ag()
         """
+
+        self._ag_cap_infil_tot = self.hru_percent_imperv * np.nan
+
         # Derived parameters for impervious and pervious areas
         self.hru_area_imperv = self.hru_percent_imperv * self.hru_area
         self.hru_area_perv = self.hru_area - self.hru_area_imperv
@@ -808,7 +807,7 @@ class PRMSSoilzoneAg(ConservativeProcess):
         soil_iter = 1
         self.ag_irrigation_add[:] = zero
         self.ag_irrigation_add_vol[:] = zero
-        self.ag_AET_external_vol[:] = zero
+        self.ag_aet_external_vol[:] = zero
 
         # Fortran: DO WHILE ( keep_iterating==ACTIVE )
         while keep_iterating:
@@ -873,7 +872,7 @@ class PRMSSoilzoneAg(ConservativeProcess):
                 transp_on=self.transp_on,
                 snow_evap=self.snow_evap,
                 snowcov_area=self.snowcov_area,
-                AET_external=self.AET_external,
+                aet_external=self.aet_external,
                 ag_irrigation_add=self.ag_irrigation_add,
                 # State variables
                 soil_moist=self.soil_moist,
@@ -904,8 +903,8 @@ class PRMSSoilzoneAg(ConservativeProcess):
                 ag_potet_lower=self.ag_potet_lower,
                 cap_waterin=self.cap_waterin,
                 cap_infil_tot=self.cap_infil_tot,
-                ag_cap_infil_tot=self.ag_cap_infil_tot,
-                ag_water_in=self.ag_water_in,
+                ag_cap_infil_tot=self._ag_cap_infil_tot,
+                # ag_water_in=self.ag_water_in,
                 pref_flow_in=self.pref_flow_in,
                 pref_flow_infil=self.pref_flow_infil,
                 pref_flow=self.pref_flow,
@@ -961,17 +960,17 @@ class PRMSSoilzoneAg(ConservativeProcess):
                 keep_iterating = False
 
         # Store final iteration count
-        self.soil_iter[:] = soil_iter - 1
+        soil_iter -= 1
 
         # Report convergence status
         if self._iter_aet_flag and self._verbose:
-            if self.soil_iter[0] == self.max_soilzone_ag_iter:
+            if soil_iter == self.max_soilzone_ag_iter:
                 self._iter_nonconverge += 1
                 msg = (
                     f"WARNING: ag AET did not converge at "
                     f"{simulation_time.isoformat()}, "
                     f"largest unsatisfied AET: {unsatisfied_big:.4f}, "
-                    f"iterations: {self.soil_iter[0]}, "
+                    f"iterations: {soil_iter}, "
                     f"non-convergence count: {self._iter_nonconverge}"
                 )
                 warn(msg, UserWarning)
@@ -979,7 +978,7 @@ class PRMSSoilzoneAg(ConservativeProcess):
         # Calculate volume-based outputs
         self.sroff_vol[:] = self.sroff * self.hru_in_to_cf
         self.ag_irrigation_add_vol[:] = self.ag_irrigation_add * self.ag_area
-        self.ag_AET_external_vol[:] = self.ag_actet * self.ag_area
+        self.ag_aet_external_vol[:] = self.ag_actet * self.ag_area
 
         return
 
@@ -1033,7 +1032,7 @@ class PRMSSoilzoneAg(ConservativeProcess):
         transp_on,
         snow_evap,
         snowcov_area,
-        AET_external,
+        aet_external,
         ag_irrigation_add,
         # State variables
         soil_moist,
@@ -1065,7 +1064,7 @@ class PRMSSoilzoneAg(ConservativeProcess):
         cap_waterin,
         cap_infil_tot,
         ag_cap_infil_tot,
-        ag_water_in,
+        # ag_water_in,
         pref_flow_in,
         pref_flow_infil,
         pref_flow,
@@ -1136,7 +1135,7 @@ class PRMSSoilzoneAg(ConservativeProcess):
         unused_ag_et[:] = zero
         ag_soilwater_deficit[:] = zero
         ag_cap_infil_tot[:] = zero
-        ag_water_in[:] = zero
+        # ag_water_in[:] = zero
         ag_soil_lower[:] = zero
         swale_actet[:] = zero
         soil_saturated[:] = zero
@@ -1280,7 +1279,7 @@ class PRMSSoilzoneAg(ConservativeProcess):
                         ag_soil_to_gw[ihru],
                         ag_soil_to_gvr[ihru],
                     )
-                    ag_water_in[ihru] = ag_water_maxin
+                    # ag_water_in[ihru] = ag_water_maxin
 
             # Combine soil to gw and ssr
             # Fortran: Soil_to_gw(i) = perv_soil_to_gw(i) + ag_soil_to_gw(i)

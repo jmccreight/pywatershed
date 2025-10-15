@@ -451,7 +451,7 @@ class PRMSRunoffAg(PRMSRunoff):
         self.hru_impervstor_change[:] = (
             self.hru_impervstor - self.hru_impervstor_old
         )
-        self.dprst_stor_change[:] = (
+        self.dprst_stor_hru_change[:] = (
             self.dprst_stor_hru - self.dprst_stor_hru_old
         )
 
@@ -587,43 +587,42 @@ class PRMSRunoffAg(PRMSRunoff):
                 contrib_fraction[ihru],
                 ag_contrib_fraction[ihru],
             ) = compute_infil_ag_glcr(
-                soil_lower_prev[ihru],
-                soil_rechr_prev[ihru],
-                ag_soil_moist_prev[ihru],
-                ag_soil_rechr_prev[ihru],
-                soil_moist_max[ihru],
-                # soil_rechr_max[ihru],
-                ag_soil_moist_max[ihru],
-                ag_soil_rechr_max[ihru],
-                carea_max[ihru],
-                smidx_coef[ihru],
-                smidx_exp[ihru],
-                pptmix_nopack[ihru],
-                net_rain[ihru],
-                net_ppt[ihru],
-                imperv_stor[ihru],
-                imperv_stor_max[ihru],
-                snowmelt[ihru],
-                snowinfil_max[ihru],
-                net_snow[ihru],
-                pkwater_equiv[ihru],
-                infil[ihru],
-                infil_ag[ihru],
-                hru_type[ihru],
-                intcp_changeover[ihru],
-                hru_imperv[ihru],
-                sri,
-                srp,
-                sroff_ag,
-                contrib_fraction[ihru],
-                ag_contrib_fraction[ihru],
-                check_capacity,
-                check_capacity_ag,
-                perv_comp,
-                ag_comp,
-                through_rain[ihru],
-                perv_on,
-                ag_on,
+                soil_lower_prev=soil_lower_prev[ihru],
+                soil_rechr_prev=soil_rechr_prev[ihru],
+                ag_soil_moist_prev=ag_soil_moist_prev[ihru],
+                ag_soil_rechr_prev=ag_soil_rechr_prev[ihru],
+                soil_moist_max=soil_moist_max[ihru],
+                ag_soil_moist_max=ag_soil_moist_max[ihru],
+                ag_soil_rechr_max=ag_soil_rechr_max[ihru],
+                carea_max=carea_max[ihru],
+                smidx_coef=smidx_coef[ihru],
+                smidx_exp=smidx_exp[ihru],
+                pptmix_nopack=pptmix_nopack[ihru],
+                net_rain=net_rain[ihru],
+                net_ppt=net_ppt[ihru],
+                imperv_stor=imperv_stor[ihru],
+                imperv_stor_max=imperv_stor_max[ihru],
+                snowmelt=snowmelt[ihru],
+                snowinfil_max=snowinfil_max[ihru],
+                net_snow=net_snow[ihru],
+                pkwater_equiv=pkwater_equiv[ihru],
+                infil=infil[ihru],
+                infil_ag=infil_ag[ihru],
+                hru_type=hru_type[ihru],
+                intcp_changeover=intcp_changeover[ihru],
+                hruarea_imperv=hru_imperv[ihru],
+                sri=sri,
+                srp=srp,
+                sroff_ag=sroff_ag,
+                contrib_fraction=contrib_fraction[ihru],
+                ag_contrib_fraction=ag_contrib_fraction[ihru],
+                check_capacity=check_capacity,
+                check_capacity_ag=check_capacity_ag,
+                perv_comp=perv_comp,
+                ag_comp=ag_comp,
+                through_rain=through_rain[ihru],
+                perv_on=perv_on,
+                ag_on=ag_on,
             )
 
             hru_sroffi[ihru] = sri
@@ -632,12 +631,12 @@ class PRMSRunoffAg(PRMSRunoff):
             # Compute evaporation from impervious area
             if hru_imperv[ihru] > 0.0:
                 imperv_stor[ihru], imperv_evap[ihru] = imperv_et(
-                    imperv_stor[ihru],
-                    potet[ihru],
-                    imperv_evap[ihru],
-                    snowcov_area[ihru],
-                    avail_et,
-                    hru_percent_imperv[ihru],
+                    imperv_stor=imperv_stor[ihru],
+                    potet=potet[ihru],
+                    imperv_evap=imperv_evap[ihru],
+                    sca=snowcov_area[ihru],
+                    avail_et=avail_et,
+                    imperv_frac=hru_percent_imperv[ihru],
                 )
                 hru_impervevap[ihru] = (
                     imperv_evap[ihru] * hru_percent_imperv[ihru]
@@ -651,60 +650,58 @@ class PRMSRunoffAg(PRMSRunoff):
                 # Only call dprst_comp if there's a depression storage area
                 if dprst_area_max[ihru] > 0.0:
                     (
-                        dprst_vol_open[ihru],
-                        dprst_area_open[ihru],
-                        dprst_vol_clos[ihru],
-                        dprst_area_clos[ihru],
-                        dprst_sroff_hru[ihru],
-                        dprst_seep_hru[ihru],
-                        dprst_evap_hru[ihru],
-                        avail_et,
                         dprst_in[ihru],
-                    ) = dprst_comp(
-                        ihru,
-                        dprst_vol_clos[ihru],
                         dprst_vol_open[ihru],
                         dprst_area_open[ihru],
-                        dprst_area_clos[ihru],
+                        avail_et,
+                        dprst_vol_clos[ihru],
+                        dprst_sroff_hru[ihru],
+                        srp,
+                        sri,
+                        dprst_evap_hru[ihru],
+                        dprst_seep_hru[ihru],
                         dprst_insroff_hru[ihru],
-                        dprst_in[ihru],
-                        dprst_sroff_hru[ihru],
-                        dprst_seep_hru[ihru],
-                        dprst_evap_hru[ihru],
-                        sro_to_dprst_perv[ihru],
-                        sro_to_dprst_imperv[ihru],
-                        dprst_area_open_max[ihru],
-                        dprst_area_clos_max[ihru],
-                        dprst_frac_open[ihru],
-                        dprst_frac_clos[ihru],
-                        dprst_vol_open_max[ihru],
-                        dprst_vol_clos_max[ihru],
-                        dprst_flow_coef[ihru],
-                        dprst_seep_rate_open[ihru],
-                        dprst_seep_rate_clos[ihru],
-                        va_open_exp[ihru],
-                        va_clos_exp[ihru],
-                        dprst_et_coef[ihru],
-                        dprst_vol_thres_open[ihru],
-                        potet[ihru],
-                        hru_type[ihru],
-                        hru_sroffp[ihru],
-                        hru_sroffi[ihru],
-                        avail_et,
-                    )
-
-                    dprst_vol_open_frac[ihru] = (
-                        dprst_vol_open[ihru] / dprst_vol_open_max[ihru]
-                    )
-                    dprst_vol_clos_frac[ihru] = (
-                        dprst_vol_clos[ihru] / dprst_vol_clos_max[ihru]
-                    )
-                    dprst_vol_frac[ihru] = (
-                        dprst_vol_open[ihru] + dprst_vol_clos[ihru]
-                    ) / (dprst_vol_open_max[ihru] + dprst_vol_clos_max[ihru])
-
-                    dprst_stor_hru[ihru] = (
-                        dprst_vol_open[ihru] + dprst_vol_clos[ihru]
+                        dprst_vol_open_frac[ihru],
+                        dprst_vol_clos_frac[ihru],
+                        dprst_vol_frac[ihru],
+                        dprst_stor_hru[ihru],
+                    ) = dprst_comp(
+                        dprst_vol_clos=dprst_vol_clos[ihru],
+                        dprst_area_clos_max=dprst_area_clos_max[ihru],
+                        dprst_area_clos=dprst_area_clos[ihru],
+                        dprst_vol_open_max=dprst_vol_open_max[ihru],
+                        dprst_vol_open=dprst_vol_open[ihru],
+                        dprst_area_open_max=dprst_area_open_max[ihru],
+                        dprst_sroff_hru=dprst_sroff_hru[ihru],
+                        sro_to_dprst_perv=sro_to_dprst_perv[ihru],
+                        sro_to_dprst_imperv=sro_to_dprst_imperv[ihru],
+                        dprst_evap_hru=dprst_evap_hru[ihru],
+                        pptmix_nopack=pptmix_nopack[ihru],
+                        snowmelt=snowmelt[ihru],
+                        pkwater_equiv=pkwater_equiv[ihru],
+                        net_snow=net_snow[ihru],
+                        hru_area=hru_area[ihru],
+                        dprst_insroff_hru=dprst_insroff_hru[ihru],
+                        dprst_frac_open=dprst_frac_open[ihru],
+                        dprst_frac_clos=dprst_frac_clos[ihru],
+                        va_open_exp=va_open_exp[ihru],
+                        dprst_vol_clos_max=dprst_vol_clos_max[ihru],
+                        dprst_vol_clos_frac=dprst_vol_clos_frac[ihru],
+                        va_clos_exp=va_clos_exp[ihru],
+                        potet=potet[ihru],
+                        snowcov_area=snowcov_area[ihru],
+                        dprst_et_coef=dprst_et_coef[ihru],
+                        dprst_seep_rate_open=dprst_seep_rate_open[ihru],
+                        dprst_vol_thres_open=dprst_vol_thres_open[ihru],
+                        dprst_flow_coef=dprst_flow_coef[ihru],
+                        dprst_seep_rate_clos=dprst_seep_rate_clos[ihru],
+                        avail_et=avail_et,
+                        net_rain=net_rain[ihru],
+                        dprst_in=dprst_in[ihru],
+                        srp=srp,
+                        sri=sri,
+                        imperv_frac=hru_percent_imperv[ihru],
+                        perv_frac=hru_frac_perv[ihru],
                     )
 
         # Combine surface runoff components
@@ -802,27 +799,27 @@ class PRMSRunoffAg(PRMSRunoff):
             if hru_flag == 1:
                 if perv_on:
                     infil, srp, contrib_fraction = perv_comp(
-                        soil_lower_prev,
-                        carea_max,
-                        smidx_coef,
-                        smidx_exp,
-                        intcp_changeover,
-                        intcp_changeover,
-                        infil,
-                        srp,
+                        soil_moist_prev=soil_lower_prev,
+                        carea_max=carea_max,
+                        smidx_coef=smidx_coef,
+                        smidx_exp=smidx_exp,
+                        pptp=intcp_changeover,
+                        ptc=intcp_changeover,
+                        infil=infil,
+                        srp=srp,
                     )
                 if ag_on:
                     infil_ag, sroff_ag, ag_contrib_fraction = ag_comp(
-                        ag_soil_moist_prev,
-                        ag_soil_rechr_prev,
-                        ag_soil_rechr_max,
-                        carea_max,
-                        smidx_coef,
-                        smidx_exp,
-                        intcp_changeover,
-                        intcp_changeover,
-                        infil_ag,
-                        sroff_ag,
+                        ag_soil_moist_prev=ag_soil_moist_prev,
+                        ag_soil_rechr_prev=ag_soil_rechr_prev,
+                        ag_soil_rechr_max=ag_soil_rechr_max,
+                        carea_max=carea_max,
+                        smidx_coef=smidx_coef,
+                        smidx_exp=smidx_exp,
+                        pptp=intcp_changeover,
+                        ptc=intcp_changeover,
+                        infil_ag=infil_ag,
+                        sroff_ag=sroff_ag,
                     )
 
         # If rain/snow event with no antecedent snowpack
@@ -837,27 +834,25 @@ class PRMSRunoffAg(PRMSRunoff):
             if hru_flag == 1:
                 if perv_on:
                     infil, srp, contrib_fraction = perv_comp(
-                        soil_lower_prev,
-                        carea_max,
-                        smidx_coef,
-                        smidx_exp,
-                        through_rain,
-                        through_rain,
-                        infil,
-                        srp,
+                        soil_moist_prev=soil_lower_prev,
+                        carea_max=carea_max,
+                        smidx_coef=smidx_coef,
+                        smidx_exp=smidx_exp,
+                        pptp=through_rain,
+                        ptc=through_rain,
+                        infil=infil,
+                        srp=srp,
                     )
                 if ag_on:
                     infil_ag, sroff_ag, ag_contrib_fraction = ag_comp(
-                        ag_soil_moist_prev,
-                        # ag_soil_rechr_prev,
-                        # ag_soil_rechr_max,
-                        carea_max,
-                        smidx_coef,
-                        smidx_exp,
-                        through_rain,
-                        through_rain,
-                        infil_ag,
-                        sroff_ag,
+                        ag_soil_moist_prev=ag_soil_moist_prev,
+                        carea_max=carea_max,
+                        smidx_coef=smidx_coef,
+                        smidx_exp=smidx_exp,
+                        pptp=through_rain,
+                        ptc=through_rain,
+                        infil_ag=infil_ag,
+                        sroff_ag=sroff_ag,
                     )
 
         # Handle snowmelt and precipitation
@@ -876,46 +871,44 @@ class PRMSRunoffAg(PRMSRunoff):
                     # Pervious area computations
                     if perv_on:
                         infil, srp = check_capacity(
-                            soil_lower_prev,
-                            soil_moist_max,
-                            snowinfil_max,
-                            infil,
-                            srp,
+                            soil_moist_prev=soil_lower_prev,
+                            soil_moist_max=soil_moist_max,
+                            snowinfil_max=snowinfil_max,
+                            infil=infil,
+                            srp=srp,
                         )
                     # Agriculture area computations
                     if ag_on:
                         infil_ag, sroff_ag = check_capacity_ag(
-                            ag_soil_moist_prev,
-                            ag_soil_moist_max,
-                            snowinfil_max,
-                            infil_ag,
-                            sroff_ag,
+                            ag_soil_moist_prev=ag_soil_moist_prev,
+                            ag_soil_moist_max=ag_soil_moist_max,
+                            snowinfil_max=snowinfil_max,
+                            infil_ag=infil_ag,
+                            sroff_ag=sroff_ag,
                         )
                 else:
                     # Snowmelt occurred and depleted the snowpack
                     if perv_on:
                         infil, srp, contrib_fraction = perv_comp(
-                            soil_lower_prev,
-                            carea_max,
-                            smidx_coef,
-                            smidx_exp,
-                            snowmelt,
-                            net_ppt,
-                            infil,
-                            srp,
+                            soil_moist_prev=soil_lower_prev,
+                            carea_max=carea_max,
+                            smidx_coef=smidx_coef,
+                            smidx_exp=smidx_exp,
+                            pptp=snowmelt,
+                            ptc=net_ppt,
+                            infil=infil,
+                            srp=srp,
                         )
                     if ag_on:
                         infil_ag, sroff_ag, ag_contrib_fraction = ag_comp(
-                            ag_soil_moist_prev,
-                            ag_soil_rechr_prev,
-                            ag_soil_rechr_max,
-                            carea_max,
-                            smidx_coef,
-                            smidx_exp,
-                            snowmelt,
-                            net_ppt,
-                            infil_ag,
-                            sroff_ag,
+                            ag_soil_moist_prev=ag_soil_moist_prev,
+                            carea_max=carea_max,
+                            smidx_coef=smidx_coef,
+                            smidx_exp=smidx_exp,
+                            pptp=snowmelt,
+                            ptc=net_ppt,
+                            infil_ag=infil_ag,
+                            sroff_ag=sroff_ag,
                         )
 
         elif cond4:
@@ -931,27 +924,25 @@ class PRMSRunoffAg(PRMSRunoff):
                 if hru_flag == 1:
                     if perv_on:
                         infil, srp, contrib_fraction = perv_comp(
-                            soil_lower_prev,
-                            carea_max,
-                            smidx_coef,
-                            smidx_exp,
-                            through_rain,
-                            through_rain,
-                            infil,
-                            srp,
+                            soil_moist_prev=soil_lower_prev,
+                            carea_max=carea_max,
+                            smidx_coef=smidx_coef,
+                            smidx_exp=smidx_exp,
+                            pptp=through_rain,
+                            ptc=through_rain,
+                            infil=infil,
+                            srp=srp,
                         )
                     if ag_on:
                         infil_ag, sroff_ag, ag_contrib_fraction = ag_comp(
-                            ag_soil_moist_prev,
-                            # ag_soil_rechr_prev,
-                            # ag_soil_rechr_max,
-                            carea_max,
-                            smidx_coef,
-                            smidx_exp,
-                            through_rain,
-                            through_rain,
-                            infil_ag,
-                            sroff_ag,
+                            ag_soil_moist_prev=ag_soil_moist_prev,
+                            carea_max=carea_max,
+                            smidx_coef=smidx_coef,
+                            smidx_exp=smidx_exp,
+                            pptp=through_rain,
+                            ptc=through_rain,
+                            infil_ag=infil_ag,
+                            sroff_ag=sroff_ag,
                         )
 
         # Snowpack exists, check capacity
@@ -960,19 +951,19 @@ class PRMSRunoffAg(PRMSRunoff):
             if hru_flag == 1:
                 if infil > 0.0 and perv_on:
                     infil, srp = check_capacity(
-                        soil_lower_prev,
-                        soil_moist_max,
-                        snowinfil_max,
-                        infil,
-                        srp,
+                        soil_moist_prev=soil_lower_prev,
+                        soil_moist_max=soil_moist_max,
+                        snowinfil_max=snowinfil_max,
+                        infil=infil,
+                        srp=srp,
                     )
                 if infil_ag > 0.0 and ag_on:
                     infil_ag, sroff_ag = check_capacity_ag(
-                        ag_soil_moist_prev,
-                        ag_soil_moist_max,
-                        snowinfil_max,
-                        infil_ag,
-                        sroff_ag,
+                        ag_soil_moist_prev=ag_soil_moist_prev,
+                        ag_soil_moist_max=ag_soil_moist_max,
+                        snowinfil_max=snowinfil_max,
+                        infil_ag=infil_ag,
+                        sroff_ag=sroff_ag,
                     )
 
         # Handle impervious area storage
@@ -1004,6 +995,8 @@ class PRMSRunoffAg(PRMSRunoff):
         ptc,
         infil_ag,
         sroff_ag,
+        ag_soil_rechr_prev=None,
+        ag_soil_rechr_max=None,
     ):
         """Agricultural area contributing area computations.
 

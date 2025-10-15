@@ -34,9 +34,11 @@ from .hydrology.prms_et import PRMSEt
 from .hydrology.prms_groundwater import PRMSGroundwater
 from .hydrology.prms_groundwater_no_dprst import PRMSGroundwaterNoDprst
 from .hydrology.prms_runoff import PRMSRunoff
+from .hydrology.prms_runoff_ag import PRMSRunoffAg
 from .hydrology.prms_runoff_no_dprst import PRMSRunoffNoDprst
 from .hydrology.prms_snow import PRMSSnow
 from .hydrology.prms_soilzone import PRMSSoilzone
+from .hydrology.prms_soilzone_ag import PRMSSoilzoneAg
 from .hydrology.prms_soilzone_no_dprst import PRMSSoilzoneNoDprst
 from .hydrology.source_sink_flow_node import (
     SourceSinkFlowNode,
@@ -104,9 +106,11 @@ __all__ = (
     "PRMSGroundwater",
     "PRMSGroundwaterNoDprst",
     "PRMSRunoff",
+    "PRMSRunoffAg",
     "PRMSRunoffNoDprst",
     "PRMSSnow",
     "PRMSSoilzone",
+    "PRMSSoilzoneAg",
     "PRMSSoilzoneNoDprst",
     "Starfit",
     "ControlVariables",

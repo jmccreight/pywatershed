@@ -16,6 +16,26 @@ aet_external:
     0: nhru
   type: float64
   units: inches
+ag_aet_external_vol:
+  desc: External actual evapotranspiration used as a target for simulating
+    actual ET during transpiration days for the irrigated fraction of each HRU
+  dims:
+    0: nhru
+  type: float64
+  units: acre-inches
+ag_actet:
+  desc: Actual ET in capillary reservoir for irrigated fraction of each HRU
+  dims:
+    0: nhru
+  type: float64
+  units: inches
+ag_hortonian:
+  desc: Hortonian surface runoff that flows to the stream network from the
+    irrigated area of each HRU
+  dims:
+    0: nhru
+  type: float64
+  units: inches
 ag_irrigation_add:
   desc:
     Irrigation water added to irrigated area when ag_actet < AET_external for
@@ -23,7 +43,36 @@ ag_irrigation_add:
   dims:
     0: nhru
   type: float64
-  units: incues
+  units: inches
+ag_irrigation_add_vol:
+  desc: Irrigation water added to irrigated area when ag_actet < AET_external
+    for each HRU
+  dims:
+    0: nhru
+  type: float64
+  units: acre-inches
+ag_potet_lower:
+  desc: Potential ET in the lower zone of the agriculture reservoir for the
+    irrigated fraction of each HRU
+  dims:
+    0: nhru
+  type: float64
+  units: inches
+ag_potet_rechr:
+  desc: Potential ET in the recharge zone of the agriculture reservoir for the
+    irrigated fraction of each HRU
+  dims:
+    0: nhru
+  type: float64
+  units: inches
+ag_soil_lower:
+  desc:
+    Storage in the lower zone of the irrigated area that is only available for
+    transpiration for each HRU
+  dims:
+    0: nhru
+  type: float64
+  units: inches
 ag_soil_moist:
   desc:
     Water storage for upper portion in the capillary reservoir of the irrigated
@@ -31,6 +80,36 @@ ag_soil_moist:
   dims:
     0: nhru
   type: float64
+  units: inches
+ag_soil_moist_prev:
+  desc: Previous timestep water storage for upper portion in the capillary
+    reservoir of the irrigated area for each HRU that.
+  dims:
+    0: nhru
+  type: float64
+  units: inches
+ag_soil_rechr:
+  desc: Water storage for upper portion in the capillary reservoir of the
+    irrigated area for each HRU that is available for both evaporation and
+    transpiration
+  dims:
+    0: nhru
+  type: float64
+  units: inches
+ag_soil_rechr_prev:
+  desc: Previous timestep water storage for upper portion in the capillary
+    reservoir of the irrigated area for each HRU that is available for both
+    evaporation and transpiration
+  dims:
+    0: nhru
+  type: float64
+  units: inches
+ag_soil_saturated:
+  desc: Flag set if infiltration saturates capillary reservoir for the irrigated
+    area of the HRU (0=no, 1=yes)
+  dims:
+    0: nhru
+  type: int64
   units: inches
 ag_soil_to_gvr:
   desc: Excess capillary water that flows to the gravity reservoir from the
@@ -42,6 +121,12 @@ ag_soil_to_gvr:
 ag_soil_to_gw:
   desc: Direct recharge from capillary reservoir for the irrigated area to
     groundwater reservoir for each HRU
+  dims:
+    0: nhru
+  type: float64
+  units: inches
+ag_soilwater_deficit:
+  desc: Soil-water deficit of agriculture fraction for each HRU
   dims:
     0: nhru
   type: float64
@@ -1595,6 +1680,14 @@ hru_actet:
     0: nhru
   type: float64
   units: inches
+hru_ag_actet:
+  desc:
+    Actual ET for irrigated area portion of capillary reservoir averaged over
+    irrigated area of HRU
+  dims:
+    0: nhru
+  type: float64
+  units: inches
 hru_et_yr:
   desc: Yearly area-weighted average actual ET for each HRU
   dims:
@@ -1786,6 +1879,13 @@ imperv_stor:
   units: inches
 infil:
   desc: Infiltration to the capillary and preferential-flow reservoirs, depth on pervious area
+  dims:
+    0: nhru
+  type: float64
+  units: inches
+  var_category: mass flux
+infil_ag:
+  desc: Infiltration to the irrigated area fraction of each HRU
   dims:
     0: nhru
   type: float64
@@ -2302,6 +2402,22 @@ perv_actet_hru:
   var_category: mass flux
 perv_avail_et:
   desc: Unsatisfied ET available to the capillary reservoir of each HRU
+  dims:
+    0: nhru
+  type: float64
+  units: inches
+perv_soil_to_gw:
+  desc:
+    Direct recharge from pervious capillary reservoir to groundwater reservior
+    for each HRU
+  dims:
+    0: nhru
+  type: float64
+  units: inches
+perv_soil_to_gvr:
+  desc:
+    Excess pervious capillary water that flows to the gravity reservoir of each
+    HRU
   dims:
     0: nhru
   type: float64
@@ -3561,6 +3677,12 @@ transp_on:
     0: nhru
   type: int32
   units: none
+unused_ag_et:
+  desc: Actual ET for agriculture capillary reservoir for each HRU
+  dims:
+    0: nhru
+  type: float64
+  units: inches
 unused_potet:
   desc: Unsatisfied potential evapotranspiration
   dims:
