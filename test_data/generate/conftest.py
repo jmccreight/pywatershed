@@ -61,6 +61,14 @@ def pytest_addoption(parser):
         ),
     )
 
+    parser.addoption(
+        "--write_log",
+        help=(
+            "Write the PRMS/GSFLOW stdout to log matching control file name."
+        ),
+        action="store_true",
+    )
+
 
 @pytest.fixture(scope="function")
 def exe(simulation):
@@ -149,6 +157,7 @@ def collect_simulations(
     control_pattern_list,
     force: bool = True,
     verbose: bool = False,
+    write_log: bool = False,
 ):
     simulations = {}
     for dom_dir in all_domain_dirs:
@@ -187,6 +196,7 @@ def collect_simulations(
                 "ws": dom_dir,
                 "control_file": control,
                 "output_dir": output_dir,
+                "write_log": write_log,
             }
 
     # make sure all requested domains were found
@@ -222,7 +232,11 @@ def pytest_generate_tests(metafunc):
     domain_list = metafunc.config.getoption("domain")
     control_pattern_list = metafunc.config.getoption("control_pattern")
     force = metafunc.config.getoption("force")
-    simulations = collect_simulations(domain_list, control_pattern_list, force)
+    write_log = metafunc.config.getoption("write_log")
+
+    simulations = collect_simulations(
+        domain_list, control_pattern_list, force=force, write_log=write_log
+    )
     control_csv_files = collect_csv_files(simulations)
 
     if "control_csv_file" in metafunc.fixturenames:

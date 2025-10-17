@@ -89,6 +89,7 @@ def detect_prms_exe():
 def run_prms(
     control_file: pl.Path,
     run_dir: Union[pl.Path, None] = None,
+    write_log: bool = False,
 ) -> None:
     import shutil
 
@@ -121,8 +122,14 @@ def run_prms(
             "-MAXDATALNLEN",
             "60000",
         ],
+        report=True,
         normal_msg="Normal completion of PRMS",
     )
+
+    if write_log:
+        with open(f"{control_file}.log", "w") as file:
+            for line in buff:
+                file.write(line + "\n")
 
     if not success:
         raise RuntimeError(

@@ -39,12 +39,15 @@ def test_run_prms(simulation, exe):
         exe,
         control_file,
         model_ws=ws,
-        cargs=[
-            "-MAXDATALNLEN",
-            "60000",
-        ],
+        cargs=["-MAXDATALNLEN", "60000"],
+        report=True,
         normal_msg=success_msg,
     )
+
+    if simulation["write_log"]:
+        with open(f"{control_file}.log", "w") as file:
+            for line in buff:
+                file.write(line + "\n")
 
     assert success, f"could not run prms model in '{ws}'"
 

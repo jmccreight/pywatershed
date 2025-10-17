@@ -87,6 +87,13 @@ def parse_args():
         ),
         action="store_true",
     )
+    parser.add_argument(
+        "--write_log",
+        help=(
+            "Write the PRMS/GSFLOW stdout to log matching control file name."
+        ),
+        action="store_true",
+    )
 
     known, unknown = parser.parse_known_args()
 
@@ -104,10 +111,17 @@ def parse_args():
         f"--remove_prms_output_dirs={known.remove_prms_output_dirs}"
     ]
 
-    arg_list = (
-        domain_list + unknown + remove_prms_csvs + remove_prms_output_dirs
-    )
+    write_log = []
+    if known.write_log:
+        write_log = ["--write_log"]
 
+    arg_list = (
+        domain_list
+        + unknown
+        + remove_prms_csvs
+        + remove_prms_output_dirs
+        + write_log
+    )
     return arg_list
 
 
