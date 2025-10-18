@@ -1,4 +1,5 @@
 import pathlib as pl
+from typing import Union
 
 import pywatershed as pws
 from pywatershed import CsvFile, Soltab
@@ -25,10 +26,13 @@ def convert_csv_to_nc(
 
 
 def convert_soltab_to_nc(
-    soltab_file: pl.Path,
     output_dir: pl.Path,
     control_file: pl.Path,
     domain_dir: pl.Path,
+    soltab_file: Union[pl.Path, None] = None,
+    soltab_sunhrs_file: Union[pl.Path, None] = None,
+    soltab_potsw_file: Union[pl.Path, None] = None,
+    soltab_horad_potsw_file: Union[pl.Path, None] = None,
 ):
     """Convert soltab files to NetCDF, one file for each variable
 
@@ -52,7 +56,15 @@ def convert_soltab_to_nc(
     params = pws.parameters.PrmsParameters.load(param_file)
     nhm_ids = params.parameters["nhm_id"]
 
-    soltab = Soltab(soltab_file, nhm_ids=nhm_ids)
+    if soltab_file is not None:
+        soltab = Soltab(soltab_file=soltab_file, nhm_ids=nhm_ids)
+    else:
+        soltab = Soltab(
+            soltab_sunhrs_file=soltab_sunhrs_file,
+            soltab_potsw_file=soltab_potsw_file,
+            soltab_horad_potsw_file=soltab_horad_potsw_file,
+            nhm_ids=nhm_ids,
+        )
     soltab.to_netcdf(output_dir=output_dir)
     print(f"Created NetCDF files from soltab file {soltab_file}:")
 

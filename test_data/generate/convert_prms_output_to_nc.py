@@ -34,13 +34,40 @@ def soltab_netcdf_file(tmp_path_factory, control_soltab_file):
     """Convert soltab files to NetCDF, one file for each variable"""
     control_file = control_soltab_file[0]
     soltab_file = control_soltab_file[1]
-    if not soltab_file.exists():
-        pytest.skip("No soltab file found")
     domain_dir = soltab_file.parent
+    indiv_soltab_files = None
+
+    if not soltab_file.exists():
+        indiv_soltab_files = [
+            "soltab_sunhrs.csv",
+            "soltab_potsw.csv",
+            "soltab_horad_potsw.csv",
+        ]
+        indiv_soltab_files = {
+            ff[:-4]: domain_dir / ff for ff in indiv_soltab_files
+        }
+        all_indiv_files_exist = all(
+            [ff.exists() for ff in indiv_soltab_files.values()]
+        )
+        if not all_indiv_files_exist:
+            pytest.skip("No (or insufficient) soltab file(s) found.")
+
     control = pws.Control.load_prms(control_file, warn_unused_options=False)
     output_dir = control_file.parent / control.options["netcdf_output_dir"]
 
-    convert_soltab_to_nc(soltab_file, output_dir, control_file, domain_dir)
+    if indiv_soltab_files is None:
+        convert_soltab_to_nc(
+            output_dir, control_file, domain_dir, soltab_file=soltab_file
+        )
+    else:
+        convert_soltab_to_nc(
+            output_dir,
+            control_file,
+            domain_dir,
+            soltab_sunhrs_file=indiv_soltab_files["soltab_sunhrs"],
+            soltab_potsw_file=indiv_soltab_files["soltab_potsw"],
+            soltab_horad_potsw_file=indiv_soltab_files["soltab_horad_potsw"],
+        )
 
 
 def make_soltab_netcdf_files(soltab_netcdf_file):

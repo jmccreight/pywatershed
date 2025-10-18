@@ -251,6 +251,17 @@ def pytest_generate_tests(metafunc):
         metafunc.parametrize("control_csv_file", control_csv_files, ids=ids)
 
     if "control_soltab_file" in metafunc.fixturenames:
+        # The single/combined soltab output file was from PRMS 5.2.1. In that
+        # case this parameterization doesnt really make sense because it's
+        # always the same, but this is useful because it also identifies the
+        # ws/domain_dir. The processing of this parameter returns 3 individual
+        # output netcdf files: soltab_potsw, soltab_horad_potsw, soltab_sunhrs.
+        # In PRMS 5.3+ the soltab file was split into 4 output files:
+        # soltab_sunhrs.csv, soltab_potsw.csv, obliquity.csv, and
+        # solar_declination.csv. I've modified GSFLOW 2.4.1 to also output
+        #  soltab_horad_potsw.csv. Sadly, the output format does not match
+        # PRMS output files, there is no date column, presumably because it
+        # has a doy dimension 1-366.
         control_soltab_files = [
             (vv["control_file"], vv["ws"] / "soltab_debug")
             for kk, vv in simulations.items()
