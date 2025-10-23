@@ -46,6 +46,9 @@ wbal.msgs
 soltab_debug
 output*/
 
+pywatershed/data/pywatershed_addtl_domains
+ucb_ag_spinup_2yr*/
+
 # emacs
 *~
 

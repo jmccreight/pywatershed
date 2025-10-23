@@ -79,6 +79,7 @@ def compare_in_memory(
     answers: dict[pws.base.adapter.AdapterNetcdf],
     rtol: float = 1.0e-15,
     atol: float = 1.0e-15,
+    mask_dict: np.array = None,
     equal_nan: bool = True,
     strict: bool = False,
     also_check_w_np: bool = True,
@@ -89,9 +90,11 @@ def compare_in_memory(
     # TODO: docstring
 
     fail_list = []
+    skip_list = []
     for var in process.get_variables():
         if var not in answers.keys():
             if skip_missing_ans:
+                skip_list += [var]
                 continue
             else:
                 msg = f"Variable '{var}' not found in the answers provided."
@@ -112,6 +115,10 @@ def compare_in_memory(
             desired = answers[var].current.data
         else:
             desired = answers[var]
+
+        if mask_dict is not None:
+            actual = actual[mask_dict[var]]
+            desired = np.array(desired)[mask_dict[var]]
 
         if not fail_after_all_vars:
             assert_allclose(
@@ -146,7 +153,17 @@ def compare_in_memory(
                     print(f"compare_netcdfs NOT all close for variable: {var}")
 
     if len(fail_list) > 0:
-        assert False, f"compare_netcdfs failed for variables: {fail_list}"
+        success_vars = sorted(
+            set(process.get_variables())
+            - (set(fail_list).union(set(skip_list)))
+        )
+        msg = (
+            "compare_in_memory:\n"
+            f"    SUCCESSFUL for variables: {success_vars}\n"
+            f"    SKIPPED variables: {sorted(skip_list)}\n"
+            f"    FAILED for variables: {sorted(fail_list)}"
+        )
+        assert False, msg
 
 
 def compare_netcdfs(
@@ -211,4 +228,6 @@ def compare_netcdfs(
                     print(f"compare_netcdfs NOT all close for variable: {var}")
 
     if len(fail_list) > 0:
-        assert False, f"compare_netcdfs failed for variables: {fail_list}"
+        assert False, (
+            f"compare_netcdfs failed for variables: {sorted(fail_list)}"
+        )

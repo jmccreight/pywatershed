@@ -1,0 +1,236 @@
+import pathlib as pl
+
+import numpy as np
+import pytest
+from utils_compare import compare_in_memory, compare_netcdfs
+
+from pywatershed.base.adapter import adapter_factory
+from pywatershed.base.control import Control
+from pywatershed.hydrology.prms_soilzone_ag import PRMSSoilzoneAg
+
+# from pywatershed.hydrology.prms_soilzone_no_dprst import PRMSSoilzoneNoDprst
+from pywatershed.parameters import Parameters, PrmsParameters
+
+# compare in memory (faster) or full output files? or both!
+do_compare_output_files = False  # TODO: True
+do_compare_in_memory = True  # TODO: False once it's working
+rtol = atol = 5.0e-3  # TODO: fix
+
+calc_methods = ("numpy", "numba")[0:1]  # TODO: fix
+params = ("params_sep", "params_one")[1:]  # TODO: fix
+budget_type = None  # TODO: fix
+
+
+@pytest.fixture(scope="function")
+def control(simulation):
+    control = Control.load_prms(
+        simulation["control_file"], warn_unused_options=False
+    )
+    return control
+
+
+@pytest.fixture(scope="function")
+def SoilzoneAg(simulation):
+    import warnings
+
+    with warnings.catch_warnings():
+        # This is the only way to silence "invalid" options.
+        warnings.simplefilter("ignore")
+
+        ctl = Control.load_prms(
+            simulation["control_file"],
+            warn_unused_options=False,
+            keep_unused_options=True,
+        )
+
+    if "executable_desc" in ctl.options.keys():
+        exe_desc = ctl.options["executable_desc"][0].lower()
+    else:
+        exe_desc = "prms"
+
+    if "gsflow" not in exe_desc:
+        pytest.skip(
+            "Only testing PRMSSoilzoneAg for domains run with a GSFLOW exe."
+        )
+
+    if "dprst_flag" in ctl.options.keys() and ctl.options["dprst_flag"]:
+        SoilzoneAg = PRMSSoilzoneAg
+    else:
+        pytest.skip("Not testing PRMSSoilzoneNoDprstAg")
+        # SoilzoneAg = PRMSSoilzoneNoDprstAg
+
+    return SoilzoneAg
+
+
+@pytest.fixture(scope="function")
+def discretization(simulation):
+    dis_hru_file = simulation["dir"] / "parameters_dis_hru.nc"
+    return Parameters.from_netcdf(dis_hru_file, encoding=False)
+
+
+@pytest.fixture(scope="function", params=params)
+def parameters(simulation, control, request):
+    if request.param == "params_one":
+        param_file = simulation["dir"] / control.options["parameter_file"]
+        params = PrmsParameters.load(param_file)
+    else:
+        param_file = simulation["dir"] / "parameters_PRMSSoilzoneAg.nc"
+        params = PrmsParameters.from_netcdf(param_file)
+
+    return params
+
+
+@pytest.mark.parametrize("calc_method", calc_methods)
+def test_compare_prms(
+    simulation,
+    control,
+    discretization,
+    parameters,
+    SoilzoneAg,
+    tmp_path,
+    calc_method,
+):
+    tmp_path = pl.Path(tmp_path)
+
+    # sroff is a runoff variable is edited by soilzone but the forcings are
+    # from the output of soilzone, so checking it is kind of a tautology
+    comparison_var_names = list(
+        set(SoilzoneAg.get_variables())
+        # These are not prms variables per se.
+        # The _hru ones have non-hru equivalents being checked.
+        # soil_zone_max and soil_lower_max would be nice to check but
+        # prms5.2.1 wont write them as hru variables.
+        - {
+            "perv_actet_hru",
+            "soil_lower_change_hru",
+            "soil_lower_max",
+            "soil_rechr_change_hru",
+            "soil_zone_max",  # not a prms variable?
+        }
+    )
+
+    control.options["netcdf_output_var_names"] = comparison_var_names
+
+    # TODO: this is hacky, improve the design
+    if (
+        "dprst_flag" not in control.options.keys()
+        or not control.options["dprst_flag"]
+    ):
+        comparison_var_names = {
+            vv for vv in comparison_var_names if "dprst" not in vv
+        }
+
+    output_dir = simulation["output_dir"]
+
+    input_variables = {}
+    for key in SoilzoneAg.get_inputs():
+        nc_path = output_dir / f"{key}.nc"
+        # TODO: this is hacky for accommodating dprst_flag, improve the design
+        # so people dont have to pass None for dead options.
+        if not nc_path.exists():
+            if key in ["aet_external"]:
+                nc_path = adapter_factory(
+                    np.zeros(parameters.dimensions["nhru"]),
+                    key,
+                    control,
+                )
+            elif key in ["ag_frac"]:
+                nc_path = adapter_factory(
+                    parameters.parameters[key].copy(),
+                    key,
+                    control,
+                )
+            else:
+                nc_path = None
+
+        input_variables[key] = nc_path
+
+    if do_compare_output_files:
+        nc_parent = tmp_path / simulation["name"]
+        control.options["netcdf_output_dir"] = nc_parent
+
+    soil = SoilzoneAg(
+        control=control,
+        discretization=discretization,
+        parameters=parameters,
+        **input_variables,
+        budget_type=budget_type,
+        calc_method=calc_method,
+    )
+
+    if do_compare_output_files:
+        soil.initialize_netcdf()
+
+    if do_compare_in_memory:
+        answers = {}
+        skipped_comp_vars = []
+        for var in comparison_var_names:
+            var_pth = output_dir / f"{var}.nc"
+            if not var_pth.exists():
+                skipped_comp_vars += [var]
+                continue
+            # <
+            answers[var] = adapter_factory(
+                var_pth, variable_name=var, control=control
+            )
+
+        # <
+        if len(skipped_comp_vars) > 0:
+            print(f"Skipped comparison for variables: {skipped_comp_vars}")
+
+    ag_mask = np.where(soil["ag_frac"] > 0.0)
+    not_ag_mask = np.where(soil["ag_frac"] <= 0.0)
+    mask_dict = {}
+    for vv in answers.keys():
+        if "ag_" in vv:
+            mask_dict[vv] = ag_mask
+        if vv in [
+            "soil_moist",
+            "soil_rechr",
+            "soil_lower",
+            "soil_moist_tot",
+            "soil_rechr_change",
+            "soil_lower_change",
+            "perv_actet",
+            "potet_rechr",
+            "potet_lower",
+            "cap_infil_tot",
+            "cap_waterin",
+        ]:
+            mask_dict[vv] = not_ag_mask
+        else:
+            mask_dict[vv] = None
+
+    for istep in range(control.n_times):
+        control.advance()
+        soil.advance()
+        soil.calculate(1.0)
+        soil.output()
+
+        if do_compare_in_memory:
+            for var in answers.values():
+                var.advance()
+            compare_in_memory(
+                soil,
+                answers,
+                mask_dict=mask_dict,
+                atol=atol,
+                rtol=rtol,
+                skip_missing_ans=True,
+                fail_after_all_vars=True,
+            )
+
+    soil.finalize()
+
+    if do_compare_output_files:
+        compare_netcdfs(
+            comparison_var_names,
+            tmp_path / simulation["name"],
+            output_dir,
+            atol=atol,
+            rtol=rtol,
+            # fail_after_all_vars=False,
+            verbose=True,
+        )
+
+    return

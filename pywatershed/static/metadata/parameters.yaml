@@ -53,15 +53,6 @@ ag_cov_type:
   minimum: -1
   type: I
   units: none
-ag_soil_lower_stor_max:
-  default: -1.0
-  desc:
-    Storage in the lower zone of the irrigated area that is only available for
-    transpiration for each HRU
-  dims:
-    0: nhru
-  type: F
-  units: inches
 ag_soil_moist_max:
   default: -1.0
   desc: Maximum value of water content for agriculture fraction of the soilzone

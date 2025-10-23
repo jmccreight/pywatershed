@@ -329,6 +329,7 @@ class PRMSSoilzoneAg(ConservativeProcess):
             "soil_rechr_change": zero,
             "soil_rechr_change_hru": zero,
             "soil_rechr_prev": nan,
+            "soil_saturated": zero,
             "soil_to_gw": zero,
             "soil_to_ssr": zero,
             "soil_zone_max": nan,
@@ -344,6 +345,7 @@ class PRMSSoilzoneAg(ConservativeProcess):
             # Agricultural area variables (whole HRU basis)
             "ag_soil_moist": nan,
             "ag_soil_rechr": nan,
+            "ag_soil_rechr_max": nan,
             "ag_soil_lower": nan,
             "ag_soil_lower_stor_max": nan,
             "ag_actet": zero,
@@ -447,7 +449,7 @@ class PRMSSoilzoneAg(ConservativeProcess):
             self.ag_soil_rechr_max_frac * self.ag_soil_moist_max
         )
 
-        self._snow_free = one - self.snowcov_area
+        # self._snow_free = one - self.snowcov_area
 
         # Edit parameters for inactive/lake HRUs
         wh_inactive_or_lake = np.where(
@@ -505,8 +507,12 @@ class PRMSSoilzoneAg(ConservativeProcess):
             (self.hru_type == HruType.LAKE.value)
             | (self.hru_type == HruType.INACTIVE.value)
         )
-        self.ag_frac[wh_no_ag] = zero
-        self.ag_area[wh_no_ag] = zero
+        for vv in ["ag_frac", "ag_area"]:
+            # GSFLOW sets the values on the mask to zero, but we will NOT
+            # edit parameters. So this could be a point of divergence in
+            # solution, though it will raise an error here.
+            assert (self[vv][wh_no_ag] == zero).all()
+
         self.ag_soil_moist[wh_no_ag] = zero
         self.ag_soil_rechr[wh_no_ag] = zero
 
@@ -822,13 +828,11 @@ class PRMSSoilzoneAg(ConservativeProcess):
                 if self._pref_flow_flag:
                     self.pref_flow_stor[:] = it0_pref_flow_stor
 
-            # Call main calculation
             result = self._calculate_soilzone_ag(
                 soil_iter=soil_iter,
                 iter_aet_flag=self._iter_aet_flag,
                 pref_flow_flag=self._pref_flow_flag,
-                snow_free=self._snow_free,
-                soil2gw_flag=self._soil2gw_flag,
+                snow_free=1.0 - self.snowcov_area,
                 compute_soilmoist=self._compute_soilmoist,
                 compute_szactet=self._compute_szactet,
                 compute_interflow=self._compute_interflow,
@@ -988,7 +992,6 @@ class PRMSSoilzoneAg(ConservativeProcess):
         iter_aet_flag,
         pref_flow_flag,
         snow_free,
-        soil2gw_flag,
         compute_soilmoist,
         compute_szactet,
         compute_interflow,
@@ -1233,19 +1236,26 @@ class PRMSSoilzoneAg(ConservativeProcess):
 
                     pref_flow_infil[ihru] = pref_flow_maxin - dunnianflw_pfr
 
+            # Set cap_infil_tot and ag_cap_infil_tot BEFORE compute_soilmoist
+            # (Fortran lines 737-744, before line 753)
+            if perv_on_flag:
+                cap_infil_tot[ihru] = capwater_maxin * perv_frac
+            if ag_on_flag:
+                ag_cap_infil_tot[ihru] = ag_water_maxin * agfrac
+
             # ****** Compute soil moisture for pervious area
             # Fortran: CALL compute_soilmoist (lines ~752-758)
+            # Note: compute_soilmoist modifies infil (capwater_maxin) in Fortran
             perv_soil_to_gvr[ihru] = 0.0
             if perv_on_flag:
                 if capwater_maxin + soil_moist[ihru] > 0.0:
                     (
-                        _,
+                        capwater_maxin,
                         soil_moist[ihru],
                         soil_rechr[ihru],
                         perv_soil_to_gw[ihru],
                         perv_soil_to_gvr[ihru],
                     ) = compute_soilmoist(
-                        soil2gw_flag,
                         perv_frac,
                         soil_moist_max[ihru],
                         soil_rechr_max[ihru],
@@ -1259,20 +1269,22 @@ class PRMSSoilzoneAg(ConservativeProcess):
 
             # ****** Compute soil moisture for agricultural area
             # Fortran: CALL compute_soilmoist for ag (lines ~760-767)
+            # Note: compute_soilmoist modifies infil (ag_water_maxin) in Fortran
             if ag_on_flag:
                 if ag_water_maxin + ag_soil_moist[ihru] > 0.0:
                     (
-                        _,
+                        ag_water_maxin,
                         ag_soil_moist[ihru],
                         ag_soil_rechr[ihru],
                         ag_soil_to_gw[ihru],
                         ag_soil_to_gvr[ihru],
                     ) = compute_soilmoist(
-                        soil2gw_flag,
                         agfrac,
                         ag_soil_moist_max[ihru],
                         ag_soil_rechr_max[ihru],
-                        ag_soil2gw_max[ihru],
+                        soil2gw_max[
+                            ihru
+                        ],  # NOTE: Fortran uses soil2gw_max here, not ag_soil2gw_max (likely a bug in Fortran line 763)
                         ag_water_maxin,
                         ag_soil_moist[ihru],
                         ag_soil_rechr[ihru],
@@ -1287,10 +1299,6 @@ class PRMSSoilzoneAg(ConservativeProcess):
             soil_to_ssr[ihru] = perv_soil_to_gvr[ihru] + ag_soil_to_gvr[ihru]
 
             cap_waterin[ihru] = capwater_maxin * perv_frac
-            if perv_on_flag:
-                cap_infil_tot[ihru] = capwater_maxin * perv_frac
-            if ag_on_flag:
-                ag_cap_infil_tot[ihru] = ag_water_maxin * agfrac
 
             # ****** Compute slow interflow and ssr_to_gw
             # Fortran: compute_interflow and compute_gwflow (simplified, no
@@ -1371,10 +1379,14 @@ class PRMSSoilzoneAg(ConservativeProcess):
                     # Use PET as target
                     ag_AETtarget = potet[ihru]
 
-                # Subtract canopy interception (already accounted for)
-                ag_avail_targetAET = ag_AETtarget - hru_intcpevap[ihru]
+                # Subtract all non-soil-zone ET already accounted for
+                # (impervious, canopy interception, snow, depression storage)
+                ag_avail_targetAET = ag_AETtarget - hruactet
                 if ag_avail_targetAET < 0.0:
                     ag_avail_targetAET = 0.0
+
+                # if ihru == 39:
+                #     breakpoint()
 
                 if ag_avail_targetAET > 0.0:
                     # Call compute_szactet for ag area
@@ -1404,7 +1416,8 @@ class PRMSSoilzoneAg(ConservativeProcess):
                 unsatisfied_ag_et = ag_avail_targetAET - agactet
                 unused_ag_et[ihru] = unsatisfied_ag_et
 
-                # Add back canopy interception
+                # Add back canopy interception (GSFLOW 2.4.1 behavior)
+                # Fortran: Ag_actet(i) = agactet + Hru_intcpevap(i)
                 ag_actet[ihru] = agactet + hru_intcpevap[ihru]
 
             # Pervious ET
@@ -1535,6 +1548,9 @@ class PRMSSoilzoneAg(ConservativeProcess):
                             if unsatisfied_max > unsatisfied_big:
                                 unsatisfied_big = unsatisfied_max
 
+            # if ihru == 439:
+            #     asdf
+
         # End HRU loop
 
         # Calculate storage changes for mass budget
@@ -1553,7 +1569,6 @@ class PRMSSoilzoneAg(ConservativeProcess):
 
     @staticmethod
     def _compute_soilmoist(
-        soil2gw_flag,
         perv_frac,
         soil_moist_max,
         soil_rechr_max,
@@ -1581,7 +1596,7 @@ class PRMSSoilzoneAg(ConservativeProcess):
         excess = (excess - soil_moist_max) * perv_frac
 
         if excess > 0.0:
-            if soil2gw_flag:
+            if soil2gw_max > 0.0:
                 soil_to_gw = min(soil2gw_max, excess)
                 excess = excess - soil_to_gw
 

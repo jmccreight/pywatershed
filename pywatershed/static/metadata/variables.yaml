@@ -73,6 +73,15 @@ ag_soil_lower:
     0: nhru
   type: float64
   units: inches
+ag_soil_lower_stor_max:
+  default: -1.0
+  desc:
+    Storage in the lower zone of the irrigated area that is only available for
+    transpiration for each HRU
+  dims:
+    0: nhru
+  type: float64
+  units: inches
 ag_soil_moist:
   desc:
     Water storage for upper portion in the capillary reservoir of the irrigated
@@ -92,6 +101,13 @@ ag_soil_rechr:
   desc: Water storage for upper portion in the capillary reservoir of the
     irrigated area for each HRU that is available for both evaporation and
     transpiration
+  dims:
+    0: nhru
+  type: float64
+  units: inches
+ag_soil_rechr_max:
+  desc: Water storage for upper portion in the capillary reservoir of the
+    irrigated area for each HRU that is only available for transpiration (?)
   dims:
     0: nhru
   type: float64
@@ -3105,6 +3121,12 @@ soil_rechr_ratio:
     0: nhru
   type: float64
   units: decimal fraction
+soil_saturated:
+  desc: Flag set if infiltration saturates capillary reservoir (0=no, 1=yes)
+  dims:
+    0: nhru
+  type: int64
+  units: inches
 soil_to_gw:
   desc:
     Portion of excess flow to the capillary reservoir that drains to the associated

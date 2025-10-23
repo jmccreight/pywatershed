@@ -914,11 +914,7 @@ class PRMSRunoff(ConservativeProcess):
         if hru_type == LAND or isglacier:
             hru_flag = 1
 
-        cascade_active = False
-        if cascade_active:
-            raise Exception("bad bad bad")
-        else:
-            avail_water = 0.0
+        avail_water = 0.0
 
         # compute runoff from canopy changeover water
         if intcp_changeover > 0.0:

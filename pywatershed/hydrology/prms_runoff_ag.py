@@ -781,6 +781,21 @@ class PRMSRunoffAg(PRMSRunoff):
         This is a modified version of compute_infil that handles both
         pervious and agricultural areas in parallel.
         """
+        # TODO: missing net_apply logic
+        # fmt: off
+        # ! irrigation application for pervious and agriculture areas (just like infiltration)
+        #       IF ( Net_apply>0.0 ) THEN
+        #         avail_water = Net_apply * glacier_free
+        #         IF ( Perv_on==ACTIVE ) Infil = avail_water
+        #         IF ( Ag_on==ACTIVE ) Infil_ag = avail_water
+        #         IF ( hru_flag==1 ) THEN
+        #           IF ( Perv_on==ACTIVE ) CALL perv_comp(avail_water, avail_water, Infil, Sra)
+        #           IF ( Ag_on==ACTIVE ) CALL ag_comp(avail_water, avail_water, Infil_ag, Sroff_ag)
+        # !          apply_sroff = Sra + Sroff_ag ! may want apply_sroff be a declared variable
+        #         ENDIF
+        #       ENDIF
+        # fmt: on
+
         isglacier = False
         hru_flag = 0
         if hru_type == LAND or isglacier:
