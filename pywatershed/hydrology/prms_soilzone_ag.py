@@ -165,7 +165,7 @@ class PRMSSoilzoneAg(ConservativeProcess):
         dprst_seep_hru: adaptable,
         hru_impervevap: adaptable,
         hru_intcpevap: adaptable,
-        infil_hru: adaptable,
+        infil: adaptable,
         infil_ag: adaptable,
         sroff: adaptable,
         sroff_vol: adaptable,
@@ -280,7 +280,7 @@ class PRMSSoilzoneAg(ConservativeProcess):
             "dprst_seep_hru",
             "hru_impervevap",
             "hru_intcpevap",
-            "infil_hru",
+            "infil",
             "infil_ag",
             "sroff",
             "sroff_vol",
@@ -870,7 +870,7 @@ class PRMSSoilzoneAg(ConservativeProcess):
                 dprst_seep_hru=self.dprst_seep_hru,
                 hru_impervevap=self.hru_impervevap,
                 hru_intcpevap=self.hru_intcpevap,
-                infil_hru=self.infil_hru,
+                infil=self.infil,
                 infil_ag=self.infil_ag,
                 potet=self.potet,
                 transp_on=self.transp_on,
@@ -1029,7 +1029,7 @@ class PRMSSoilzoneAg(ConservativeProcess):
         dprst_seep_hru,
         hru_impervevap,
         hru_intcpevap,
-        infil_hru,
+        infil,
         infil_ag,
         potet,
         transp_on,
@@ -1192,7 +1192,7 @@ class PRMSSoilzoneAg(ConservativeProcess):
 
             # ****** Add infiltration to soil
             # Fortran: capwater_maxin = Infil(i)
-            capwater_maxin = infil_hru[ihru]
+            capwater_maxin = infil[ihru]
             ag_water_maxin = infil_ag[ihru]
 
             # Add irrigation if iterating (Fortran line ~591)
@@ -1269,7 +1269,8 @@ class PRMSSoilzoneAg(ConservativeProcess):
 
             # ****** Compute soil moisture for agricultural area
             # Fortran: CALL compute_soilmoist for ag (lines ~760-767)
-            # Note: compute_soilmoist modifies infil (ag_water_maxin) in Fortran
+            # Note: compute_soilmoist modifies infil (ag_water_maxin) in
+            # Fortran
             if ag_on_flag:
                 if ag_water_maxin + ag_soil_moist[ihru] > 0.0:
                     (
@@ -1282,9 +1283,9 @@ class PRMSSoilzoneAg(ConservativeProcess):
                         agfrac,
                         ag_soil_moist_max[ihru],
                         ag_soil_rechr_max[ihru],
-                        soil2gw_max[
-                            ihru
-                        ],  # NOTE: Fortran uses soil2gw_max here, not ag_soil2gw_max (likely a bug in Fortran line 763)
+                        # NOTE: Fortran uses soil2gw_max here, not
+                        # ag_soil2gw_max (likely a bug in Fortran line 763)
+                        soil2gw_max[ihru],
                         ag_water_maxin,
                         ag_soil_moist[ihru],
                         ag_soil_rechr[ihru],
