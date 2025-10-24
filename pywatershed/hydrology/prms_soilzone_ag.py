@@ -1501,6 +1501,20 @@ class PRMSSoilzoneAg(ConservativeProcess):
                 soil_lower_ratio[ihru] = (
                     soil_lower[ihru] / soil_lower_max[ihru]
                 )
+                # Cap ratio at 1.0 if excess is due to rounding error (< 1e-4)
+                # This handles accumulated floating-point differences between
+                # Python (double precision) and Fortran (single precision)
+                if soil_lower_ratio[ihru] > 1.0:
+                    excess = soil_lower_ratio[ihru] - 1.0
+                    if excess < 1e-4:
+                        soil_lower_ratio[ihru] = 1.0
+                        soil_lower[ihru] = soil_lower_max[ihru]
+                    else:
+                        raise ValueError(
+                            f"HRU {ihru}: soil_lower exceeds soil_lower_max by "
+                            f"{excess:.2e} (ratio = {soil_lower_ratio[ihru]:.6f}). "
+                            f"This indicates a mass balance error."
+                        )
 
             ssres_in[ihru] = soil_to_ssr[ihru]
             if pref_flow_flag:

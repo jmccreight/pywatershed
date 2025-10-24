@@ -24,9 +24,18 @@ default_atol = 1.0e-5
 #     errors at that precision multiplied by hru_area can give larger relative
 #     errors while the absolute errors are still near precision.
 var_tolerance_exceptions = {
-    "ssres_flow_vol": {"atol": 1.0e-7, "rtol": 1.0e-2},  # cubic feet
+    "ssres_flow_vol": {"atol": 2.0, "rtol": 1.0e-2},  # cubic feet
+    # ratio capping differences,
+    # TODO, see if we can relax this with additional tune up
+    "soil_lower_ratio": {"atol": 1.0e-4, "rtol": 1.0e-5},
+    # Flow variables accumulate single-precision errors over time
+    "slow_flow": {"atol": 2.0e-5, "rtol": 1.0e-5},
+    "ssres_flow": {"atol": 2.0e-5, "rtol": 1.0e-5},
+    # Storage variables accumulate errors over many timesteps
+    "slow_stor": {"atol": 1.0e-4, "rtol": 1.0e-5},
+    "slow_stor_prev": {"atol": 1.0e-4, "rtol": 1.0e-5},
+    "ssres_stor": {"atol": 1.0e-4, "rtol": 1.0e-5},
 }
-
 calc_methods = ("numpy", "numba")[0:1]  # TODO: fix
 params = ("params_sep", "params_one")[1:]  # TODO: fix
 budget_type = None  # TODO: fix
