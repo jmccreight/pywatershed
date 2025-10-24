@@ -1246,7 +1246,8 @@ class PRMSSoilzoneAg(ConservativeProcess):
 
             # ****** Compute soil moisture for pervious area
             # Fortran: CALL compute_soilmoist (lines ~752-758)
-            # Note: compute_soilmoist modifies infil (capwater_maxin) in Fortran
+            # Note: compute_soilmoist modifies infil (capwater_maxin) in
+            # Fortran
             perv_soil_to_gvr[ihru] = 0.0
             if perv_on_flag:
                 if capwater_maxin + soil_moist[ihru] > 0.0:
@@ -1270,7 +1271,8 @@ class PRMSSoilzoneAg(ConservativeProcess):
 
             # ****** Compute soil moisture for agricultural area
             # Fortran: CALL compute_soilmoist for ag (lines ~760-767)
-            # Note: compute_soilmoist modifies infil (ag_water_maxin) in Fortran
+            # Note: compute_soilmoist modifies infil (ag_water_maxin) in
+            # Fortran
             if ag_on_flag:
                 if ag_water_maxin + ag_soil_moist[ihru] > 0.0:
                     (
@@ -1283,9 +1285,9 @@ class PRMSSoilzoneAg(ConservativeProcess):
                         agfrac,
                         ag_soil_moist_max[ihru],
                         ag_soil_rechr_max[ihru],
-                        soil2gw_max[
-                            ihru
-                        ],  # NOTE: Fortran uses soil2gw_max here, not ag_soil2gw_max (likely a bug in Fortran line 763)
+                        # NOTE: Fortran uses soil2gw_max here, not
+                        # ag_soil2gw_max (likely a bug in Fortran line 763)
+                        soil2gw_max[ihru],
                         ag_water_maxin,
                         ag_soil_moist[ihru],
                         ag_soil_rechr[ihru],
@@ -1375,13 +1377,14 @@ class PRMSSoilzoneAg(ConservativeProcess):
             if ag_on_flag:
                 if iter_aet_flag:
                     # Use observed AET as target
-                    ag_AETtarget = AET_external[ihru]
+                    ag_AETtarget = aet_external[ihru]
                 else:
                     # Use PET as target
                     ag_AETtarget = potet[ihru]
 
                 # Subtract only canopy interception ET
-                # Fortran assumes impervious, snow, and dprst evap not in ag fraction
+                # Fortran assumes impervious, snow, and dprst evap not in ag
+                # fraction
                 # Fortran: ag_avail_targetAET = ag_AETtarget - Hru_intcpevap(i)
                 ag_avail_targetAET = ag_AETtarget - hru_intcpevap[ihru]
                 if ag_avail_targetAET < 0.0:

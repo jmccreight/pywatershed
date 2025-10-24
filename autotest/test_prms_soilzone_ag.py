@@ -222,7 +222,6 @@ def test_compare_prms(
             for var in answers.values():
                 var.advance()
 
-            # Build variable-specific tolerances: default for all, then apply exceptions
             var_tolerances = {
                 var: {"rtol": default_rtol, "atol": default_atol}
                 for var in answers.keys()
