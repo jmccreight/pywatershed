@@ -981,6 +981,7 @@ class PRMSSoilzoneAg(ConservativeProcess):
 
         # Calculate volume-based outputs
         self.sroff_vol[:] = self.sroff * self.hru_in_to_cf
+        self.ssres_flow_vol[:] = self.ssres_flow * self.hru_in_to_cf
         self.ag_irrigation_add_vol[:] = self.ag_irrigation_add * self.ag_area
         self.ag_aet_external_vol[:] = self.ag_actet * self.ag_area
 

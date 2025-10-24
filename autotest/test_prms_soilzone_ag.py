@@ -14,7 +14,18 @@ from pywatershed.parameters import Parameters, PrmsParameters
 # compare in memory (faster) or full output files? or both!
 do_compare_output_files = False  # TODO: True
 do_compare_in_memory = True  # TODO: False once it's working
-rtol = atol = 5.0e-3  # TODO: fix
+
+# Default tolerances for most variables (depth-based)
+default_rtol = 1.0e-5
+default_atol = 1.0e-5
+
+# Variable-specific tolerance exceptions
+# ssres_flow_vol: the fortran output of ssres_flow is only single precision,
+#     errors at that precision multiplied by hru_area can give larger relative
+#     errors while the absolute errors are still near precision.
+var_tolerance_exceptions = {
+    "ssres_flow_vol": {"atol": 1.0e-7, "rtol": 1.0e-2},  # cubic feet
+}
 
 calc_methods = ("numpy", "numba")[0:1]  # TODO: fix
 params = ("params_sep", "params_one")[1:]  # TODO: fix
@@ -210,12 +221,23 @@ def test_compare_prms(
         if do_compare_in_memory:
             for var in answers.values():
                 var.advance()
+
+            # Build variable-specific tolerances: default for all, then apply exceptions
+            var_tolerances = {
+                var: {"rtol": default_rtol, "atol": default_atol}
+                for var in answers.keys()
+            }
+            for var, tols in var_tolerance_exceptions.items():
+                if var in var_tolerances:
+                    var_tolerances[var] = tols
+
             compare_in_memory(
                 soil,
                 answers,
                 mask_dict=mask_dict,
-                atol=atol,
-                rtol=rtol,
+                atol=default_atol,
+                rtol=default_rtol,
+                var_tolerances=var_tolerances,
                 skip_missing_ans=True,
                 fail_after_all_vars=True,
             )
@@ -227,8 +249,8 @@ def test_compare_prms(
             comparison_var_names,
             tmp_path / simulation["name"],
             output_dir,
-            atol=atol,
-            rtol=rtol,
+            atol=default_atol,
+            rtol=default_rtol,
             # fail_after_all_vars=False,
             verbose=True,
         )

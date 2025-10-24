@@ -86,6 +86,7 @@ def compare_in_memory(
     skip_missing_ans: bool = False,
     fail_after_all_vars: bool = True,
     verbose: bool = False,
+    var_tolerances: dict = None,
 ):
     # TODO: docstring
 
@@ -120,12 +121,19 @@ def compare_in_memory(
             actual = actual[mask_dict[var]]
             desired = np.array(desired)[mask_dict[var]]
 
+        # Get variable-specific tolerances if provided
+        var_rtol = rtol
+        var_atol = atol
+        if var_tolerances is not None and var in var_tolerances:
+            var_rtol = var_tolerances[var].get("rtol", rtol)
+            var_atol = var_tolerances[var].get("atol", atol)
+
         if not fail_after_all_vars:
             assert_allclose(
                 actual,
                 desired,
-                atol=atol,
-                rtol=rtol,
+                atol=var_atol,
+                rtol=var_rtol,
                 equal_nan=equal_nan,
                 strict=strict,
                 also_check_w_np=also_check_w_np,
@@ -137,8 +145,8 @@ def compare_in_memory(
                 assert_allclose(
                     actual,
                     desired,
-                    atol=atol,
-                    rtol=rtol,
+                    atol=var_atol,
+                    rtol=var_rtol,
                     equal_nan=equal_nan,
                     strict=strict,
                     also_check_w_np=also_check_w_np,
