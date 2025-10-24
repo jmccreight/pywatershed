@@ -112,8 +112,8 @@ class PRMSSoilzoneAg(ConservativeProcess):
             area for each HRU
         hru_intcpevap: HRU area-weighted average evaporation from the
             canopy for each HRU
-        infil_hru: Infiltration to the capillary reservoir for pervious area,
-            depth on HRU pervious area
+        infil: Infiltration to the capillary and preferential-flow reservoirs,
+            depth on pervious area
         infil_ag: Infiltration to the capillary reservoir for agricultural
             area, depth on HRU agricultural area
         sroff: Surface runoff to the stream network for each HRU
@@ -377,7 +377,7 @@ class PRMSSoilzoneAg(ConservativeProcess):
     def get_mass_budget_terms() -> dict:
         return {
             "inputs": [
-                "infil_hru",
+                "infil",
                 "infil_ag",
             ],
             "outputs": [
@@ -1269,8 +1269,7 @@ class PRMSSoilzoneAg(ConservativeProcess):
 
             # ****** Compute soil moisture for agricultural area
             # Fortran: CALL compute_soilmoist for ag (lines ~760-767)
-            # Note: compute_soilmoist modifies infil (ag_water_maxin) in
-            # Fortran
+            # Note: compute_soilmoist modifies infil (ag_water_maxin) in Fortran
             if ag_on_flag:
                 if ag_water_maxin + ag_soil_moist[ihru] > 0.0:
                     (
@@ -1283,9 +1282,9 @@ class PRMSSoilzoneAg(ConservativeProcess):
                         agfrac,
                         ag_soil_moist_max[ihru],
                         ag_soil_rechr_max[ihru],
-                        # NOTE: Fortran uses soil2gw_max here, not
-                        # ag_soil2gw_max (likely a bug in Fortran line 763)
-                        soil2gw_max[ihru],
+                        soil2gw_max[
+                            ihru
+                        ],  # NOTE: Fortran uses soil2gw_max here, not ag_soil2gw_max (likely a bug in Fortran line 763)
                         ag_water_maxin,
                         ag_soil_moist[ihru],
                         ag_soil_rechr[ihru],
@@ -1380,9 +1379,10 @@ class PRMSSoilzoneAg(ConservativeProcess):
                     # Use PET as target
                     ag_AETtarget = potet[ihru]
 
-                # Subtract all non-soil-zone ET already accounted for
-                # (impervious, canopy interception, snow, depression storage)
-                ag_avail_targetAET = ag_AETtarget - hruactet
+                # Subtract only canopy interception ET
+                # Fortran assumes impervious, snow, and dprst evap not in ag fraction
+                # Fortran: ag_avail_targetAET = ag_AETtarget - Hru_intcpevap(i)
+                ag_avail_targetAET = ag_AETtarget - hru_intcpevap[ihru]
                 if ag_avail_targetAET < 0.0:
                     ag_avail_targetAET = 0.0
 
