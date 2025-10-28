@@ -51,15 +51,19 @@ var_tolerance_exceptions = {
 # variables diverge. At these points, Python values are replaced with Fortran
 # values before comparison to allow the test to continue.
 #
-# Format: {simulation_name: {hru_index: (start_timestep, affected_vars, reason)}}
+# Format: {simulation_name:
+#     {hru_index: (start_timestep, affected_vars, reason)}
+# }
 domain_hru_time_exceptions = {
     "ucb_ag_spinup_2yr:nhm_ic_w_output_subset": {
         # HRU 1311, timestep 706:
-        #   - soil_moist ratio (pcts) = 0.2500000586 in Python vs ~0.2499999 in Fortran
+        #   - soil_moist ratio (pcts) = 0.2500000586 in Python vs ~0.2499999
+        #     in Fortran
         #   - Crosses 0.25 threshold for SAND soil type ET reduction
         #   - Python: pcts >= 0.25, no reduction, potet_lower = 0.0453
         #   - Fortran: pcts < 0.25, reduction applied, potet_lower = 0.0064
-        #   - This affects downstream ET calculations and soil moisture accounting
+        #   - This affects downstream ET calculations and soil moisture
+        #     accounting
         1311: (
             706,
             [

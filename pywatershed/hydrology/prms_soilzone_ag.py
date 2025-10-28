@@ -1511,8 +1511,9 @@ class PRMSSoilzoneAg(ConservativeProcess):
                         soil_lower[ihru] = soil_lower_max[ihru]
                     else:
                         raise ValueError(
-                            f"HRU {ihru}: soil_lower exceeds soil_lower_max by "
-                            f"{excess:.2e} (ratio = {soil_lower_ratio[ihru]:.6f}). "
+                            f"HRU {ihru}: soil_lower exceeds soil_lower_max "
+                            f"by {excess:.2e} (ratio = "
+                            f"{soil_lower_ratio[ihru]:.6f}). "
                             f"This indicates a mass balance error."
                         )
 
