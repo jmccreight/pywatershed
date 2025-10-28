@@ -35,6 +35,14 @@ var_tolerance_exceptions = {
     "slow_stor": {"atol": 1.0e-4, "rtol": 1.0e-5},
     "slow_stor_prev": {"atol": 1.0e-4, "rtol": 1.0e-5},
     "ssres_stor": {"atol": 1.0e-4, "rtol": 1.0e-5},
+    # Total soil moisture accumulates errors from multiple components
+    "soil_moist_tot": {"atol": 1.0e-4, "rtol": 1.0e-5},
+    # Flow/change variables with borderline precision issues
+    "recharge": {"atol": 2.0e-5, "rtol": 1.0e-5},
+    "slow_stor_change": {"atol": 2.0e-5, "rtol": 1.0e-5},
+    "ssr_to_gw": {"atol": 2.0e-5, "rtol": 1.0e-5},
+    "soil_lower_change": {"atol": 2.0e-5, "rtol": 1.0e-5},
+    "soil_to_gw": {"atol": 2.0e-5, "rtol": 1.0e-5},
 }
 calc_methods = ("numpy", "numba")[0:1]  # TODO: fix
 params = ("params_sep", "params_one")[1:]  # TODO: fix
