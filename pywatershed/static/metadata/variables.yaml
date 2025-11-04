@@ -2775,6 +2775,42 @@ seg_shade:
     0: nsegment
   type: float64
   units: decimal fraction
+seg_tave_air:
+  desc: Area-weighted average air temperature for each segment from HRUs contributing flow to the segment
+  dims:
+    0: nsegment
+  type: float64
+  units: degrees Celsius
+seg_tave_gw:
+  desc: Groundwater temperature for each segment
+  dims:
+    0: nsegment
+  type: float64
+  units: degrees Celsius
+seg_tave_lat:
+  desc: Lateral flow temperature for each segment
+  dims:
+    0: nsegment
+  type: float64
+  units: degrees Celsius
+seg_tave_ss:
+  desc: Subsurface temperature for each segment
+  dims:
+    0: nsegment
+  type: float64
+  units: degrees Celsius
+seg_tave_upstream:
+  desc: Temperature of streamflow entering each segment from upstream
+  dims:
+    0: nsegment
+  type: float64
+  units: degrees Celsius
+seg_tave_water:
+  desc: Computed daily mean stream temperature for each segment
+  dims:
+    0: nsegment
+  type: float64
+  units: degrees Celsius
 seg_sroff:
   desc:
     Area-weighted average surface runoff for each segment from HRUs contributing

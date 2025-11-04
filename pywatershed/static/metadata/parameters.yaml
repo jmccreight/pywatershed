@@ -3400,6 +3400,18 @@ ssstor_init_frac:
     - convert_params
   type: F
   units: decimal fraction
+stream_temp_shade_flag:
+  default: 0
+  desc: Flag to indicate stream temperature shade computation method
+  dims:
+    0: scalar
+  help: "Flag to indicate stream temperature shade computation method: 0=compute shade from topography and vegetation parameters; 1=use constant segshade_sum and segshade_win parameters"
+  maximum: 1
+  minimum: 0
+  modules:
+    - stream_temp
+  type: I
+  units: none
 stream_tave_init:
   default: NaN
   desc: Cold-start stream average stream temperature
