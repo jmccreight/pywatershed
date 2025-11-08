@@ -2775,6 +2775,30 @@ seg_shade:
     0: nsegment
   type: float64
   units: decimal fraction
+seg_flow_area:
+  desc: Cross-sectional area of flow in each segment (computed from hydraulic geometry)
+  dims:
+    0: nsegment
+  type: float64
+  units: square meters
+seg_flow_depth:
+  desc: Flow-dependent depth in each segment (computed from hydraulic geometry)
+  dims:
+    0: nsegment
+  type: float64
+  units: meters
+seg_flow_velocity:
+  desc: Mean velocity of flow in each segment (computed from hydraulic geometry)
+  dims:
+    0: nsegment
+  type: float64
+  units: meters per second
+seg_flow_width:
+  desc: Flow-dependent width in each segment (computed from hydraulic geometry)
+  dims:
+    0: nsegment
+  type: float64
+  units: meters
 seg_tave_air:
   desc: Area-weighted average air temperature for each segment from HRUs contributing flow to the segment
   dims:
@@ -2840,12 +2864,6 @@ seg_upstream_inflow:
     0: nsegment
   type: float64
   units: cfs
-seg_width:
-  desc: Width of each segment
-  dims:
-    0: nsegment
-  type: float64
-  units: meters
 seginc_gwflow:
   desc:
     Area-weighted average groundwater discharge for each segment from HRUs contributing

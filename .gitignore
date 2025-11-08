@@ -43,7 +43,7 @@ prms_src/prms5.3.0/bin
 *.out
 *.wbal
 wbal.msgs
-soltab_debug
+soltab_debug*
 output*/
 
 pywatershed/data/pywatershed_addtl_domains

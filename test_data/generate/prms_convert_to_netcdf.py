@@ -8,7 +8,10 @@ from pywatershed import CsvFile, Soltab
 
 
 def convert_csv_to_nc(
-    var_name: str, data_dir: pl.Path, output_dir: pl.Path = None
+    var_name: str,
+    data_dir: pl.Path,
+    output_dir: pl.Path = None,
+    rename: str = None,
 ):
     """Convert PRMS CSV files to netcdf.
 
@@ -16,12 +19,22 @@ def convert_csv_to_nc(
         var_name: str name of the variable to create
         data_dir: where the csv file is found and the netcdf file will be
             written (could add argument to output to a differnt dir)
+        output_dir: the directory into which the file is to be written.
+        rename: if the input name and output/metadata name differ, this is the
+            later.
     """
     if output_dir is None:
         output_dir = data_dir
+
     csv_path = data_dir / f"{var_name}.csv"
-    nc_path = output_dir / f"{var_name}.nc"
-    CsvFile(csv_path).to_netcdf(nc_path)
+
+    if rename is None:
+        nc_path = output_dir / f"{var_name}.nc"
+        CsvFile(csv_path).to_netcdf(nc_path)
+    else:
+        nc_path = output_dir / f"{rename}.nc"
+        CsvFile({rename: csv_path}).to_netcdf(nc_path)
+
     assert nc_path.exists()
 
 

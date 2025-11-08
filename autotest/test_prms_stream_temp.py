@@ -19,8 +19,10 @@ params = ("params_sep", "params_one")
 
 @pytest.fixture(scope="function")
 def control(simulation):
-    if "obsin" in simulation["name"]:
-        pytest.skip("Not testing passthrough flow graph for drb_2yr:nhm_obsin")
+    if "stream_temp" in simulation["name"]:
+        pytest.skip(
+            f"Domain not configured for stream temp: {simulation['name']}"
+        )
 
     ctl = Control.load_prms(
         simulation["control_file"], warn_unused_options=False

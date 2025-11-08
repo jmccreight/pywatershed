@@ -28,6 +28,26 @@ domain_globs_schedule = ["*conus*"]
 final_var_names = ["through_rain", "seg_lateral_inflow"]
 
 
+def get_ctl_exe_desc(ctl_file):
+    import warnings
+
+    with warnings.catch_warnings():
+        # This is the only way to silence "invalid" options.
+        warnings.simplefilter("ignore")
+        ctl = pws.Control.load_prms(
+            ctl_file,
+            keep_unused_options=True,
+            warn_unused_options=False,
+        )
+
+    if "executable_desc" in ctl.options.keys():
+        exe_desc = ctl.options["executable_desc"][0].lower()
+    else:
+        exe_desc = "prms"
+
+    return exe_desc
+
+
 def pytest_addoption(parser):
     parser.addoption(
         "--force",
@@ -72,24 +92,8 @@ def pytest_addoption(parser):
 
 @pytest.fixture(scope="function")
 def exe(simulation):
-    import warnings
-
-    with warnings.catch_warnings():
-        # This is the only way to silence "invalid" options.
-        warnings.simplefilter("ignore")
-        ctl = pws.Control.load_prms(
-            simulation["control_file"],
-            keep_unused_options=True,
-            warn_unused_options=False,
-        )
-
-    if "executable_desc" in ctl.options.keys():
-        exe_desc = ctl.options["executable_desc"][0].lower()
-    else:
-        exe_desc = "prms"
-
+    exe_desc = get_ctl_exe_desc(simulation["control_file"])
     platform = sys.platform.lower()
-
     if "gsflow" in exe_desc:
         if platform == "win32":
             pytest.skip(f"GSFLOW binary not yet provided for {platform}")
@@ -99,6 +103,19 @@ def exe(simulation):
             else:
                 pytest.skip(
                     f"GSFLOW binary not yet provided for {platform}:intel"
+                )
+        elif platform == "linux":
+            pytest.skip(f"GSFLOW binary not yet provided for {platform}")
+    elif "5.2.1.1" in exe_desc:
+        if platform == "win32":
+            pytest.skip(f"PRMS 5.2.1.1 binary not yet provided for {platform}")
+        elif platform == "darwin":
+            if processor() == "arm":
+                exe_name = "prms_5.2.1.1_ifort_apple_silicon"
+            else:
+                pytest.skip(
+                    "PRMS 5.2.1.1 binary not yet provided for "
+                    f"{platform}:intel"
                 )
         elif platform == "linux":
             pytest.skip(f"GSFLOW binary not yet provided for {platform}")
@@ -262,10 +279,18 @@ def pytest_generate_tests(metafunc):
         #  soltab_horad_potsw.csv. Sadly, the output format does not match
         # PRMS output files, there is no date column, presumably because it
         # has a doy dimension 1-366.
-        control_soltab_files = [
-            (vv["control_file"], vv["ws"] / "soltab_debug")
-            for kk, vv in simulations.items()
-        ]
+
+        for kk, vv in simulations.items():
+            exe_desc = get_ctl_exe_desc(vv["control_file"])
+            if "5.2.1.1" in exe_desc:
+                soltab_name = "soltab_debug_5.2.1.1"
+            else:
+                soltab_name = "soltab_debug"
+            control_soltab_files = [
+                (vv["control_file"], vv["ws"] / soltab_name)
+            ]
+
+        # <
         ids = [
             ff.parent.name + ":" + cc.with_suffix("").name + ":" + ff.name
             for cc, ff in control_soltab_files
