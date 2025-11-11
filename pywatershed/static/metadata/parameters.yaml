@@ -560,6 +560,30 @@ dday_slope:
     - ddsolrad
   type: F
   units: dday/temp_units
+depth_alpha:
+  default: 0.27
+  desc: Alpha coefficient in power function for depth calculation
+  dims:
+    0: nsegment
+  help: Alpha coefficient in power function for depth calculation (for units M and CMS)
+  maximum: 0.63
+  minimum: 0.12
+  modules:
+    - stream_temp
+  type: F
+  units: meters
+depth_m:
+  default: 0.39
+  desc: M value in power function for depth calculation
+  dims:
+    0: nsegment
+  help: M value in power function for depth calculation (for units M and CMS)
+  maximum: 0.40
+  minimum: 0.38
+  modules:
+    - stream_temp
+  type: F
+  units: none
 den_init:
   default: 0.1
   desc: Initial density of new-fallen snow

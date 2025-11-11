@@ -43,6 +43,8 @@ pws_control_options_avail = [
     "restart_write",
     "restart_write_freq",
     "start_time",
+    "stream_temp_flag",
+    "stream_temp_shade_flag",
     "streamflow_module",
     "time_step_units",
     "verbosity",
@@ -59,6 +61,8 @@ prms_legacy_options_avail = [
     "nsegmentOutVar_names",
     "param_file",
     "start_time",
+    "stream_temp_flag",
+    "stream_temp_shade_flag",
     "strmflow_module",
     "print_debug",
 ]
