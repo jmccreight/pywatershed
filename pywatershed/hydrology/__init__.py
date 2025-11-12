@@ -22,6 +22,12 @@ from .prms_snow import PRMSSnow
 from .prms_soilzone import PRMSSoilzone
 from .prms_soilzone_ag import PRMSSoilzoneAg
 from .prms_soilzone_no_dprst import PRMSSoilzoneNoDprst
+from .prms_stream_shade import (
+    PRMSStreamShade,
+    PRMSStreamShadeConstant,
+    PRMSStreamShadeDynamic,
+)
+from .prms_stream_temp import PRMSStreamTemp
 
 __all__ = (
     "prms_channel_flow_graph_postprocess",
@@ -44,4 +50,8 @@ __all__ = (
     "PRMSSoilzone",
     "PRMSSoilzoneAg",
     "PRMSSoilzoneNoDprst",
+    "PRMSStreamShade",
+    "PRMSStreamShadeConstant",
+    "PRMSStreamShadeDynamic",
+    "PRMSStreamTemp",
 )

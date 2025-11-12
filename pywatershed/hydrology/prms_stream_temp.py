@@ -8,6 +8,7 @@ from ..base.conservative_process import ConservativeProcess
 from ..base.control import Control
 from ..constants import nan, zero
 from ..parameters import Parameters
+from .prms_stream_shade import PRMSStreamShade
 
 # Constants from PRMS
 NEARZERO = 1e-6
@@ -15,12 +16,11 @@ PI = np.pi
 HALF_PI = PI / 2.0
 RADTOHOUR = 24.0 / (2.0 * PI)
 CFS_TO_CMS = 0.028316847
-NOFLOW_TEMP = np.nan
+NOFLOW_TEMP = -98.9
 DAYS_YR = 365.25
 MAX_DAYS_PER_YEAR = int(DAYS_YR)
 ZERO_C = 273.15
 TOLRN = 1.0e-4
-NOTEMP_FLOW_THRESHOLD = 0.1
 AKZ = 1.65
 A = 5.40e-8
 MPS_CONVERT = 2.93981481e-07
@@ -68,9 +68,12 @@ WEIGHT = np.array(
 
 
 class PRMSStreamTemp(ConservativeProcess):
-    """PRMS stream temperature.
+    """PRMS stream temperature with composition-based design.
 
-    A representation of stream temperature from PRMS.
+    A representation of stream temperature from PRMS. This class uses a
+    composition-based design where:
+    - Hydraulic geometry (seg_flow_*) is provided by upstream PRMSHydraulicGeometry process
+    - Shade computation is handled by composed PRMSStreamShade strategy
 
     Implementation based on PRMS 5.2.1 with theoretical documentation given in
     the PRMS-IV documentation:
@@ -97,17 +100,21 @@ class PRMSStreamTemp(ConservativeProcess):
         parameters: a parameter object of class Parameters
         seg_outflow: Streamflow leaving each segment
         seg_lateral_inflow: Lateral inflow entering each segment
-        seginc_sroff: Surface runoff for each segment
-        seginc_ssflow: Subsurface flow for each segment
-        seginc_gwflow: Groundwater flow for each segment
-        seginc_swrad: Solar radiation for each segment
+        swrad: Solar radiation for each HRU
+        potet: Potential ET for each HRU
+        sroff: Surface runoff for each HRU
+        ssres_flow: Subsurface flow for each HRU
+        gwres_flow: Groundwater flow for each HRU
         seg_humid: Humidity for each segment
-        seg_potet: Potential ET for each segment
         seg_ccov: Cloud cover for each segment
         seg_melt: Snowmelt for each segment
         seg_rain: Rainfall for each segment
         seg_tave_air: Air temperature for each segment
-        seg_width: Width of each segment
+        seg_flow_width: Flow-dependent width from PRMSHydraulicGeometry
+        seg_flow_depth: Flow-dependent depth from PRMSHydraulicGeometry
+        seg_flow_area: Flow-dependent cross-sectional area from PRMSHydraulicGeometry
+        seg_flow_velocity: Flow-dependent velocity from PRMSHydraulicGeometry
+        shade_computer: PRMSStreamShade instance (Dynamic or Constant)
         budget_type: one of ["defer", None, "warn", "error"]
         verbose: Print extra information or not?
     """
@@ -119,19 +126,23 @@ class PRMSStreamTemp(ConservativeProcess):
         parameters: Parameters,
         seg_outflow: adaptable,
         seg_lateral_inflow: adaptable,
-        seginc_sroff: adaptable,
-        seginc_ssflow: adaptable,
-        seginc_gwflow: adaptable,
-        seginc_swrad: adaptable,
+        swrad: adaptable,
+        potet: adaptable,
+        sroff: adaptable,
+        ssres_flow: adaptable,
+        gwres_flow: adaptable,
         seg_humid: adaptable,
-        seg_potet: adaptable,
         seg_ccov: adaptable,
         seg_melt: adaptable,
         seg_rain: adaptable,
         seg_tave_air: adaptable,
-        seg_width: adaptable,
+        seg_flow_width: adaptable,
+        seg_flow_depth: adaptable,
+        seg_flow_area: adaptable,
+        seg_flow_velocity: adaptable,
+        shade_computer: PRMSStreamShade,
         budget_type: Literal["defer", None, "warn", "error"] = "defer",
-        verbose: bool = None,
+        verbose: bool = False,
     ) -> None:
         super().__init__(
             control=control,
@@ -143,6 +154,12 @@ class PRMSStreamTemp(ConservativeProcess):
         self._set_inputs(locals())
         self._set_options(locals())
 
+        # Store the composed shade computer
+        self.shade_computer = shade_computer
+        # Set parent process reference so shade computer can access _shday methods
+        if hasattr(self.shade_computer, "parent_process"):
+            self.shade_computer.parent_process = self
+
         self._set_budget(basis="global")
         self._initialize_stream_temp()
 
@@ -150,12 +167,13 @@ class PRMSStreamTemp(ConservativeProcess):
 
     @staticmethod
     def get_dimensions() -> tuple:
-        return ("nhru", "nsegment", "nmonths")
+        return ("nhru", "nsegment", "nmonth")
 
     @staticmethod
     def get_parameters() -> tuple:
         return (
             "hru_segment",
+            "hru_area",
             "tosegment",
             "albedo",
             "lat_temp_adj",
@@ -168,22 +186,7 @@ class PRMSStreamTemp(ConservativeProcess):
             "melt_temp",
             "maxiter_sntemp",
             "stream_tave_init",
-            "stream_temp_shade_flag",
-            "azrh",
-            "alte",
-            "altw",
-            "vce",
-            "vdemx",
-            "vdemn",
-            "vhe",
-            "voe",
-            "vcw",
-            "vdwmx",
-            "vdwmn",
-            "vhw",
-            "vow",
-            "segshade_sum",
-            "segshade_win",
+            # Note: shade parameters are provided by composed shade_computer
         )
 
     @staticmethod
@@ -191,17 +194,20 @@ class PRMSStreamTemp(ConservativeProcess):
         return (
             "seg_outflow",
             "seg_lateral_inflow",
-            "seginc_sroff",
-            "seginc_ssflow",
-            "seginc_gwflow",
-            "seginc_swrad",
+            "swrad",
+            "potet",
+            "sroff",
+            "ssres_flow",
+            "gwres_flow",
             "seg_humid",
-            "seg_potet",
             "seg_ccov",
             "seg_melt",
             "seg_rain",
             "seg_tave_air",
-            "seg_width",
+            "seg_flow_width",
+            "seg_flow_depth",
+            "seg_flow_area",
+            "seg_flow_velocity",
         )
 
     @staticmethod
@@ -210,10 +216,14 @@ class PRMSStreamTemp(ConservativeProcess):
             "seg_tave_water": nan,
             "seg_tave_upstream": nan,
             "seg_tave_gw": nan,
-            "seg_tave_ss": nan,
-            "seg_tave_lat": nan,
-            "seg_shade": zero,
-            "seg_inflow": zero,
+            "seg_tave_ss": 0.0,
+            "seg_tave_lat": 0.0,
+            "seg_shade": 0.0,
+            "seginc_sroff": 0.0,
+            "seginc_ssflow": 0.0,
+            "seginc_gwflow": 0.0,
+            "seginc_swrad": 0.0,
+            "seginc_potet": 0.0,
         }
 
     @staticmethod
@@ -226,23 +236,40 @@ class PRMSStreamTemp(ConservativeProcess):
         }
 
     def _set_initial_conditions(self) -> None:
-        # Use stream_tave_init if available, otherwise use a default
-        init_temp = getattr(self, "stream_tave_init", None)
-        if init_temp is None:
-            init_temp = np.full(self.nsegment, 10.0)  # Default 10°C
-
-        self.seg_tave_water[:] = init_temp
-        self.seg_tave_upstream[:] = init_temp
-        self.seg_tave_gw[:] = init_temp
-        self.seg_tave_ss[:] = init_temp
+        # Initialize state variables
+        # seg_tave_water starts as NaN, but will be set to -99.9 for segments
+        # with no upstream HRUs (done after upstream info is computed)
+        self.seg_tave_water[:] = np.nan
+        self.seg_tave_upstream[:] = np.nan
+        self.seg_tave_gw[:] = zero
+        self.seg_tave_ss[:] = zero
         self.seg_tave_lat[:] = zero
         self.seg_shade[:] = zero
-        self.seg_inflow[:] = zero
+        self._seg_inflow = np.zeros(self.nsegment, dtype=np.float64)
 
-        # Initialize circular buffers with initial air temperature
-        for jj in range(self.nsegment):
-            self.gw_silo[jj, :] = init_temp[jj]
-            self.ss_silo[jj, :] = init_temp[jj]
+        # Initialize circular buffers for temperature averaging if not already done
+        if not hasattr(self, "gw_silo"):
+            self.gw_silo = np.zeros(
+                (self.nsegment, MAX_DAYS_PER_YEAR), dtype=np.float64
+            )
+            self.ss_silo = np.zeros(
+                (self.nsegment, MAX_DAYS_PER_YEAR), dtype=np.float64
+            )
+            self.gw_index = np.zeros(self.nsegment, dtype=np.int32)
+            self.ss_index = np.zeros(self.nsegment, dtype=np.int32)
+
+        # Initialize circular buffers with 0.0 to match Fortran PRMS
+        # The running sum will gradually build up as air temps are added
+        self.gw_silo[:, :] = 0.0
+        self.ss_silo[:, :] = 0.0
+
+        # Initialize running sum arrays for temperature averaging
+        if not hasattr(self, "gw_sum"):
+            self.gw_sum = np.zeros(self.nsegment, dtype=np.float64)
+            self.ss_sum = np.zeros(self.nsegment, dtype=np.float64)
+
+        self.gw_sum[:] = 0.0
+        self.ss_sum[:] = 0.0
 
         self.gw_index[:] = 0
         self.ss_index[:] = 0
@@ -251,26 +278,93 @@ class PRMSStreamTemp(ConservativeProcess):
 
     def _initialize_stream_temp(self) -> None:
         """Initialize stream temperature data structures."""
-        self.nsegment = self.parameters.dims["nsegment"]
+        self.nsegment = self._params.dims["nsegment"]
+        self.nhru = self._params.dims["nhru"]
+
+        # Extract scalar parameters (dimension "one")
+        # These are stored as arrays but should be scalars
+        if hasattr(self, "maxiter_sntemp") and hasattr(
+            self.maxiter_sntemp, "__len__"
+        ):
+            self.maxiter_sntemp = float(self.maxiter_sntemp[0])
+        if hasattr(self, "albedo") and hasattr(self.albedo, "__len__"):
+            self.albedo = float(self.albedo[0])
+        if hasattr(self, "melt_temp") and hasattr(self.melt_temp, "__len__"):
+            self.melt_temp = float(self.melt_temp[0])
 
         # Get segment ordering for upstream-to-downstream calculations
         self._compute_segment_order()
 
-        # Initialize circular buffers for temperature averaging
-        self.gw_silo = np.zeros(
-            (self.nsegment, MAX_DAYS_PER_YEAR), dtype=np.float64
-        )
-        self.ss_silo = np.zeros(
-            (self.nsegment, MAX_DAYS_PER_YEAR), dtype=np.float64
-        )
-        self.gw_index = np.zeros(self.nsegment, dtype=np.int32)
-        self.ss_index = np.zeros(self.nsegment, dtype=np.int32)
+        # Note: Circular buffers (gw_silo, ss_silo, gw_index, ss_index) are
+        # initialized in _set_initial_conditions to ensure proper timing
+
+        # Initialize segment aggregate arrays
+        self.seginc_sroff = np.zeros(self.nsegment, dtype=np.float64)
+        self.seginc_ssflow = np.zeros(self.nsegment, dtype=np.float64)
+        self.seginc_gwflow = np.zeros(self.nsegment, dtype=np.float64)
+        self.seginc_swrad = np.zeros(self.nsegment, dtype=np.float64)
+        self.seginc_potet = np.zeros(self.nsegment, dtype=np.float64)
+
+        # Note: seg_flow_* are inputs from PRMSHydraulicGeometry, not computed here
+
+        # Compute segment HRU areas (sum of HRU areas contributing to each segment)
+        self.segment_hruarea = np.zeros(self.nsegment, dtype=np.float64)
+        for j in range(self.nhru):
+            seg_idx = self.hru_segment[j]
+            if seg_idx > 0:
+                i = seg_idx - 1
+                self.segment_hruarea[i] += self.hru_area[j]
 
         # Compute upstream segment information
         self._compute_upstream_info()
 
-        # Convert latitude to radians if needed
-        self.seg_lat_rad = np.deg2rad(self.seg_lat)
+        # Mark segments with no upstream HRUs as never having flow
+        # (matches Fortran initialization around line 648)
+        for i in range(self.nsegment):
+            if self.segment_hruarea[i] <= NEARZERO:
+                # Check if any upstream segments have HRUs
+                has_upstream_hrus = False
+                this_seg = i
+                visited = set()
+
+                while this_seg not in visited:
+                    visited.add(this_seg)
+                    # Check upstream segments
+                    found_upstream = False
+                    for j in range(self.nsegment):
+                        if (
+                            self.tosegment[j] > 0
+                            and self.tosegment[j] == this_seg + 1
+                        ):
+                            if self.segment_hruarea[j] > NEARZERO:
+                                has_upstream_hrus = True
+                                break
+                            this_seg = j
+                            found_upstream = True
+                            break
+
+                    if has_upstream_hrus or not found_upstream:
+                        break
+
+                # If no upstream HRUs, mark as never having flow
+                if not has_upstream_hrus:
+                    self.seg_tave_water[i] = -99.9
+
+        # Convert seg_length from meters to kilometers
+        # Parameter file has seg_length in meters, but calculations use km
+        self.seg_length = self.seg_length / 1000.0
+
+        # Convert latitude to radians
+        # Note: When using dynamic shade computation, seg_lat should be zero
+        # to match Fortran behavior (see stream_temp.f90 line ~760)
+        from .prms_stream_shade import PRMSStreamShadeDynamic
+
+        if isinstance(self.shade_computer, PRMSStreamShadeDynamic):
+            # Dynamic shade - zero latitude to match Fortran
+            self.seg_lat_rad = np.zeros(self.nsegment, dtype=np.float64)
+        else:
+            # Constant shade or other - use actual latitude
+            self.seg_lat_rad = np.deg2rad(self.seg_lat)
 
         # Precompute solar geometry for each day of year
         self._precompute_solar_geometry()
@@ -357,11 +451,8 @@ class PRMSStreamTemp(ConservativeProcess):
     def _calculate(self, time_length) -> None:
         """Calculate stream temperature for all segments."""
         # Get current month (1-based) and day of year
-        current_time = self.control.current_time
-        nowmonth = current_time.month
-        doy = (
-            current_time.timetuple().tm_yday - 1
-        )  # 0-based for array indexing
+        nowmonth = self.control.current_month
+        doy = self.control.current_doy - 1
 
         # Get declination for current day
         declination = self.declination[doy]
@@ -369,18 +460,47 @@ class PRMSStreamTemp(ConservativeProcess):
         # Determine summer flag for vegetation density (1=summer, 0=winter)
         summer_flag = 1 if 121 <= (doy + 1) <= 273 else 0
 
+        # Compute segment aggregate variables from HRU inputs
+        self._compute_segment_aggregates()
+
+        # Note: Hydraulic geometry (seg_flow_*) is now provided by upstream
+        # PRMSHydraulicGeometry process, not computed here
+
         # Compute running average temperatures for groundwater and subsurface
+        # Skip segments marked as never having flow (matches Fortran checks)
         for jj in self.segment_order:
+            # Skip if marked as never having flow (Fortran line 887)
+            if self.seg_tave_water[jj] < -99.0:
+                continue
+            # Skip if marked as permanently invalid (Fortran line 894)
+            if self.seginc_swrad[jj] < -99.0:
+                continue
             self._update_running_avg_temp(jj, "gw")
             self._update_running_avg_temp(jj, "ss")
 
         # Compute lateral flow temperatures
+        # Skip segments marked as never having flow or data
         for jj in self.segment_order:
+            if self.seg_tave_water[jj] < -99.0:
+                continue
+            if self.seginc_swrad[jj] < -99.0:
+                continue
             self._compute_lateral_temp(jj, nowmonth)
 
+        # Initialize seg_tave_upstream to 0.0 each timestep (matches Fortran line 463)
+        # Segments that are skipped will keep this 0.0 value
+        self.seg_tave_upstream[:] = 0.0
+
         # Compute shade and water temperature for each segment
-        self.seg_tave_water[:] = np.nan
+        # Don't reset segments marked as -99.9 (never have flow)
         for jj in self.segment_order:
+            if self.seg_tave_water[jj] >= -99.0:
+                self.seg_tave_water[jj] = np.nan
+        for jj in self.segment_order:
+            # Skip segments marked as never having flow (matches Fortran cycle at line 887)
+            if self.seg_tave_water[jj] < -99.0:
+                continue
+
             # Compute upstream temperature
             self._compute_upstream_temp(jj)
 
@@ -388,15 +508,136 @@ class PRMSStreamTemp(ConservativeProcess):
             svi = self._compute_shade(jj, declination, summer_flag)
 
             # Compute segment inflow
-            self.seg_inflow[jj] = self._compute_inflow(jj)
+            self._seg_inflow[jj] = self._compute_inflow(jj)
 
             # Compute water temperature
             self._compute_water_temp(jj, svi)
 
         return
 
+    def _compute_segment_aggregates(self) -> None:
+        """Compute segment aggregate variables from HRU inputs.
+
+        This implements the aggregation calculations from PRMS routing.f90
+        around line 699-805.
+        """
+        # Initialize segment aggregate variables
+        self.seginc_sroff[:] = 0.0
+        self.seginc_ssflow[:] = 0.0
+        self.seginc_gwflow[:] = 0.0
+        self.seginc_swrad[:] = 0.0
+        self.seginc_potet[:] = 0.0
+
+        # Constants (from PRMS_SET_TIME)
+        # Cfs_conv converts acre-inches/day to cfs
+        # FT2_PER_ACRE / INCHES_PER_FOOT / SECS_PER_DAY
+        # = 43560 / 12 / 86400
+        cfs_conv = 43560.0 / 12.0 / 86400.0
+
+        # Aggregate HRU values to segments
+        for j in range(self.nhru):
+            seg_idx = self.hru_segment[j]
+
+            # Check if HRU contributes to a segment (seg_idx > 0)
+            # hru_segment is 1-based, so valid segments are > 0
+            if seg_idx > 0:
+                # Convert to 0-based index
+                i = seg_idx - 1
+
+                # Convert from inches to cfs (area * inches/day * cfs_conv)
+                tocfs = self.hru_area[j] * cfs_conv
+
+                # Accumulate flow components (converted to cfs)
+                self.seginc_sroff[i] += self.sroff[j] * tocfs
+                self.seginc_ssflow[i] += self.ssres_flow[j] * tocfs
+                self.seginc_gwflow[i] += self.gwres_flow[j] * tocfs
+
+                # Accumulate area-weighted radiation and ET
+                # (will be divided by total HRU area later)
+                self.seginc_swrad[i] += self.swrad[j] * self.hru_area[j]
+                self.seginc_potet[i] += self.potet[j] * self.hru_area[j]
+
+        # Divide radiation and PET by segment HRU area to get averages
+        for i in range(self.nsegment):
+            if self.segment_hruarea[i] > NEARZERO:
+                self.seginc_swrad[i] /= self.segment_hruarea[i]
+                self.seginc_potet[i] /= self.segment_hruarea[i]
+            else:
+                # Segment has no HRUs - search upstream/downstream
+                # First try upstream
+                found = False
+                this_seg = i
+
+                while not found:
+                    # Find upstream segment
+                    upstream_seg = -1
+                    for j in range(self.nsegment):
+                        toseg = self.tosegment[j]
+                        if toseg > 0 and toseg == this_seg + 1:
+                            upstream_seg = j
+                            break
+
+                    if upstream_seg < 0:
+                        # No upstream segment found
+                        break
+
+                    if self.segment_hruarea[upstream_seg] > NEARZERO:
+                        # Found upstream segment with HRUs
+                        self.seginc_swrad[i] = (
+                            self.seginc_swrad[upstream_seg]
+                            / self.segment_hruarea[upstream_seg]
+                        )
+                        self.seginc_potet[i] = (
+                            self.seginc_potet[upstream_seg]
+                            / self.segment_hruarea[upstream_seg]
+                        )
+                        found = True
+                        break
+
+                    this_seg = upstream_seg
+
+                # If not found upstream, try downstream
+                if not found:
+                    this_seg = i
+
+                    while not found:
+                        toseg = self.tosegment[this_seg]
+
+                        # Check if terminal segment (tosegment == 0)
+                        if toseg <= 0:
+                            break
+
+                        downstream_seg = toseg - 1  # Convert to 0-based
+
+                        if self.segment_hruarea[downstream_seg] > NEARZERO:
+                            # Found downstream segment with HRUs
+                            self.seginc_swrad[i] = (
+                                self.seginc_swrad[downstream_seg]
+                                / self.segment_hruarea[downstream_seg]
+                            )
+                            self.seginc_potet[i] = (
+                                self.seginc_potet[downstream_seg]
+                                / self.segment_hruarea[downstream_seg]
+                            )
+                            found = True
+                            break
+
+                        this_seg = downstream_seg
+
+                # If still not found, set to missing value
+                if not found:
+                    self.seginc_swrad[i] = nan
+                    self.seginc_potet[i] = nan
+
+        return
+
+    # Note: _compute_hydraulic_geometry removed - now handled by PRMSHydraulicGeometry process
+
     def _update_running_avg_temp(self, seg_idx: int, comp_type: str) -> None:
         """Update running average temperature for groundwater or subsurface.
+
+        This matches the Fortran PRMS implementation which uses a running sum
+        divided by tau, with a circular buffer.
 
         Args:
             seg_idx: Segment index
@@ -406,23 +647,24 @@ class PRMSStreamTemp(ConservativeProcess):
             tau = self.gw_tau[seg_idx]
             index = self.gw_index[seg_idx]
             silo = self.gw_silo
+            sum_array = self.gw_sum
         else:  # "ss"
             tau = self.ss_tau[seg_idx]
             index = self.ss_index[seg_idx]
             silo = self.ss_silo
+            sum_array = self.ss_sum
 
-        # Update circular buffer
+        # Remove old value from sum (circular buffer behavior)
+        sum_array[seg_idx] -= silo[seg_idx, index]
+
+        # Add new air temperature to silo
         silo[seg_idx, index] = self.seg_tave_air[seg_idx]
 
-        # Compute running average
-        sum_temp = 0.0
-        for ii in range(tau):
-            idx = (index - ii) % MAX_DAYS_PER_YEAR
-            if idx < 0:
-                idx += MAX_DAYS_PER_YEAR
-            sum_temp += silo[seg_idx, idx]
+        # Add new value to sum
+        sum_array[seg_idx] += silo[seg_idx, index]
 
-        avg_temp = sum_temp / tau
+        # Compute average as sum / tau (matches Fortran)
+        avg_temp = sum_array[seg_idx] / tau
 
         if comp_type == "gw":
             self.seg_tave_gw[seg_idx] = avg_temp
@@ -467,11 +709,11 @@ class PRMSStreamTemp(ConservativeProcess):
 
         # Apply monthly adjustment
         if not np.isnan(tl_avg):
-            tl_avg += self.lat_temp_adj[seg_idx, nowmonth - 1]
+            tl_avg += self.lat_temp_adj[nowmonth - 1, seg_idx]
 
-            # Ensure non-negative
-            if tl_avg < 0.0:
-                tl_avg = 0.0
+        # Ensure non-negative (also converts NaN to 0.0 to match Fortran)
+        if np.isnan(tl_avg) or tl_avg < 0.0:
+            tl_avg = 0.0
 
         self.seg_tave_lat[seg_idx] = tl_avg
 
@@ -506,9 +748,9 @@ class PRMSStreamTemp(ConservativeProcess):
         tl_avg = 0.0
 
         if qlat > 0.0:
-            weight_roff = float(seginc_sroff / qlat) * CFS_TO_CMS
-            weight_ss = float(seginc_ssflow / qlat) * CFS_TO_CMS
-            weight_gw = float(seginc_gwflow / qlat) * CFS_TO_CMS
+            weight_roff = float((seginc_sroff * CFS_TO_CMS) / qlat)
+            weight_ss = float((seginc_ssflow * CFS_TO_CMS) / qlat)
+            weight_gw = float((seginc_gwflow * CFS_TO_CMS) / qlat)
         else:
             weight_roff = 0.0
             weight_ss = 0.0
@@ -567,7 +809,7 @@ class PRMSStreamTemp(ConservativeProcess):
     def _compute_shade(
         self, seg_idx: int, declination: float, summer_flag: int
     ) -> float:
-        """Compute shade fraction for a segment.
+        """Compute shade using the composed shade_computer.
 
         Args:
             seg_idx: Segment index
@@ -577,44 +819,17 @@ class PRMSStreamTemp(ConservativeProcess):
         Returns:
             svi: Vegetation shade index
         """
-        shade_flag = getattr(self, "stream_temp_shade_flag", 1)
+        # Delegate to composed shade computer
+        shade, svi = self.shade_computer.compute(
+            seg_idx,
+            declination,
+            summer_flag,
+            self.seg_flow_width[seg_idx],
+        )
 
-        if shade_flag == 1:
-            # Use constant shade values
-            segshade_sum = getattr(
-                self, "segshade_sum", np.zeros(self.nsegment)
-            )
-            segshade_win = getattr(
-                self, "segshade_win", np.zeros(self.nsegment)
-            )
 
-            if summer_flag == 1:
-                self.seg_shade[seg_idx] = segshade_sum[seg_idx]
-            else:
-                self.seg_shade[seg_idx] = segshade_win[seg_idx]
-            svi = 0.0
-        else:
-            # Compute shade using shday function
-            shade, svi = self._shday(
-                self.seg_lat_rad[seg_idx],
-                declination,
-                self.seg_width[seg_idx],
-                self.azrh[seg_idx],
-                self.alte[seg_idx],
-                self.altw[seg_idx],
-                self.vce[seg_idx],
-                self.voe[seg_idx],
-                self.vhe[seg_idx],
-                self.vdemx[seg_idx],
-                self.vdemn[seg_idx],
-                summer_flag,
-                self.vcw[seg_idx],
-                self.vow[seg_idx],
-                self.vhw[seg_idx],
-                self.vdwmx[seg_idx],
-                self.vdwmn[seg_idx],
-            )
-            self.seg_shade[seg_idx] = shade
+
+        self.seg_shade[seg_idx] = shade
 
         return svi
 
@@ -873,7 +1088,7 @@ class PRMSStreamTemp(ConservativeProcess):
 
         This is the solalt function from PRMS.
         """
-        maxiter_sntemp = self.maxiter_sntemp
+        maxiter_sntemp = int(self.maxiter_sntemp)
 
         if abs(abs(az) - HALF_PI) < NEARZERO:
             temp = abs(sin_d / sino)
@@ -890,7 +1105,7 @@ class PRMSStreamTemp(ConservativeProcess):
             fal = np.cos(al) - (a * np.sin(al)) + b
             delal = fal / (-np.sin(al) - (a * np.cos(al)))
 
-            for kount in range(1, maxiter_sntemp + 1):
+            for kount in range(1, int(maxiter_sntemp + 1)):
                 if abs(fal) < NEARZERO:
                     break
                 if abs(delal) < NEARZERO:
@@ -933,7 +1148,7 @@ class PRMSStreamTemp(ConservativeProcess):
 
         This is the snr_sst function from PRMS.
         """
-        maxiter_sntemp = self.maxiter_sntemp
+        maxiter_sntemp = int(self.maxiter_sntemp)
 
         # Trig function for local altitude
         tanalt = np.tan(alt)
@@ -944,7 +1159,7 @@ class PRMSStreamTemp(ConservativeProcess):
         delals = 99999999.0
 
         # Begin Newton-Raphson solution
-        for count in range(maxiter_sntemp):
+        for count in range(int(maxiter_sntemp)):
             if abs(delazs) < NEARZERO:
                 break
             if abs(delals) < NEARZERO:
@@ -1178,8 +1393,18 @@ class PRMSStreamTemp(ConservativeProcess):
             seg_idx: Segment index
             svi: Vegetation shade index
         """
-        # Check for no-flow conditions
-        if self.seg_outflow[seg_idx] < NOTEMP_FLOW_THRESHOLD:
+        # Skip segments marked as permanently invalid (matches Fortran line 887, 894)
+        if self.seg_tave_water[seg_idx] < -99.0:
+            # Never has flow - skip all calculations
+            return
+
+        if self.seginc_swrad[seg_idx] < -99.0:
+            # Never has data - mark and skip
+            self.seg_tave_water[seg_idx] = -99.9
+            return
+
+        # Check for no-flow conditions (matches Fortran check for seg_outflow <= 0)
+        if self.seg_outflow[seg_idx] <= 0.0:
             self.seg_tave_water[seg_idx] = NOFLOW_TEMP
             return
 
@@ -1211,7 +1436,7 @@ class PRMSStreamTemp(ConservativeProcess):
 
         # Compute final temperature using twavg function
         qlat = lateral_flow * CFS_TO_CMS
-        qup = upstream_flow
+        qup = upstream_flow  # Upstream flow only (CFS)
         tl_avg = self.seg_tave_lat[seg_idx]
 
         self.seg_tave_water[seg_idx] = self._twavg(
@@ -1275,7 +1500,7 @@ class PRMSStreamTemp(ConservativeProcess):
         vp_sat = 6.108 * np.exp(17.26939 * t_o / (t_o + 237.3))
 
         # Convert units and set up parameters
-        q_init = max(self.seg_inflow[seg_idx] * CFS_TO_CMS, NEARZERO)
+        q_init = max(self._seg_inflow[seg_idx] * CFS_TO_CMS, NEARZERO)
 
         sw_power = 11.63 / 24.0 * float(self.seginc_swrad[seg_idx])
 
@@ -1286,7 +1511,7 @@ class PRMSStreamTemp(ConservativeProcess):
         press = 1013.0 - (0.1055 * self.seg_elev[seg_idx])
 
         bow_coeff = (0.00061 * press) / (vp_sat * (1.0 - foo))
-        evap = float(self.seg_potet[seg_idx] * MPS_CONVERT)
+        evap = float(self.seginc_potet[seg_idx] * MPS_CONVERT)
 
         # Heat flux components
         # Ha: atmospheric-emitted longwave radiation
@@ -1299,7 +1524,7 @@ class PRMSStreamTemp(ConservativeProcess):
         # Hf: heat dissipated from potential energy by friction
         hf = (
             9805.0
-            * (q_init / self.seg_width[seg_idx])
+            * (q_init / self.seg_flow_width[seg_idx])
             * self.seg_slope[seg_idx]
         )
 
@@ -1352,7 +1577,7 @@ class PRMSStreamTemp(ConservativeProcess):
             teq: Equilibrium temperature (degC)
             ak1c: First-order thermal exchange coefficient
         """
-        maxiter_sntemp = self.maxiter_sntemp
+        maxiter_sntemp = int(self.maxiter_sntemp)
 
         # Local variables
         fte = 99999.0
@@ -1419,7 +1644,7 @@ class PRMSStreamTemp(ConservativeProcess):
         # Determine equation parameters
         q_init = float(qup * CFS_TO_CMS)
         ql = float(qlat)
-        width = self.seg_width[seg_idx]
+        width = self.seg_flow_width[seg_idx]
         length = self.seg_length[seg_idx]
 
         # Local Variables
