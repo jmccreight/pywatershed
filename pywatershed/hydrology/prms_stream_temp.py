@@ -376,10 +376,9 @@ class PRMSStreamTemp(ConservativeProcess):
         # Solar declination for each day of year
         self.declination = np.zeros(MAX_DAYS_PER_YEAR)
         for jday in range(MAX_DAYS_PER_YEAR):
-            # Cooper's equation for solar declination
-            day_angle = 2.0 * PI * (jday + 1) / 365.0
-            self.declination[jday] = 0.409 * np.sin(
-                day_angle - 1.39
+            k = jday + 1  # Convert to 1-based day of year
+            self.declination[jday] = 0.40928 * np.cos(
+                ((2.0 * PI) / DAYS_YR) * (172.0 - k)
             )  # radians
 
         return
@@ -827,8 +826,6 @@ class PRMSStreamTemp(ConservativeProcess):
             self.seg_flow_width[seg_idx],
         )
 
-
-
         self.seg_shade[seg_idx] = shade
 
         return svi
@@ -1081,6 +1078,7 @@ class PRMSStreamTemp(ConservativeProcess):
             svi = 1.0
 
         shade = sti + svi
+
         return shade, svi
 
     def _solalt(self, coso, sino, sin_d, az, almn, almx):
