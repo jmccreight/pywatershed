@@ -8,9 +8,6 @@ from utils_compare import compare_in_memory, compare_netcdfs
 from pywatershed.base.adapter import adapter_factory
 from pywatershed.base.control import Control
 from pywatershed.base.parameters import Parameters
-from pywatershed.hydrology.prms_hydraulic_geometry import (
-    PRMSHydraulicGeometryDefault,
-)
 from pywatershed.hydrology.prms_stream_shade import (
     PRMSStreamShadeConstant,
     PRMSStreamShadeDynamic,
@@ -81,22 +78,7 @@ def test_compare_prms(
     tmp_path = pl.Path(tmp_path)
     output_dir = simulation["output_dir"]
 
-    # TODO: replace with inputs from netcdf.
-    # Step 1: Instantiate hydraulic geometry (upstream process)
-    hydraulic_geom_inputs = {}
-    for key in PRMSHydraulicGeometryDefault.get_inputs():
-        nc_path = output_dir / f"{key}.nc"
-        hydraulic_geom_inputs[key] = nc_path
-
-    hydraulic_geom = PRMSHydraulicGeometryDefault(
-        control,
-        discretization,
-        parameters,
-        **hydraulic_geom_inputs,
-        budget_type=None,
-    )
-
-    # Step 2: Instantiate shade computer (composed component)
+    # Step 1: Instantiate shade computer (composed component)
     stream_temp_shade_flag = control.options.get(
         "stream_temp_shade_flag", np.array([0])
     )[0]
@@ -112,46 +94,27 @@ def test_compare_prms(
             parameters, discretization.dims["nsegment"]
         )
 
-    # Step 3: Prepare inputs for PRMSStreamTemp
-    # Most inputs come from output files, but seg_flow_* come from hydraulic_geom
+    # Step 2: Prepare inputs for PRMSStreamTemp
+    # All inputs come from PRMS output files
     stream_temp_inputs = {}
     for key in PRMSStreamTemp.get_inputs():
-        if key in [
-            "seg_flow_width",
-            "seg_flow_depth",
-            "seg_flow_area",
-            "seg_flow_velocity",
-        ]:
-            # These come from hydraulic_geom process, not files
-            continue
         nc_path = output_dir / f"{key}.nc"
         stream_temp_inputs[key] = nc_path
 
-    # Step 4: Instantiate PRMSStreamTemp with composed shade_computer
+    # Step 3: Instantiate PRMSStreamTemp with composed shade_computer
     stream_temp = PRMSStreamTemp(
         control,
         discretization,
         parameters,
         **stream_temp_inputs,
-        seg_flow_width=hydraulic_geom.seg_flow_width,
-        seg_flow_depth=hydraulic_geom.seg_flow_depth,
-        seg_flow_area=hydraulic_geom.seg_flow_area,
-        seg_flow_velocity=hydraulic_geom.seg_flow_velocity,
         shade_computer=shade_computer,
         budget_type=None,
     )
 
-    compare_vars = set(PRMSStreamTemp.get_variables()) - {
-        "seginc_sroff",  # Computed internally
-        "seginc_ssflow",  # Computed internally
-        "seginc_gwflow",  # Computed internally
-        "seginc_swrad",  # Computed internally
-        "seginc_potet",  # Computed internally
-    }
-
+    # Compare all PRMSStreamTemp variables
+    compare_vars = set(PRMSStreamTemp.get_variables())
     if do_compare_output_files:
         nc_parent = tmp_path / simulation["name"].replace(":", "_")
-        hydraulic_geom.initialize_netcdf(nc_parent / "hydraulic_geom")
         stream_temp.initialize_netcdf(nc_parent)
 
     if do_compare_in_memory:
@@ -167,12 +130,7 @@ def test_compare_prms(
     for istep in range(control.n_times):
         control.advance()
 
-        # Run hydraulic geometry first (upstream)
-        hydraulic_geom.advance()
-        hydraulic_geom.calculate(float(istep))
-        hydraulic_geom.output()
-
-        # Then run stream temperature
+        # Run stream temperature
         stream_temp.advance()
         stream_temp.calculate(float(istep))
         stream_temp.output()
@@ -180,6 +138,7 @@ def test_compare_prms(
         if do_compare_in_memory:
             for var in answers.values():
                 var.advance()
+
             compare_in_memory(
                 stream_temp,
                 answers,
@@ -188,10 +147,76 @@ def test_compare_prms(
                 skip_missing_ans=True,
             )
 
-    hydraulic_geom.finalize()
     stream_temp.finalize()
 
     if do_compare_output_files:
+        # Compute statistics from output files
+        import xarray as xr
+
+        print("\n" + "=" * 80)
+        print("STATISTICS SUMMARY (all timesteps, all segments)")
+        print("=" * 80)
+
+        sim_dir = tmp_path / simulation["name"].replace(":", "_")
+
+        for var in sorted(compare_vars):
+            sim_file = sim_dir / f"{var}.nc"
+            obs_file = output_dir / f"{var}.nc"
+
+            if not sim_file.exists() or not obs_file.exists():
+                continue
+
+            # Load data
+            sim_ds = xr.open_dataset(sim_file)
+            obs_ds = xr.open_dataset(obs_file)
+
+            sim_data = sim_ds[var].values
+            obs_data = obs_ds[var].values
+
+            sim_ds.close()
+            obs_ds.close()
+
+            # Flatten to 1D for statistics
+            sim_flat = sim_data.flatten()
+            obs_flat = obs_data.flatten()
+
+            # Create mask for valid (non-NaN, non-sentinel) values
+            valid_mask = (
+                ~np.isnan(sim_flat)
+                & ~np.isnan(obs_flat)
+                & (obs_flat > -90)  # Exclude sentinel values like -98.9, -99.9
+            )
+
+            if np.sum(valid_mask) == 0:
+                print(f"\n{var}: No valid data points")
+                continue
+
+            sim_valid = sim_flat[valid_mask]
+            obs_valid = obs_flat[valid_mask]
+
+            # Compute statistics
+            bias = np.mean(sim_valid - obs_valid)
+            rmse = np.sqrt(np.mean((sim_valid - obs_valid) ** 2))
+
+            # R² calculation
+            ss_res = np.sum((obs_valid - sim_valid) ** 2)
+            ss_tot = np.sum((obs_valid - np.mean(obs_valid)) ** 2)
+            r2 = 1 - (ss_res / ss_tot) if ss_tot > 0 else np.nan
+
+            # Correlation coefficient
+            corr = np.corrcoef(sim_valid, obs_valid)[0, 1]
+
+            print(f"\n{var}:")
+            print(f"  N valid points: {np.sum(valid_mask):,}")
+            print(f"  R²:             {r2:.6f}")
+            print(f"  Correlation:    {corr:.6f}")
+            print(f"  RMSE:           {rmse:.6f}")
+            print(f"  Bias:           {bias:.6f}")
+            print(f"  Mean observed:  {np.mean(obs_valid):.6f}")
+            print(f"  Mean simulated: {np.mean(sim_valid):.6f}")
+
+        print("\n" + "=" * 80)
+
         compare_netcdfs(
             compare_vars,
             tmp_path / simulation["name"].replace(":", "_"),

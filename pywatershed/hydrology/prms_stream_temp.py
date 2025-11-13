@@ -452,7 +452,7 @@ class PRMSStreamTemp(ConservativeProcess):
         """Calculate stream temperature for all segments."""
         # Get current month (1-based) and day of year
         nowmonth = self.control.current_month
-        doy = self.control.current_doy - 1
+        doy = min(self.control.current_doy, 365) - 1
 
         # Get declination for current day
         declination = self.declination[doy]
@@ -668,10 +668,10 @@ class PRMSStreamTemp(ConservativeProcess):
 
         if comp_type == "gw":
             self.seg_tave_gw[seg_idx] = avg_temp
-            self.gw_index[seg_idx] = (index + 1) % MAX_DAYS_PER_YEAR
+            self.gw_index[seg_idx] = (index + 1) % int(tau)
         else:
             self.seg_tave_ss[seg_idx] = avg_temp
-            self.ss_index[seg_idx] = (index + 1) % MAX_DAYS_PER_YEAR
+            self.ss_index[seg_idx] = (index + 1) % int(tau)
 
         return
 
