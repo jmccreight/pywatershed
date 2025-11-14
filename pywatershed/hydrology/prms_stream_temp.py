@@ -214,16 +214,16 @@ class PRMSStreamTemp(ConservativeProcess):
     def get_init_values() -> dict:
         return {
             "seg_tave_water": nan,
-            "seg_tave_upstream": nan,
-            "seg_tave_gw": nan,
+            "seg_tave_upstream": 0.0,
+            "seg_tave_gw": 0.0,
             "seg_tave_ss": 0.0,
             "seg_tave_lat": 0.0,
             "seg_shade": 0.0,
+            "seg_potet": 0.0,
             "seginc_sroff": 0.0,
             "seginc_ssflow": 0.0,
             "seginc_gwflow": 0.0,
             "seginc_swrad": 0.0,
-            "seginc_potet": 0.0,
         }
 
     @staticmethod
@@ -299,11 +299,11 @@ class PRMSStreamTemp(ConservativeProcess):
         # initialized in _set_initial_conditions to ensure proper timing
 
         # Initialize segment aggregate arrays
+        self.seg_potet = np.zeros(self.nsegment, dtype=np.float64)
         self.seginc_sroff = np.zeros(self.nsegment, dtype=np.float64)
         self.seginc_ssflow = np.zeros(self.nsegment, dtype=np.float64)
         self.seginc_gwflow = np.zeros(self.nsegment, dtype=np.float64)
         self.seginc_swrad = np.zeros(self.nsegment, dtype=np.float64)
-        self.seginc_potet = np.zeros(self.nsegment, dtype=np.float64)
 
         # Note: seg_flow_* are inputs from PRMSHydraulicGeometry, not computed here
 
@@ -317,6 +317,62 @@ class PRMSStreamTemp(ConservativeProcess):
 
         # Compute upstream segment information
         self._compute_upstream_info()
+
+        # Compute segment_up - the single immediate upstream segment (matches Fortran Segment_up)
+        # Fortran's Segment_up is computed by iterating segments and assigning Segment_up(toseg) = j
+        # This means when multiple segments flow into one, it keeps the LAST one (highest j)
+        # So we need to find the last upstream in segment numbering order
+        segment_up = np.zeros(self.nsegment, dtype=np.int32)
+        for j in range(self.nsegment):
+            toseg = self.tosegment[j]
+            if toseg > 0:
+                # toseg is 1-based, convert to 0-based
+                segment_up[toseg - 1] = j
+        # Note: segment_up[i] = 0 means no upstream (default from zeros initialization)
+
+        # Save segment_up as instance variable (needed for routing aggregation logic)
+        self.segment_up = segment_up
+
+        # Compute seg_close for segments without HRUs (matches Fortran line 529-570)
+        # Initialize seg_close = segment_up (Fortran line 529)
+        self.seg_close = np.copy(segment_up)
+
+        # Now update seg_close for segments without HRUs (Fortran line 530-570)
+        for jj in range(self.nsegment):
+            i = self.segment_order[jj]
+
+            # Only modify seg_close for segments without HRUs (Fortran line 539)
+            if self.segment_hruarea[i] <= NEARZERO:
+                # If no upstream segment (Fortran line 541)
+                if self.segment_up[i] == 0:
+                    # Try downstream segment (Fortran line 542-543)
+                    if self.tosegment[i] > 0:
+                        self.seg_close[i] = (
+                            self.tosegment[i] - 1
+                        )  # Convert to 0-based
+                    else:
+                        # No upstream or downstream - use previous/next in order (Fortran line 544-549)
+                        if jj > 0:
+                            self.seg_close[i] = self.segment_order[jj - 1]
+                        else:
+                            self.seg_close[i] = self.segment_order[jj + 1]
+
+                # Check if seg_close points to invalid segment (Fortran line 551-563)
+                # If elevation is exactly 30000 (invalid marker), find a different segment
+                if self.seg_elev[self.seg_close[i]] == 30000.0:
+                    found = False
+                    # Find first segment with HRUs in forward order (Fortran line 553-558)
+                    for k in range(jj + 1, self.nsegment):
+                        ii = self.segment_order[k]
+                        if self.segment_hruarea[ii] > NEARZERO:
+                            self.seg_close[i] = ii
+                            found = True
+                            break
+
+                    # If not found, use previous segment in order (Fortran line 560-565)
+                    if not found:
+                        if jj > 0:
+                            self.seg_close[i] = self.segment_order[jj - 1]
 
         # Mark segments with no upstream HRUs as never having flow
         # (matches Fortran initialization around line 648)
@@ -462,6 +518,9 @@ class PRMSStreamTemp(ConservativeProcess):
         # Compute segment aggregate variables from HRU inputs
         self._compute_segment_aggregates()
 
+        # Compute seg_potet using stream_temp.f90 logic (after aggregates)
+        self._compute_seg_potet()
+
         # Note: Hydraulic geometry (seg_flow_*) is now provided by upstream
         # PRMSHydraulicGeometry process, not computed here
 
@@ -525,7 +584,6 @@ class PRMSStreamTemp(ConservativeProcess):
         self.seginc_ssflow[:] = 0.0
         self.seginc_gwflow[:] = 0.0
         self.seginc_swrad[:] = 0.0
-        self.seginc_potet[:] = 0.0
 
         # Constants (from PRMS_SET_TIME)
         # Cfs_conv converts acre-inches/day to cfs
@@ -551,76 +609,86 @@ class PRMSStreamTemp(ConservativeProcess):
                 self.seginc_ssflow[i] += self.ssres_flow[j] * tocfs
                 self.seginc_gwflow[i] += self.gwres_flow[j] * tocfs
 
-                # Accumulate area-weighted radiation and ET
+                # Accumulate area-weighted radiation
                 # (will be divided by total HRU area later)
                 self.seginc_swrad[i] += self.swrad[j] * self.hru_area[j]
-                self.seginc_potet[i] += self.potet[j] * self.hru_area[j]
 
-        # Divide radiation and PET by segment HRU area to get averages
+        # First: Process seginc_swrad in numerical order (routing.f90 logicDivide radiation and PET by segment HRU area to get averages
+        # Process in numerical order to match routing.f90 (line 741-810)
         for i in range(self.nsegment):
             if self.segment_hruarea[i] > NEARZERO:
                 self.seginc_swrad[i] /= self.segment_hruarea[i]
-                self.seginc_potet[i] /= self.segment_hruarea[i]
+
             else:
-                # Segment has no HRUs - search upstream/downstream
-                # First try upstream
-                found = False
+                # Segment has no HRUs - search upstream then downstream (matches routing.f90 line 746-805)
+                # Search upstream first (routing.f90 line 749-772)
                 this_seg = i
-
+                found = False
                 while not found:
-                    # Find upstream segment
-                    upstream_seg = -1
-                    for j in range(self.nsegment):
-                        toseg = self.tosegment[j]
-                        if toseg > 0 and toseg == this_seg + 1:
-                            upstream_seg = j
+                    if self.segment_hruarea[this_seg] <= NEARZERO:
+                        # Check if headwater (no upstream)
+                        upstream_seg = self.segment_up[this_seg]
+                        if upstream_seg == 0:
+                            found = False
                             break
-
-                    if upstream_seg < 0:
-                        # No upstream segment found
-                        break
-
-                    if self.segment_hruarea[upstream_seg] > NEARZERO:
-                        # Found upstream segment with HRUs
-                        # Upstream values are already averaged, so just copy them
-                        self.seginc_swrad[i] = self.seginc_swrad[upstream_seg]
-                        self.seginc_potet[i] = self.seginc_potet[upstream_seg]
+                        # Move to upstream segment
+                        this_seg = upstream_seg
+                    else:
+                        # Found segment with HRUs - copy values (already averaged)
+                        self.seginc_swrad[i] = self.seginc_swrad[this_seg]
                         found = True
                         break
 
-                    this_seg = upstream_seg
-
-                # If not found upstream, try downstream
+                # If not found upstream, search downstream (routing.f90 line 776-800)
                 if not found:
                     this_seg = i
-
                     while not found:
-                        toseg = self.tosegment[this_seg]
-
-                        # Check if terminal segment (tosegment == 0)
-                        if toseg <= 0:
-                            break
-
-                        downstream_seg = toseg - 1  # Convert to 0-based
-
-                        if self.segment_hruarea[downstream_seg] > NEARZERO:
-                            # Found downstream with HRUs
-                            # Downstream values are already averaged, so just copy them
-                            self.seginc_swrad[i] = self.seginc_swrad[
-                                downstream_seg
-                            ]
-                            self.seginc_potet[i] = self.seginc_potet[
-                                downstream_seg
-                            ]
+                        if self.segment_hruarea[this_seg] <= NEARZERO:
+                            # Check if terminal segment (no downstream)
+                            if self.tosegment[this_seg] == 0:
+                                found = False
+                                break
+                            # Move to downstream segment (tosegment is 1-based)
+                            this_seg = self.tosegment[this_seg] - 1
+                        else:
+                            # Found segment with HRUs - copy values (already averaged)
+                            self.seginc_swrad[i] = self.seginc_swrad[this_seg]
                             found = True
                             break
 
-                        this_seg = downstream_seg
-
-                # If still not found, set to missing value
+                # If still not found, set to invalid marker (routing.f90 line 803-805)
                 if not found:
-                    self.seginc_swrad[i] = nan
-                    self.seginc_potet[i] = nan
+                    self.seginc_swrad[i] = -99.9
+
+        return
+
+    def _compute_seg_potet(self) -> None:
+        """Compute seg_potet using stream_temp.f90 logic.
+
+        This matches stream_temp.f90 lines 807-848, using segment_order and seg_close.
+        """
+        # Initialize
+        self.seg_potet[:] = 0.0
+
+        # Accumulate from HRUs
+        for j in range(self.nhru):
+            seg_idx = self.hru_segment[j]
+            if seg_idx > 0:
+                i = seg_idx - 1
+                self.seg_potet[i] += self.potet[j] * self.hru_area[j]
+
+        # Process in segment_order (stream_temp.f90 line 810)
+        for jj in range(self.nsegment):
+            i = self.segment_order[jj]
+
+            if self.segment_hruarea[i] > NEARZERO:
+                self.seg_potet[i] /= self.segment_hruarea[i]
+
+            else:
+                # Segment has no HRUs - use seg_close (stream_temp.f90 line 817)
+                close_seg = self.seg_close[i]
+
+                self.seg_potet[i] = self.seg_potet[close_seg]
 
         return
 
@@ -1503,7 +1571,7 @@ class PRMSStreamTemp(ConservativeProcess):
         press = 1013.0 - (0.1055 * self.seg_elev[seg_idx])
 
         bow_coeff = (0.00061 * press) / (vp_sat * (1.0 - foo))
-        evap = float(self.seginc_potet[seg_idx] * MPS_CONVERT)
+        evap = float(self.seg_potet[seg_idx] * MPS_CONVERT)
 
         # Heat flux components
         # Ha: atmospheric-emitted longwave radiation

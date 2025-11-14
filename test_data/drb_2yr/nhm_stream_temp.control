@@ -380,7 +380,7 @@ nsegmentOutON_OFF
 nsegmentOutVars
 1
 1
-29
+30
 ####
 nsegmentOut_freq
 1
@@ -388,7 +388,7 @@ nsegmentOut_freq
 1
 ####
 nsegmentOutVar_names
-29
+30
 4
 seg_area
 seg_ccov
@@ -419,6 +419,7 @@ seginc_gwflow
 seginc_sroff
 seginc_ssflow
 seginc_swrad
+seginc_potet
 ####
 nsegmentOutBaseFileName
 1
