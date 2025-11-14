@@ -582,14 +582,9 @@ class PRMSStreamTemp(ConservativeProcess):
 
                     if self.segment_hruarea[upstream_seg] > NEARZERO:
                         # Found upstream segment with HRUs
-                        self.seginc_swrad[i] = (
-                            self.seginc_swrad[upstream_seg]
-                            / self.segment_hruarea[upstream_seg]
-                        )
-                        self.seginc_potet[i] = (
-                            self.seginc_potet[upstream_seg]
-                            / self.segment_hruarea[upstream_seg]
-                        )
+                        # Upstream values are already averaged, so just copy them
+                        self.seginc_swrad[i] = self.seginc_swrad[upstream_seg]
+                        self.seginc_potet[i] = self.seginc_potet[upstream_seg]
                         found = True
                         break
 
@@ -609,15 +604,14 @@ class PRMSStreamTemp(ConservativeProcess):
                         downstream_seg = toseg - 1  # Convert to 0-based
 
                         if self.segment_hruarea[downstream_seg] > NEARZERO:
-                            # Found downstream segment with HRUs
-                            self.seginc_swrad[i] = (
-                                self.seginc_swrad[downstream_seg]
-                                / self.segment_hruarea[downstream_seg]
-                            )
-                            self.seginc_potet[i] = (
-                                self.seginc_potet[downstream_seg]
-                                / self.segment_hruarea[downstream_seg]
-                            )
+                            # Found downstream with HRUs
+                            # Downstream values are already averaged, so just copy them
+                            self.seginc_swrad[i] = self.seginc_swrad[
+                                downstream_seg
+                            ]
+                            self.seginc_potet[i] = self.seginc_potet[
+                                downstream_seg
+                            ]
                             found = True
                             break
 

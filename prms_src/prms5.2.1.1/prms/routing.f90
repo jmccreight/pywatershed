@@ -761,8 +761,12 @@
                  this_seg = segment_up(this_seg)
               else
                   ! This segment has HRUs so there will be swrad and potet
-                  Seginc_swrad(i) = Seginc_swrad(this_seg)/Segment_hruarea(this_seg)
-                  Seginc_potet(i) = Seginc_potet(this_seg)/Segment_hruarea(this_seg)
+                  ! Bug here was to divide by hru_area again, but this
+                  ! was done already prior to searching.
+                  ! Fix: Copy the values only. Already divided by Segment_hruarea above.
+                  !      Previous code divided again here, which was a bug.
+                  Seginc_swrad(i) = Seginc_swrad(this_seg)
+                  Seginc_potet(i) = Seginc_potet(this_seg)
                   found = .true.
                   exit
               endif
@@ -785,9 +789,11 @@
                    ! There is a downstream segment, check that segment for HRUs
                    this_seg = Tosegment(this_seg)
                 else
-                    ! This segment has HRUs so there will be swrad and potet
-                    Seginc_swrad(i) = Seginc_swrad(this_seg)/Segment_hruarea(this_seg)
-                    Seginc_potet(i) = Seginc_potet(this_seg)/Segment_hruarea(this_seg)
+                    ! This segment has HRUs so there will be swrad and potet.
+                    ! Fix: Copy the values only. Already divided by Segment_hruarea above.
+                    !      Previous code divided again here, which was a bug.
+                    Seginc_swrad(i) = Seginc_swrad(this_seg)
+                    Seginc_potet(i) = Seginc_potet(this_seg)
                     found = .true.
                     exit
                 endif
