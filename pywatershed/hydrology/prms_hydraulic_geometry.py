@@ -112,41 +112,40 @@ class PRMSHydraulicGeometry(Process):
         - seg_flow_depth = depth_alpha * flow^depth_m
         - seg_flow_area = seg_flow_width * seg_flow_depth
         - seg_flow_velocity = flow / seg_flow_area
+
+        VECTORIZED: Uses NumPy array operations for all segments at once.
         """
-        for i in range(self.nsegment):
-            flow_cfs = self.seg_outflow[i]
+        # Convert flow from cfs to cms for all segments
+        flow_cms = self.seg_outflow * CFS_TO_CMS
 
-            if flow_cfs > NEARZERO:
-                # Convert flow from cfs to cms
-                flow_cms = flow_cfs * CFS_TO_CMS
+        # Create mask for segments with flow
+        has_flow = flow_cms > NEARZERO
 
-                # Compute width and depth from power-law relationships
-                self.seg_flow_width[i] = self.width_alpha[i] * (
-                    flow_cms ** self.width_m[i]
-                )
-                self.seg_flow_depth[i] = self.depth_alpha[i] * (
-                    flow_cms ** self.depth_m[i]
-                )
+        # Initialize all to zero
+        self.seg_flow_width[:] = 0.0
+        self.seg_flow_depth[:] = 0.0
+        self.seg_flow_area[:] = 0.0
+        self.seg_flow_velocity[:] = 0.0
 
-                # Compute cross-sectional area
-                self.seg_flow_area[i] = (
-                    self.seg_flow_width[i] * self.seg_flow_depth[i]
-                )
+        # Compute width and depth from power-law relationships (vectorized)
+        # Only for segments with flow
+        self.seg_flow_width[has_flow] = self.width_alpha[has_flow] * (
+            flow_cms[has_flow] ** self.width_m[has_flow]
+        )
+        self.seg_flow_depth[has_flow] = self.depth_alpha[has_flow] * (
+            flow_cms[has_flow] ** self.depth_m[has_flow]
+        )
 
-                # Compute velocity
-                if self.seg_flow_area[i] > NEARZERO:
-                    # Convert flow to m³/s for velocity calculation
-                    self.seg_flow_velocity[i] = (
-                        flow_cms / self.seg_flow_area[i]
-                    )
-                else:
-                    self.seg_flow_velocity[i] = 0.0
-            else:
-                # No flow - set all to zero
-                self.seg_flow_width[i] = 0.0
-                self.seg_flow_depth[i] = 0.0
-                self.seg_flow_area[i] = 0.0
-                self.seg_flow_velocity[i] = 0.0
+        # Compute cross-sectional area (vectorized)
+        self.seg_flow_area[has_flow] = (
+            self.seg_flow_width[has_flow] * self.seg_flow_depth[has_flow]
+        )
+
+        # Compute velocity where area > NEARZERO (vectorized)
+        has_area = has_flow & (self.seg_flow_area > NEARZERO)
+        self.seg_flow_velocity[has_area] = (
+            flow_cms[has_area] / self.seg_flow_area[has_area]
+        )
 
         return
 
