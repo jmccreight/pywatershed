@@ -7,6 +7,7 @@ processes.
 
 import math
 
+import numba as nb
 import numpy as np
 
 from ..parameters import Parameters
@@ -272,12 +273,13 @@ class PRMSStreamShadeDynamic(PRMSStreamShade):
             self.vhw[seg_idx],
             self.vdwmx[seg_idx],
             self.vdwmn[seg_idx],
-            self.maxiter_sntemp,
+            int(self.maxiter_sntemp[0]),
         )
 
         return shade, svi
 
 
+@nb.jit(nopython=True)
 def _shday(
     seg_lat,
     declination,
@@ -530,12 +532,13 @@ def _shday(
     return shade, svi
 
 
+@nb.jit(nopython=True)
 def _solalt(coso, sino, sin_d, az, almn, almx, maxiter_sntemp):
     """Determine solar altitude from trigonometric parameters.
 
     This is the solalt function from PRMS.
     """
-    maxiter_sntemp = int(maxiter_sntemp[0])
+    maxiter_sntemp = int(maxiter_sntemp)
 
     if abs(abs(az) - HALF_PI) < NEARZERO:
         temp = abs(sin_d / sino)
@@ -578,6 +581,7 @@ def _solalt(coso, sino, sin_d, az, almn, almx, maxiter_sntemp):
     return al
 
 
+@nb.jit(nopython=True)
 def _snr_sst(
     coso,
     sino,
@@ -596,7 +600,7 @@ def _snr_sst(
 
     This is the snr_sst function from PRMS.
     """
-    maxiter_sntemp = int(maxiter_sntemp[0])
+    maxiter_sntemp = int(maxiter_sntemp)
 
     # Trig function for local altitude
     tanalt = np.tan(alt)
@@ -688,6 +692,7 @@ def _snr_sst(
     return azs, als, hrs
 
 
+@nb.jit(nopython=True)
 def _rprnvg(
     hrsr,
     hrrs,
@@ -785,6 +790,7 @@ def _rprnvg(
                     sinals = NEARZERO
 
                 temp = ((sino * sinals) - sin_d) / (coso * cosals)
+
                 if temp > 1.0:
                     temp = 1.0
                 elif temp < -1.0:
