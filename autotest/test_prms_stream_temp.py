@@ -109,12 +109,12 @@ def test_compare_prms(
 
     if stream_temp_shade_flag == 0:
         # Dynamic shade computation
-        shade_computer = PRMSStreamShadeDynamic(
+        stream_shade = PRMSStreamShadeDynamic(
             parameters_shade, discretization.dims["nsegment"]
         )
     else:
-        # Constant shade parameters
-        shade_computer = PRMSStreamShadeConstant(
+        # Constant shade parameters; currently unused by test
+        stream_shade = PRMSStreamShadeConstant(
             parameters_shade, discretization.dims["nsegment"]
         )
 
@@ -125,13 +125,13 @@ def test_compare_prms(
         nc_path = output_dir / f"{key}.nc"
         stream_temp_inputs[key] = nc_path
 
-    # Step 3: Instantiate PRMSStreamTemp with composed shade_computer
+    # Step 3: Instantiate PRMSStreamTemp with composed stream_shade
     stream_temp = PRMSStreamTemp(
         control,
         discretization,
         parameters,
         **stream_temp_inputs,
-        shade_computer=shade_computer,
+        stream_shade=stream_shade,
         budget_type=None,
     )
 

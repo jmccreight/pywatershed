@@ -1,4 +1,3 @@
-import math
 from typing import Literal
 
 import numpy as np
@@ -13,8 +12,6 @@ from .prms_stream_shade import PRMSStreamShade
 # Constants from PRMS
 NEARZERO = 1e-6
 PI = np.pi
-HALF_PI = PI / 2.0
-RADTOHOUR = 24.0 / (2.0 * PI)
 CFS_TO_CMS = 0.028316847
 NOFLOW_TEMP = -98.9
 DAYS_YR = 365.25
@@ -24,47 +21,6 @@ TOLRN = 1.0e-4
 AKZ = 1.65
 A = 5.40e-8
 MPS_CONVERT = 2.93981481e-07
-
-# Gaussian quadrature points and weights (15-point)
-EPSLON = np.array(
-    [
-        0.006003741,
-        0.031363304,
-        0.075896109,
-        0.137791135,
-        0.214513914,
-        0.302924330,
-        0.399402954,
-        0.500000000,
-        0.600597047,
-        0.697075674,
-        0.785486087,
-        0.862208866,
-        0.924103292,
-        0.968636696,
-        0.993996259,
-    ]
-)
-
-WEIGHT = np.array(
-    [
-        0.015376621,
-        0.035183024,
-        0.053579610,
-        0.069785339,
-        0.083134603,
-        0.093080500,
-        0.099215743,
-        0.101289120,
-        0.099215743,
-        0.093080500,
-        0.083134603,
-        0.069785339,
-        0.053579610,
-        0.035183024,
-        0.015376621,
-    ]
-)
 
 
 class PRMSStreamTemp(ConservativeProcess):
@@ -114,7 +70,7 @@ class PRMSStreamTemp(ConservativeProcess):
         seg_flow_depth: Flow-dependent depth from PRMSHydraulicGeometry
         seg_flow_area: Flow-dependent cross-sectional area from PRMSHydraulicGeometry
         seg_flow_velocity: Flow-dependent velocity from PRMSHydraulicGeometry
-        shade_computer: PRMSStreamShade instance (Dynamic or Constant)
+        stream_shade: PRMSStreamShade instance (Dynamic or Constant)
         budget_type: one of ["defer", None, "warn", "error"]
         verbose: Print extra information or not?
     """
@@ -140,7 +96,7 @@ class PRMSStreamTemp(ConservativeProcess):
         seg_flow_depth: adaptable,
         seg_flow_area: adaptable,
         seg_flow_velocity: adaptable,
-        shade_computer: PRMSStreamShade,
+        stream_shade: PRMSStreamShade,
         budget_type: Literal["defer", None, "warn", "error"] = "defer",
         verbose: bool = False,
     ) -> None:
@@ -155,10 +111,7 @@ class PRMSStreamTemp(ConservativeProcess):
         self._set_options(locals())
 
         # Store the composed shade computer
-        self.shade_computer = shade_computer
-        # Set parent process reference so shade computer can access _shday methods
-        if hasattr(self.shade_computer, "parent_process"):
-            self.shade_computer.parent_process = self
+        self.stream_shade = stream_shade
 
         self._set_budget(basis="global")
         self._initialize_stream_temp()
@@ -408,18 +361,6 @@ class PRMSStreamTemp(ConservativeProcess):
         # Convert seg_length from meters to kilometers
         # Parameter file has seg_length in meters, but calculations use km
         self.seg_length = self.seg_length / 1000.0
-
-        # Convert latitude to radians
-        # Note: When using dynamic shade computation, seg_lat should be zero
-        # to match Fortran behavior (see stream_temp.f90 line ~760)
-        from .prms_stream_shade import PRMSStreamShadeDynamic
-
-        if isinstance(self.shade_computer, PRMSStreamShadeDynamic):
-            # Dynamic shade - zero latitude to match Fortran
-            self.seg_lat_rad = np.zeros(self.nsegment, dtype=np.float64)
-        else:
-            # Constant shade or other - use actual latitude
-            self.seg_lat_rad = np.deg2rad(self.seg_lat)
 
         # Precompute solar geometry for each day of year
         self._precompute_solar_geometry()
@@ -869,7 +810,7 @@ class PRMSStreamTemp(ConservativeProcess):
     def _compute_shade(
         self, seg_idx: int, declination: float, summer_flag: int
     ) -> float:
-        """Compute shade using the composed shade_computer.
+        """Compute shade using the composed stream_shade object.
 
         Args:
             seg_idx: Segment index
@@ -880,7 +821,7 @@ class PRMSStreamTemp(ConservativeProcess):
             svi: Vegetation shade index
         """
         # Delegate to composed shade computer
-        shade, svi = self.shade_computer.compute(
+        shade, svi = self.stream_shade.compute(
             seg_idx,
             declination,
             summer_flag,
@@ -890,539 +831,6 @@ class PRMSStreamTemp(ConservativeProcess):
         self.seg_shade[seg_idx] = shade
 
         return svi
-
-    def _shday(
-        self,
-        seg_lat,
-        declination,
-        seg_width,
-        azrh,
-        alte,
-        altw,
-        vce,
-        voe,
-        vhe,
-        vdemx,
-        vdemn,
-        summer_flag,
-        vcw,
-        vow,
-        vhw,
-        vdwmx,
-        vdwmn,
-    ):
-        """Compute daily shade from topography and vegetation.
-
-        This is the shday function from PRMS.
-        """
-        if seg_width <= 0.0:
-            return 0.0, 0.0
-
-        coso = math.cos(seg_lat)
-        if coso == 0.0:
-            coso = NEARZERO
-
-        sino = math.sin(seg_lat)
-        sin_d = math.sin(declination)
-        cos_d = math.cos(declination)
-        sinod = sino * sin_d
-        cosod = coso * cos_d
-
-        hrsr = 0.0
-        hrss = 0.0
-        max_solar_altitude = np.arcsin(sinod + cosod)
-        alsmx = max_solar_altitude
-
-        # Calculate level-plain solar azimuth
-        temp = -sin_d / coso
-
-        if temp > 1.0:
-            temp = 1.0
-        elif temp < -1.0:
-            temp = -1.0
-
-        level_sunset_azimuth = np.arccos(temp)
-
-        # Check for reach azimuth less than sunrise
-        if azrh <= (-level_sunset_azimuth):
-            alrs = 0.0
-        # Check for reach azimuth greater than sunset
-        elif azrh >= level_sunset_azimuth:
-            alrs = 0.0
-        # Reach azimuth is between sunrise and sunset
-        elif azrh == 0.0:
-            alrs = max_solar_altitude
-        else:
-            alrs = self._solalt(
-                coso, sino, sin_d, azrh, 0.0, max_solar_altitude
-            )
-
-        sin_alrs = np.sin(alrs)
-
-        # Calculate level-plain sunrise/set hour angle
-        tano = sino / coso
-        tan_d = sin_d / cos_d
-        tanod = tano * tan_d
-        horizontal_hour_angle = np.arccos(-tanod)
-        sinhro = np.sin(horizontal_hour_angle)
-
-        # Calculate total potential shade on level-plain
-        total_shade = 2.0 * (
-            (horizontal_hour_angle * sinod) + (sinhro * cosod)
-        )
-        if total_shade < 0.0:
-            total_shade = NEARZERO
-
-        hrso = horizontal_hour_angle
-        azso = level_sunset_azimuth
-        totsh = total_shade
-
-        if azrh <= (-azso):
-            hrrs = -hrso
-        elif azrh >= azso:
-            hrrs = hrso
-        elif azrh == 0.0:
-            hrrs = 0.0
-        else:
-            temp = (sin_alrs - sinod) / cosod
-
-            if temp > 1.0:
-                temp = 1.0
-            elif temp < -1.0:
-                temp = -1.0
-
-            if azrh > 0.0:
-                hrrs = np.abs(np.arccos(temp))
-            else:
-                hrrs = -(np.abs(np.arccos(temp)))
-
-        if alte == 0.0 and altw == 0.0:
-            hrsr = -hrso
-            hrss = hrso
-            sti = 0.0
-            svi = self._rprnvg(
-                hrsr,
-                hrrs,
-                hrss,
-                sino,
-                coso,
-                sin_d,
-                cosod,
-                sinod,
-                vce,
-                voe,
-                vhe,
-                azrh,
-                vdemx,
-                vdemn,
-                seg_width,
-                summer_flag,
-                vcw,
-                vow,
-                vhw,
-                vdwmx,
-                vdwmn,
-            ) / (seg_width * totsh)
-        else:
-            if -azso <= azrh:
-                altop_0 = alte
-                aztop_0 = azso * (alte / HALF_PI) - azso
-            else:
-                altop_0 = altw
-                aztop_0 = azso * (altw / HALF_PI) - azso
-
-            if altop_0 == 0.0:
-                hrsr = -hrso
-            else:
-                azmn = -azso
-                azmx = 0.0
-                azs = aztop_0
-                altmx = altop_0
-                almn = 0.0
-                almx = 1.5708
-                als = self._solalt(coso, sino, sin_d, azs, almn, almx)
-                azs, als, hrs = self._snr_sst(
-                    coso,
-                    sino,
-                    sin_d,
-                    altmx,
-                    almn,
-                    almx,
-                    azmn,
-                    azmx,
-                    azs,
-                    als,
-                    azrh,
-                )
-                hrsr = hrs
-
-            if azso <= azrh:
-                altop_1 = alte
-                aztop_1 = azso - azso * (alte / HALF_PI)
-            else:
-                altop_1 = altw
-                aztop_1 = azso - azso * (altw / HALF_PI)
-
-            if altop_1 == 0.0:
-                hrss = hrso
-            else:
-                azmn = 0.0
-                azmx = azso
-                azs = aztop_1
-                altmx = altop_1
-                almn = 0.0
-                almx = 1.5708
-                als = self._solalt(coso, sino, sin_d, azs, almn, almx)
-                azs, als, hrs = self._snr_sst(
-                    coso,
-                    sino,
-                    sin_d,
-                    altmx,
-                    almn,
-                    almx,
-                    azmn,
-                    azmx,
-                    azs,
-                    als,
-                    azrh,
-                )
-                hrss = hrs
-
-            if hrrs < hrsr:
-                hrrh = hrsr
-            elif hrrs > hrss:
-                hrrh = hrss
-            else:
-                hrrh = hrrs
-
-            seg_daylight = (hrss - hrsr) * RADTOHOUR
-            sti = 1.0 - (
-                (
-                    ((hrss - hrsr) * sinod)
-                    + ((math.sin(hrss) - math.sin(hrsr)) * cosod)
-                )
-                / (totsh)
-            )
-            svi = (
-                self._rprnvg(
-                    hrsr,
-                    hrrh,
-                    hrss,
-                    sino,
-                    coso,
-                    sin_d,
-                    cosod,
-                    sinod,
-                    vce,
-                    voe,
-                    vhe,
-                    azrh,
-                    vdemx,
-                    vdemn,
-                    seg_width,
-                    summer_flag,
-                    vcw,
-                    vow,
-                    vhw,
-                    vdwmx,
-                    vdwmn,
-                )
-            ) / (seg_width * totsh)
-
-        if sti < 0.0:
-            sti = 0.0
-        if sti > 1.0:
-            sti = 1.0
-        if svi < 0.0:
-            svi = 0.0
-        if svi > 1.0:
-            svi = 1.0
-
-        shade = sti + svi
-
-        return shade, svi
-
-    def _solalt(self, coso, sino, sin_d, az, almn, almx):
-        """Determine solar altitude from trigonometric parameters.
-
-        This is the solalt function from PRMS.
-        """
-        maxiter_sntemp = int(self.maxiter_sntemp)
-
-        if abs(abs(az) - HALF_PI) < NEARZERO:
-            temp = abs(sin_d / sino)
-            if temp > 1.0:
-                temp = 1.0
-            al = np.arcsin(temp)
-        else:
-            cosaz = np.cos(az)
-            a = sino / (cosaz * coso)
-            b = sin_d / (cosaz * coso)
-
-            al = (almn + almx) / 2.0
-            kount = 0
-            fal = np.cos(al) - (a * np.sin(al)) + b
-            delal = fal / (-np.sin(al) - (a * np.cos(al)))
-
-            for kount in range(1, int(maxiter_sntemp + 1)):
-                if abs(fal) < NEARZERO:
-                    break
-                if abs(delal) < NEARZERO:
-                    break
-                alold = al
-                cosal = np.cos(al)
-                sinal = np.sin(al)
-                fal = cosal - (a * sinal) + b
-                fpal = -sinal - (a * cosal)
-                if kount <= 3:
-                    delal = fal / fpal
-                else:
-                    fppal = b - fal
-                    delal = (2.0 * fal * fpal) / (
-                        (2.0 * fpal * fpal) - (fal * fppal)
-                    )
-                al = al - delal
-                if al < almn:
-                    al = (alold + almn) / 2.0
-                if al > almx:
-                    al = (alold + almx) / 2.0
-
-        return al
-
-    def _snr_sst(
-        self,
-        coso,
-        sino,
-        sin_d,
-        alt,
-        almn,
-        almx,
-        azmn,
-        azmx,
-        azs,
-        als,
-        azrh,
-    ):
-        """Determine local solar sunrise/set azimuth, altitude, and hour angle.
-
-        This is the snr_sst function from PRMS.
-        """
-        maxiter_sntemp = int(self.maxiter_sntemp)
-
-        # Trig function for local altitude
-        tanalt = np.tan(alt)
-        tano = sino / coso
-        f = 999999.0
-        delazs = 9999999.0
-        g = 99999999.0
-        delals = 99999999.0
-
-        # Begin Newton-Raphson solution
-        for count in range(int(maxiter_sntemp)):
-            if abs(delazs) < NEARZERO:
-                break
-            if abs(delals) < NEARZERO:
-                break
-            if abs(f) < NEARZERO:
-                break
-            if abs(g) < NEARZERO:
-                break
-
-            cosazs = np.cos(azs)
-            sinazs = np.sin(azs)
-
-            sinazr = abs(np.sin(azs - azrh))
-            if ((azs - azrh) <= 0.0 and (azs - azrh) <= -PI) or (
-                (azs - azrh) > 0.0 and (azs - azrh) <= PI
-            ):
-                cosazr = np.cos(azs - azrh)
-            else:
-                cosazr = -np.cos(azs - azrh)
-
-            cosals = np.cos(als)
-            if cosals < NEARZERO:
-                cosals = NEARZERO
-            sinals = np.sin(als)
-            tanals = sinals / cosals
-
-            # Functions of Azs & Als
-            f = cosazs - (((sino * sinals) - sin_d) / (coso * cosals))
-            g = tanals - (tanalt * sinazr)
-
-            # First partials derivatives of f & g
-            fazs = -sinazs
-            fals = ((tanals * (sin_d / coso)) - (tano / cosals)) / cosals
-            gazs = -tanalt * cosazr
-            gals = 1.0 / (cosals * cosals)
-
-            # Jacobian
-            xjacob = (fals * gazs) - (fazs * gals)
-
-            # Delta corrections
-            delazs = ((f * gals) - (g * fals)) / xjacob
-            delals = ((g * fazs) - (f * gazs)) / xjacob
-
-            # New values of Azs & Als
-            azs = azs + delazs
-            als = als + delals
-
-            # Check for limits
-            if azs < (azmn + NEARZERO):
-                azs = azmn + NEARZERO
-            if azs > (azmx - NEARZERO):
-                azs = azmx - NEARZERO
-            if als < (almn + NEARZERO):
-                als = almn + NEARZERO
-            if als > (almx - NEARZERO):
-                als = almx - NEARZERO
-
-        # Ensure azimuth remains between -PI & PI
-        if azs < -PI:
-            azs = azs + PI
-        elif azs > PI:
-            azs = azs - PI
-
-        # Determine local sunrise/set hour angle
-        sinals = np.sin(als)
-        temp = (sinals - (sino * sin_d)) / (coso * np.cos(np.arcsin(sin_d)))
-
-        if temp > 1.0:
-            temp = 1.0
-        elif temp < -1.0:
-            temp = -1.0
-
-        if azs > 0.0:
-            hrs = np.abs(np.arccos(temp))
-        else:
-            hrs = -(np.abs(np.arccos(temp)))
-
-        return azs, als, hrs
-
-    def _rprnvg(
-        self,
-        hrsr,
-        hrrs,
-        hrss,
-        sino,
-        coso,
-        sin_d,
-        cosod,
-        sinod,
-        vce,
-        voe,
-        vhe,
-        azrh,
-        vdemx,
-        vdemn,
-        seg_width,
-        summer_flag,
-        vcw,
-        vow,
-        vhw,
-        vdwmx,
-        vdwmn,
-    ):
-        """Compute riparian vegetation shade.
-
-        This is the rprnvg function from PRMS.
-        """
-        # Determine seasonal shade
-        if hrsr == hrss:
-            svri = 0.0
-            svsi = 0.0
-        else:
-            svri = 0.0
-            if hrsr < hrrs:
-                vco = (vce / 2.0) - voe
-                delhsr = hrrs - hrsr
-
-                for n in range(15):
-                    hrs = hrsr + (EPSLON[n] * delhsr)
-                    coshrs = np.cos(hrs)
-                    sinhrs = np.sin(hrs)
-                    temp = sinod + (cosod * coshrs)
-                    if temp > 1.0:
-                        temp = 1.0
-                    als = np.arcsin(temp)
-                    cosals = np.cos(als)
-                    sinals = np.sin(als)
-                    if sinals == 0.0:
-                        sinals = NEARZERO
-
-                    temp = ((sino * sinals) - sin_d) / (coso * cosals)
-
-                    if temp > 1.0:
-                        temp = 1.0
-                    elif temp < -1.0:
-                        temp = -1.0
-
-                    azs = np.arccos(temp)
-                    if azs < 0.0:
-                        azs = HALF_PI - azs
-                    if hrs < 0.0:
-                        azs = -azs
-
-                    bs = (
-                        (vhe * (cosals / sinals)) * abs(np.sin(azs - azrh))
-                    ) + vco
-                    if bs < 0.0:
-                        bs = 0.0
-                    if bs > seg_width:
-                        bs = seg_width
-
-                    if summer_flag == 1:
-                        svri += vdemx * bs * sinals * WEIGHT[n]
-                    else:
-                        svri += vdemn * bs * sinals * WEIGHT[n]
-
-                svri = svri * delhsr
-
-            svsi = 0.0
-            if hrss > hrrs:
-                vco = (vcw / 2.0) - vow
-                delhss = hrss - hrrs
-
-                for n in range(15):
-                    hrs = hrrs + (EPSLON[n] * delhss)
-                    coshrs = np.cos(hrs)
-                    sinhrs = np.sin(hrs)
-                    temp = sinod + (cosod * coshrs)
-                    if temp > 1.0:
-                        temp = 1.0
-                    als = np.arcsin(temp)
-                    cosals = np.cos(als)
-                    sinals = np.sin(als)
-                    if sinals == 0.0:
-                        sinals = NEARZERO
-
-                    temp = ((sino * sinals) - sin_d) / (coso * cosals)
-                    if temp > 1.0:
-                        temp = 1.0
-                    elif temp < -1.0:
-                        temp = -1.0
-
-                    azs = np.arccos(temp)
-                    if azs < 0.0:
-                        azs = HALF_PI - azs
-                    if hrs < 0.0:
-                        azs = -azs
-
-                    bs = (
-                        (vhw * (cosals / sinals)) * abs(np.sin(azs - azrh))
-                    ) + vco
-                    if bs < 0.0:
-                        bs = 0.0
-                    if bs > seg_width:
-                        bs = seg_width
-
-                    if summer_flag == 1:
-                        svsi += vdwmx * bs * sinals * WEIGHT[n]
-                    else:
-                        svsi += vdwmn * bs * sinals * WEIGHT[n]
-
-                svsi = svsi * delhss
-
-        return svri + svsi
 
     def _compute_inflow(self, seg_idx: int) -> float:
         """Compute total inflow to a segment.
