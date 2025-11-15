@@ -186,7 +186,6 @@ class PRMSStreamTemp(ConservativeProcess):
             "melt_temp",
             "maxiter_sntemp",
             "stream_tave_init",
-            # Note: shade parameters are provided by composed shade_computer
         )
 
     @staticmethod

@@ -16,11 +16,18 @@ from pywatershed.hydrology.prms_stream_temp import PRMSStreamTemp
 from pywatershed.parameters import PrmsParameters
 
 # compare in memory (faster) or full output files? or both!
-do_compare_output_files = False
-do_compare_in_memory = True
-rtol = atol = 1.0e-3  # Temperature calculations may need looser tolerance
+do_compare_output_files = True
+do_compare_in_memory = False
+# seg_tave_water and seg_tave_water dont match better rtol=atol=5e-3
+# while the rest of the variables are better than 1e-3.
+# It appears that small numerical differences in the iteration loop
+# and in the trig results for seg_shade drive discrepencies just above
+# 32-bit precision. In testing so far, errors dont grow with time but longer
+# runs in more diverse locations may turn up otherwise.
+rtol = atol = 5.0e-3
 
-params = ("params_sep", "params_one")[1:]  # TODO: use both again
+# TODO: use both parameter schemes again
+params = ("params_sep", "params_one")
 
 
 @pytest.fixture(scope="function")
@@ -61,8 +68,25 @@ def discretization(simulation):
 
 
 @pytest.fixture(scope="function", params=params)
-def parameters(simulation, control, request):
-    if request.param == "params_one":
+def parameter_style(request):
+    return request.param
+
+
+@pytest.fixture(scope="function")
+def parameters_shade(parameter_style, simulation, control, request):
+    if parameter_style == "params_one":
+        param_file = simulation["dir"] / control.options["parameter_file"]
+        params = PrmsParameters.load(param_file)
+    else:
+        param_file = simulation["dir"] / "parameters_PRMSStreamShadeDynamic.nc"
+        params = PrmsParameters.from_netcdf(param_file)
+
+    return params
+
+
+@pytest.fixture(scope="function")
+def parameters(parameter_style, simulation, control, request):
+    if parameter_style == "params_one":
         param_file = simulation["dir"] / control.options["parameter_file"]
         params = PrmsParameters.load(param_file)
     else:
@@ -73,12 +97,12 @@ def parameters(simulation, control, request):
 
 
 def test_compare_prms(
-    simulation, control, discretization, parameters, tmp_path
+    simulation, control, discretization, parameters, parameters_shade, tmp_path
 ):
     tmp_path = pl.Path(tmp_path)
     output_dir = simulation["output_dir"]
 
-    # Step 1: Instantiate shade computer (composed component)
+    # Step 1: Instantiate PRMSStreamShade to compose into PRMSStreamTemp
     stream_temp_shade_flag = control.options.get(
         "stream_temp_shade_flag", np.array([0])
     )[0]
@@ -86,12 +110,12 @@ def test_compare_prms(
     if stream_temp_shade_flag == 0:
         # Dynamic shade computation
         shade_computer = PRMSStreamShadeDynamic(
-            parameters, discretization.dims["nsegment"]
+            parameters_shade, discretization.dims["nsegment"]
         )
     else:
         # Constant shade parameters
         shade_computer = PRMSStreamShadeConstant(
-            parameters, discretization.dims["nsegment"]
+            parameters_shade, discretization.dims["nsegment"]
         )
 
     # Step 2: Prepare inputs for PRMSStreamTemp

@@ -41,6 +41,9 @@ from .hydrology.prms_snow import PRMSSnow
 from .hydrology.prms_soilzone import PRMSSoilzone
 from .hydrology.prms_soilzone_ag import PRMSSoilzoneAg
 from .hydrology.prms_soilzone_no_dprst import PRMSSoilzoneNoDprst
+from .hydrology.prms_stream_shade import (
+    PRMSStreamShadeDynamic,
+)
 from .hydrology.prms_stream_temp import PRMSStreamTemp
 from .hydrology.source_sink_flow_node import (
     SourceSinkFlowNode,
@@ -115,6 +118,7 @@ __all__ = (
     "PRMSSoilzone",
     "PRMSSoilzoneAg",
     "PRMSSoilzoneNoDprst",
+    "PRMSStreamShadeDynamic",
     "PRMSStreamTemp",
     "Starfit",
     "ControlVariables",

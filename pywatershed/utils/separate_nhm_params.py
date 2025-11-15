@@ -118,6 +118,7 @@ def separate_domain_params_dis_to_ncdf(
         pywatershed.PRMSGroundwaterNoDprst,
         pywatershed.PRMSChannel,
         pywatershed.PRMSHydraulicGeometry,
+        pywatershed.PRMSStreamShadeDynamic,
         pywatershed.PRMSStreamTemp,
     ]
     if process_list is None:
