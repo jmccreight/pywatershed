@@ -18,7 +18,7 @@ RADTOHOUR = 24.0 / (2.0 * PI)
 CFS_TO_CMS = 0.028316847
 NOFLOW_TEMP = -98.9
 DAYS_YR = 365.25
-MAX_DAYS_PER_YEAR = int(DAYS_YR)
+MAX_DAYS_PER_YEAR = 366
 ZERO_C = 273.15
 TOLRN = 1.0e-4
 AKZ = 1.65
@@ -507,7 +507,7 @@ class PRMSStreamTemp(ConservativeProcess):
         """Calculate stream temperature for all segments."""
         # Get current month (1-based) and day of year
         nowmonth = self.control.current_month
-        doy = min(self.control.current_doy, 365) - 1
+        doy = self.control.current_doy - 1
 
         # Get declination for current day
         declination = self.declination[doy]
@@ -955,7 +955,7 @@ class PRMSStreamTemp(ConservativeProcess):
             alrs = max_solar_altitude
         else:
             alrs = self._solalt(
-                coso, sino, sin_d, azrh, cosod, max_solar_altitude
+                coso, sino, sin_d, azrh, 0.0, max_solar_altitude
             )
 
         sin_alrs = np.sin(alrs)
