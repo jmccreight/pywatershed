@@ -180,6 +180,32 @@ class PRMSStreamShadeConstant(PRMSStreamShade):
         # svi (vegetation shade index) is not used for constant shade
         return shade, 0.0
 
+    def compute_all(
+        self,
+        declination: float,
+        summer_flag: int,
+        seg_flow_widths: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Compute shade for all segments at once (vectorized).
+
+        Args:
+            declination: Solar declination (not used for constant shade)
+            summer_flag: 1 for summer, 0 for winter
+            seg_flow_widths: Flow widths (not used for constant shade)
+
+        Returns:
+            Tuple of (shades, svis) where:
+                shades: Array of shade fractions (0-1) for all segments
+                svis: Array of zeros (constant shade has no vegetation index)
+        """
+        if summer_flag == 1:
+            shades = self.segshade_sum.copy()
+        else:
+            shades = self.segshade_win.copy()
+
+        svis = np.zeros(self.nsegment, dtype=np.float64)
+        return shades, svis
+
 
 class PRMSStreamShadeDynamic(PRMSStreamShade):
     """Dynamic shade computation from topography and vegetation.
@@ -277,6 +303,101 @@ class PRMSStreamShadeDynamic(PRMSStreamShade):
         )
 
         return shade, svi
+
+    def compute_all(
+        self,
+        declination: float,
+        summer_flag: int,
+        seg_flow_widths: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Compute shade for all segments at once (vectorized).
+
+        Args:
+            declination: Solar declination (radians)
+            summer_flag: 1 for summer, 0 for winter
+            seg_flow_widths: Flow widths for all segments (meters)
+
+        Returns:
+            Tuple of (shades, svis) where:
+                shades: Array of shade fractions (0-1) for all segments
+                svis: Array of vegetation shade indices for all segments
+        """
+        maxiter = int(self.maxiter_sntemp[0])
+
+        return _shday_vectorized(
+            self._seg_lat_rad,
+            declination,
+            seg_flow_widths,
+            self.azrh,
+            self.alte,
+            self.altw,
+            self.vce,
+            self.voe,
+            self.vhe,
+            self.vdemx,
+            self.vdemn,
+            summer_flag,
+            self.vcw,
+            self.vow,
+            self.vhw,
+            self.vdwmx,
+            self.vdwmn,
+            maxiter,
+        )
+
+
+@nb.jit(nopython=True, parallel=True)
+def _shday_vectorized(
+    seg_lat_rads,
+    declination,
+    seg_widths,
+    azrhs,
+    altes,
+    altws,
+    vces,
+    voes,
+    vhes,
+    vdemxs,
+    vdemns,
+    summer_flag,
+    vcws,
+    vows,
+    vhws,
+    vdwmxs,
+    vdwmns,
+    maxiter_sntemp,
+):
+    """Vectorized shade computation for all segments using parallel numba.
+
+    All input arrays should have length nsegment.
+    """
+    nseg = len(seg_lat_rads)
+    shades = np.zeros(nseg, dtype=np.float64)
+    svis = np.zeros(nseg, dtype=np.float64)
+
+    for i in nb.prange(nseg):
+        shades[i], svis[i] = _shday(
+            seg_lat_rads[i],
+            declination,
+            seg_widths[i],
+            azrhs[i],
+            altes[i],
+            altws[i],
+            vces[i],
+            voes[i],
+            vhes[i],
+            vdemxs[i],
+            vdemns[i],
+            summer_flag,
+            vcws[i],
+            vows[i],
+            vhws[i],
+            vdwmxs[i],
+            vdwmns[i],
+            maxiter_sntemp,
+        )
+
+    return shades, svis
 
 
 @nb.jit(nopython=True)

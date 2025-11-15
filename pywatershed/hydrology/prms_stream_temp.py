@@ -1,5 +1,6 @@
 from typing import Literal
 
+import numba as nb
 import numpy as np
 
 from ..base.adapter import adaptable
@@ -21,6 +22,349 @@ TOLRN = 1.0e-4
 AKZ = 1.65
 A = 5.40e-8
 MPS_CONVERT = 2.93981481e-07
+
+
+@nb.jit(nopython=True)
+def _teak1(a_coef, b_coef, c_coef, d_coef, teq, maxiter_sntemp):
+    """Solve for equilibrium temperature using Newton-Raphson iteration.
+
+    This is the teak1 function from PRMS.
+
+    Args:
+        a_coef, b_coef, c_coef, d_coef: Coefficients
+        teq: Initial guess for equilibrium temperature
+        maxiter_sntemp: Maximum iterations
+
+    Returns:
+        teq: Equilibrium temperature (degC)
+        ak1c: First-order thermal exchange coefficient
+    """
+    # Local variables
+    fte = 99999.0
+    delte = 99999.0
+    kount = 0
+
+    # Begin Newton iteration solution for TE
+    while kount < maxiter_sntemp:
+        if np.abs(fte) < TOLRN:
+            break
+        if abs(delte) < TOLRN:
+            break
+        teabs = teq + ZERO_C
+        fte = (
+            (a_coef * (teabs**4.0))
+            + (b_coef * teq)
+            - (c_coef * (teq**2.0))
+            - d_coef
+        )
+        fpte = (4.0 * a_coef * (teabs**3.0)) + b_coef - (2.0 * c_coef * teq)
+        delte = fte / fpte
+        teq = teq - delte
+        kount += 1
+
+    # Determine 1st thermal exchange coefficient
+    ak1c = (
+        (4.0 * a_coef * ((teq + ZERO_C) ** 3.0))
+        + b_coef
+        - (2.0 * c_coef * teq)
+    )
+
+    return teq, ak1c
+
+
+@nb.jit(nopython=True)
+def _equilb(
+    t_o,
+    svi,
+    seg_inflow,
+    seginc_swrad,
+    seg_humid,
+    seg_elev,
+    seg_potet,
+    seg_shade,
+    seg_ccov,
+    seg_flow_width,
+    seg_slope,
+    seg_tave_gw,
+    albedo,
+    maxiter_sntemp,
+):
+    """Compute equilibrium temperature using full energy balance.
+
+    This is the equilb function from PRMS.
+
+    Args:
+        t_o: Initial temperature (degC)
+        svi: Vegetation shade index
+        seg_inflow: Segment inflow (CFS)
+        seginc_swrad: Incident shortwave radiation
+        seg_humid: Segment humidity
+        seg_elev: Segment elevation
+        seg_potet: Segment potential ET
+        seg_shade: Segment shade fraction
+        seg_ccov: Cloud cover fraction
+        seg_flow_width: Flow width
+        seg_slope: Segment slope
+        seg_tave_gw: Groundwater temperature
+        albedo: Albedo
+        maxiter_sntemp: Maximum iterations
+
+    Returns:
+        te: Equilibrium temperature (degC)
+        ak1: First-order thermal exchange coefficient
+        ak2: Second-order thermal exchange coefficient
+    """
+    # Local Variables
+    taabs = float(t_o + ZERO_C)
+
+    vp_sat = 6.108 * np.exp(17.26939 * t_o / (t_o + 237.3))
+
+    # Convert units and set up parameters
+    q_init = max(seg_inflow * CFS_TO_CMS, NEARZERO)
+
+    sw_power = 11.63 / 24.0 * float(seginc_swrad)
+
+    # If humidity is 1.0, there is a divide by zero below
+    foo = min(seg_humid, 0.99)
+
+    # Compute atmospheric pressure based on segment elevation
+    press = 1013.0 - (0.1055 * seg_elev)
+
+    bow_coeff = (0.00061 * press) / (vp_sat * (1.0 - foo))
+    evap = float(seg_potet * MPS_CONVERT)
+
+    # Heat flux components
+    # Ha: atmospheric-emitted longwave radiation
+    ha = (
+        (3.354939e-8 + 2.74995e-9 * np.sqrt(foo * vp_sat))
+        * (1.0 - seg_shade)
+        * (1.0 + (0.17 * (seg_ccov**2)))
+    ) * (taabs**4)
+
+    # Hf: heat dissipated from potential energy by friction
+    hf = 9805.0 * (q_init / seg_flow_width) * seg_slope
+
+    # Hs: net flux from shortwave solar radiation
+    hs = (1.0 - seg_shade) * sw_power * (1.0 - albedo)
+
+    # Hv: longwave radiation emitted by riparian vegetation
+    hv = 5.24e-8 * svi * (taabs**4)
+
+    # Determine equilibrium coefficients
+    del_ht = 2.36e06
+    ltnt_ht = 2495.0e06
+
+    b = bow_coeff * evap * (ltnt_ht + (del_ht * t_o)) + AKZ - (del_ht * evap)
+    c = bow_coeff * del_ht * evap
+    d = (ha + hv + hf + hs) + (
+        ltnt_ht * evap * ((bow_coeff * t_o) - 1.0) + (seg_tave_gw * AKZ)
+    )
+
+    # Determine equilibrium temperature & 1st order thermal exchange coef
+    ted = t_o
+    ted, ak1d = _teak1(A, b, c, d, ted, maxiter_sntemp)
+
+    # Determine 2nd order thermal exchange coefficient
+    hnet = (A * ((t_o + ZERO_C) ** 4)) + (b * t_o) - (c * (t_o**2.0)) - d
+    delt = t_o - ted
+
+    if abs(delt) < NEARZERO:
+        ak2d = 0.0
+    else:
+        ak2d = ((delt * ak1d) - hnet) / (delt**2)
+
+    return ted, ak1d, ak2d
+
+
+@nb.jit(nopython=True)
+def _twavg(
+    qup,
+    t0,
+    qlat,
+    tl_avg,
+    te,
+    ak1,
+    ak2,
+    seg_flow_width,
+    seg_length,
+):
+    """Compute average water temperature with lateral inflows.
+
+    This is the twavg function from PRMS.
+
+    Args:
+        qup: Upstream flow (cfs)
+        t0: Inlet temperature (degC)
+        qlat: Lateral flow (cms)
+        tl_avg: Lateral flow temperature (degC)
+        te: Equilibrium temperature (degC)
+        ak1: First-order thermal exchange coefficient
+        ak2: Second-order thermal exchange coefficient
+        seg_flow_width: Flow width
+        seg_length: Segment length
+
+    Returns:
+        tw: Average water temperature (degC)
+    """
+    # Determine equation parameters
+    q_init = float(qup * CFS_TO_CMS)
+    ql = float(qlat)
+    width = seg_flow_width
+    length = seg_length
+
+    # Local Variables
+    tep = 0.0
+    b = 0.0
+    r = 0.0
+    rexp = 0.0
+    tw = 0.0
+    delt = 0.0
+    denom = 0.0
+
+    if ql <= NEARZERO:
+        # Zero lateral flow
+        tep = te
+        b = (ak1 * width) / 4182.0e03
+        rexp = -1.0 * (b * length) / q_init
+        r = np.exp(rexp)
+
+    elif ql < 0.0:
+        # Losing stream (should not happen in PRMS)
+        tep = te
+        b = (ql / length) + ((ak1 * width) / 4182.0e03)
+        rexp = (ql - (b * length)) / ql
+        r = 1.0 + (ql / q_init)
+        r = r**rexp
+
+    elif ql > NEARZERO and q_init <= NEARZERO:
+        tep = te
+        b = (ak1 * width) / 4182.0e03
+        rexp = -1.0 * (b * length) / ql
+        r = np.exp(rexp)
+
+    else:
+        b = (ql / length) + ((ak1 * width) / 4182.0e03)
+        tep = (
+            ((ql / length) * tl_avg) + (((ak1 * width) / (4182.0e03)) * te)
+        ) / b
+
+        if ql > 0.0:
+            rexp = -b / (ql / length)
+        else:
+            rexp = 0.0
+
+        if q_init < NEARZERO:
+            r = 2.0
+        else:
+            r = 1.0 + (ql / q_init)
+        r = r**rexp
+
+    # Determine water temperature
+    delt = tep - t0
+    denom = 1.0 + (ak2 / ak1) * delt * (1.0 - r)
+
+    if denom < 0.0:
+        denom = np.abs(denom)
+
+    tw = tep - (delt * r / denom)
+    if tw < 0.0:
+        tw = 0.0
+
+    return tw
+
+
+@nb.jit(nopython=True)
+def _lat_inflow(
+    seg_lateral_inflow,
+    seginc_sroff,
+    seginc_ssflow,
+    seginc_gwflow,
+    melt_temp,
+    tave_gw,
+    tave_air,
+    tave_ss,
+    melt,
+    rain,
+):
+    """Compute lateral inflow temperature from components.
+
+    This is the lat_inflow function from PRMS.
+    """
+    weight_roff = 0.0
+    weight_ss = 0.0
+    weight_gw = 0.0
+    melt_wt = 0.0
+    rain_wt = 0.0
+    troff = 0.0
+    tss = 0.0
+
+    qlat = seg_lateral_inflow * CFS_TO_CMS
+    tl_avg = 0.0
+
+    if qlat > 0.0:
+        weight_roff = float((seginc_sroff * CFS_TO_CMS) / qlat)
+        weight_ss = float((seginc_ssflow * CFS_TO_CMS) / qlat)
+        weight_gw = float((seginc_gwflow * CFS_TO_CMS) / qlat)
+    else:
+        weight_roff = 0.0
+        weight_ss = 0.0
+        weight_gw = 0.0
+
+    if melt > 0.0:
+        melt_wt = melt / (melt + rain)
+        if melt_wt < 0.0:
+            melt_wt = 0.0
+        if melt_wt > 1.0:
+            melt_wt = 1.0
+        rain_wt = 1.0 - melt_wt
+        if rain == 0.0:
+            troff = melt_temp
+            tss = melt_temp
+        else:
+            troff = melt_temp * melt_wt + tave_air * rain_wt
+            tss = melt_temp * melt_wt + tave_ss * rain_wt
+    else:
+        troff = tave_air
+        tss = tave_ss
+
+    if weight_roff == 0.0 and weight_ss == 0.0 and weight_gw == 0.0:
+        tl_avg = np.nan
+        qlat = np.nan
+    else:
+        tl_avg = weight_roff * troff + weight_ss * tss + weight_gw * tave_gw
+
+    return tl_avg, qlat
+
+
+@nb.jit(nopython=True)
+def _compute_mixed_inlet_temp(
+    upstream_flow, lateral_flow, seg_tave_upstream, seg_tave_lat
+):
+    """Compute mixed inlet temperature from upstream and lateral sources.
+
+    Args:
+        upstream_flow: Flow from upstream segments (cfs)
+        lateral_flow: Lateral inflow (cfs)
+        seg_tave_upstream: Upstream temperature (degC)
+        seg_tave_lat: Lateral flow temperature (degC)
+
+    Returns:
+        Mixed inlet temperature (degC)
+    """
+    upstream_ready = upstream_flow > 0.0 and not np.isnan(seg_tave_upstream)
+    lateral_ready = lateral_flow > 0.0 and not np.isnan(seg_tave_lat)
+
+    if not upstream_ready and not lateral_ready:
+        return np.nan
+    elif upstream_ready and not lateral_ready:
+        return seg_tave_upstream
+    elif lateral_ready and not upstream_ready:
+        return seg_tave_lat
+    else:
+        # Both sources present - compute weighted average
+        return (
+            seg_tave_upstream * upstream_flow + seg_tave_lat * lateral_flow
+        ) / (upstream_flow + lateral_flow)
 
 
 class PRMSStreamTemp(ConservativeProcess):
@@ -99,6 +443,7 @@ class PRMSStreamTemp(ConservativeProcess):
         stream_shade: PRMSStreamShade,
         budget_type: Literal["defer", None, "warn", "error"] = "defer",
         verbose: bool = False,
+        use_vectorized_shade: bool = True,
     ) -> None:
         super().__init__(
             control=control,
@@ -112,6 +457,9 @@ class PRMSStreamTemp(ConservativeProcess):
 
         # Store the composed shade computer
         self.stream_shade = stream_shade
+
+        # Store vectorization preference
+        self.use_vectorized_shade = use_vectorized_shade
 
         self._set_budget(basis="global")
         self._initialize_stream_temp()
@@ -489,11 +837,22 @@ class PRMSStreamTemp(ConservativeProcess):
         # Segments that are skipped will keep this 0.0 value
         self.seg_tave_upstream[:] = 0.0
 
-        # Compute shade and water temperature for each segment
+        # Compute shade - vectorized or loop-based depending on flag
+        if self.use_vectorized_shade:
+            # VECTORIZED: Compute shade for all segments at once
+            self.seg_shade[:], seg_svi_all = self.stream_shade.compute_all(
+                declination, summer_flag, self.seg_flow_width
+            )
+        else:
+            # LOOP-BASED: Compute shade one segment at a time (original method)
+            seg_svi_all = np.zeros(self.nsegment, dtype=np.float64)
+
+        # Compute water temperature for each segment (must be done in segment_order)
         # Don't reset segments marked as -99.9 (never have flow)
         for jj in self.segment_order:
             if self.seg_tave_water[jj] >= -99.0:
                 self.seg_tave_water[jj] = np.nan
+
         for jj in self.segment_order:
             # Skip segments marked as never having flow (matches Fortran cycle at line 887)
             if self.seg_tave_water[jj] < -99.0:
@@ -502,8 +861,13 @@ class PRMSStreamTemp(ConservativeProcess):
             # Compute upstream temperature
             self._compute_upstream_temp(jj)
 
-            # Compute shade
-            svi = self._compute_shade(jj, declination, summer_flag)
+            # Compute shade and get svi
+            if self.use_vectorized_shade:
+                # Get svi for this segment (already computed above)
+                svi = seg_svi_all[jj]
+            else:
+                # Compute shade for this segment
+                svi = self._compute_shade(jj, declination, summer_flag)
 
             # Compute segment inflow
             self._seg_inflow[jj] = self._compute_inflow(jj)
@@ -737,52 +1101,18 @@ class PRMSStreamTemp(ConservativeProcess):
 
         This is the lat_inflow function from PRMS.
         """
-        weight_roff = 0.0
-        weight_ss = 0.0
-        weight_gw = 0.0
-        melt_wt = 0.0
-        rain_wt = 0.0
-        troff = 0.0
-        tss = 0.0
-
-        qlat = seg_lateral_inflow * CFS_TO_CMS
-        tl_avg = 0.0
-
-        if qlat > 0.0:
-            weight_roff = float((seginc_sroff * CFS_TO_CMS) / qlat)
-            weight_ss = float((seginc_ssflow * CFS_TO_CMS) / qlat)
-            weight_gw = float((seginc_gwflow * CFS_TO_CMS) / qlat)
-        else:
-            weight_roff = 0.0
-            weight_ss = 0.0
-            weight_gw = 0.0
-
-        if melt > 0.0:
-            melt_wt = melt / (melt + rain)
-            if melt_wt < 0.0:
-                melt_wt = 0.0
-            if melt_wt > 1.0:
-                melt_wt = 1.0
-            rain_wt = 1.0 - melt_wt
-            if rain == 0.0:
-                troff = melt_temp
-                tss = melt_temp
-            else:
-                troff = melt_temp * melt_wt + tave_air * rain_wt
-                tss = melt_temp * melt_wt + tave_ss * rain_wt
-        else:
-            troff = tave_air
-            tss = tave_ss
-
-        if weight_roff == 0.0 and weight_ss == 0.0 and weight_gw == 0.0:
-            tl_avg = np.nan
-            qlat = np.nan
-        else:
-            tl_avg = (
-                weight_roff * troff + weight_ss * tss + weight_gw * tave_gw
-            )
-
-        return tl_avg, qlat
+        return _lat_inflow(
+            seg_lateral_inflow,
+            seginc_sroff,
+            seginc_ssflow,
+            seginc_gwflow,
+            melt_temp,
+            tave_gw,
+            tave_air,
+            tave_ss,
+            melt,
+            rain,
+        )
 
     def _compute_upstream_temp(self, seg_idx: int) -> None:
         """Compute temperature from upstream segments.
@@ -811,6 +1141,9 @@ class PRMSStreamTemp(ConservativeProcess):
         self, seg_idx: int, declination: float, summer_flag: int
     ) -> float:
         """Compute shade using the composed stream_shade object.
+
+        NOTE: This method is used when use_vectorized_shade=False.
+        For vectorized computation, see compute_all in stream_shade.
 
         Args:
             seg_idx: Segment index
@@ -925,26 +1258,12 @@ class PRMSStreamTemp(ConservativeProcess):
         Returns:
             Mixed inlet temperature (degC)
         """
-        upstream_ready = upstream_flow > 0.0 and not np.isnan(
-            self.seg_tave_upstream[seg_idx]
+        return _compute_mixed_inlet_temp(
+            upstream_flow,
+            lateral_flow,
+            self.seg_tave_upstream[seg_idx],
+            self.seg_tave_lat[seg_idx],
         )
-        lateral_ready = lateral_flow > 0.0 and not np.isnan(
-            self.seg_tave_lat[seg_idx]
-        )
-
-        if not upstream_ready and not lateral_ready:
-            return np.nan
-        elif upstream_ready and not lateral_ready:
-            return self.seg_tave_upstream[seg_idx]
-        elif lateral_ready and not upstream_ready:
-            return self.seg_tave_lat[seg_idx]
-        else:
-            # Both sources present - compute weighted average
-            t_up = self.seg_tave_upstream[seg_idx]
-            t_lat = self.seg_tave_lat[seg_idx]
-            return (t_up * upstream_flow + t_lat * lateral_flow) / (
-                upstream_flow + lateral_flow
-            )
 
     def _equilb(self, seg_idx: int, t_o: float, svi: float):
         """Compute equilibrium temperature using full energy balance.
@@ -961,75 +1280,22 @@ class PRMSStreamTemp(ConservativeProcess):
             ak1: First-order thermal exchange coefficient
             ak2: Second-order thermal exchange coefficient
         """
-        # Local Variables
-        taabs = float(t_o + ZERO_C)
-
-        vp_sat = 6.108 * np.exp(17.26939 * t_o / (t_o + 237.3))
-
-        # Convert units and set up parameters
-        q_init = max(self._seg_inflow[seg_idx] * CFS_TO_CMS, NEARZERO)
-
-        sw_power = 11.63 / 24.0 * float(self.seginc_swrad[seg_idx])
-
-        # If humidity is 1.0, there is a divide by zero below
-        foo = min(self.seg_humid[seg_idx], 0.99)
-
-        # Compute atmospheric pressure based on segment elevation
-        press = 1013.0 - (0.1055 * self.seg_elev[seg_idx])
-
-        bow_coeff = (0.00061 * press) / (vp_sat * (1.0 - foo))
-        evap = float(self.seg_potet[seg_idx] * MPS_CONVERT)
-
-        # Heat flux components
-        # Ha: atmospheric-emitted longwave radiation
-        ha = (
-            (3.354939e-8 + 2.74995e-9 * np.sqrt(foo * vp_sat))
-            * (1.0 - self.seg_shade[seg_idx])
-            * (1.0 + (0.17 * (self.seg_ccov[seg_idx] ** 2)))
-        ) * (taabs**4)
-
-        # Hf: heat dissipated from potential energy by friction
-        hf = (
-            9805.0
-            * (q_init / self.seg_flow_width[seg_idx])
-            * self.seg_slope[seg_idx]
+        return _equilb(
+            t_o,
+            svi,
+            self._seg_inflow[seg_idx],
+            self.seginc_swrad[seg_idx],
+            self.seg_humid[seg_idx],
+            self.seg_elev[seg_idx],
+            self.seg_potet[seg_idx],
+            self.seg_shade[seg_idx],
+            self.seg_ccov[seg_idx],
+            self.seg_flow_width[seg_idx],
+            self.seg_slope[seg_idx],
+            self.seg_tave_gw[seg_idx],
+            self.albedo,
+            int(self.maxiter_sntemp),
         )
-
-        # Hs: net flux from shortwave solar radiation
-        hs = (1.0 - self.seg_shade[seg_idx]) * sw_power * (1.0 - self.albedo)
-
-        # Hv: longwave radiation emitted by riparian vegetation
-        hv = 5.24e-8 * svi * (taabs**4)
-
-        # Determine equilibrium coefficients
-        del_ht = 2.36e06
-        ltnt_ht = 2495.0e06
-
-        b = (
-            bow_coeff * evap * (ltnt_ht + (del_ht * t_o))
-            + AKZ
-            - (del_ht * evap)
-        )
-        c = bow_coeff * del_ht * evap
-        d = (ha + hv + hf + hs) + (
-            ltnt_ht * evap * ((bow_coeff * t_o) - 1.0)
-            + (self.seg_tave_gw[seg_idx] * AKZ)
-        )
-
-        # Determine equilibrium temperature & 1st order thermal exchange coef
-        ted = t_o
-        ted, ak1d = self._teak1(A, b, c, d, ted)
-
-        # Determine 2nd order thermal exchange coefficient
-        hnet = (A * ((t_o + ZERO_C) ** 4)) + (b * t_o) - (c * (t_o**2.0)) - d
-        delt = t_o - ted
-
-        if abs(delt) < NEARZERO:
-            ak2d = 0.0
-        else:
-            ak2d = ((delt * ak1d) - hnet) / (delt**2)
-
-        return ted, ak1d, ak2d
 
     def _teak1(self, a_coef, b_coef, c_coef, d_coef, teq):
         """Solve for equilibrium temperature using Newton-Raphson iteration.
@@ -1044,41 +1310,9 @@ class PRMSStreamTemp(ConservativeProcess):
             teq: Equilibrium temperature (degC)
             ak1c: First-order thermal exchange coefficient
         """
-        maxiter_sntemp = int(self.maxiter_sntemp)
-
-        # Local variables
-        fte = 99999.0
-        delte = 99999.0
-        kount = 0
-
-        # Begin Newton iteration solution for TE
-        while kount < maxiter_sntemp:
-            if np.abs(fte) < TOLRN:
-                break
-            if abs(delte) < TOLRN:
-                break
-            teabs = teq + ZERO_C
-            fte = (
-                (a_coef * (teabs**4.0))
-                + (b_coef * teq)
-                - (c_coef * (teq**2.0))
-                - d_coef
-            )
-            fpte = (
-                (4.0 * a_coef * (teabs**3.0)) + b_coef - (2.0 * c_coef * teq)
-            )
-            delte = fte / fpte
-            teq = teq - delte
-            kount += 1
-
-        # Determine 1st thermal exchange coefficient
-        ak1c = (
-            (4.0 * a_coef * ((teq + ZERO_C) ** 3.0))
-            + b_coef
-            - (2.0 * c_coef * teq)
+        return _teak1(
+            a_coef, b_coef, c_coef, d_coef, teq, int(self.maxiter_sntemp)
         )
-
-        return teq, ak1c
 
     def _twavg(
         self,
@@ -1108,68 +1342,14 @@ class PRMSStreamTemp(ConservativeProcess):
         Returns:
             tw: Average water temperature (degC)
         """
-        # Determine equation parameters
-        q_init = float(qup * CFS_TO_CMS)
-        ql = float(qlat)
-        width = self.seg_flow_width[seg_idx]
-        length = self.seg_length[seg_idx]
-
-        # Local Variables
-        tep = 0.0
-        b = 0.0
-        r = 0.0
-        rexp = 0.0
-        tw = 0.0
-        delt = 0.0
-        denom = 0.0
-
-        if ql <= NEARZERO:
-            # Zero lateral flow
-            tep = te
-            b = (ak1 * width) / 4182.0e03
-            rexp = -1.0 * (b * length) / q_init
-            r = np.exp(rexp)
-
-        elif ql < 0.0:
-            # Losing stream (should not happen in PRMS)
-            tep = te
-            b = (ql / length) + ((ak1 * width) / 4182.0e03)
-            rexp = (ql - (b * length)) / ql
-            r = 1.0 + (ql / q_init)
-            r = r**rexp
-
-        elif ql > NEARZERO and q_init <= NEARZERO:
-            tep = te
-            b = (ak1 * width) / 4182.0e03
-            rexp = -1.0 * (b * length) / ql
-            r = np.exp(rexp)
-
-        else:
-            b = (ql / length) + ((ak1 * width) / 4182.0e03)
-            tep = (
-                ((ql / length) * tl_avg) + (((ak1 * width) / (4182.0e03)) * te)
-            ) / b
-
-            if ql > 0.0:
-                rexp = -b / (ql / length)
-            else:
-                rexp = 0.0
-
-            if q_init < NEARZERO:
-                r = 2.0
-            else:
-                r = 1.0 + (ql / q_init)
-            r = r**rexp
-
-        # Determine water temperature
-        delt = tep - t0
-        denom = 1.0 + (ak2 / ak1) * delt * (1.0 - r)
-
-        if denom < 0.0:
-            denom = np.abs(denom)
-
-        tw = tep - (delt * r / denom)
-        if tw < 0.0:
-            tw = 0.0
-
-        return tw
+        return _twavg(
+            qup,
+            t0,
+            qlat,
+            tl_avg,
+            te,
+            ak1,
+            ak2,
+            self.seg_flow_width[seg_idx],
+            self.seg_length[seg_idx],
+        )
