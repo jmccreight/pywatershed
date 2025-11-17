@@ -372,7 +372,8 @@ class PRMSStreamTemp(ConservativeProcess):
 
     A representation of stream temperature from PRMS. This class uses a
     composition-based design where:
-    - Hydraulic geometry (seg_flow_*) is provided by upstream PRMSHydraulicGeometry process
+    - Hydraulic geometry (seg_flow_*) is provided by upstream
+      PRMSHydraulicGeometry process
     - Shade computation is handled by composed PRMSStreamShade strategy
 
     Implementation based on PRMS 5.2.1 with theoretical documentation given in
@@ -412,8 +413,10 @@ class PRMSStreamTemp(ConservativeProcess):
         seg_tave_air: Air temperature for each segment
         seg_flow_width: Flow-dependent width from PRMSHydraulicGeometry
         seg_flow_depth: Flow-dependent depth from PRMSHydraulicGeometry
-        seg_flow_area: Flow-dependent cross-sectional area from PRMSHydraulicGeometry
-        seg_flow_velocity: Flow-dependent velocity from PRMSHydraulicGeometry
+        seg_flow_area: Flow-dependent cross-sectional area from
+            PRMSHydraulicGeometry
+        seg_flow_velocity: Flow-dependent velocity from
+            PRMSHydraulicGeometry
         stream_shade: PRMSStreamShade instance (Dynamic or Constant)
         budget_type: one of ["defer", None, "warn", "error"]
         verbose: Print extra information or not?
@@ -547,7 +550,8 @@ class PRMSStreamTemp(ConservativeProcess):
         self.seg_shade[:] = zero
         self._seg_inflow = np.zeros(self.nsegment, dtype=np.float64)
 
-        # Initialize circular buffers for temperature averaging if not already done
+        # Initialize circular buffers for temperature averaging if not
+        # already done
         if not hasattr(self, "gw_silo"):
             self.gw_silo = np.zeros(
                 (self.nsegment, MAX_DAYS_PER_YEAR), dtype=np.float64
@@ -605,9 +609,11 @@ class PRMSStreamTemp(ConservativeProcess):
         self.seginc_gwflow = np.zeros(self.nsegment, dtype=np.float64)
         self.seginc_swrad = np.zeros(self.nsegment, dtype=np.float64)
 
-        # Note: seg_flow_* are inputs from PRMSHydraulicGeometry, not computed here
+        # Note: seg_flow_* are inputs from PRMSHydraulicGeometry,
+        # not computed here
 
-        # Compute segment HRU areas (sum of HRU areas contributing to each segment)
+        # Compute segment HRU areas (sum of HRU areas contributing to
+        # each segment)
         self.segment_hruarea = np.zeros(self.nsegment, dtype=np.float64)
         for j in range(self.nhru):
             seg_idx = self.hru_segment[j]
@@ -618,9 +624,12 @@ class PRMSStreamTemp(ConservativeProcess):
         # Compute upstream segment information
         self._compute_upstream_info()
 
-        # Compute segment_up - the single immediate upstream segment (matches Fortran Segment_up)
-        # Fortran's Segment_up is computed by iterating segments and assigning Segment_up(toseg) = j
-        # This means when multiple segments flow into one, it keeps the LAST one (highest j)
+        # Compute segment_up - the single immediate upstream segment
+        # (matches Fortran Segment_up)
+        # Fortran's Segment_up is computed by iterating segments and
+        # assigning Segment_up(toseg) = j
+        # This means when multiple segments flow into one, it keeps the
+        # LAST one (highest j)
         # So we need to find the last upstream in segment numbering order
         segment_up = np.zeros(self.nsegment, dtype=np.int32)
         for j in range(self.nsegment):
@@ -628,12 +637,15 @@ class PRMSStreamTemp(ConservativeProcess):
             if toseg > 0:
                 # toseg is 1-based, convert to 0-based
                 segment_up[toseg - 1] = j
-        # Note: segment_up[i] = 0 means no upstream (default from zeros initialization)
+        # Note: segment_up[i] = 0 means no upstream (default from zeros
+        # initialization)
 
-        # Save segment_up as instance variable (needed for routing aggregation logic)
+        # Save segment_up as instance variable (needed for routing
+        # aggregation logic)
         self.segment_up = segment_up
 
-        # Compute seg_close for segments without HRUs (matches Fortran line 529-570)
+        # Compute seg_close for segments without HRUs (matches Fortran
+        # line 529-570)
         # Initialize seg_close = segment_up (Fortran line 529)
         self.seg_close = np.copy(segment_up)
 
@@ -641,7 +653,8 @@ class PRMSStreamTemp(ConservativeProcess):
         for jj in range(self.nsegment):
             i = self.segment_order[jj]
 
-            # Only modify seg_close for segments without HRUs (Fortran line 539)
+            # Only modify seg_close for segments without HRUs
+            # (Fortran line 539)
             if self.segment_hruarea[i] <= NEARZERO:
                 # If no upstream segment (Fortran line 541)
                 if self.segment_up[i] == 0:
@@ -651,17 +664,21 @@ class PRMSStreamTemp(ConservativeProcess):
                             self.tosegment[i] - 1
                         )  # Convert to 0-based
                     else:
-                        # No upstream or downstream - use previous/next in order (Fortran line 544-549)
+                        # No upstream or downstream - use previous/next in
+                        # order (Fortran line 544-549)
                         if jj > 0:
                             self.seg_close[i] = self.segment_order[jj - 1]
                         else:
                             self.seg_close[i] = self.segment_order[jj + 1]
 
-                # Check if seg_close points to invalid segment (Fortran line 551-563)
-                # If elevation is exactly 30000 (invalid marker), find a different segment
+                # Check if seg_close points to invalid segment
+                # (Fortran line 551-563)
+                # If elevation is exactly 30000 (invalid marker), find a
+                # different segment
                 if self.seg_elev[self.seg_close[i]] == 30000.0:
                     found = False
-                    # Find first segment with HRUs in forward order (Fortran line 553-558)
+                    # Find first segment with HRUs in forward order
+                    # (Fortran line 553-558)
                     for k in range(jj + 1, self.nsegment):
                         ii = self.segment_order[k]
                         if self.segment_hruarea[ii] > NEARZERO:
@@ -669,7 +686,8 @@ class PRMSStreamTemp(ConservativeProcess):
                             found = True
                             break
 
-                    # If not found, use previous segment in order (Fortran line 560-565)
+                    # If not found, use previous segment in order
+                    # (Fortran line 560-565)
                     if not found:
                         if jj > 0:
                             self.seg_close[i] = self.segment_order[jj - 1]
@@ -833,7 +851,8 @@ class PRMSStreamTemp(ConservativeProcess):
                 continue
             self._compute_lateral_temp(jj, nowmonth)
 
-        # Initialize seg_tave_upstream to 0.0 each timestep (matches Fortran line 463)
+        # Initialize seg_tave_upstream to 0.0 each timestep
+        # (matches Fortran line 463)
         # Segments that are skipped will keep this 0.0 value
         self.seg_tave_upstream[:] = 0.0
 
@@ -847,14 +866,16 @@ class PRMSStreamTemp(ConservativeProcess):
             # LOOP-BASED: Compute shade one segment at a time (original method)
             seg_svi_all = np.zeros(self.nsegment, dtype=np.float64)
 
-        # Compute water temperature for each segment (must be done in segment_order)
+        # Compute water temperature for each segment (must be done in
+        # segment_order)
         # Don't reset segments marked as -99.9 (never have flow)
         for jj in self.segment_order:
             if self.seg_tave_water[jj] >= -99.0:
                 self.seg_tave_water[jj] = np.nan
 
         for jj in self.segment_order:
-            # Skip segments marked as never having flow (matches Fortran cycle at line 887)
+            # Skip segments marked as never having flow
+            # (matches Fortran cycle at line 887)
             if self.seg_tave_water[jj] < -99.0:
                 continue
 
@@ -917,14 +938,16 @@ class PRMSStreamTemp(ConservativeProcess):
                 # (will be divided by total HRU area later)
                 self.seginc_swrad[i] += self.swrad[j] * self.hru_area[j]
 
-        # First: Process seginc_swrad in numerical order (routing.f90 logicDivide radiation and PET by segment HRU area to get averages
+        # First: Process seginc_swrad in numerical order
+        # Divide radiation and PET by segment HRU area to get averages
         # Process in numerical order to match routing.f90 (line 741-810)
         for i in range(self.nsegment):
             if self.segment_hruarea[i] > NEARZERO:
                 self.seginc_swrad[i] /= self.segment_hruarea[i]
 
             else:
-                # Segment has no HRUs - search upstream then downstream (matches routing.f90 line 746-805)
+                # Segment has no HRUs - search upstream then downstream
+                # (matches routing.f90 line 746-805)
                 # Search upstream first (routing.f90 line 749-772)
                 this_seg = i
                 found = False
@@ -938,12 +961,14 @@ class PRMSStreamTemp(ConservativeProcess):
                         # Move to upstream segment
                         this_seg = upstream_seg
                     else:
-                        # Found segment with HRUs - copy values (already averaged)
+                        # Found segment with HRUs - copy values
+                        # (already averaged)
                         self.seginc_swrad[i] = self.seginc_swrad[this_seg]
                         found = True
                         break
 
-                # If not found upstream, search downstream (routing.f90 line 776-800)
+                # If not found upstream, search downstream
+                # (routing.f90 line 776-800)
                 if not found:
                     this_seg = i
                     while not found:
@@ -955,12 +980,14 @@ class PRMSStreamTemp(ConservativeProcess):
                             # Move to downstream segment (tosegment is 1-based)
                             this_seg = self.tosegment[this_seg] - 1
                         else:
-                            # Found segment with HRUs - copy values (already averaged)
+                            # Found segment with HRUs - copy values
+                            # (already averaged)
                             self.seginc_swrad[i] = self.seginc_swrad[this_seg]
                             found = True
                             break
 
-                # If still not found, set to invalid marker (routing.f90 line 803-805)
+                # If still not found, set to invalid marker
+                # (routing.f90 line 803-805)
                 if not found:
                     self.seginc_swrad[i] = -99.9
 
@@ -969,7 +996,8 @@ class PRMSStreamTemp(ConservativeProcess):
     def _compute_seg_potet(self) -> None:
         """Compute seg_potet using stream_temp.f90 logic.
 
-        This matches stream_temp.f90 lines 807-848, using segment_order and seg_close.
+        This matches stream_temp.f90 lines 807-848, using segment_order
+        and seg_close.
         """
         # Initialize
         self.seg_potet[:] = 0.0
@@ -989,14 +1017,16 @@ class PRMSStreamTemp(ConservativeProcess):
                 self.seg_potet[i] /= self.segment_hruarea[i]
 
             else:
-                # Segment has no HRUs - use seg_close (stream_temp.f90 line 817)
+                # Segment has no HRUs - use seg_close
+                # (stream_temp.f90 line 817)
                 close_seg = self.seg_close[i]
 
                 self.seg_potet[i] = self.seg_potet[close_seg]
 
         return
 
-    # Note: _compute_hydraulic_geometry removed - now handled by PRMSHydraulicGeometry process
+    # Note: _compute_hydraulic_geometry removed - now handled by
+    # PRMSHydraulicGeometry process
 
     def _update_running_avg_temp(self, seg_idx: int, comp_type: str) -> None:
         """Update running average temperature for groundwater or subsurface.
@@ -1193,7 +1223,8 @@ class PRMSStreamTemp(ConservativeProcess):
             seg_idx: Segment index
             svi: Vegetation shade index
         """
-        # Skip segments marked as permanently invalid (matches Fortran line 887, 894)
+        # Skip segments marked as permanently invalid
+        # (matches Fortran line 887, 894)
         if self.seg_tave_water[seg_idx] < -99.0:
             # Never has flow - skip all calculations
             return
@@ -1203,7 +1234,8 @@ class PRMSStreamTemp(ConservativeProcess):
             self.seg_tave_water[seg_idx] = -99.9
             return
 
-        # Check for no-flow conditions (matches Fortran check for seg_outflow <= 0)
+        # Check for no-flow conditions (matches Fortran check for
+        # seg_outflow <= 0)
         if self.seg_outflow[seg_idx] <= 0.0:
             self.seg_tave_water[seg_idx] = NOFLOW_TEMP
             return

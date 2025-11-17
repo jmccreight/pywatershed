@@ -304,7 +304,8 @@ def test_compare_prms(
         soil.output()
 
         if do_compare_in_memory:
-            # Build variable-specific tolerances: default for all, then apply exceptions
+            # Build variable-specific tolerances: default for all,
+            # then apply exceptions
             var_tolerances = {
                 var: {"rtol": default_rtol, "atol": default_atol}
                 for var in answers.keys()

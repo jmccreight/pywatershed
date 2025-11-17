@@ -64,7 +64,8 @@ class PRMSStreamShade:
     """Base class for stream shade computation strategies.
 
     This is an abstract base class that defines the interface for shade
-    computation. Subclasses implement different strategies (dynamic vs constant).
+    computation. Subclasses implement different strategies (dynamic vs
+    constant).
     """
 
     def __init__(
@@ -75,7 +76,8 @@ class PRMSStreamShade:
         Args:
             parameters: Parameters object containing shade parameters
             nsegment: Number of stream segments
-            parent_process: Optional parent PRMSStreamTemp process for accessing shade methods
+            parent_process: Optional parent PRMSStreamTemp process for
+                accessing shade methods
         """
         self.nsegment = nsegment
         self.parent_process = parent_process
@@ -854,7 +856,7 @@ def _rprnvg(
             for n in range(15):
                 hrs = hrsr + (EPSLON[n] * delhsr)
                 coshrs = np.cos(hrs)
-                sinhrs = np.sin(hrs)
+                # sinhrs = np.sin(hrs)
                 temp = sinod + (cosod * coshrs)
                 if temp > 1.0:
                     temp = 1.0
