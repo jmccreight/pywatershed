@@ -68,19 +68,14 @@ class PRMSStreamShade:
     constant).
     """
 
-    def __init__(
-        self, parameters: Parameters, nsegment: int, parent_process=None
-    ):
+    def __init__(self, parameters: Parameters, nsegment: int):
         """Initialize shade computer.
 
         Args:
             parameters: Parameters object containing shade parameters
             nsegment: Number of stream segments
-            parent_process: Optional parent PRMSStreamTemp process for
-                accessing shade methods
         """
         self.nsegment = nsegment
-        self.parent_process = parent_process
         self._load_parameters(parameters)
 
     def _load_parameters(self, parameters: Parameters) -> None:
@@ -372,6 +367,30 @@ def _shday_vectorized(
     """Vectorized shade computation for all segments using parallel numba.
 
     All input arrays should have length nsegment.
+
+    Args:
+        seg_lat_rads: Segment latitudes in radians (array)
+        declination: Solar declination (radians)
+        seg_widths: Flow widths for all segments (meters, array)
+        azrhs: Stream azimuth angles (radians, array)
+        altes: East bank topographic altitudes (radians, array)
+        altws: West bank topographic altitudes (radians, array)
+        vces: East bank vegetation crown widths (meters, array)
+        voes: East bank vegetation offsets (meters, array)
+        vhes: East bank vegetation heights (meters, array)
+        vdemxs: Maximum east bank vegetation densities (array)
+        vdemns: Minimum east bank vegetation densities (array)
+        summer_flag: 1 for summer, 0 for winter (scalar)
+        vcws: West bank vegetation crown widths (meters, array)
+        vows: West bank vegetation offsets (meters, array)
+        vhws: West bank vegetation heights (meters, array)
+        vdwmxs: Maximum west bank vegetation densities (array)
+        vdwmns: Minimum west bank vegetation densities (array)
+        maxiter_sntemp: Maximum iterations for convergence (scalar)
+
+    Returns:
+        shades: Array of shade fractions (0-1) for all segments
+        svis: Array of vegetation shade indices for all segments
     """
     nseg = len(seg_lat_rads)
     shades = np.zeros(nseg, dtype=np.float64)
@@ -426,6 +445,30 @@ def _shday(
     """Compute daily shade from topography and vegetation.
 
     This is the shday function from PRMS.
+
+    Args:
+        seg_lat: Segment latitude (radians)
+        declination: Solar declination (radians)
+        seg_width: Flow width for the segment (meters)
+        azrh: Stream azimuth angle (radians)
+        alte: East bank topographic altitude (radians)
+        altw: West bank topographic altitude (radians)
+        vce: East bank vegetation crown width (meters)
+        voe: East bank vegetation offset (meters)
+        vhe: East bank vegetation height (meters)
+        vdemx: Maximum east bank vegetation density
+        vdemn: Minimum east bank vegetation density
+        summer_flag: 1 for summer, 0 for winter
+        vcw: West bank vegetation crown width (meters)
+        vow: West bank vegetation offset (meters)
+        vhw: West bank vegetation height (meters)
+        vdwmx: Maximum west bank vegetation density
+        vdwmn: Minimum west bank vegetation density
+        maxiter_sntemp: Maximum iterations for convergence
+
+    Returns:
+        shade: Shade fraction (0-1)
+        svi: Vegetation shade index
     """
     if seg_width <= 0.0:
         return 0.0, 0.0
@@ -660,6 +703,18 @@ def _solalt(coso, sino, sin_d, az, almn, almx, maxiter_sntemp):
     """Determine solar altitude from trigonometric parameters.
 
     This is the solalt function from PRMS.
+
+    Args:
+        coso: Cosine of segment latitude
+        sino: Sine of segment latitude
+        sin_d: Sine of solar declination
+        az: Azimuth angle (radians)
+        almn: Minimum altitude (radians)
+        almx: Maximum altitude (radians)
+        maxiter_sntemp: Maximum iterations for convergence
+
+    Returns:
+        al: Solar altitude (radians)
     """
     maxiter_sntemp = int(maxiter_sntemp)
 
@@ -722,6 +777,25 @@ def _snr_sst(
     """Determine local solar sunrise/set azimuth, altitude, and hour angle.
 
     This is the snr_sst function from PRMS.
+
+    Args:
+        coso: Cosine of segment latitude
+        sino: Sine of segment latitude
+        sin_d: Sine of solar declination
+        alt: Topographic altitude (radians)
+        almn: Minimum solar altitude (radians)
+        almx: Maximum solar altitude (radians)
+        azmn: Minimum azimuth angle (radians)
+        azmx: Maximum azimuth angle (radians)
+        azs: Initial guess for sunrise/set azimuth (radians)
+        als: Initial guess for sunrise/set altitude (radians)
+        azrh: Stream azimuth angle (radians)
+        maxiter_sntemp: Maximum iterations for convergence
+
+    Returns:
+        azs: Sunrise/set azimuth (radians)
+        als: Sunrise/set altitude (radians)
+        hrs: Sunrise/set hour angle (radians)
     """
     maxiter_sntemp = int(maxiter_sntemp)
 
@@ -842,6 +916,32 @@ def _rprnvg(
     """Compute riparian vegetation shade.
 
     This is the rprnvg function from PRMS.
+
+    Args:
+        hrsr: Sunrise hour angle (radians)
+        hrrs: Reach sunrise hour angle (radians)
+        hrss: Sunset hour angle (radians)
+        sino: Sine of segment latitude
+        coso: Cosine of segment latitude
+        sin_d: Sine of solar declination
+        cosod: Product of cos(latitude) and cos(declination)
+        sinod: Product of sin(latitude) and sin(declination)
+        vce: East bank vegetation crown width (meters)
+        voe: East bank vegetation offset (meters)
+        vhe: East bank vegetation height (meters)
+        azrh: Stream azimuth angle (radians)
+        vdemx: Maximum east bank vegetation density
+        vdemn: Minimum east bank vegetation density
+        seg_width: Flow width for the segment (meters)
+        summer_flag: 1 for summer, 0 for winter
+        vcw: West bank vegetation crown width (meters)
+        vow: West bank vegetation offset (meters)
+        vhw: West bank vegetation height (meters)
+        vdwmx: Maximum west bank vegetation density
+        vdwmn: Minimum west bank vegetation density
+
+    Returns:
+        Total vegetation shade (sum of east and west bank contributions)
     """
     # Determine seasonal shade
     if hrsr == hrss:
@@ -902,7 +1002,7 @@ def _rprnvg(
             for n in range(15):
                 hrs = hrrs + (EPSLON[n] * delhss)
                 coshrs = np.cos(hrs)
-                sinhrs = np.sin(hrs)
+                # sinhrs = np.sin(hrs)
                 temp = sinod + (cosod * coshrs)
                 if temp > 1.0:
                     temp = 1.0

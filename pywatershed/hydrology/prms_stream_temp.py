@@ -289,6 +289,22 @@ def _lat_inflow(
     """Compute lateral inflow temperature from components.
 
     This is the lat_inflow function from PRMS.
+
+    Args:
+        seg_lateral_inflow: Total lateral inflow to segment (cfs)
+        seginc_sroff: Surface runoff component (cfs)
+        seginc_ssflow: Subsurface flow component (cfs)
+        seginc_gwflow: Groundwater flow component (cfs)
+        melt_temp: Snowmelt temperature (degC)
+        tave_gw: Groundwater temperature (degC)
+        tave_air: Air temperature (degC)
+        tave_ss: Subsurface temperature (degC)
+        melt: Snowmelt (inches)
+        rain: Rainfall (inches)
+
+    Returns:
+        tl_avg: Weighted average lateral inflow temperature (degC)
+        qlat: Lateral inflow (cms)
     """
     weight_roff = 0.0
     weight_ss = 0.0
@@ -420,6 +436,8 @@ class PRMSStreamTemp(ConservativeProcess):
         stream_shade: PRMSStreamShade instance (Dynamic or Constant)
         budget_type: one of ["defer", None, "warn", "error"]
         verbose: Print extra information or not?
+        use_vectorized_shade: Use vectorized shade computation for all
+            segments at once (default True)
     """
 
     def __init__(
@@ -1130,6 +1148,22 @@ class PRMSStreamTemp(ConservativeProcess):
         """Compute lateral inflow temperature from components.
 
         This is the lat_inflow function from PRMS.
+
+        Args:
+            seg_lateral_inflow: Total lateral inflow to segment (cfs)
+            seginc_sroff: Surface runoff component (cfs)
+            seginc_ssflow: Subsurface flow component (cfs)
+            seginc_gwflow: Groundwater flow component (cfs)
+            melt_temp: Snowmelt temperature (degC)
+            tave_gw: Groundwater temperature (degC)
+            tave_air: Air temperature (degC)
+            tave_ss: Subsurface temperature (degC)
+            melt: Snowmelt (inches)
+            rain: Rainfall (inches)
+
+        Returns:
+            tl_avg: Weighted average lateral inflow temperature (degC)
+            qlat: Lateral inflow (cms)
         """
         return _lat_inflow(
             seg_lateral_inflow,
