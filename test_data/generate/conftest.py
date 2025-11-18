@@ -279,14 +279,15 @@ def pytest_generate_tests(metafunc):
         #  soltab_horad_potsw.csv. Sadly, the output format does not match
         # PRMS output files, there is no date column, presumably because it
         # has a doy dimension 1-366.
-
+        control_soltab_files = []
         for kk, vv in simulations.items():
             exe_desc = get_ctl_exe_desc(vv["control_file"])
             if "5.2.1.1" in exe_desc:
                 soltab_name = "soltab_debug_5.2.1.1"
             else:
                 soltab_name = "soltab_debug"
-            control_soltab_files = [
+
+            control_soltab_files += [
                 (vv["control_file"], vv["ws"] / soltab_name)
             ]
 
@@ -295,6 +296,7 @@ def pytest_generate_tests(metafunc):
             ff.parent.name + ":" + cc.with_suffix("").name + ":" + ff.name
             for cc, ff in control_soltab_files
         ]
+
         metafunc.parametrize(
             "control_soltab_file",
             control_soltab_files,

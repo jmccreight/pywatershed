@@ -53,12 +53,12 @@ def convert_soltab_to_nc(
     in the pywatershed repository.
 
     Args:
-        soltab_file: the pl.Path of the  soltab_debug file.
         output_dir: pl.Path where the netcdf file output will be written
         control_file: pl.Path the contorl file that generated the output
         domain_dir: defaults to the parent dir of soltab_file, the pl.Path
             where domain files (parameter & control) for the domain can be
             found
+        soltab_file: the pl.Path of the  soltab_debug file.
     """
     if domain_dir is None:
         domain_dir = soltab_file.parent
