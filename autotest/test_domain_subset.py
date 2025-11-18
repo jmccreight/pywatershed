@@ -77,7 +77,7 @@ sub_ids_segs_type_ids = [
 @pytest.fixture(scope="function")
 def full_control_file(simulation, tmp_path):
     if simulation["name"] != f"{domain_name}:nhm":
-        pytest.skip("test_domain_subset only runs for {domain_name}:nhm")
+        pytest.skip(f"test_domain_subset only runs for {domain_name}:nhm")
 
     # To keep the test quick, only test for 30 days. We'll re-write the control
     # file to temp_path but we have to maintain the parameter and CBH file

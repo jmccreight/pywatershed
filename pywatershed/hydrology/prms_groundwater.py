@@ -10,13 +10,6 @@ from ..base.control import Control
 from ..constants import nan, numba_num_threads
 from ..parameters import Parameters
 
-try:
-    from ..prms_groundwater_f import calc_groundwater as _calculate_fortran
-
-    has_prmsgroundwater_f = True
-except ImportError:
-    has_prmsgroundwater_f = False
-
 
 class PRMSGroundwater(ConservativeProcess):
     """PRMS groundwater reservoir.
@@ -44,7 +37,7 @@ class PRMSGroundwater(ConservativeProcess):
             the default and defering to control.options["budget_type"] when
             available. When control.options["budget_type"] is not avaiable,
             budget_type is set to "warn".
-        calc_method: one of ["fortran", "numba", "numpy"]. None defaults to
+        calc_method: one of ["numba", "numpy"]. None defaults to
             "numba".
         verbose: Print extra information or not?
         restart_read:
@@ -84,7 +77,7 @@ class PRMSGroundwater(ConservativeProcess):
         dprst_seep_hru: adaptable,
         dprst_flag: bool = None,
         budget_type: Literal["defer", None, "warn", "error"] = "defer",
-        calc_method: Literal["fortran", "numba", "numpy"] = None,
+        calc_method: Literal["numba", "numpy"] = None,
         verbose: bool = None,
         restart_read: Union[pl.Path, bool] = False,
         restart_write: Union[pl.Path, bool] = False,
@@ -190,16 +183,11 @@ class PRMSGroundwater(ConservativeProcess):
         if self._calc_method is None:
             self._calc_method = "numba"
 
-        avail_methods = ["numpy", "numba", "fortran"]
-        fortran_msg = ""
-        if self._calc_method == "fortran" and not has_prmsgroundwater_f:
-            _ = avail_methods.remove("fortran")
-            fortran_msg = "\n(Fortran not available as installed)\n"
+        avail_methods = ["numpy", "numba"]
 
         if self._calc_method.lower() not in avail_methods:
             msg = (
                 f"Invalid calc_method={self._calc_method} for {self.name}. "
-                f"{fortran_msg}"
                 f"Setting calc_method to 'numba' for {self.name}"
             )
             warn(msg)
@@ -231,9 +219,6 @@ class PRMSGroundwater(ConservativeProcess):
                 fastmath=True,
                 parallel=False,
             )(self._calculate_numpy)
-
-        elif self._calc_method.lower() == "fortran":
-            self._calculate_gw = _calculate_fortran
 
         else:
             self._calculate_gw = self._calculate_numpy

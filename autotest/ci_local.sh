@@ -347,7 +347,7 @@ if [ -z "${t}" ]; then
         if [ -z "${g}" ]; then
             echo
             echo ".........."
-            echo "drb_2yr with and without dprst, obsin, and transp_frost - "
+            echo "drb_2yr all domains - "
             echo "  generate and manage test data"
             echo ".........."
             echo
@@ -356,24 +356,20 @@ if [ -z "${t}" ]; then
                 --remove_prms_csvs --remove_prms_output_dirs || exit 1
         fi
 
-        # - name: drb_2yr_nhm - list netcdf input files
-        #   working-directory: test_data
-        #   run: |
-        #     find drb_2yr/output -name '*.nc'
-
-        # - name: drb_2yr_no_dprst - list netcdf input files
-        #   working-directory: test_data
-        #   run: |
-        #     find drb_2yr/output_no_dprst -name '*.nc'
-
         echo ".........."
         echo "drb_2yr_nhm - pywatershed tests"
         echo ".........."
         echo
-        echo "Running:"
-        echo "    pytest -vv -rs -n=$pytest_n -m 'not domainless' --domain=drb_2yr "
-        echo "       --control_pattern=nhm.control   --durations=0"
         pytest \
+            --ignore=test_obsin_flow_node.py \
+            --ignore=test_prms_atmosphere_transp_frost.py \
+            --ignore=test_prms_hydraulic_geometry.py \
+            --ignore=test_prms_stream_temp.py \
+            --ignore=test_domain_subset.py \
+            --ignore=test_prms_runoff_ag.py \
+            --ignore=test_prms_soilzone_ag.py \
+            --ignore=test_source_sink_flow_node.py \
+            --ignore=test_starfit_flow_graph.py \
             -vv \
             -rs \
             -n=$pytest_n \
@@ -416,16 +412,28 @@ if [ -z "${t}" ]; then
             --durations=0 || exit 1
 
         echo ".........."
-        echo "drb_2yr_nhm_transp_frost - pywatershed tests"
+        echo "drb_2yr_transp_frost - pywatershed tests"
         echo ".........."
         echo
         pytest \
             test_prms_atmosphere_transp_frost.py \
             -vv \
-            -n=0 \
-            -m "not domainless" \
+            -n=$pytest_n \
             --domain=drb_2yr \
-            --control_pattern=frost.control \
+            --control_pattern=nhm_transp_frost.control \
+            --durations=0 || exit 1
+
+        echo ".........."
+        echo "drb_2yr_nhm_stream_temp - pywatershed tests"
+        echo ".........."
+        echo
+        pytest \
+            test_prms_hydraulic_geometry.py \
+            test_prms_stream_temp.py \
+            -vv \
+            -n=$pytest_n \
+            --domain=drb_2yr \
+            --control_pattern=nhm_stream_temp.control \
             --durations=0 || exit 1
 
     fi

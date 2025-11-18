@@ -139,7 +139,7 @@ csvON_OFF
 csv_output_file
 1
 4
-./output_transp_tfrost/stats.csv
+./output_transp_frost/stats.csv
 ####
 statsON_OFF
 1
@@ -360,7 +360,7 @@ hru_streamflow_out
 nhruOutBaseFileName
 1
 4
-./output_transp_tfrost/
+./output_transp_frost/
 ####
 nsegmentOutON_OFF
 1
@@ -394,4 +394,4 @@ seg_upstream_inflow
 nsegmentOutBaseFileName
 1
 4
-./output_transp_tfrost/
+./output_transp_frost/
