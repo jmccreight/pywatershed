@@ -450,9 +450,9 @@ jobs:
             -n=auto \
             --domain=ucb_2yr \
             --remove_prms_csvs \
-            --remove_prms_output_dirs
+            --remove_prms_output_dirs \
             --control_pattern=nhm.control \
-            --control_pattern=transp_frost.control \
+            --control_pattern=transp_frost.control
 
       - name: ucb_2yr_nhm - list netcdf input files
         working-directory: test_data
