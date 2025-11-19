@@ -66,7 +66,7 @@ def parameters(simulation, control, request):
     return params
 
 
-def test_compare_prms_default(
+def test_compare_default_depth(
     simulation, control, discretization, parameters, tmp_path
 ):
     """Test PRMSHydraulicGeometryDefault (uses default depth parameters)."""
@@ -83,7 +83,6 @@ def test_compare_prms_default(
         discretization,
         parameters,
         **input_variables,
-        budget_type="defer",
     )
 
     compare_vars = set(PRMSHydraulicGeometryDefault.get_variables())
@@ -131,10 +130,13 @@ def test_compare_prms_default(
     return
 
 
-def test_compare_prms_custom(
+def test_compare_full(
     simulation, control, discretization, parameters, tmp_path
 ):
-    """Test PRMSHydraulicGeometry (uses custom depth parameters)."""
+    """Test PRMSHydraulicGeometry.
+    Currently manually adding in default depth_alpha and depth_m parameters to
+    test against default results from PRMS.
+    """
     tmp_path = pl.Path(tmp_path)
     output_dir = simulation["output_dir"]
 
@@ -173,7 +175,6 @@ def test_compare_prms_custom(
         discretization,
         parameters_with_depth,
         **input_variables,
-        budget_type="defer",
     )
 
     compare_vars = set(PRMSHydraulicGeometry.get_variables())

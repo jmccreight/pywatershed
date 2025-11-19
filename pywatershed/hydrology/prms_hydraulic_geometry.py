@@ -11,7 +11,7 @@ CFS_TO_CMS = 0.028316847
 
 
 class PRMSHydraulicGeometry(Process):
-    """PRMS hydraulic geometry with custom power-law parameters.
+    """PRMS hydraulic geometry.
 
     Computes flow-dependent hydraulic geometry (width, depth, area, velocity)
     for stream segments using power-law relationships. This implementation is
@@ -28,7 +28,6 @@ class PRMSHydraulicGeometry(Process):
         discretization: a discretization of class Parameters
         parameters: a parameter object of class Parameters
         seg_outflow: Streamflow leaving each segment (cfs)
-        budget_type: one of ["defer", None, "warn", "error"]
         verbose: Print extra information or not?
     """
 
@@ -38,7 +37,6 @@ class PRMSHydraulicGeometry(Process):
         discretization: Parameters,
         parameters: Parameters,
         seg_outflow: adaptable,
-        budget_type: str = "defer",
         verbose: bool = False,
     ) -> None:
         super().__init__(
@@ -150,6 +148,7 @@ class PRMSHydraulicGeometry(Process):
         return
 
 
+# JLM: I dont love the design conceptually, but it is efficient.
 class PRMSHydraulicGeometryDefault(PRMSHydraulicGeometry):
     """PRMS hydraulic geometry with default depth parameters.
 
@@ -168,7 +167,6 @@ class PRMSHydraulicGeometryDefault(PRMSHydraulicGeometry):
         discretization: a discretization of class Parameters
         parameters: a parameter object of class Parameters
         seg_outflow: Streamflow leaving each segment (cfs)
-        budget_type: one of ["defer", None, "warn", "error"]
         verbose: Print extra information or not?
     """
 
@@ -178,7 +176,6 @@ class PRMSHydraulicGeometryDefault(PRMSHydraulicGeometry):
         discretization: Parameters,
         parameters: Parameters,
         seg_outflow: adaptable,
-        budget_type: str = "defer",
         verbose: bool = False,
     ) -> None:
         # Call parent init
@@ -187,19 +184,11 @@ class PRMSHydraulicGeometryDefault(PRMSHydraulicGeometry):
             discretization=discretization,
             parameters=parameters,
             seg_outflow=seg_outflow,
-            budget_type=budget_type,
             verbose=verbose,
         )
         self.name = "PRMSHydraulicGeometryDefault"
-
-        # Override depth parameters with defaults if not already set
-        # This happens after parent __init__, which would have set them if
-        # present. Check if they exist and have non-default values,
-        # otherwise use PRMS defaults
-        if not hasattr(self, "depth_alpha") or self.depth_alpha is None:
-            self.depth_alpha = np.full(self.nsegment, 0.27, dtype=np.float64)
-        if not hasattr(self, "depth_m") or self.depth_m is None:
-            self.depth_m = np.full(self.nsegment, 0.39, dtype=np.float64)
+        self.depth_alpha = np.full(self.nsegment, 0.27, dtype=np.float64)
+        self.depth_m = np.full(self.nsegment, 0.39, dtype=np.float64)
 
         return
 
@@ -209,5 +198,4 @@ class PRMSHydraulicGeometryDefault(PRMSHydraulicGeometry):
         return (
             "width_alpha",
             "width_m",
-            # depth_alpha and depth_m are optional, defaults used
         )
