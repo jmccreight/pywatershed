@@ -306,7 +306,7 @@ class FlowGraph(ConservativeProcess):
     ...     parameters=parameters_flow_graph,
     ...     inflows=inflows_graph,
     ...     node_maker_dict=node_maker_dict,
-    ...     budget_type="error",
+    ...     imbalance_behavior="error",
     ... )
     >>> # Save out the full timeseries of flows for all nodes
     >>> graph_seg_outflows = np.zeros([control.n_times, nnodes])
@@ -339,7 +339,7 @@ class FlowGraph(ConservativeProcess):
         node_maker_dict: dict,
         addtl_output_vars: list[str] = None,
         params_not_to_netcdf: list[str] = None,
-        budget_type: Literal["defer", None, "warn", "error"] = "defer",
+        imbalance_behavior: Literal["defer", None, "warn", "error"] = "defer",
         allow_disconnected_nodes: bool = False,
         type_check_nodes: bool = False,
         verbose: bool = None,
@@ -364,11 +364,11 @@ class FlowGraph(ConservativeProcess):
               for NetCDF output from FlowNodes. These variables do not have to
               be available in all FlowNodes but must be present in at least
               one.
-            budget_type: one of ["defer", None, "warn", "error"] with "defer"
-              being the default and defering to
-              control.options["budget_type"] when
-              available. When control.options["budget_type"] is not avaiable,
-              budget_type is set to "warn".
+            imbalance_behavior: one of ["defer", None, "warn", "error"]
+              with "defer" being the default and defering to
+              control.options["imbalance_behavior"] when available.
+              When control.options["imbalance_behavior"] is not
+              avaiable, imbalance_behavior is set to "warn".
             allow_disconnected_nodes: If False, an error is thrown when
               disconnected nodes are found in the graph. This happens often
               in PRMS, so allowing is a convenience but bad practive.
@@ -800,7 +800,7 @@ def inflow_exchange_factory(
             control: Control,
             discretization: Parameters,
             parameters: Parameters,
-            budget_type: Literal[None, "warn", "error"] = None,
+            imbalance_behavior: Literal[None, "warn", "error"] = None,
             verbose: bool = None,
             budget_basis="global",
             **kwargs,

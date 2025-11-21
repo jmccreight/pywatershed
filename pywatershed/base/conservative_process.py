@@ -58,10 +58,11 @@ class ConservativeProcess(Process):
         A discretization object
     parameters:
         The parameters for this object
-    budget_type: one of ["defer", None, "warn", "error"] with "defer" being
-        the default and defering to control.options["budget_type"] when
-        available. When control.options["budget_type"] is not avaiable,
-        budget_type is set to "warn".
+    imbalance_behavior: one of ["defer", None, "warn", "error"] with
+        "defer" being the default and defering to
+        control.options["imbalance_behavior"] when available. When
+        control.options["imbalance_behavior"] is not avaiable,
+        imbalance_behavior is set to "warn".
     metadata_patches:
         Override static metadata for any public parameter or variable --
         experimental.
@@ -100,7 +101,7 @@ class ConservativeProcess(Process):
         control: Control,
         discretization: Parameters,
         parameters: Parameters,
-        budget_type: Literal["defer", None, "warn", "error"] = "defer",
+        imbalance_behavior: Literal["defer", None, "warn", "error"] = "defer",
         metadata_patches: dict[dict] = None,
         metadata_patch_conflicts: Literal["left", "warn", "error"] = "error",
         restart_read: Union[pl.Path, bool] = False,
@@ -267,16 +268,18 @@ class ConservativeProcess(Process):
         if basis is None:
             basis = "unit"
 
-        if self._budget_type == "defer":
-            if "budget_type" in self.control.options.keys():
-                self._budget_type = self.control.options["budget_type"]
+        if self._imbalance_behavior == "defer":
+            if "imbalance_behavior" in self.control.options.keys():
+                self._imbalance_behavior = self.control.options[
+                    "imbalance_behavior"
+                ]
             else:
-                self._budget_type = "warn"
+                self._imbalance_behavior = "warn"
 
-        if self._budget_type is None:
+        if self._imbalance_behavior is None:
             self._mass_budget = None
             self._energy_budget = None
-        elif self._budget_type in ["error", "warn"]:
+        elif self._imbalance_behavior in ["error", "warn"]:
             # Create mass budget if requested
             if quantity == "mass":
                 units = {}
@@ -288,7 +291,7 @@ class ConservativeProcess(Process):
                     self,
                     time_unit="D",
                     description=f"{self.name}_mass",
-                    imbalance_fatal=(self._budget_type == "error"),
+                    imbalance_fatal=(self._imbalance_behavior == "error"),
                     basis=basis,
                     ignore_nans=ignore_nans,
                     units=units,
@@ -307,7 +310,7 @@ class ConservativeProcess(Process):
                     self,
                     time_unit="D",
                     description=f"{self.name}_energy",
-                    imbalance_fatal=(self._budget_type == "error"),
+                    imbalance_fatal=(self._imbalance_behavior == "error"),
                     basis=basis,
                     ignore_nans=ignore_nans,
                     units=units,
@@ -315,7 +318,7 @@ class ConservativeProcess(Process):
                     quantity="energy",
                 )
         else:
-            raise ValueError(f"Illegal behavior: {self._budget_type}")
+            raise ValueError(f"Illegal behavior: {self._imbalance_behavior}")
 
         return
 

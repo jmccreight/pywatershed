@@ -60,10 +60,11 @@ class PRMSRunoffNoDprst(PRMSRunoff):
             canopy for each HRU
         intcp_changeover: Canopy throughfall caused by canopy density
             change from winter to summer
-        budget_type: one of ["defer", None, "warn", "error"] with "defer" being
-            the default and defering to control.options["budget_type"] when
-            available. When control.options["budget_type"] is not avaiable,
-            budget_type is set to "warn".
+        imbalance_behavior: one of ["defer", None, "warn", "error"]
+            with "defer" being the default and defering to
+            control.options["imbalance_behavior"] when available. When
+            control.options["imbalance_behavior"] is not avaiable,
+            imbalance_behavior is set to "warn".
         calc_method: one of ["fortran", "numba", "numpy"]. None defaults to
             "numba".
         verbose: Print extra information or not?
@@ -113,7 +114,7 @@ class PRMSRunoffNoDprst(PRMSRunoff):
         through_rain: adaptable,
         hru_intcpevap: adaptable,
         intcp_changeover: adaptable,
-        budget_type: Literal["defer", None, "warn", "error"] = "defer",
+        imbalance_behavior: Literal["defer", None, "warn", "error"] = "defer",
         calc_method: Literal["numba", "numpy"] = None,
         verbose: bool = None,
         restart_read: Union[pl.Path, bool] = False,
@@ -141,7 +142,7 @@ class PRMSRunoffNoDprst(PRMSRunoff):
             hru_intcpevap=hru_intcpevap,
             intcp_changeover=intcp_changeover,
             dprst_flag=False,
-            budget_type=budget_type,
+            imbalance_behavior=imbalance_behavior,
             calc_method=calc_method,
             verbose=verbose,
             restart_read=restart_read,

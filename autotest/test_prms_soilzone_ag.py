@@ -84,7 +84,7 @@ domain_hru_time_exceptions = {
 
 calc_methods = ("numpy", "numba")[0:1]  # TODO: fix
 params = ("params_sep", "params_one")[1:]  # TODO: fix
-budget_type = None  # TODO: fix
+imbalance_behavior = None  # TODO: fix
 
 
 @pytest.fixture(scope="function")
@@ -220,7 +220,7 @@ def test_compare_prms(
         discretization=discretization,
         parameters=parameters,
         **input_variables,
-        budget_type=budget_type,
+        imbalance_behavior=imbalance_behavior,
         calc_method=calc_method,
     )
 

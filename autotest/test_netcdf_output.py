@@ -33,7 +33,7 @@ def control(simulation):
         simulation["control_file"], warn_unused_options=False
     )
     control.edit_n_time_steps(n_time_steps)
-    control.options["budget_type"] = "error"
+    control.options["imbalance_behavior"] = "error"
     del control.options["netcdf_output_var_names"]
     del control.options["netcdf_output_dir"]
     return control

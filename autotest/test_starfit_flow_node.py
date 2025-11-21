@@ -76,7 +76,7 @@ def control(parameters):
         end_time,
         np.timedelta64(24, "h"),
     )
-    control.options["budget_type"] = "error"
+    control.options["imbalance_behavior"] = "error"
     return control
 
 

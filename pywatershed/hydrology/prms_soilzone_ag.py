@@ -130,10 +130,11 @@ class PRMSSoilzoneAg(ConservativeProcess):
         dprst_flag: use depression storage or not? None uses value in control
             file, which otherwise defaults to True.
         iter_aet_flag: Flag to enable iterative AET matching (default False)
-        budget_type: one of ["defer", None, "warn", "error"] with "defer" being
-            the default and defering to control.options["budget_type"] when
-            available. When control.options["budget_type"] is not avaiable,
-            budget_type is set to "warn".
+        imbalance_behavior: one of ["defer", None, "warn", "error"]
+            with "defer" being the default and defering to
+            control.options["imbalance_behavior"] when available. When
+            control.options["imbalance_behavior"] is not avaiable,
+            imbalance_behavior is set to "warn".
         calc_method: one of ["numpy"]. None defaults to "numpy".
         adjust_parameters: one of ["warn", "error", "no"]. Default is "warn",
             the code edits the parameters and issues a warning. If "error" is
@@ -177,7 +178,7 @@ class PRMSSoilzoneAg(ConservativeProcess):
         aet_external: adaptable = None,
         dprst_flag: bool = None,
         iter_aet_flag: bool = False,
-        budget_type: Literal["defer", None, "warn", "error"] = "defer",
+        imbalance_behavior: Literal["defer", None, "warn", "error"] = "defer",
         calc_method: Literal["numpy"] = None,
         adjust_parameters: Literal["warn", "error", "no"] = "warn",
         verbose: bool = None,

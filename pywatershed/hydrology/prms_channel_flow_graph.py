@@ -514,7 +514,7 @@ class HruNodeFlowExchange(ConservativeProcess):
         sroff_vol: adaptable,
         ssres_flow_vol: adaptable,
         gwres_flow_vol: adaptable,
-        budget_type: Literal["defer", None, "warn", "error"] = "defer",
+        imbalance_behavior: Literal["defer", None, "warn", "error"] = "defer",
         verbose: bool = None,
     ) -> None:
         """Instantiate a HruNodeFlowExchange.
@@ -529,10 +529,11 @@ class HruNodeFlowExchange(ConservativeProcess):
               reservoir flow.
             gwres_flow_vol: An :class:`Adaptable` of volumetric groundwater
               reservoir flow.
-            budget_type: one of ["defer", None, "warn", "error"] with "defer"
-              being the default and defering to control.options["budget_type"]
-              when available. When control.options["budget_type"] is not
-              avaiable, budget_type is set to "warn".
+            imbalance_behavior: one of ["defer", None, "warn", "error"]
+              with "defer" being the default and defering to
+              control.options["imbalance_behavior"] when available.
+              When control.options["imbalance_behavior"] is not
+              avaiable, imbalance_behavior is set to "warn".
             verbose: Boolean for the amount of messages to be printed.
         """
         super().__init__(
@@ -631,7 +632,7 @@ def prms_channel_flow_graph_postprocess(
     new_nodes_flow_to_nhm_seg: list,
     addtl_output_vars: list[str] = None,
     allow_disconnected_nodes: bool = False,
-    budget_type: Literal["defer", None, "warn", "error"] = "defer",
+    imbalance_behavior: Literal["defer", None, "warn", "error"] = "defer",
     type_check_nodes: bool = False,
 ) -> FlowGraph:
     """Add nodes to a PRMSChannel-based FlowGraph to run from known inputs.
@@ -670,20 +671,21 @@ def prms_channel_flow_graph_postprocess(
             collated parameters, allowing these new nodes to be added in
             groups, in series to the existing NHM FlowGraph. Note that a new
             node may not be placed below any outflow point of the domain.
-        budget_type: one of ["defer", None, "warn", "error"] with "defer" being
-            the default and defering to control.options["budget_type"] when
-            available. When control.options["budget_type"] is not avaiable,
-            budget_type is set to "warn".
+        imbalance_behavior: one of ["defer", None, "warn", "error"]
+            with "defer" being the default and defering to
+            control.options["imbalance_behavior"] when available. When
+            control.options["imbalance_behavior"] is not avaiable,
+            imbalance_behavior is set to "warn".
 
     Returns:
         An instantiated FlowGraph object.
 
     """  # noqa: E501
-    if budget_type == "defer":
-        if "budget_type" in control.options.keys():
-            budget_type = control.options["budget_type"]
+    if imbalance_behavior == "defer":
+        if "imbalance_behavior" in control.options.keys():
+            imbalance_behavior = control.options["imbalance_behavior"]
         else:
-            budget_type = "warn"
+            imbalance_behavior = "warn"
 
     params_flow_graph, node_maker_dict = _build_flow_graph_inputs(
         prms_channel_dis,
@@ -736,7 +738,7 @@ def prms_channel_flow_graph_postprocess(
         inflows=inflows_graph,
         node_maker_dict=node_maker_dict,
         addtl_output_vars=addtl_output_vars,
-        budget_type=budget_type,
+        imbalance_behavior=imbalance_behavior,
         type_check_nodes=type_check_nodes,
         allow_disconnected_nodes=allow_disconnected_nodes,
     )
@@ -754,7 +756,9 @@ def prms_channel_flow_graph_to_model_dict(
     new_nodes_maker_ids: list,
     new_nodes_flow_to_nhm_seg: list,
     addtl_output_vars: list[str] = None,
-    graph_budget_type: Literal["defer", None, "warn", "error"] = "defer",
+    graph_imbalance_behavior: Literal[
+        "defer", None, "warn", "error"
+    ] = "defer",
     allow_disconnected_nodes: bool = False,
     type_check_nodes: bool = False,
 ) -> dict:
@@ -794,10 +798,10 @@ def prms_channel_flow_graph_to_model_dict(
             collated parameters, allowing these new nodes to be added in
             groups, in series to the existing NHM FlowGraph. Note that a new
             node may not be placed below any outflow point of the domain.
-        graph_budget_type: one of ["defer", None, "warn", "error"] with
+        graph_imbalance_behavior: one of ["defer", None, "warn", "error"] with
             "defer" being the default and defering to
-            control.options["budget_type"] when available. When
-            control.options["budget_type"] is not avaiable, budget_type is set
+            control.options["imbalance_behavior"] when available. When
+            control.options["imbalance_behavior"] is not avaiable, imbalance_behavior is set
             to "warn".
 
     Returns:
@@ -861,7 +865,7 @@ def prms_channel_flow_graph_to_model_dict(
             "storage_changes": [],
         },
         calculation=exchange_calculation,
-    )  # get the budget type into the exchange too: exchange_budget_type
+    )  # get the budget type into the exchange too: exchange_imbalance_behavior
 
     # Exchange parameters
     nnodes = params_flow_graph.dims["nnodes"]
@@ -884,7 +888,7 @@ def prms_channel_flow_graph_to_model_dict(
             "node_maker_dict": node_maker_dict,
             "parameters": params_flow_graph,
             "dis": None,
-            "budget_type": graph_budget_type,
+            "imbalance_behavior": graph_imbalance_behavior,
             "addtl_output_vars": addtl_output_vars,
             "allow_disconnected_nodes": allow_disconnected_nodes,
         },

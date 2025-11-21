@@ -97,10 +97,11 @@ class PRMSRunoffAg(PRMSRunoff):
             change from winter to summer
         dprst_flag: use depression storage or not? None uses value in control
             file, which otherwise defaults to True.
-        budget_type: one of ["defer", None, "warn", "error"] with "defer" being
-            the default and defering to control.options["budget_type"] when
-            available. When control.options["budget_type"] is not avaiable,
-            budget_type is set to "warn".
+        imbalance_behavior: one of ["defer", None, "warn", "error"]
+            with "defer" being the default and defering to
+            control.options["imbalance_behavior"] when available. When
+            control.options["imbalance_behavior"] is not avaiable,
+            imbalance_behavior is set to "warn".
         calc_method: one of ["fortran", "numba", "numpy"]. None defaults to
             "numba".
         verbose: Print extra information or not?
@@ -131,7 +132,7 @@ class PRMSRunoffAg(PRMSRunoff):
         ag_soil_moist_prev: adaptable,
         ag_soil_rechr_prev: adaptable,
         dprst_flag: Union[bool, None] = None,
-        budget_type: Literal["defer", None, "warn", "error"] = "defer",
+        imbalance_behavior: Literal["defer", None, "warn", "error"] = "defer",
         calc_method: Literal["numba", "numpy", None] = None,
         verbose: Union[bool, None] = None,
         restart_read: Union[pl.Path, bool] = False,
@@ -159,7 +160,7 @@ class PRMSRunoffAg(PRMSRunoff):
             ag_soil_moist_prev=ag_soil_moist_prev,
             ag_soil_rechr_prev=ag_soil_rechr_prev,
             dprst_flag=dprst_flag,
-            budget_type=budget_type,
+            imbalance_behavior=imbalance_behavior,
             calc_method=calc_method,
             verbose=verbose,
             restart_read=restart_read,

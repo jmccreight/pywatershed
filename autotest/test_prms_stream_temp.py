@@ -29,7 +29,7 @@ rtol = atol = 5.0e-3
 # TODO: use both parameter schemes again
 params = ("params_sep", "params_one")
 
-# Parametrize energy flux tracking: (track_energy_fluxes, budget_type)
+# Parametrize energy flux tracking: (track_energy_fluxes, imbalance_behavior)
 energy_flux_options = (
     (True, "error"),  # Track fluxes with strict budget checking
     (False, None),  # Don't track fluxes, no budget checking
@@ -124,7 +124,7 @@ def test_compare_prms(
     output_dir = simulation["output_dir"]
 
     # Unpack energy flux configuration
-    track_energy_fluxes, budget_type = energy_flux_config
+    track_energy_fluxes, imbalance_behavior = energy_flux_config
 
     # Step 1: Instantiate PRMSStreamShade to compose into PRMSStreamTemp
     stream_temp_shade_flag = control.options.get(
@@ -156,7 +156,7 @@ def test_compare_prms(
         parameters,
         **stream_temp_inputs,
         stream_shade=stream_shade,
-        budget_type=budget_type,
+        imbalance_behavior=imbalance_behavior,
         track_energy_fluxes=track_energy_fluxes,
     )
 

@@ -84,7 +84,7 @@ class PRMSStreamTemp(ConservativeProcess):
         seg_flow_velocity: Flow-dependent velocity from
             PRMSHydraulicGeometry
         stream_shade: PRMSStreamShade instance (Dynamic or Constant)
-        budget_type: one of ["defer", None, "warn", "error"]
+        imbalance_behavior: one of ["defer", None, "warn", "error"]
         verbose: Print extra information or not?
         use_vectorized_shade: Use vectorized shade computation for all
             segments at once (default True)
@@ -112,7 +112,7 @@ class PRMSStreamTemp(ConservativeProcess):
         seg_flow_area: adaptable,
         seg_flow_velocity: adaptable,
         stream_shade: PRMSStreamShade,
-        budget_type: Literal["defer", None, "warn", "error"] = "defer",
+        imbalance_behavior: Literal["defer", None, "warn", "error"] = "defer",
         verbose: bool = False,
         use_vectorized_shade: bool = True,
         track_energy_fluxes: bool = True,
@@ -121,7 +121,7 @@ class PRMSStreamTemp(ConservativeProcess):
             control=control,
             discretization=discretization,
             parameters=parameters,
-            budget_type=budget_type,
+            imbalance_behavior=imbalance_behavior,
         )
         self.name = "PRMSStreamTemp"
 
@@ -157,12 +157,13 @@ class PRMSStreamTemp(ConservativeProcess):
 
         # Consistency checks for energy flux tracking
         if not track_energy_fluxes:
-            # Check 1: budget_type must be None if not tracking energy fluxes
-            if budget_type is not None:
+            # Check 1: imbalance_behavior must be None if not tracking
+            # energy fluxes
+            if imbalance_behavior is not None:
                 msg = (
                     "Inconsistent options: track_energy_fluxes=False "
-                    f"requires budget_type=None, but "
-                    f"budget_type={budget_type!r}"
+                    f"requires imbalance_behavior=None, but "
+                    f"imbalance_behavior={imbalance_behavior!r}"
                 )
                 raise ValueError(msg)
 

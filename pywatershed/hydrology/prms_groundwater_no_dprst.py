@@ -30,10 +30,11 @@ class PRMSGroundwaterNoDprst(PRMSGroundwater):
             for each HRU
         dprst_seep_hru: Seepage from surface-depression storage to associated
             GWR for each HRU
-        budget_type: one of ["defer", None, "warn", "error"] with "defer" being
-            the default and defering to control.options["budget_type"] when
-            available. When control.options["budget_type"] is not avaiable,
-            budget_type is set to "warn".
+        imbalance_behavior: one of ["defer", None, "warn", "error"]
+            with "defer" being the default and defering to
+            control.options["imbalance_behavior"] when available. When
+            control.options["imbalance_behavior"] is not avaiable,
+            imbalance_behavior is set to "warn".
         calc_method: one of ["fortran", "numba", "numpy"]. None defaults to
             "numba".
         verbose: Print extra information or not?
@@ -71,7 +72,7 @@ class PRMSGroundwaterNoDprst(PRMSGroundwater):
         parameters: Parameters,
         soil_to_gw: adaptable,
         ssr_to_gw: adaptable,
-        budget_type: Literal["defer", None, "warn", "error"] = "defer",
+        imbalance_behavior: Literal["defer", None, "warn", "error"] = "defer",
         calc_method: Literal["fortran", "numba", "numpy"] = None,
         verbose: bool = None,
         restart_read: Union[pl.Path, bool] = False,
@@ -87,7 +88,7 @@ class PRMSGroundwaterNoDprst(PRMSGroundwater):
             soil_to_gw=soil_to_gw,
             ssr_to_gw=ssr_to_gw,
             dprst_seep_hru=None,
-            budget_type=budget_type,
+            imbalance_behavior=imbalance_behavior,
             calc_method=calc_method,
             verbose=verbose,
             restart_read=restart_read,

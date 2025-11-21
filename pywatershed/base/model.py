@@ -231,7 +231,7 @@ class Model:
     ...     "time_step": 24,
     ...     "time_step_units": "h",
     ...     "verbosity": 0,
-    ...     "budget_type": "warn",
+    ...     "imbalance_behavior": "warn",
     ...     "input_dir": str(domain_dir),
     ... }
     >>> control_file = domain_dir / "example_control.yaml"

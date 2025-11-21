@@ -45,10 +45,11 @@ class PRMSSoilzoneNoDprst(PRMSSoilzone):
         snow_evap: Evaporation and sublimation from snowpack on each HRU
         snowcov_area: Snow-covered area on each HRU prior to melt and
             sublimation unless snowpack
-        budget_type: one of ["defer", None, "warn", "error"] with "defer" being
-            the default and defering to control.options["budget_type"] when
-            available. When control.options["budget_type"] is not avaiable,
-            budget_type is set to "warn".
+        imbalance_behavior: one of ["defer", None, "warn", "error"]
+            with "defer" being the default and defering to
+            control.options["imbalance_behavior"] when available. When
+            control.options["imbalance_behavior"] is not avaiable,
+            imbalance_behavior is set to "warn".
         calc_method: one of ["fortran", "numba", "numpy"]. None defaults to
             "numba".
         adjust_parameters: one of ["warn", "error", "no"]. Default is "warn",
@@ -99,7 +100,7 @@ class PRMSSoilzoneNoDprst(PRMSSoilzone):
         transp_on: adaptable,
         snow_evap: adaptable,
         snowcov_area: adaptable,
-        budget_type: Literal["defer", None, "warn", "error"] = "defer",
+        imbalance_behavior: Literal["defer", None, "warn", "error"] = "defer",
         calc_method: Literal["numba", "numpy"] = None,
         adjust_parameters: Literal["warn", "error", "no"] = "warn",
         verbose: bool = None,
@@ -125,7 +126,7 @@ class PRMSSoilzoneNoDprst(PRMSSoilzone):
             snow_evap=snow_evap,
             snowcov_area=snowcov_area,
             dprst_flag=False,
-            budget_type=budget_type,
+            imbalance_behavior=imbalance_behavior,
             calc_method=calc_method,
             adjust_parameters=adjust_parameters,
             verbose=verbose,

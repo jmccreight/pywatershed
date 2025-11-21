@@ -84,7 +84,7 @@ def control(parameters):
         end_time,
         np.timedelta64(24, "h"),
     )
-    control.options["budget_type"] = "error"
+    control.options["imbalance_behavior"] = "error"
     return control
 
 
@@ -156,7 +156,7 @@ def test_starfit_source_sink_flow_node_compare_starfit(
         # calc_method="numba",
         io_in_cfs=io_in_cfs,
         nhrs_substep=24,
-        budget_type="error",
+        imbalance_behavior="error",
     )
 
     nodes = [

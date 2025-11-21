@@ -26,7 +26,7 @@ New Features
   and will be removed in the next major release - use ``mass_budget`` instead.
   (:pull:`343`) By `James McCreight <https://github.com/jmccreight>`_.
 - The new :class:`PRMSStreamTemp` class provides stream temperature simulation using the PRMS
-  stream temperature module methodology, computing water temperatures based on energy balance
+  stream temperature methodology, computing water temperatures based on energy balance
   in stream segments. The class supports optional energy flux tracking and budgeting via the
   ``track_energy_fluxes`` parameter (default: True). When enabled, it computes and tracks 11
   energy flux components including advective heat transport (upstream, lateral, outflow),
@@ -34,7 +34,7 @@ New Features
   convective exchange), and internal sources (friction heating, groundwater conduction). These
   fluxes are available as output variables and included in the energy budget. When disabled
   (``track_energy_fluxes=False``), energy flux variables are set to None and excluded from
-  NetCDF output, with ``budget_type`` required to be None.
+  NetCDF output, with ``imbalance_behavior`` required to be None.
   (:pull:`343`) By `James McCreight <https://github.com/jmccreight>`_.
 - Option for :class:`Model` class to read from a single netcdf file or (not and,
   the existing option,) from a directory containing multiple netcdf files.
@@ -62,6 +62,12 @@ New Features
 
 Breaking Changes
 ~~~~~~~~~~~~~~~~
+- The ``budget_type`` parameter has been renamed to ``imbalance_behavior`` in
+  :class:`base.ConservativeProcess` and all its subclasses, in :class:`base.FlowGraph`, and in
+  control options. Update all ``budget_type`` references to ``imbalance_behavior`` in
+  your code and configuration files. This breaking change clarifies what the parameter does
+  and is intentionally distinct from the from budget quantity parameter.
+  (:pull:`343`) By `James McCreight <https://github.com/jmccreight>`_.
 - Budget netcdf output filenames have changed to include the quantity type.
   Mass budgets are now named ``ProcessName_mass_budget.nc`` instead of
   ``ProcessName_budget.nc``. Energy budgets use ``ProcessName_energy_budget.nc``.

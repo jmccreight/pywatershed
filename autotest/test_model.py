@@ -13,7 +13,7 @@ process_cases = [
 def get_control(file):
     control = pws.Control.load_prms(file, warn_unused_options=False)
     control.options["verbosity"] = 10
-    control.options["budget_type"] = None
+    control.options["imbalance_behavior"] = None
     control.options["calc_method"] = "numba"
     control.options["netcdf_output_dir"] = None
     control.edit_end_time(control.start_time + 14 * control.time_step)
