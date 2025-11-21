@@ -293,7 +293,7 @@ class ConservativeProcess(Process):
                     ignore_nans=ignore_nans,
                     units=units,
                     unit_desc=unit_desc,
-                    budget_type="mass",
+                    quantity="mass",
                 )
 
             # Create energy budget if requested
@@ -312,7 +312,7 @@ class ConservativeProcess(Process):
                     ignore_nans=ignore_nans,
                     units=units,
                     unit_desc=unit_desc,
-                    budget_type="energy",
+                    quantity="energy",
                 )
         else:
             raise ValueError(f"Illegal behavior: {self._budget_type}")
@@ -383,7 +383,10 @@ class ConservativeProcess(Process):
         """
         super()._finalize_netcdf()
 
-        if self.budget is not None and self._netcdf_initialized:
-            self.budget._finalize_netcdf()
+        if self._mass_budget is not None and self._netcdf_initialized:
+            self._mass_budget._finalize_netcdf()
+
+        if self._energy_budget is not None and self._netcdf_initialized:
+            self._energy_budget._finalize_netcdf()
 
         return

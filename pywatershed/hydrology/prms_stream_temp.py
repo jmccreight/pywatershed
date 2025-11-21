@@ -24,6 +24,11 @@ AKZ = 1.65
 A = 5.40e-8
 MPS_CONVERT = 2.93981481e-07
 
+# Physical constants for energy calculations
+WATER_DENSITY = 1000.0  # kg/m³
+SPECIFIC_HEAT_WATER = 4182.0  # J/(kg·°C)
+LATENT_HEAT_VAPORIZATION = 2495.0e06  # J/m³
+
 
 class PRMSStreamTemp(ConservativeProcess):
     """PRMS stream temperature.
@@ -125,7 +130,7 @@ class PRMSStreamTemp(ConservativeProcess):
         # Store vectorization preference
         self.use_vectorized_shade = use_vectorized_shade
 
-        self._set_budget(basis="global", quantity="energy")
+        self._set_budget(basis="unit", quantity="energy")
         self._initialize_stream_temp()
 
         return
@@ -188,6 +193,18 @@ class PRMSStreamTemp(ConservativeProcess):
             "seginc_ssflow": 0.0,
             "seginc_gwflow": 0.0,
             "seginc_swrad": 0.0,
+            # Energy flux variables (W)
+            "heat_upstream": 0.0,
+            "heat_lateral": 0.0,
+            "solar_radiation": 0.0,
+            "atmospheric_longwave": 0.0,
+            "friction_heat": 0.0,
+            "groundwater_conduction": 0.0,
+            "heat_outflow": 0.0,
+            "longwave_emission": 0.0,
+            "longwave_vegetation": 0.0,
+            "evaporative_cooling": 0.0,
+            "convective_exchange": 0.0,
         }
 
     @staticmethod
@@ -205,24 +222,36 @@ class PRMSStreamTemp(ConservativeProcess):
 
         Returns:
             Dictionary with inputs, outputs, and storage_changes for energy budget.
-            Note: This is a placeholder - actual energy flux variables would need
-            to be implemented to track the full energy balance.
+
+        Notes:
+            Energy fluxes are computed in Watts (J/s). The budget tracks:
+            - Advective heat transport (upstream, lateral, outflow)
+            - Surface energy exchange (solar, longwave, evaporation)
+            - Internal sources (friction, groundwater conduction)
+
+            Storage changes are empty because the kinematic wave assumption
+            means water storage is constant - only temperature (and thus
+            heat content) changes, which is captured by the balance of
+            inputs and outputs.
         """
         return {
             "inputs": [
-                # "solar_radiation_input",      # Shortwave energy
-                # "longwave_atmospheric_input",  # Atmospheric LW
-                # "upstream_heat_flux",          # Heat from upstream
-                # "lateral_heat_flux",           # Heat from lateral inflows
-                # "friction_heat",               # Friction heating
+                "heat_upstream",  # Advective heat from upstream (W)
+                "heat_lateral",  # Advective heat from lateral (W)
+                "solar_radiation",  # Net shortwave radiation (W)
+                "atmospheric_longwave",  # Atmospheric LW radiation (W)
+                "friction_heat",  # Friction heating (W)
+                "groundwater_conduction",  # Heat from groundwater (W)
             ],
             "outputs": [
-                # "longwave_emission",           # Emitted LW radiation
-                # "evaporative_heat_loss",       # Latent heat
-                # "convective_heat_loss",        # Sensible heat
+                "heat_outflow",  # Advective heat leaving (W)
+                "longwave_emission",  # LW radiation emitted (W)
+                "longwave_vegetation",  # LW from vegetation (W)
+                "evaporative_cooling",  # Latent heat loss (W)
+                "convective_exchange",  # Sensible heat exchange (W)
             ],
             "storage_changes": [
-                # "stream_heat_content_change",  # Change in stored heat
+                # Empty - kinematic wave assumption (no storage change)
             ],
         }
 
@@ -960,6 +989,11 @@ class PRMSStreamTemp(ConservativeProcess):
             qup, t_in, qlat, tl_avg, te, ak1, ak2, seg_idx
         )
 
+        # Compute energy fluxes for budget
+        self._compute_energy_fluxes(
+            seg_idx, upstream_flow, lateral_flow, svi, te, ak1, ak2
+        )
+
         return
 
     def _compute_mixed_inlet_temp(
@@ -981,6 +1015,141 @@ class PRMSStreamTemp(ConservativeProcess):
             self.seg_tave_upstream[seg_idx],
             self.seg_tave_lat[seg_idx],
         )
+
+    def _compute_energy_fluxes(
+        self,
+        seg_idx: int,
+        upstream_flow: float,
+        lateral_flow: float,
+        svi: float,
+        te: float,
+        ak1: float,
+        ak2: float,
+    ) -> None:
+        """Compute energy fluxes for budget tracking.
+
+        Args:
+            seg_idx: Segment index
+            upstream_flow: Flow from upstream segments (cfs)
+            lateral_flow: Lateral inflow (cfs)
+            svi: Vegetation shade index
+            te: Equilibrium temperature (degC)
+            ak1: First-order thermal exchange coefficient
+            ak2: Second-order thermal exchange coefficient
+        """
+        # Get segment properties
+        width = self.seg_flow_width[seg_idx]
+        length = self.seg_length[seg_idx]
+        surface_area = width * length  # m²
+
+        # Convert flows to m³/s
+        q_up_cms = upstream_flow * CFS_TO_CMS
+        q_lat_cms = lateral_flow * CFS_TO_CMS
+        q_out_cms = self.seg_outflow[seg_idx] * CFS_TO_CMS
+
+        # Water temperature (degC)
+        t_water = self.seg_tave_water[seg_idx]
+        t_water_abs = t_water + ZERO_C  # K
+
+        # === INPUTS (Heat gains) ===
+
+        # 1. Advective heat from upstream (W)
+        if q_up_cms > NEARZERO:
+            self.heat_upstream[seg_idx] = (
+                q_up_cms
+                * self.seg_tave_upstream[seg_idx]
+                * SPECIFIC_HEAT_WATER
+                * WATER_DENSITY
+            )
+        else:
+            self.heat_upstream[seg_idx] = 0.0
+
+        # 2. Advective heat from lateral inflow (W)
+        if q_lat_cms > NEARZERO:
+            self.heat_lateral[seg_idx] = (
+                q_lat_cms
+                * self.seg_tave_lat[seg_idx]
+                * SPECIFIC_HEAT_WATER
+                * WATER_DENSITY
+            )
+        else:
+            self.heat_lateral[seg_idx] = 0.0
+
+        # 3. Net shortwave solar radiation (W)
+        sw_power = 11.63 / 24.0 * self.seginc_swrad[seg_idx]  # W/m²
+        hs = (1.0 - self.seg_shade[seg_idx]) * sw_power * (1.0 - self.albedo)
+        self.solar_radiation[seg_idx] = hs * surface_area
+
+        # 4. Atmospheric longwave radiation (W)
+        # From _equilb calculation
+        vp_sat = 6.108 * np.exp(17.26939 * t_water / (t_water + 237.3))
+        humidity = min(self.seg_humid[seg_idx], 0.99)
+        ha = (
+            (3.354939e-8 + 2.74995e-9 * np.sqrt(humidity * vp_sat))
+            * (1.0 - self.seg_shade[seg_idx])
+            * (1.0 + (0.17 * (self.seg_ccov[seg_idx] ** 2)))
+        ) * (t_water_abs**4)
+        self.atmospheric_longwave[seg_idx] = ha * surface_area
+
+        # 5. Friction heating (W)
+        q_init = max(self._seg_inflow[seg_idx] * CFS_TO_CMS, NEARZERO)
+        hf = 9805.0 * (q_init / width) * self.seg_slope[seg_idx]  # W/m²
+        self.friction_heat[seg_idx] = hf * surface_area
+
+        # 6. Groundwater conduction (W)
+        self.groundwater_conduction[seg_idx] = (
+            self.seg_tave_gw[seg_idx] * AKZ * surface_area
+        )
+
+        # === OUTPUTS (Heat losses) ===
+
+        # 7. Advective heat leaving segment (W)
+        if q_out_cms > NEARZERO:
+            self.heat_outflow[seg_idx] = (
+                q_out_cms * t_water * SPECIFIC_HEAT_WATER * WATER_DENSITY
+            )
+        else:
+            self.heat_outflow[seg_idx] = 0.0
+
+        # 8. Longwave radiation emitted by water surface (W)
+        self.longwave_emission[seg_idx] = A * (t_water_abs**4) * surface_area
+
+        # 9. Longwave radiation from riparian vegetation (W)
+        hv = 5.24e-8 * svi * (t_water_abs**4)  # W/m²
+        self.longwave_vegetation[seg_idx] = hv * surface_area
+
+        # 10. Evaporative cooling (W)
+        evap = self.seg_potet[seg_idx] * MPS_CONVERT  # m/s
+        self.evaporative_cooling[seg_idx] = (
+            evap * LATENT_HEAT_VAPORIZATION * surface_area
+        )
+
+        # 11. Convective/sensible heat exchange (W)
+        # This is computed as the residual to close the energy balance
+        # Total inputs
+        total_inputs = (
+            self.heat_upstream[seg_idx]
+            + self.heat_lateral[seg_idx]
+            + self.solar_radiation[seg_idx]
+            + self.atmospheric_longwave[seg_idx]
+            + self.friction_heat[seg_idx]
+            + self.groundwater_conduction[seg_idx]
+        )
+
+        # Total outputs (excluding convection)
+        total_outputs_no_conv = (
+            self.heat_outflow[seg_idx]
+            + self.longwave_emission[seg_idx]
+            + self.longwave_vegetation[seg_idx]
+            + self.evaporative_cooling[seg_idx]
+        )
+
+        # Convection closes the balance (can be positive or negative)
+        self.convective_exchange[seg_idx] = (
+            total_inputs - total_outputs_no_conv
+        )
+
+        return
 
     def _equilb(self, seg_idx: int, t_o: float, svi: float):
         """Compute equilibrium temperature using full energy balance.

@@ -132,11 +132,25 @@ def test_compare_prms(
         parameters,
         **stream_temp_inputs,
         stream_shade=stream_shade,
-        budget_type=None,
+        budget_type="warn",
     )
 
     # Compare all PRMSStreamTemp variables
-    compare_vars = set(PRMSStreamTemp.get_variables())
+    compare_vars = set(PRMSStreamTemp.get_variables()) - set(
+        [
+            "heat_upstream",
+            "heat_lateral",
+            "solar_radiation",
+            "atmospheric_longwave",
+            "friction_heat",
+            "groundwater_conduction",
+            "heat_outflow",
+            "longwave_emission",
+            "longwave_vegetation",
+            "evaporative_cooling",
+            "convective_exchange",
+        ]
+    )
     if do_compare_output_files:
         nc_parent = tmp_path / simulation["name"].replace(":", "_")
         stream_temp.initialize_netcdf(nc_parent)
@@ -249,4 +263,8 @@ def test_compare_prms(
             rtol=rtol,
         )
 
+    # The following is currently part of the test, nowhere else is the repr of
+    # the energy budget exercised at this time.
+    print(stream_temp.energy_budget)
+    stream_temp.finalize()
     return

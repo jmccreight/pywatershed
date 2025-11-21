@@ -456,7 +456,10 @@ class Budget(Accessor):
         col_extra = col_extra_colon + col_extra_vals
         in_col_key_width = max([len(kk) for kk in in_keys])
         out_col_key_width = max([len(kk) for kk in out_keys])
-        stor_col_key_width = max([len(kk) for kk in stor_keys])
+        if len(stor_keys) > 0:
+            stor_col_key_width = max([len(kk) for kk in stor_keys])
+        else:
+            stor_col_key_width = 5
         in_col_width = in_col_key_width + col_extra
         out_col_width = out_col_key_width + col_extra
         stor_col_width = stor_col_key_width + col_extra
@@ -575,7 +578,13 @@ class Budget(Accessor):
             # TODO(JLM): This is a hack until i have some time to sort this out
             bal_line = "Balance: "
             for oper, vals_sum, col_width, col_key_width in term_data:
-                if vals_sum.sum() > 0:
+                # Handle case where vals_sum might be a scalar (empty storage_changes)
+                if vals_sum is None:
+                    vals_sum = np.float64(0.0)
+                vals_sum_total = (
+                    vals_sum.sum() if hasattr(vals_sum, "sum") else vals_sum
+                )
+                if vals_sum_total > 0:
                     sign_extra = 0
                 else:
                     sign_extra = 1
@@ -585,7 +594,7 @@ class Budget(Accessor):
                     + (" " * (col_key_width + col_extra_colon - len(oper)))
                     + pretty_print(
                         np.format_float_scientific(
-                            vals_sum.sum(),
+                            vals_sum_total,
                             precision=col_width
                             - col_key_width
                             - col_extra_colon
