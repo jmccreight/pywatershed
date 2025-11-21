@@ -163,11 +163,18 @@ class Budget(Accessor):
                     self[comp_name][var_name] = var_data
 
     @classmethod
-    def from_storage_unit(cls, storage_unit, **kwargs):
-        mass_budget_terms = storage_unit.get_mass_budget_terms()
-        for component in mass_budget_terms.keys():
+    def from_storage_unit(cls, storage_unit, quantity="mass", **kwargs):
+        # Get budget terms based on quantity
+        if quantity == "mass":
+            budget_terms = storage_unit.get_mass_budget_terms()
+        elif quantity == "energy":
+            budget_terms = storage_unit.get_energy_budget_terms()
+        else:
+            raise ValueError(f"Unknown quantity: {quantity}")
+
+        for component in budget_terms.keys():
             kwargs[component] = {}
-            for var in mass_budget_terms[component]:
+            for var in budget_terms[component]:
                 kwargs[component][var] = storage_unit[var]
 
         return Budget(storage_unit.control, **kwargs)

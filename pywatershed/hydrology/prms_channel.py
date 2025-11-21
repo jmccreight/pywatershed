@@ -135,6 +135,7 @@ class PRMSChannel(ConservativeProcess):
             control=control,
             discretization=discretization,
             parameters=parameters,
+            budget_type=budget_type,
             restart_read=restart_read,
             restart_write=restart_write,
             restart_write_freq=restart_write_freq,
@@ -144,7 +145,7 @@ class PRMSChannel(ConservativeProcess):
         self._set_inputs(locals())
         self._set_options(locals())
 
-        self._set_budget(basis="global")
+        self._set_budget(basis="global", quantity="mass")
         self._initialize_channel_data()
         self._init_calc_method()
 

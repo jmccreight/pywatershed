@@ -112,13 +112,20 @@ class PRMSStreamTemp(ConservativeProcess):
             control=control,
             discretization=discretization,
             parameters=parameters,
+            budget_type=budget_type,
         )
         self.name = "PRMSStreamTemp"
 
         self._set_inputs(locals())
         self._set_options(locals())
 
-        self._set_budget(basis="global")
+        # Store the composed shade computer
+        self.stream_shade = stream_shade
+
+        # Store vectorization preference
+        self.use_vectorized_shade = use_vectorized_shade
+
+        self._set_budget(basis="global", quantity="energy")
         self._initialize_stream_temp()
 
         return
@@ -190,6 +197,33 @@ class PRMSStreamTemp(ConservativeProcess):
             "inputs": [],
             "outputs": [],
             "storage_changes": [],
+        }
+
+    @staticmethod
+    def get_energy_budget_terms() -> dict:
+        """Get energy budget terms for stream temperature.
+
+        Returns:
+            Dictionary with inputs, outputs, and storage_changes for energy budget.
+            Note: This is a placeholder - actual energy flux variables would need
+            to be implemented to track the full energy balance.
+        """
+        return {
+            "inputs": [
+                # "solar_radiation_input",      # Shortwave energy
+                # "longwave_atmospheric_input",  # Atmospheric LW
+                # "upstream_heat_flux",          # Heat from upstream
+                # "lateral_heat_flux",           # Heat from lateral inflows
+                # "friction_heat",               # Friction heating
+            ],
+            "outputs": [
+                # "longwave_emission",           # Emitted LW radiation
+                # "evaporative_heat_loss",       # Latent heat
+                # "convective_heat_loss",        # Sensible heat
+            ],
+            "storage_changes": [
+                # "stream_heat_content_change",  # Change in stored heat
+            ],
         }
 
     def _set_initial_conditions(self) -> None:
