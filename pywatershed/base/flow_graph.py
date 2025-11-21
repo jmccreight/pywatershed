@@ -762,9 +762,9 @@ class FlowGraph(ConservativeProcess):
             self._outflow_mask, self.node_outflows, zero
         )
 
-        if self.budget is not None:
-            self.budget.advance()
-            self.budget.calculate()
+        if self.mass_budget is not None:
+            self.mass_budget.advance()
+            self.mass_budget.calculate()
 
         return
 

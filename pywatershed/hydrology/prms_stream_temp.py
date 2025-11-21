@@ -45,8 +45,9 @@ class PRMSStreamTemp(ConservativeProcess):
     Implementation based on PRMS 5.2.1.1 with theoretical documentation given
     by:
 
-    `Markstrom, Steven L. P2S -- Coupled simulation with the Precipitation-Runoff
-    Modeling System (PRMS) and the Stream Temperature Network (SNTemp) Models.
+    `Markstrom, Steven L. P2S -- Coupled simulation with the
+    Precipitation-Runoff Modeling System (PRMS) and the Stream Temperature
+    Network (SNTemp) Models.
     No. 2012-1116. US Geological Survey, 2012.
     <https://pubs.usgs.gov/publication/ofr20121116>`__
 
@@ -160,7 +161,8 @@ class PRMSStreamTemp(ConservativeProcess):
             if budget_type is not None:
                 msg = (
                     "Inconsistent options: track_energy_fluxes=False "
-                    f"requires budget_type=None, but budget_type={budget_type!r}"
+                    f"requires budget_type=None, but "
+                    f"budget_type={budget_type!r}"
                 )
                 raise ValueError(msg)
 
@@ -329,7 +331,8 @@ class PRMSStreamTemp(ConservativeProcess):
         """Get energy budget terms for stream temperature.
 
         Returns:
-            Dictionary with inputs, outputs, and storage_changes for energy budget.
+            Dictionary with inputs, outputs, and storage_changes for
+            energy budget.
 
         Notes:
             Energy fluxes are computed in Watts (J/s). The budget tracks:

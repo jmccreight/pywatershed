@@ -52,7 +52,7 @@ class PRMSEt(Process):
 
         # explicitly declare the budget
         if budget_type is None:
-            self.budget = None
+            self.mass_budget = None
         else:
             budget_terms = {
                 "inputs": {"potet": self.potet},
@@ -65,7 +65,7 @@ class PRMSEt(Process):
                 },
                 "storage_changes": {"unused_potet": self.unused_potet},
             }
-            self.budget = Budget(
+            self.mass_budget = Budget(
                 control=self.control,
                 **budget_terms,
                 description=self.name,

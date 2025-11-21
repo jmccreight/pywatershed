@@ -292,7 +292,7 @@ def test_starfit_flow_graph_postprocess(
             )
 
     # this checks that the budget was actually active for the starfit node
-    assert flow_graph._nodes[-4].budget is not None
+    assert flow_graph._nodes[-4].mass_budget is not None
 
     flow_graph.finalize()
     for vv in control.options["netcdf_output_var_names"]:
@@ -490,7 +490,7 @@ def test_starfit_flow_graph_model_dict(
             )
 
     # this checks that the budget was actually active for the starfit node
-    assert flow_graph._nodes[-2].budget is not None
+    assert flow_graph._nodes[-2].mass_budget is not None
 
     flow_graph.finalize()
 

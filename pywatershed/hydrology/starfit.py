@@ -786,7 +786,7 @@ class StarfitFlowNode(FlowNode):
                 self._budget_type = "warn"
         if self._budget_type is not None:
             # this budget is not configured to output files
-            self.budget = Budget.from_storage_unit(
+            self.mass_budget = Budget.from_storage_unit(
                 self,
                 time_unit="D",
                 description=self.name,
@@ -796,7 +796,7 @@ class StarfitFlowNode(FlowNode):
                 verbose=False,
             )
         else:
-            self.budget = None
+            self.mass_budget = None
 
         self._compute_daily = compute_daily
         if self._compute_daily:
@@ -855,9 +855,9 @@ class StarfitFlowNode(FlowNode):
             self._lake_storage_old[:] *= cm_to_cf  # necessary
             self._lake_storage_change_flow_units[:] *= cms_to_cfs
 
-        if self.budget is not None:
-            self.budget.advance()
-            self.budget.calculate()
+        if self.mass_budget is not None:
+            self.mass_budget.advance()
+            self.mass_budget.calculate()
 
         return
 

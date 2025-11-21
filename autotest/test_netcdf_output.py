@@ -183,14 +183,14 @@ def test_process_budgets(
             for bb in check_budget_sum_vars:
                 if tt == 0:
                     # use the output data to figure out the shape
-                    shp = model.processes[pp].budget[f"_{bb}"].shape
+                    shp = model.processes[pp].mass_budget[f"_{bb}"].shape
                     if len(shp):
                         shp = shp[0]
                     else:
                         shp = 1
                     check_dict[pp][bb] = np.zeros((n_time_steps, shp))
 
-                check_dict[pp][bb][tt, :] = model.processes[pp].budget[
+                check_dict[pp][bb][tt, :] = model.processes[pp].mass_budget[
                     f"_{bb}"
                 ]
 
@@ -353,7 +353,7 @@ def test_separate_together_var_list(
             nc_file = test_output_dir / f"{proc_key}_mass_budget.nc"
             ds = xr.open_dataset(nc_file)
             for ss in budget_sum_vars_all:
-                assert (proc.budget[ss] == ds[ss][-1, :]).all()
+                assert (proc.mass_budget[ss] == ds[ss][-1, :]).all()
 
             del ds
     return

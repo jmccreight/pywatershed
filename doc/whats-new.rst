@@ -24,7 +24,17 @@ New Features
   ``_set_budget()``. The new ``mass_budget`` and ``energy_budget`` properties provide
   explicit access to each budget type. The legacy ``budget`` property is deprecated
   and will be removed in the next major release - use ``mass_budget`` instead.
-  Energy budget support has been added to :class:`PRMSStreamTemp`.
+  (:pull:`343`) By `James McCreight <https://github.com/jmccreight>`_.
+- The new :class:`PRMSStreamTemp` class provides stream temperature simulation using the PRMS
+  stream temperature module methodology, computing water temperatures based on energy balance
+  in stream segments. The class supports optional energy flux tracking and budgeting via the
+  ``track_energy_fluxes`` parameter (default: True). When enabled, it computes and tracks 11
+  energy flux components including advective heat transport (upstream, lateral, outflow),
+  surface energy exchange (solar radiation, longwave emission/absorption, evaporative cooling,
+  convective exchange), and internal sources (friction heating, groundwater conduction). These
+  fluxes are available as output variables and included in the energy budget. When disabled
+  (``track_energy_fluxes=False``), energy flux variables are set to None and excluded from
+  NetCDF output, with ``budget_type`` required to be None.
   (:pull:`343`) By `James McCreight <https://github.com/jmccreight>`_.
 - Option for :class:`Model` class to read from a single netcdf file or (not and,
   the existing option,) from a directory containing multiple netcdf files.

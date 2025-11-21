@@ -578,7 +578,8 @@ class Budget(Accessor):
             # TODO(JLM): This is a hack until i have some time to sort this out
             bal_line = "Balance: "
             for oper, vals_sum, col_width, col_key_width in term_data:
-                # Handle case where vals_sum might be a scalar (empty storage_changes)
+                # Handle case where vals_sum might be a scalar
+                # (empty storage_changes)
                 if vals_sum is None:
                     vals_sum = np.float64(0.0)
                 vals_sum_total = (
