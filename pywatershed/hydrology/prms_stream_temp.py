@@ -1,4 +1,6 @@
+import pathlib as pl
 from typing import Literal
+from warnings import warn
 
 import networkx as nx
 import numba as nb
@@ -112,6 +114,7 @@ class PRMSStreamTemp(ConservativeProcess):
         budget_type: Literal["defer", None, "warn", "error"] = "defer",
         verbose: bool = False,
         use_vectorized_shade: bool = True,
+        track_energy_fluxes: bool = True,
     ) -> None:
         super().__init__(
             control=control,
@@ -130,8 +133,113 @@ class PRMSStreamTemp(ConservativeProcess):
         # Store vectorization preference
         self.use_vectorized_shade = use_vectorized_shade
 
+        # Store energy flux tracking preference
+        self.track_energy_fluxes = track_energy_fluxes
+
+        # Store energy flux variable names for consistency checks
+        self._energy_flux_vars = [
+            "heat_upstream",
+            "heat_lateral",
+            "solar_radiation",
+            "atmospheric_longwave",
+            "friction_heat",
+            "groundwater_conduction",
+            "heat_outflow",
+            "longwave_emission",
+            "longwave_vegetation",
+            "evaporative_cooling",
+            "convective_exchange",
+        ]
+
         self._set_budget(basis="unit", quantity="energy")
         self._initialize_stream_temp()
+
+        # Consistency checks for energy flux tracking
+        if not track_energy_fluxes:
+            # Check 1: budget_type must be None if not tracking energy fluxes
+            if budget_type is not None:
+                msg = (
+                    "Inconsistent options: track_energy_fluxes=False "
+                    f"requires budget_type=None, but budget_type={budget_type!r}"
+                )
+                raise ValueError(msg)
+
+            # Check 2: Set energy flux variables to None if not tracking
+            for var in self._energy_flux_vars:
+                if hasattr(self, var):
+                    setattr(self, var, None)
+
+        return
+
+    def initialize_netcdf(
+        self,
+        output_dir: [str, pl.Path] = None,
+        separate_files: bool = None,
+        budget_args: dict = None,
+        output_vars: list = None,
+        extra_coords: dict = None,
+        addtl_output_vars: list = None,
+    ) -> None:
+        """Initialize NetCDF output with energy flux tracking checks.
+
+        This method overrides the parent class to add consistency checks
+        for energy flux tracking.
+
+        Args:
+            output_dir: base directory path or NetCDF file path if
+                separate_files is True
+            separate_files: boolean indicating if storage component output
+                variables should be written to a separate file for each
+                variable
+            budget_args: arguments to pass to budget initialization
+            output_vars: list of variable names to output
+            extra_coords: extra coordinates to add to the output
+            addtl_output_vars: additional output variables
+
+        Returns:
+            None
+
+        """
+        # Set output_vars appropriately based on tracking
+        if output_vars is None:
+            if self.track_energy_fluxes:
+                # Include all variables
+                output_vars = self.get_variables()
+            else:
+                # Exclude energy flux variables
+                output_vars = [
+                    v
+                    for v in self.get_variables()
+                    if v not in self._energy_flux_vars
+                ]
+        else:
+            # Check if energy flux variables are requested when not tracking
+            if not self.track_energy_fluxes:
+                conflicting_vars = set(self._energy_flux_vars) & set(
+                    output_vars
+                )
+                if conflicting_vars:
+                    # Warn and filter out the conflicting variables
+                    msg = (
+                        "Variables omitted from NetCDF output because "
+                        "PRMSStreamTemp energy fluxes are not tracked: "
+                        f"{sorted(conflicting_vars)}"
+                    )
+                    warn(msg)
+                    # Remove conflicting variables from output_vars
+                    output_vars = [
+                        v for v in output_vars if v not in conflicting_vars
+                    ]
+
+        # Call parent class initialize_netcdf
+        super().initialize_netcdf(
+            output_dir=output_dir,
+            separate_files=separate_files,
+            budget_args=budget_args,
+            output_vars=output_vars,
+            extra_coords=extra_coords,
+            addtl_output_vars=addtl_output_vars,
+        )
 
         return
 
@@ -989,10 +1097,11 @@ class PRMSStreamTemp(ConservativeProcess):
             qup, t_in, qlat, tl_avg, te, ak1, ak2, seg_idx
         )
 
-        # Compute energy fluxes for budget
-        self._compute_energy_fluxes(
-            seg_idx, upstream_flow, lateral_flow, svi, te, ak1, ak2
-        )
+        # Compute energy fluxes for budget (if enabled)
+        if self.track_energy_fluxes:
+            self._compute_energy_fluxes(
+                seg_idx, upstream_flow, lateral_flow, svi, te, ak1, ak2
+            )
 
         return
 

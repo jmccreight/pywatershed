@@ -19,6 +19,13 @@ v2.1.0 (Unreleased)
 
 New Features
 ~~~~~~~~~~~~~~~~
+- The :class:`base.ConservativeProcess` class now supports both mass and energy budgets.
+  Processes can specify which quantity to budget using the ``quantity`` parameter in
+  ``_set_budget()``. The new ``mass_budget`` and ``energy_budget`` properties provide
+  explicit access to each budget type. The legacy ``budget`` property is deprecated
+  and will be removed in the next major release - use ``mass_budget`` instead.
+  Energy budget support has been added to :class:`PRMSStreamTemp`.
+  (:pull:`343`) By `James McCreight <https://github.com/jmccreight>`_.
 - Option for :class:`Model` class to read from a single netcdf file or (not and,
   the existing option,) from a directory containing multiple netcdf files.
   (:pull:`333`) By `James McCreight <https://github.com/jmccreight>`_.
@@ -45,12 +52,19 @@ New Features
 
 Breaking Changes
 ~~~~~~~~~~~~~~~~
+- Budget netcdf output filenames have changed to include the quantity type.
+  Mass budgets are now named ``ProcessName_mass_budget.nc`` instead of
+  ``ProcessName_budget.nc``. Energy budgets use ``ProcessName_energy_budget.nc``.
+  (:pull:`343`) By `James McCreight <https://github.com/jmccreight>`_.
 
 Bug fixes
 ~~~~~~~~~
 
 Internal changes
 ~~~~~~~~~~~~~~~~
+- The :class:`base.ConservativeProcess` class now uses ``_mass_budget`` and
+  ``_energy_budget`` attributes internally instead of ``budget``. The ``budget``
+  property remains as a deprecated alias for ``_mass_budget`` for backward compatibility.
 - Refactor of test_data/generate/convert_prms_output_to_nc.py to put final variables into
   a separate file to run by pytests both after all other variables are generated and
   so the final variables are run serially.

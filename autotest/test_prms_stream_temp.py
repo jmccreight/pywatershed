@@ -29,6 +29,12 @@ rtol = atol = 5.0e-3
 # TODO: use both parameter schemes again
 params = ("params_sep", "params_one")
 
+# Parametrize energy flux tracking: (track_energy_fluxes, budget_type)
+energy_flux_options = (
+    (True, "error"),  # Track fluxes with strict budget checking
+    (False, None),  # Don't track fluxes, no budget checking
+)
+
 
 @pytest.fixture(scope="function")
 def control(simulation):
@@ -84,6 +90,15 @@ def parameters_shade(parameter_style, simulation, control, request):
     return params
 
 
+@pytest.fixture(
+    scope="function",
+    params=energy_flux_options,
+    ids=["track_fluxes", "no_track_fluxes"],
+)
+def energy_flux_config(request):
+    return request.param
+
+
 @pytest.fixture(scope="function")
 def parameters(parameter_style, simulation, control, request):
     if parameter_style == "params_one":
@@ -97,10 +112,19 @@ def parameters(parameter_style, simulation, control, request):
 
 
 def test_compare_prms(
-    simulation, control, discretization, parameters, parameters_shade, tmp_path
+    simulation,
+    control,
+    discretization,
+    parameters,
+    parameters_shade,
+    energy_flux_config,
+    tmp_path,
 ):
     tmp_path = pl.Path(tmp_path)
     output_dir = simulation["output_dir"]
+
+    # Unpack energy flux configuration
+    track_energy_fluxes, budget_type = energy_flux_config
 
     # Step 1: Instantiate PRMSStreamShade to compose into PRMSStreamTemp
     stream_temp_shade_flag = control.options.get(
@@ -132,7 +156,8 @@ def test_compare_prms(
         parameters,
         **stream_temp_inputs,
         stream_shade=stream_shade,
-        budget_type="warn",
+        budget_type=budget_type,
+        track_energy_fluxes=track_energy_fluxes,
     )
 
     # Compare all PRMSStreamTemp variables
@@ -265,6 +290,7 @@ def test_compare_prms(
 
     # The following is currently part of the test, nowhere else is the repr of
     # the energy budget exercised at this time.
-    print(stream_temp.energy_budget)
+    if track_energy_fluxes:
+        print(stream_temp.energy_budget)
     stream_temp.finalize()
     return
