@@ -1,5 +1,6 @@
 from typing import Literal
 
+import networkx as nx
 import numba as nb
 import numpy as np
 
@@ -387,40 +388,27 @@ class PRMSStreamTemp(ConservativeProcess):
         return
 
     def _compute_segment_order(self) -> None:
-        """Compute topologically sorted segment order for calculation."""
-        # TODO: This can likely be replaced by using networkx functionality as
-        # in PRMSChannel.
-        # Simple topological sort based on tosegment
-        self.segment_order = []
-        visited = set()
-        temp_mark = set()
+        """Compute topologically sorted segment order for calculation.
 
-        def visit(seg):
-            if seg in temp_mark:
-                raise ValueError(
-                    f"Circular dependency detected at segment {seg}"
-                )
-            if seg in visited:
-                return
+        Uses NetworkX for topological sorting, matching the approach in
+        PRMSChannel.
+        """
+        # Build connectivity list (tosegment is 1-based, convert to 0-based)
+        connectivity = []
+        for iseg in range(self.nsegment):
+            toseg = self.tosegment[iseg] - 1  # Convert to 0-based
+            if toseg >= 0:  # -1 means outlet in 0-based indexing
+                connectivity.append((iseg, toseg))
 
-            temp_mark.add(seg)
+        # Use NetworkX for topological sort
+        if self.nsegment > 1 and len(connectivity) > 0:
+            graph = nx.DiGraph()
+            graph.add_edges_from(connectivity)
+            segment_order = list(nx.topological_sort(graph))
+        else:
+            segment_order = list(range(self.nsegment))
 
-            # Visit upstream segments first
-            for upstream_seg in range(self.nsegment):
-                toseg = self.tosegment[upstream_seg]
-                # tosegment is 1-based, with 0 meaning no downstream segment
-                if toseg > 0 and toseg == seg + 1:
-                    visit(upstream_seg)
-
-            temp_mark.remove(seg)
-            visited.add(seg)
-            self.segment_order.append(seg)
-
-        for seg in range(self.nsegment):
-            if seg not in visited:
-                visit(seg)
-
-        self.segment_order = np.array(self.segment_order, dtype=np.int32)
+        self.segment_order = np.array(segment_order, dtype=np.int32)
 
         return
 
