@@ -35,7 +35,6 @@ from .hydrology.prms_groundwater import PRMSGroundwater
 from .hydrology.prms_groundwater_no_dprst import PRMSGroundwaterNoDprst
 from .hydrology.prms_hydraulic_geometry import PRMSHydraulicGeometry
 from .hydrology.prms_runoff import PRMSRunoff
-from .hydrology.prms_runoff_ag import PRMSRunoffAg
 from .hydrology.prms_runoff_no_dprst import PRMSRunoffNoDprst
 from .hydrology.prms_snow import PRMSSnow
 from .hydrology.prms_soilzone import PRMSSoilzone
