@@ -661,12 +661,25 @@ class PRMSStreamTemp(ConservativeProcess):
 
         # Compute lateral flow temperatures
         # Skip segments marked as never having flow or data
-        for jj in self.segment_order:
-            if self.seg_tave_water[jj] < -99.0:
-                continue
-            if self.seginc_swrad[jj] < -99.0:
-                continue
-            self._compute_lateral_temp(jj, nowmonth)
+        # Use numba-optimized function for performance
+        _compute_lateral_temp_numba(
+            self.segment_order,
+            self.seg_tave_water,
+            self.seginc_swrad,
+            self.seg_lateral_inflow,
+            self.seginc_sroff,
+            self.seginc_ssflow,
+            self.seginc_gwflow,
+            self.seg_melt,
+            self.seg_rain,
+            self.seg_tave_gw,
+            self.seg_tave_air,
+            self.seg_tave_ss,
+            self.melt_temp,
+            self.lat_temp_adj,
+            nowmonth,
+            self.seg_tave_lat,
+        )
 
         # Initialize seg_tave_upstream to 0.0 each timestep
         # (matches Fortran line 463)
@@ -1428,6 +1441,91 @@ def _update_running_avg_temp_numba(
 
         # Update index
         ss_index[jj] = (idx_ss + 1) % int(tau_ss)
+
+
+@nb.jit(nopython=True)
+def _compute_lateral_temp_numba(
+    segment_order,
+    seg_tave_water,
+    seginc_swrad,
+    seg_lateral_inflow,
+    seginc_sroff,
+    seginc_ssflow,
+    seginc_gwflow,
+    seg_melt,
+    seg_rain,
+    seg_tave_gw,
+    seg_tave_air,
+    seg_tave_ss,
+    melt_temp,
+    lat_temp_adj,
+    nowmonth,
+    seg_tave_lat,
+):
+    """Compute lateral flow temperatures for all segments.
+
+    This numba-optimized function replaces the loop that calls
+    _compute_lateral_temp for each segment.
+
+    Args:
+        segment_order: Order to process segments
+        seg_tave_water: Water temperature array (for skip checks)
+        seginc_swrad: Solar radiation array (for skip checks)
+        seg_lateral_inflow: Lateral inflow array
+        seginc_sroff: Surface runoff array
+        seginc_ssflow: Subsurface flow array
+        seginc_gwflow: Groundwater flow array
+        seg_melt: Snowmelt array
+        seg_rain: Rainfall array
+        seg_tave_gw: Groundwater temperature array
+        seg_tave_air: Air temperature array
+        seg_tave_ss: Subsurface temperature array
+        melt_temp: Melt temperature constant
+        lat_temp_adj: Monthly lateral temperature adjustment array
+        nowmonth: Current month (1-based)
+        seg_tave_lat: Output lateral temperature array
+    """
+    for jj in segment_order:
+        # Skip if marked as never having flow
+        if seg_tave_water[jj] < -99.0:
+            continue
+        # Skip if marked as permanently invalid
+        if seginc_swrad[jj] < -99.0:
+            continue
+
+        # Get segment values
+        sroff = seginc_sroff[jj]
+        ssflow = seginc_ssflow[jj]
+        gwflow = seginc_gwflow[jj]
+        melt = seg_melt[jj]
+        rain = seg_rain[jj]
+        tave_gw = seg_tave_gw[jj]
+        tave_air = seg_tave_air[jj]
+        tave_ss = seg_tave_ss[jj]
+
+        # Use lat_inflow function for detailed lateral temperature calculation
+        tl_avg, qlat = _lat_inflow(
+            seg_lateral_inflow[jj],
+            sroff,
+            ssflow,
+            gwflow,
+            melt_temp,
+            tave_gw,
+            tave_air,
+            tave_ss,
+            melt,
+            rain,
+        )
+
+        # Apply monthly adjustment
+        if not np.isnan(tl_avg):
+            tl_avg += lat_temp_adj[nowmonth - 1, jj]
+
+        # Ensure non-negative (also converts NaN to 0.0 to match Fortran)
+        if np.isnan(tl_avg) or tl_avg < 0.0:
+            tl_avg = 0.0
+
+        seg_tave_lat[jj] = tl_avg
 
 
 @nb.jit(nopython=True)
