@@ -1555,9 +1555,10 @@ def _compute_segment_aggregates_numba(
             while not found and iter_count < max_iter:
                 iter_count += 1
 
-                # segment_up contains 0-based indices where 0 means "no upstream"
-                # However, if segment 0 is upstream, we can't distinguish it from "no upstream"
-                # The original code assumes segment 0 is never upstream of anything
+                # segment_up contains 0-based indices where 0 means
+                # "no upstream". However, if segment 0 is upstream, we can't
+                # distinguish it from "no upstream". The original code assumes
+                # segment 0 is never upstream of anything
                 upstream_seg = segment_up[this_seg]
 
                 # Check if headwater (no upstream)
@@ -1597,7 +1598,8 @@ def _compute_segment_aggregates_numba(
                     this_seg = downstream_seg - 1
 
                     if segment_hruarea[this_seg] > NEARZERO:
-                        # Found segment with HRUs - copy values (already averaged)
+                        # Found segment with HRUs - copy values
+                        # (already averaged)
                         seginc_swrad[i] = seginc_swrad[this_seg]
                         found = True
                         break
@@ -1703,7 +1705,8 @@ def _compute_water_temp_numba(
         seg_tave_water: Water temperature array (MUTATED - input/output)
         seginc_swrad: Solar radiation array (immutable, for skip checks)
         seg_outflow: Segment outflow array (immutable)
-        upstream_count: Number of upstream segments for each segment (immutable)
+        upstream_count: Number of upstream segments for each segment
+            (immutable)
         upstream_idx: Indices of upstream segments (immutable)
         seg_lateral_inflow: Lateral inflow array (immutable)
         seg_tave_upstream: Upstream temperature array (MUTATED - output)
@@ -1722,7 +1725,8 @@ def _compute_water_temp_numba(
         seg_length: Segment length array (immutable)
         albedo: Albedo value (immutable)
         maxiter_sntemp: Maximum iterations for temperature solver (immutable)
-        track_energy_fluxes: Whether to track energy flux components (immutable)
+        track_energy_fluxes: Whether to track energy flux components
+            (immutable)
         hs_terms: Solar radiation terms (MUTATED if tracking - output)
         ha_terms: Atmospheric longwave terms (MUTATED if tracking - output)
         hf_terms: Friction heat terms (MUTATED if tracking - output)
