@@ -99,7 +99,7 @@ def exe(simulation):
             pytest.skip(f"GSFLOW binary not yet provided for {platform}")
         elif platform == "darwin":
             if processor() == "arm":
-                exe_name = "gsflow_2.4.0_ifort_apple_silicon"
+                exe_name = "gsflow_2.4.0_ifort_apple_silicon_dbl_prec"
             else:
                 pytest.skip(
                     f"GSFLOW binary not yet provided for {platform}:intel"
@@ -111,14 +111,14 @@ def exe(simulation):
             pytest.skip(f"PRMS 5.2.1.1 binary not yet provided for {platform}")
         elif platform == "darwin":
             if processor() == "arm":
-                exe_name = "prms_5.2.1.1_ifort_apple_silicon"
+                exe_name = "prms_5.2.1.1_ifort_apple_silicon_dbl_prec"
             else:
                 pytest.skip(
                     "PRMS 5.2.1.1 binary not yet provided for "
                     f"{platform}:intel"
                 )
         elif platform == "linux":
-            pytest.skip(f"GSFLOW binary not yet provided for {platform}")
+            exe_name = "prms_5.2.1.1_gfort_linux_dbl_prec"
     else:
         if platform == "win32":
             exe_name = "prms_win_gfort_dbl_prec.exe"
