@@ -162,7 +162,7 @@ class PRMSStreamTemp(ConservativeProcess):
             for var in self._energy_flux_vars:
                 if hasattr(self, var):
                     setattr(self, var, None)
-                    
+
         else:
             # Initialize arrays for storing energy flux terms during
             # calculation
@@ -641,15 +641,23 @@ class PRMSStreamTemp(ConservativeProcess):
 
         # Compute running average temperatures for groundwater and subsurface
         # Skip segments marked as never having flow (matches Fortran checks)
-        for jj in self.segment_order:
-            # Skip if marked as never having flow (Fortran line 887)
-            if self.seg_tave_water[jj] < -99.0:
-                continue
-            # Skip if marked as permanently invalid (Fortran line 894)
-            if self.seginc_swrad[jj] < -99.0:
-                continue
-            self._update_running_avg_temp(jj, "gw")
-            self._update_running_avg_temp(jj, "ss")
+        # Use numba-optimized function for performance
+        _update_running_avg_temp_numba(
+            self.segment_order,
+            self.seg_tave_water,
+            self.seginc_swrad,
+            self.seg_tave_air,
+            self.gw_tau,
+            self.gw_index,
+            self.gw_silo,
+            self.gw_sum,
+            self.seg_tave_gw,
+            self.ss_tau,
+            self.ss_index,
+            self.ss_silo,
+            self.ss_sum,
+            self.seg_tave_ss,
+        )
 
         # Compute lateral flow temperatures
         # Skip segments marked as never having flow or data
@@ -1335,6 +1343,91 @@ class PRMSStreamTemp(ConservativeProcess):
             self.seg_flow_width[seg_idx],
             self.seg_length[seg_idx],
         )
+
+
+@nb.jit(nopython=True)
+def _update_running_avg_temp_numba(
+    segment_order,
+    seg_tave_water,
+    seginc_swrad,
+    seg_tave_air,
+    gw_tau,
+    gw_index,
+    gw_silo,
+    gw_sum,
+    seg_tave_gw,
+    ss_tau,
+    ss_index,
+    ss_silo,
+    ss_sum,
+    seg_tave_ss,
+):
+    """Update running average temperatures for groundwater and subsurface.
+
+    This numba-optimized function replaces the loop that calls
+    _update_running_avg_temp for each segment.
+
+    Args:
+        segment_order: Order to process segments
+        seg_tave_water: Water temperature array (for skip checks)
+        seginc_swrad: Solar radiation array (for skip checks)
+        seg_tave_air: Air temperature array
+        gw_tau: Groundwater tau values
+        gw_index: Groundwater circular buffer indices
+        gw_silo: Groundwater circular buffer
+        gw_sum: Groundwater running sums
+        seg_tave_gw: Output groundwater temperatures
+        ss_tau: Subsurface tau values
+        ss_index: Subsurface circular buffer indices
+        ss_silo: Subsurface circular buffer
+        ss_sum: Subsurface running sums
+        seg_tave_ss: Output subsurface temperatures
+    """
+    for jj in segment_order:
+        # Skip if marked as never having flow
+        if seg_tave_water[jj] < -99.0:
+            continue
+        # Skip if marked as permanently invalid
+        if seginc_swrad[jj] < -99.0:
+            continue
+
+        # Update groundwater running average
+        idx_gw = gw_index[jj]
+        tau_gw = gw_tau[jj]
+
+        # Remove old value from sum (circular buffer behavior)
+        gw_sum[jj] -= gw_silo[jj, idx_gw]
+
+        # Add new air temperature to silo
+        gw_silo[jj, idx_gw] = seg_tave_air[jj]
+
+        # Add new value to sum
+        gw_sum[jj] += gw_silo[jj, idx_gw]
+
+        # Compute average as sum / tau
+        seg_tave_gw[jj] = gw_sum[jj] / tau_gw
+
+        # Update index
+        gw_index[jj] = (idx_gw + 1) % int(tau_gw)
+
+        # Update subsurface running average
+        idx_ss = ss_index[jj]
+        tau_ss = ss_tau[jj]
+
+        # Remove old value from sum (circular buffer behavior)
+        ss_sum[jj] -= ss_silo[jj, idx_ss]
+
+        # Add new air temperature to silo
+        ss_silo[jj, idx_ss] = seg_tave_air[jj]
+
+        # Add new value to sum
+        ss_sum[jj] += ss_silo[jj, idx_ss]
+
+        # Compute average as sum / tau
+        seg_tave_ss[jj] = ss_sum[jj] / tau_ss
+
+        # Update index
+        ss_index[jj] = (idx_ss + 1) % int(tau_ss)
 
 
 @nb.jit(nopython=True)
