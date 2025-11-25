@@ -1,5 +1,5 @@
 import pathlib as pl
-from typing import Literal
+from typing import Literal, Union
 from warnings import warn
 
 import networkx as nx
@@ -128,15 +128,6 @@ class PRMSStreamTemp(ConservativeProcess):
         self._set_inputs(locals())
         self._set_options(locals())
 
-        # Store the composed shade computer
-        self.stream_shade = stream_shade
-
-        # Store vectorization preference
-        self.use_vectorized_shade = use_vectorized_shade
-
-        # Store energy flux tracking preference
-        self.track_energy_fluxes = track_energy_fluxes
-
         # Store energy flux variable names for consistency checks
         self._energy_flux_vars = [
             "heat_upstream",
@@ -156,7 +147,7 @@ class PRMSStreamTemp(ConservativeProcess):
         self._initialize_stream_temp()
 
         # Consistency checks for energy flux tracking
-        if not track_energy_fluxes:
+        if not self._track_energy_fluxes:
             # Check 1: imbalance_behavior must be None if not tracking
             # energy fluxes
             if imbalance_behavior is not None:
@@ -171,12 +162,24 @@ class PRMSStreamTemp(ConservativeProcess):
             for var in self._energy_flux_vars:
                 if hasattr(self, var):
                     setattr(self, var, None)
+                    
+        else:
+            # Initialize arrays for storing energy flux terms during
+            # calculation
+            self._hs_terms = np.zeros(self.nsegment)
+            self._ha_terms = np.zeros(self.nsegment)
+            self._hf_terms = np.zeros(self.nsegment)
+            self._hv_terms = np.zeros(self.nsegment)
+            self._evap_terms = np.zeros(self.nsegment)
+            self._t_abs4_terms = np.zeros(self.nsegment)
+            self._upstream_flows = np.zeros(self.nsegment)
+            self._lateral_flows = np.zeros(self.nsegment)
 
         return
 
     def initialize_netcdf(
         self,
-        output_dir: [str, pl.Path] = None,
+        output_dir: Union[str, pl.Path] = None,
         separate_files: bool = None,
         budget_args: dict = None,
         output_vars: list = None,
@@ -205,7 +208,7 @@ class PRMSStreamTemp(ConservativeProcess):
         """
         # Set output_vars appropriately based on tracking
         if output_vars is None:
-            if self.track_energy_fluxes:
+            if self._track_energy_fluxes:
                 # Include all variables
                 output_vars = self.get_variables()
             else:
@@ -217,7 +220,7 @@ class PRMSStreamTemp(ConservativeProcess):
                 ]
         else:
             # Check if energy flux variables are requested when not tracking
-            if not self.track_energy_fluxes:
+            if not self._track_energy_fluxes:
                 conflicting_vars = set(self._energy_flux_vars) & set(
                     output_vars
                 )
@@ -702,6 +705,10 @@ class PRMSStreamTemp(ConservativeProcess):
             # Compute water temperature
             self._compute_water_temp(jj, svi)
 
+        # Compute energy fluxes for all segments (vectorized)
+        if self._track_energy_fluxes:
+            self._compute_energy_fluxes_vectorized()
+
         return
 
     def _compute_segment_aggregates(self) -> None:
@@ -1090,7 +1097,19 @@ class PRMSStreamTemp(ConservativeProcess):
             return
 
         # Compute equilibrium temperature using full energy balance
-        te, ak1, ak2 = self._equilb(seg_idx, t_in, svi)
+        result = self._equilb(seg_idx, t_in, svi)
+        te, ak1, ak2 = result[0], result[1], result[2]
+
+        # Store energy flux terms if tracking (for vectorized computation)
+        if self._track_energy_fluxes:
+            self._hs_terms[seg_idx] = result[3]
+            self._ha_terms[seg_idx] = result[4]
+            self._hf_terms[seg_idx] = result[5]
+            self._hv_terms[seg_idx] = result[6]
+            self._evap_terms[seg_idx] = result[7]
+            self._t_abs4_terms[seg_idx] = result[8]
+            self._upstream_flows[seg_idx] = upstream_flow
+            self._lateral_flows[seg_idx] = lateral_flow
 
         # Compute final temperature using twavg function
         qlat = lateral_flow * CFS_TO_CMS
@@ -1100,12 +1119,6 @@ class PRMSStreamTemp(ConservativeProcess):
         self.seg_tave_water[seg_idx] = self._twavg(
             qup, t_in, qlat, tl_avg, te, ak1, ak2, seg_idx
         )
-
-        # Compute energy fluxes for budget (if enabled)
-        if self.track_energy_fluxes:
-            self._compute_energy_fluxes(
-                seg_idx, upstream_flow, lateral_flow, svi, te, ak1, ak2
-            )
 
         return
 
@@ -1129,138 +1142,102 @@ class PRMSStreamTemp(ConservativeProcess):
             self.seg_tave_lat[seg_idx],
         )
 
-    def _compute_energy_fluxes(
-        self,
-        seg_idx: int,
-        upstream_flow: float,
-        lateral_flow: float,
-        svi: float,
-        te: float,
-        ak1: float,
-        ak2: float,
-    ) -> None:
-        """Compute energy fluxes for budget tracking.
+    def _compute_energy_fluxes_vectorized(self) -> None:
+        """Compute energy fluxes for all segments after temperature
+        calculations.
 
-        Args:
-            seg_idx: Segment index
-            upstream_flow: Flow from upstream segments (cfs)
-            lateral_flow: Lateral inflow (cfs)
-            svi: Vegetation shade index
-            te: Equilibrium temperature (degC)
-            ak1: First-order thermal exchange coefficient
-            ak2: Second-order thermal exchange coefficient
+        This method uses intermediate terms stored during the temperature
+        calculation loop to avoid redundant computation. All terms are
+        computed vectorially for efficiency.
         """
-        # Get segment properties
-        width = self.seg_flow_width[seg_idx]
-        length = self.seg_length[seg_idx]
-        surface_area = width * length  # m²
+        # Surface areas (vectorized)
+        surface_area = self.seg_flow_width * self.seg_length  # m²
 
-        # Convert flows to m³/s
-        q_up_cms = upstream_flow * CFS_TO_CMS
-        q_lat_cms = lateral_flow * CFS_TO_CMS
-        q_out_cms = self.seg_outflow[seg_idx] * CFS_TO_CMS
-
-        # Water temperature (degC)
-        t_water = self.seg_tave_water[seg_idx]
-        t_water_abs = t_water + ZERO_C  # K
+        # Convert flows to m³/s (vectorized)
+        q_up_cms = self._upstream_flows * CFS_TO_CMS
+        q_lat_cms = self._lateral_flows * CFS_TO_CMS
+        q_out_cms = self.seg_outflow * CFS_TO_CMS
 
         # === INPUTS (Heat gains) ===
 
-        # 1. Advective heat from upstream (W)
-        if q_up_cms > NEARZERO:
-            self.heat_upstream[seg_idx] = (
-                q_up_cms
-                * self.seg_tave_upstream[seg_idx]
-                * SPECIFIC_HEAT_WATER
-                * WATER_DENSITY
-            )
-        else:
-            self.heat_upstream[seg_idx] = 0.0
-
-        # 2. Advective heat from lateral inflow (W)
-        if q_lat_cms > NEARZERO:
-            self.heat_lateral[seg_idx] = (
-                q_lat_cms
-                * self.seg_tave_lat[seg_idx]
-                * SPECIFIC_HEAT_WATER
-                * WATER_DENSITY
-            )
-        else:
-            self.heat_lateral[seg_idx] = 0.0
-
-        # 3. Net shortwave solar radiation (W)
-        sw_power = 11.63 / 24.0 * self.seginc_swrad[seg_idx]  # W/m²
-        hs = (1.0 - self.seg_shade[seg_idx]) * sw_power * (1.0 - self.albedo)
-        self.solar_radiation[seg_idx] = hs * surface_area
-
-        # 4. Atmospheric longwave radiation (W)
-        # From _equilb calculation
-        vp_sat = 6.108 * np.exp(17.26939 * t_water / (t_water + 237.3))
-        humidity = min(self.seg_humid[seg_idx], 0.99)
-        ha = (
-            (3.354939e-8 + 2.74995e-9 * np.sqrt(humidity * vp_sat))
-            * (1.0 - self.seg_shade[seg_idx])
-            * (1.0 + (0.17 * (self.seg_ccov[seg_idx] ** 2)))
-        ) * (t_water_abs**4)
-        self.atmospheric_longwave[seg_idx] = ha * surface_area
-
-        # 5. Friction heating (W)
-        q_init = max(self._seg_inflow[seg_idx] * CFS_TO_CMS, NEARZERO)
-        hf = 9805.0 * (q_init / width) * self.seg_slope[seg_idx]  # W/m²
-        self.friction_heat[seg_idx] = hf * surface_area
-
-        # 6. Groundwater conduction (W)
-        self.groundwater_conduction[seg_idx] = (
-            self.seg_tave_gw[seg_idx] * AKZ * surface_area
+        # 1. Advective heat from upstream (W) - vectorized
+        self.heat_upstream[:] = np.where(
+            q_up_cms > NEARZERO,
+            q_up_cms
+            * self.seg_tave_upstream
+            * SPECIFIC_HEAT_WATER
+            * WATER_DENSITY,
+            0.0,
         )
+
+        # 2. Advective heat from lateral inflow (W) - vectorized
+        self.heat_lateral[:] = np.where(
+            q_lat_cms > NEARZERO,
+            q_lat_cms
+            * self.seg_tave_lat
+            * SPECIFIC_HEAT_WATER
+            * WATER_DENSITY,
+            0.0,
+        )
+
+        # 3. Net shortwave solar radiation (W) - use stored terms
+        self.solar_radiation[:] = self._hs_terms * surface_area
+
+        # 4. Atmospheric longwave radiation (W) - use stored terms
+        self.atmospheric_longwave[:] = self._ha_terms * surface_area
+
+        # 5. Friction heating (W) - use stored terms
+        self.friction_heat[:] = self._hf_terms * surface_area
+
+        # 6. Groundwater conduction (W) - vectorized
+        self.groundwater_conduction[:] = self.seg_tave_gw * AKZ * surface_area
 
         # === OUTPUTS (Heat losses) ===
 
-        # 7. Advective heat leaving segment (W)
-        if q_out_cms > NEARZERO:
-            self.heat_outflow[seg_idx] = (
-                q_out_cms * t_water * SPECIFIC_HEAT_WATER * WATER_DENSITY
-            )
-        else:
-            self.heat_outflow[seg_idx] = 0.0
-
-        # 8. Longwave radiation emitted by water surface (W)
-        self.longwave_emission[seg_idx] = A * (t_water_abs**4) * surface_area
-
-        # 9. Longwave radiation from riparian vegetation (W)
-        hv = 5.24e-8 * svi * (t_water_abs**4)  # W/m²
-        self.longwave_vegetation[seg_idx] = hv * surface_area
-
-        # 10. Evaporative cooling (W)
-        evap = self.seg_potet[seg_idx] * MPS_CONVERT  # m/s
-        self.evaporative_cooling[seg_idx] = (
-            evap * LATENT_HEAT_VAPORIZATION * surface_area
+        # 7. Advective heat leaving segment (W) - vectorized
+        self.heat_outflow[:] = np.where(
+            q_out_cms > NEARZERO,
+            q_out_cms
+            * self.seg_tave_water
+            * SPECIFIC_HEAT_WATER
+            * WATER_DENSITY,
+            0.0,
         )
 
-        # 11. Convective/sensible heat exchange (W)
-        # This is computed as the residual to close the energy balance
+        # 8. Longwave radiation emitted by water surface (W)
+        # Use stored T^4 terms
+        self.longwave_emission[:] = A * self._t_abs4_terms * surface_area
+
+        # 9. Longwave radiation from riparian vegetation (W)
+        # Use stored terms
+        self.longwave_vegetation[:] = self._hv_terms * surface_area
+
+        # 10. Evaporative cooling (W) - use stored evap terms
+        self.evaporative_cooling[:] = (
+            self._evap_terms * LATENT_HEAT_VAPORIZATION * surface_area
+        )
+
+        # 11. Convective/sensible heat exchange (W) - vectorized residual
         # Total inputs
         total_inputs = (
-            self.heat_upstream[seg_idx]
-            + self.heat_lateral[seg_idx]
-            + self.solar_radiation[seg_idx]
-            + self.atmospheric_longwave[seg_idx]
-            + self.friction_heat[seg_idx]
-            + self.groundwater_conduction[seg_idx]
+            self.heat_upstream
+            + self.heat_lateral
+            + self.solar_radiation
+            + self.atmospheric_longwave
+            + self.friction_heat
+            + self.groundwater_conduction
         )
 
         # Total outputs (excluding convection)
         total_outputs_no_conv = (
-            self.heat_outflow[seg_idx]
-            + self.longwave_emission[seg_idx]
-            + self.longwave_vegetation[seg_idx]
-            + self.evaporative_cooling[seg_idx]
+            self.heat_outflow
+            + self.longwave_emission
+            + self.longwave_vegetation
+            + self.evaporative_cooling
         )
 
         # Convection closes the balance (can be positive or negative)
-        self.convective_exchange[seg_idx] = (
-            total_inputs - total_outputs_no_conv
-        )
+        self.convective_exchange[:] = total_inputs - total_outputs_no_conv
 
         return
 
@@ -1278,6 +1255,12 @@ class PRMSStreamTemp(ConservativeProcess):
             te: Equilibrium temperature (degC)
             ak1: First-order thermal exchange coefficient
             ak2: Second-order thermal exchange coefficient
+            hs: Net shortwave solar radiation (W/m²)
+            ha: Atmospheric longwave radiation (W/m²)
+            hf: Friction heating (W/m²)
+            hv: Vegetation longwave radiation (W/m²)
+            evap: Evaporation rate (m/s)
+            t_abs4: Temperature to 4th power (K^4)
         """
         return _equilb(
             t_o,
@@ -1443,6 +1426,12 @@ def _equilb(
         te: Equilibrium temperature (degC)
         ak1: First-order thermal exchange coefficient
         ak2: Second-order thermal exchange coefficient
+        hs: Net shortwave solar radiation (W/m²)
+        ha: Atmospheric longwave radiation (W/m²)
+        hf: Friction heating (W/m²)
+        hv: Vegetation longwave radiation (W/m²)
+        evap: Evaporation rate (m/s)
+        t_abs4: Temperature to 4th power (K^4)
     """
     # Local Variables
     taabs = float(t_o + ZERO_C)
@@ -1503,7 +1492,7 @@ def _equilb(
     else:
         ak2d = ((delt * ak1d) - hnet) / (delt**2)
 
-    return ted, ak1d, ak2d
+    return ted, ak1d, ak2d, hs, ha, hf, hv, evap, taabs**4
 
 
 @nb.jit(nopython=True)
