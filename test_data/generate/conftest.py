@@ -106,9 +106,10 @@ def exe(simulation):
                 )
         elif platform == "linux":
             pytest.skip(f"GSFLOW binary not yet provided for {platform}")
+
     elif "5.2.1.1" in exe_desc:
         if platform == "win32":
-            pytest.skip(f"PRMS 5.2.1.1 binary not yet provided for {platform}")
+            exe_name = "prms_5.2.1.1_gfort_win_dbl_prec.exe"
         elif platform == "darwin":
             if processor() == "arm":
                 exe_name = "prms_5.2.1.1_ifort_apple_silicon_dbl_prec"
