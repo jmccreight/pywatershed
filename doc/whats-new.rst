@@ -75,6 +75,11 @@ Breaking Changes
 
 Bug fixes
 ~~~~~~~~~
+ - PRMS 5.2.1.1 had a bug in stream where division by hru area was repeated
+ multiple times. In the old code this ocurred in routing.f90 on lines 764 and
+ 765 and then again on 789 and 790, where seginc_swrad and seginc_potet were
+ divided despite this having already occured on lines 744 and 744. Comments
+ regarding the fix are found on lines 764 and 793 in the fixed code.
 
 Internal changes
 ~~~~~~~~~~~~~~~~

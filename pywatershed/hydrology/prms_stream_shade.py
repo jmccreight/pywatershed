@@ -66,6 +66,10 @@ class PRMSStreamShade:
     This is an abstract base class that defines the interface for shade
     computation. Subclasses implement different strategies (dynamic vs
     constant).
+
+    The compute() method returns a tuple of (shades, svis) where:
+        shades: Array of shade fractions (0-1) for all segments
+        svis: Array of vegetation shade index
     """
 
     def __init__(self, parameters: Parameters, nsegment: int):
@@ -127,6 +131,11 @@ class PRMSStreamShadeConstant(PRMSStreamShade):
     This is used when stream_temp_shade_flag = 1.
 
     Requires 2 parameters: summer shade and winter shade fractions.
+
+    The compute() method returns a tuple of (shades, svis) where:
+        shades: Array of shade fractions (0-1) for all segments
+        svis: Array of vegetation shade index (constant zero for this class)
+
     """
 
     def _load_parameters(self, parameters: Parameters) -> None:
@@ -166,8 +175,8 @@ class PRMSStreamShadeConstant(PRMSStreamShade):
 
         Returns:
             Tuple of (shade, svi) where:
-                shade: Constant shade fraction for the season (0-1)
-                svi: Always 0.0 for constant shade
+                shades: Array of shade fractions (0-1) for all segments
+                svis: Array of zeros (constant shade has no vegetation index)
         """
         if summer_flag == 1:
             shade = self.segshade_sum[seg_idx]
@@ -213,6 +222,10 @@ class PRMSStreamShadeDynamic(PRMSStreamShade):
 
     Requires 13 parameters describing topography and vegetation characteristics
     for each stream segment.
+
+    The compute() method returns a tuple of (shades, svis) where:
+        shades: Array of shade fractions (0-1) for all segments
+        svis: Array of vegetation shade index
     """
 
     def _load_parameters(self, parameters: Parameters) -> None:
