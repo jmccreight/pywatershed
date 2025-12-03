@@ -1769,8 +1769,11 @@ def _compute_segment_aggregates_numba(
             if not found:
                 seginc_swrad[i] = -99.9
 
-    # Process meteorological variables in segment_order
-    # (stream_temp.f90 line 799-848)
+    # Process meteorological variables in single pass (matches Fortran)
+    # Process in segment_order - for segments without HRUs, copy from seg_close
+    # Note: seg_close may point to upstream/downstream segments not yet processed
+    # in some edge cases, but this matches the Fortran behavior for most variables.
+    # Exception: seg_humid uses a two-pass approach (see below).
     for jj in range(nsegment):
         i = segment_order[jj]
 
@@ -1784,21 +1787,30 @@ def _compute_segment_aggregates_numba(
             if strmtemp_humidity_flag == 0:
                 seg_humid[i] /= segment_hruarea[i]
                 # Convert humidity from percent to decimal fraction
-                # (stream_temp.f90 line 821)
+                # (stream_temp.f90 line 827)
                 seg_humid[i] *= 0.01
-
         else:
             # Segment has no HRUs - use values from seg_close
-            # (stream_temp.f90 line 823-848)
+            # (stream_temp.f90 line 829-848)
             close_seg = seg_close[i]
             seg_tave_air[i] = seg_tave_air[close_seg]
             seg_ccov[i] = seg_ccov[close_seg]
             seg_melt[i] = seg_melt[close_seg]
             seg_rain[i] = seg_rain[close_seg]
+            # Note: seg_humid is handled in a separate pass below
 
-            if strmtemp_humidity_flag == 0:
-                # Copy from close segment (already in decimal fraction)
-                seg_humid[i] = seg_humid[close_seg]
+    # Second pass for seg_humid only: handle segments without HRUs
+    # FORTRAN BUG (PRMS 5.2.1 stream_temp.f90 lines 840-841):
+    #   Seg_humid(i) = Seg_humid(iseg)*Seg_carea_inv(iseg)
+    #   Seg_humid(i) = Seg_humid(i) * 0.01
+    # The variable Seg_carea_inv is allocated but never initialized, so it
+    # contains uninitialized memory (typically 0.0 from compiler defaults).
+    # This results in seg_humid = 0.0 for all segments without HRUs.
+    # We replicate this behavior to match Fortran output.
+    if strmtemp_humidity_flag == 0:
+        for i in range(nsegment):
+            if segment_hruarea[i] <= NEARZERO:
+                seg_humid[i] = 0.0
 
 
 @nb.jit(nopython=True)

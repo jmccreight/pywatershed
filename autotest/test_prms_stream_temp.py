@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 from utils_compare import compare_in_memory, compare_netcdfs
 
-from pywatershed.base.adapter import adapter_factory
+from pywatershed.base.adapter import AdapterNetcdf, adapter_factory
 from pywatershed.base.control import Control
 from pywatershed.base.parameters import Parameters
 from pywatershed.hydrology.prms_stream_shade import (
@@ -143,11 +143,21 @@ def test_compare_prms(
         )
 
     # Step 2: Prepare inputs for PRMSStreamTemp
-    # All inputs come from PRMS output files
+    # Most inputs come from PRMS output files, but some need special handling
     stream_temp_inputs = {}
     for key in PRMSStreamTemp.get_inputs():
-        nc_path = output_dir / f"{key}.nc"
-        stream_temp_inputs[key] = nc_path
+        if key == "humidity_hru":
+            # humidity_hru comes from rhavg.nc in the simulation directory
+            # Use AdapterNetcdf directly to specify variable name in the file
+            stream_temp_inputs[key] = AdapterNetcdf(
+                simulation["dir"] / "rhavg.nc",
+                variable="rhavg",
+                control=control,
+            )
+        else:
+            # Most inputs come from PRMS output files
+            nc_path = output_dir / f"{key}.nc"
+            stream_temp_inputs[key] = nc_path
 
     # Step 3: Instantiate PRMSStreamTemp with composed stream_shade
     stream_temp = PRMSStreamTemp(
