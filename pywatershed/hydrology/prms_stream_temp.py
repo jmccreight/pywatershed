@@ -805,8 +805,6 @@ class PRMSStreamTemp(ConservativeProcess):
         - seginc_sroff, seginc_ssflow, seginc_gwflow, seginc_swrad (flow/rad)
         - seg_tave_air, seg_melt, seg_rain, seg_ccov, seg_humid (met vars)
         """
-        # Get current day of year (1-based) for soltab_potsw lookup
-        doy = self.control.current_doy
         nowmonth = self.control.current_month
 
         # Handle humidity based on flag
@@ -817,8 +815,8 @@ class PRMSStreamTemp(ConservativeProcess):
             seg_humidity_month = self.seg_humidity[:, nowmonth - 1]
         else:
             # Use HRU humidity from CBH (flag == 0)
-            # TEMPORARY: multiply by 0 to match buggy Fortran that doesn't read 
-            # humidity CBH, see line 176 of prms_5.2.1.1/prms/utils_prms.g90
+            # TEMPORARY: multiply by 0 to match buggy Fortran that doesn't
+            # read humidity CBH, see prms_5.2.1.1/prms/utils_prms.f90 ln 176
             # CORRECT eventually: humidity_hru_data = self.humidity_hru
             humidity_hru_data = self.humidity_hru * 0.0
             seg_humidity_month = None
@@ -1618,7 +1616,7 @@ def _compute_segment_aggregates_numba(
         soltab_potsw: Potential shortwave radiation for current day (immutable)
         hru_cossl: Cosine of HRU slope (immutable)
         humidity_hru: HRU humidity (immutable, used if flag==0)
-        strmtemp_humidity_flag: Humidity source flag (immutable, 0=HRU, 1=param)
+        strmtemp_humidity_flag: Humidity source flag (0=HRU, 1=param)
         seg_humidity_month: Monthly segment humidity parameter (immutable)
         segment_order: Order to process segments (immutable)
         seg_close: Closest segment with HRUs for each segment (immutable)
@@ -1773,10 +1771,10 @@ def _compute_segment_aggregates_numba(
                 seginc_swrad[i] = -99.9
 
     # Process meteorological variables in single pass (matches Fortran)
-    # Process in segment_order - for segments without HRUs, copy from seg_close
-    # Note: seg_close may point to upstream/downstream segments not yet processed
-    # in some edge cases, but this matches the Fortran behavior for most variables.
-    # Exception: seg_humid uses a two-pass approach (see below).
+    # Process in segment_order - for segments without HRUs, copy from
+    # seg_close. Note: seg_close may point to upstream/downstream segments
+    # not yet processed in some edge cases, but this matches the Fortran
+    # behavior for most variables. Exception: seg_humid uses two-pass.
     for jj in range(nsegment):
         i = segment_order[jj]
 
@@ -2175,7 +2173,7 @@ def _equilb(
 
     # Heat flux components
     # Ha: atmospheric-emitted longwave radiation
-    # Note: Fortran uses Seg_humid directly here, not foo (which is clamped for bow_coeff only)
+    # Note: Fortran uses Seg_humid directly, not foo (clamped for bow_coeff)
     ha = (
         (3.354939e-8 + 2.74995e-9 * np.sqrt(seg_humid * vp_sat))
         * (1.0 - seg_shade)
