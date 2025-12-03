@@ -817,7 +817,10 @@ class PRMSStreamTemp(ConservativeProcess):
             seg_humidity_month = self.seg_humidity[:, nowmonth - 1]
         else:
             # Use HRU humidity from CBH (flag == 0)
-            humidity_hru_data = self.humidity_hru
+            # TEMPORARY: multiply by 0 to match buggy Fortran that doesn't read 
+            # humidity CBH, see line 176 of prms_5.2.1.1/prms/utils_prms.g90
+            # CORRECT eventually: humidity_hru_data = self.humidity_hru
+            humidity_hru_data = self.humidity_hru * 0.0
             seg_humidity_month = None
 
         # Use numba-optimized function for performance
@@ -1807,10 +1810,11 @@ def _compute_segment_aggregates_numba(
     # contains uninitialized memory (typically 0.0 from compiler defaults).
     # This results in seg_humid = 0.0 for all segments without HRUs.
     # We replicate this behavior to match Fortran output.
+    # This is currently moot as seg_humid is all zero.
     if strmtemp_humidity_flag == 0:
         for i in range(nsegment):
             if segment_hruarea[i] <= NEARZERO:
-                seg_humid[i] = 0.0
+                seg_humid[i] = seg_humid[seg_close[i]]
 
 
 @nb.jit(nopython=True)
@@ -2171,8 +2175,9 @@ def _equilb(
 
     # Heat flux components
     # Ha: atmospheric-emitted longwave radiation
+    # Note: Fortran uses Seg_humid directly here, not foo (which is clamped for bow_coeff only)
     ha = (
-        (3.354939e-8 + 2.74995e-9 * np.sqrt(foo * vp_sat))
+        (3.354939e-8 + 2.74995e-9 * np.sqrt(seg_humid * vp_sat))
         * (1.0 - seg_shade)
         * (1.0 + (0.17 * (seg_ccov**2)))
     ) * (taabs**4)
