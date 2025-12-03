@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 from utils_compare import compare_in_memory, compare_netcdfs
 
-from pywatershed.base.adapter import AdapterNetcdf, adapter_factory
+from pywatershed.base.adapter import adapter_factory
 from pywatershed.base.control import Control
 from pywatershed.base.parameters import Parameters
 from pywatershed.hydrology.prms_stream_shade import (
@@ -147,13 +147,23 @@ def test_compare_prms(
     stream_temp_inputs = {}
     for key in PRMSStreamTemp.get_inputs():
         if key == "humidity_hru":
-            # humidity_hru comes from rhavg.nc in the simulation directory
-            # Use AdapterNetcdf directly to specify variable name in the file
-            stream_temp_inputs[key] = AdapterNetcdf(
-                simulation["dir"] / "rhavg.nc",
-                variable="rhavg",
+            pass
+            # The following is a soluation that reproduces PRMS behavior where
+            # multiple bugs result in humidity_hru being zero. The code after
+            # it would hopefully be adopted once some clarity is had around the
+            # bugs in PRMS.
+            stream_temp_inputs[key] = adapter_factory(
+                np.zeros(parameters.dimensions["nhru"], dtype=np.float64),
+                variable_name=key,
                 control=control,
             )
+            # # humidity_hru comes from rhavg.nc in the simulation directory
+            # # Use AdapterNetcdf directly to specify variable name in the file
+            # stream_temp_inputs[key] = AdapterNetcdf(
+            #     simulation["dir"] / "rhavg.nc",
+            #     variable="rhavg",
+            #     control=control,
+            # )
         else:
             # Most inputs come from PRMS output files
             nc_path = output_dir / f"{key}.nc"
