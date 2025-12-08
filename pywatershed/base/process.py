@@ -815,15 +815,20 @@ class Process(Accessor):
             elif arg_val is None:
                 args[vv] = opt_val
 
-            elif (
-                isinstance(opt_val, Iterable) and isinstance(arg_val, Iterable)
-            ) and ((set(opt_val) & self_vars) == self_vars):
+            elif (isinstance(opt_val, Iterable)) and (
+                (set(opt_val) & self_vars) == self_vars
+            ):
                 args[vv] = self_vars
+
+            elif (isinstance(opt_val, Iterable)) and len(
+                set(opt_val) & self_vars
+            ) == 0:
+                args[vv] = None
 
             elif (
                 isinstance(opt_val, Iterable) and isinstance(arg_val, Iterable)
-            ) and len(set(opt_val) & self_vars) == 0:
-                args[vv] = None
+            ) and (set(opt_val) & set(arg_val)) == set(arg_val):
+                args[vv] = arg_val
 
             elif opt_val is not None and arg_val is not None:
                 if opt_val == arg_val:

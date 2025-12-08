@@ -15,6 +15,7 @@ from ..parameters import Parameters
 from .prms_stream_shade import (
     PRMSStreamShade,
     PRMSStreamShadeConstant,
+    PRMSStreamShadeDynamic,
 )
 
 # Constants from PRMS
@@ -218,153 +219,6 @@ class PRMSStreamTemp(ConservativeProcess):
 
         return
 
-    def _init_stream_shade(
-        self,
-        stream_shade: Union[PRMSStreamShade, None],
-        stream_shade_class: Union[type, None],
-        stream_shade_parameters: Union[Parameters, Path, None],
-        parameters: Parameters,
-        discretization: Parameters,
-    ) -> PRMSStreamShade:
-        """Initialize stream shade from various input options.
-
-        Three cases are handled:
-        1. stream_shade is provided directly - use it as-is
-        2. stream_shade_class and optionally stream_shade_parameters are
-           provided - instantiate the class with the parameters
-        3. All are None - default to PRMSStreamShadeConstant using
-           parameters from self._params
-
-        Args:
-            stream_shade: Pre-instantiated PRMSStreamShade object
-            stream_shade_class: Class to instantiate for shade computation
-            stream_shade_parameters: Parameters for shade class (Parameters
-                object or Path)
-            parameters: The main parameters for PRMSStreamTemp
-            discretization: Discretization parameters
-
-        Returns:
-            PRMSStreamShade instance
-        """
-        nsegment = discretization.dims["nsegment"]
-
-        # Case 1: stream_shade provided directly
-        if stream_shade is not None:
-            if not isinstance(stream_shade, PRMSStreamShade):
-                raise TypeError(
-                    f"stream_shade must be a PRMSStreamShade instance, "
-                    f"got {type(stream_shade)}"
-                )
-            return stream_shade
-
-        # Case 2: stream_shade_class provided
-        if stream_shade_class is not None:
-            if not issubclass(stream_shade_class, PRMSStreamShade):
-                raise TypeError(
-                    f"stream_shade_class must be a subclass of "
-                    f"PRMSStreamShade, got {stream_shade_class}"
-                )
-
-            # Load parameters if provided as path
-            if stream_shade_parameters is not None:
-                if isinstance(stream_shade_parameters, (str, Path)):
-                    shade_params = Parameters.from_netcdf(
-                        stream_shade_parameters
-                    )
-                else:
-                    shade_params = stream_shade_parameters
-            else:
-                # Use the main parameters if no separate shade params provided
-                shade_params = parameters
-
-            return stream_shade_class(shade_params, nsegment)
-
-        # Case 3: All None - default to PRMSStreamShadeConstant
-        # Try to instantiate using the main parameters
-        try:
-            return PRMSStreamShadeConstant(parameters, nsegment)
-        except (KeyError, AttributeError) as e:
-            raise ValueError(
-                "stream_shade not provided and could not initialize "
-                "PRMSStreamShadeConstant from parameters. Either provide "
-                "stream_shade, or stream_shade_class with "
-                "stream_shade_parameters, or ensure parameters contain "
-                f"the required shade parameters. Original error: {e}"
-            ) from e
-
-    def initialize_netcdf(
-        self,
-        output_dir: Union[str, pl.Path] = None,
-        separate_files: bool = None,
-        budget_args: dict = None,
-        output_vars: list = None,
-        extra_coords: dict = None,
-        addtl_output_vars: list = None,
-    ) -> None:
-        """Initialize NetCDF output with energy flux tracking checks.
-
-        This method overrides the parent class to add consistency checks
-        for energy flux tracking.
-
-        Args:
-            output_dir: base directory path or NetCDF file path if
-                separate_files is True
-            separate_files: boolean indicating if storage component output
-                variables should be written to a separate file for each
-                variable
-            budget_args: arguments to pass to budget initialization
-            output_vars: list of variable names to output
-            extra_coords: extra coordinates to add to the output
-            addtl_output_vars: additional output variables
-
-        Returns:
-            None
-
-        """
-        # Set output_vars appropriately based on tracking
-        if output_vars is None:
-            if self._track_energy_fluxes:
-                # Include all variables
-                output_vars = self.get_variables()
-            else:
-                # Exclude energy flux variables
-                output_vars = [
-                    vv
-                    for vv in self.get_variables()
-                    if vv not in self._energy_flux_vars
-                ]
-        else:
-            # Check if energy flux variables are requested when not tracking
-            output_vars = list(set(self.get_variables()) & set(output_vars))
-            if not self._track_energy_fluxes:
-                conflicting_vars = set(self._energy_flux_vars) & set(
-                    output_vars
-                )
-                if conflicting_vars:
-                    # Warn and filter out the conflicting variables
-                    msg = (
-                        "Variables omitted from NetCDF output because "
-                        "PRMSStreamTemp energy fluxes are not tracked: "
-                        f"{sorted(conflicting_vars)}"
-                    )
-                    warn(msg)
-                    # Remove conflicting variables from output_vars
-                    output_vars = [
-                        v for v in output_vars if v not in conflicting_vars
-                    ]
-
-        # Call parent class initialize_netcdf
-        super().initialize_netcdf(
-            output_dir=output_dir,
-            separate_files=separate_files,
-            budget_args=budget_args,
-            output_vars=output_vars,
-            extra_coords=extra_coords,
-            addtl_output_vars=addtl_output_vars,
-        )
-
-        return
-
     @staticmethod
     def get_dimensions() -> tuple:
         return ("nhru", "nsegment", "nmonth", "ndoy")
@@ -494,6 +348,175 @@ class PRMSStreamTemp(ConservativeProcess):
                 # Empty - kinematic wave assumption (no storage change)
             ],
         }
+
+    def _init_stream_shade(
+        self,
+        stream_shade: Union[PRMSStreamShade, None],
+        stream_shade_class: Union[type, None],
+        stream_shade_parameters: Union[Parameters, Path, None],
+        parameters: Parameters,
+        discretization: Parameters,
+    ) -> PRMSStreamShade:
+        """Initialize stream shade from various input options.
+
+        Three cases are handled:
+        1. stream_shade is provided directly - use it as-is
+        2. stream_shade_class and optionally stream_shade_parameters are
+           provided - instantiate the class with the parameters
+        3. All are None - default to PRMSStreamShadeConstant using
+           parameters from self._params
+
+        Args:
+            stream_shade: Pre-instantiated PRMSStreamShade object
+            stream_shade_class: Class to instantiate for shade computation
+            stream_shade_parameters: Parameters for shade class (Parameters
+                object or Path)
+            parameters: The main parameters for PRMSStreamTemp
+            discretization: Discretization parameters
+
+        Returns:
+            PRMSStreamShade instance
+        """
+        nsegment = parameters.dims["nsegment"]
+
+        # Case 1: stream_shade provided directly
+        if stream_shade is not None:
+            if not isinstance(stream_shade, PRMSStreamShade):
+                raise TypeError(
+                    f"stream_shade must be a PRMSStreamShade instance, "
+                    f"got {type(stream_shade)}"
+                )
+            return stream_shade
+
+        # Case 2: stream_shade_class provided
+        if stream_shade_class is not None:
+            if not issubclass(stream_shade_class, PRMSStreamShade):
+                raise TypeError(
+                    f"stream_shade_class must be a subclass of "
+                    f"PRMSStreamShade, got {stream_shade_class}"
+                )
+
+            # Load parameters if provided as path
+            if stream_shade_parameters is not None:
+                if isinstance(stream_shade_parameters, (str, Path)):
+                    shade_params = Parameters.from_netcdf(
+                        stream_shade_parameters
+                    )
+                else:
+                    shade_params = stream_shade_parameters
+            else:
+                # Use the main parameters if no separate shade params provided
+                shade_params = parameters
+
+            return stream_shade_class(shade_params, nsegment)
+
+        # zero is the PRMS default value for this option
+        stream_temp_shade_flag = self.control.options.get(
+            "stream_temp_shade_flag", 0
+        )
+
+        if stream_temp_shade_flag == 1:
+            stream_shade_class = PRMSStreamShadeConstant
+        elif stream_temp_shade_flag != 0:
+            raise ValueError(
+                f"Invalid value for {stream_temp_shade_flag=} option"
+            )
+        else:
+            stream_shade_class = PRMSStreamShadeDynamic
+
+        # Case 3: All None - default to PRMSStreamShadeConstant
+        # Try to instantiate using the main parameters
+        try:
+            return stream_shade_class(parameters, nsegment)
+        except (KeyError, AttributeError) as e:
+            raise ValueError(
+                "stream_shade not provided and could not initialize "
+                f"{stream_shade_class} from parameters. Either provide "
+                "stream_shade, or stream_shade_class with "
+                "stream_shade_parameters, or ensure parameters contain "
+                f"the required shade parameters. Original error: {e}"
+            ) from e
+
+    def initialize_netcdf(
+        self,
+        output_dir: Union[str, pl.Path] = None,
+        separate_files: bool = None,
+        budget_args: dict = None,
+        output_vars: list = None,
+        extra_coords: dict = None,
+        addtl_output_vars: list = None,
+    ) -> None:
+        """Initialize NetCDF output with energy flux tracking checks.
+
+        This method overrides the parent class to add consistency checks
+        for energy flux tracking.
+
+        Args:
+            output_dir: base directory path or NetCDF file path if
+                separate_files is True
+            separate_files: boolean indicating if storage component output
+                variables should be written to a separate file for each
+                variable
+            budget_args: arguments to pass to budget initialization
+            output_vars: list of variable names to output
+            extra_coords: extra coordinates to add to the output
+            addtl_output_vars: additional output variables
+
+        Returns:
+            None
+
+        """
+        # Set output_vars appropriately based on tracking
+        (
+            output_dir,
+            output_vars,
+            separate_files,
+        ) = self._reconcile_nc_args_w_control_opts(
+            output_dir, output_vars, separate_files
+        )
+
+        if output_vars is None:
+            if self._track_energy_fluxes:
+                # Include all variables
+                output_vars = self.get_variables()
+            else:
+                # Exclude energy flux variables
+                output_vars = [
+                    vv
+                    for vv in self.get_variables()
+                    if vv not in self._energy_flux_vars
+                ]
+        else:
+            # Check if energy flux variables are requested when not tracking
+            output_vars = list(set(self.get_variables()) & set(output_vars))
+            if not self._track_energy_fluxes:
+                conflicting_vars = set(self._energy_flux_vars) & set(
+                    output_vars
+                )
+                if conflicting_vars:
+                    # Warn and filter out the conflicting variables
+                    msg = (
+                        "Variables omitted from NetCDF output because "
+                        "PRMSStreamTemp energy fluxes are not tracked: "
+                        f"{sorted(conflicting_vars)}"
+                    )
+                    warn(msg)
+                    # Remove conflicting variables from output_vars
+                    output_vars = [
+                        v for v in output_vars if v not in conflicting_vars
+                    ]
+
+        # Call parent class initialize_netcdf
+        super().initialize_netcdf(
+            output_dir=output_dir,
+            separate_files=separate_files,
+            budget_args=budget_args,
+            output_vars=output_vars,
+            extra_coords=extra_coords,
+            addtl_output_vars=addtl_output_vars,
+        )
+
+        return
 
     def _set_initial_conditions(self) -> None:
         # Initialize state variables

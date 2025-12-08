@@ -25,6 +25,8 @@ process_order_nhm = [
     "PRMSGroundwater",
     "PRMSGroundwaterNoDprst",
     "PRMSChannel",
+    "PRMSHydraulicGeometryDefault",
+    "PRMSStreamTemp",
 ]
 
 
@@ -594,6 +596,9 @@ class Model:
                     )
                     # dis = val["dis"]
                     # val["dis"] = model_dict[dis]
+                    for subkey in val.keys():
+                        if "_class" in subkey:
+                            val[subkey] = getattr(pywatershed, val[subkey])
 
             elif isinstance(val, list):
                 pass
