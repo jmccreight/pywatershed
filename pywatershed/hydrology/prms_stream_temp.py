@@ -10,7 +10,7 @@ import numpy as np
 from ..base.adapter import adaptable
 from ..base.conservative_process import ConservativeProcess
 from ..base.control import Control
-from ..constants import cfs_to_cms, nan, nearzero, zero
+from ..constants import cfs_to_cms, nearzero, zero
 from ..parameters import Parameters
 from .prms_stream_shade import (
     PRMSStreamShade,
@@ -415,7 +415,7 @@ class PRMSStreamTemp(ConservativeProcess):
     @staticmethod
     def get_init_values() -> dict:
         return {
-            "seg_tave_water": nan,
+            "seg_tave_water": -99.9,
             "seg_tave_upstream": 0.0,
             "seg_tave_gw": 0.0,
             "seg_tave_ss": 0.0,
@@ -497,9 +497,10 @@ class PRMSStreamTemp(ConservativeProcess):
 
     def _set_initial_conditions(self) -> None:
         # Initialize state variables
-        # seg_tave_water starts as NaN, but will be set to -99.9 for segments
-        # with no upstream HRUs (done after upstream info is computed)
-        self.seg_tave_water[:] = np.nan
+        # seg_tave_water starts as -99.9 from get_init_values
+        # Segments with no upstream HRUs will be set to NaN ("never has flow")
+        # in _initialize_stream_temp
+        # Don't override seg_tave_water here - it's already -99.9
         self.seg_tave_upstream[:] = np.nan
         self.seg_tave_gw[:] = zero
         self.seg_tave_ss[:] = zero
@@ -698,9 +699,10 @@ class PRMSStreamTemp(ConservativeProcess):
                     if has_upstream_hrus or not found_upstream:
                         break
 
-                # If no upstream HRUs, mark as never having flow
+                # If no upstream HRUs, mark as never having flow (NaN)
+                # Valid segments are already -99.9 from get_init_values
                 if not has_upstream_hrus:
-                    self.seg_tave_water[i] = -99.9
+                    self.seg_tave_water[i] = np.nan
 
         # Convert seg_length from meters to kilometers
         # Parameter file has seg_length in meters, but calculations use km
@@ -856,10 +858,11 @@ class PRMSStreamTemp(ConservativeProcess):
 
         # Compute water temperature for each segment (must be done in
         # segment_order)
-        # Don't reset segments marked as -99.9 (never have flow)
+        # Don't reset segments marked as NaN (never have flow)
+        # Valid segments get reset to -99.9 before calculation
         for jj in self.segment_order:
-            if self.seg_tave_water[jj] >= -99.0:
-                self.seg_tave_water[jj] = np.nan
+            if not np.isnan(self.seg_tave_water[jj]):
+                self.seg_tave_water[jj] = -99.9
 
         # Use numba-optimized function for performance
         # Note: Assumes vectorized shade is being used
@@ -1214,15 +1217,15 @@ class PRMSStreamTemp(ConservativeProcess):
             seg_idx: Segment index
             svi: Vegetation shade index
         """
-        # Skip segments marked as permanently invalid
+        # Skip segments marked as permanently invalid (NaN = never has flow)
         # (matches Fortran line 887, 894)
-        if self.seg_tave_water[seg_idx] < -99.0:
+        if np.isnan(self.seg_tave_water[seg_idx]):
             # Never has flow - skip all calculations
             return
 
         if self.seginc_swrad[seg_idx] < -99.0:
             # Never has data - mark and skip
-            self.seg_tave_water[seg_idx] = -99.9
+            self.seg_tave_water[seg_idx] = np.nan
             return
 
         # Check for no-flow conditions (matches Fortran check for
@@ -1534,8 +1537,8 @@ def _update_running_avg_temp_numba(
         seg_tave_ss: Subsurface temperatures (MUTATED - output)
     """
     for jj in segment_order:
-        # Skip if marked as never having flow
-        if seg_tave_water[jj] < -99.0:
+        # Skip if marked as never having flow (NaN = never has flow)
+        if np.isnan(seg_tave_water[jj]):
             continue
         # Skip if marked as permanently invalid
         if seginc_swrad[jj] < -99.0:
@@ -1623,8 +1626,8 @@ def _compute_lateral_temp_numba(
         seg_tave_lat: Lateral temperature array (MUTATED - output)
     """
     for jj in segment_order:
-        # Skip if marked as never having flow
-        if seg_tave_water[jj] < -99.0:
+        # Skip if marked as never having flow (NaN = never has flow)
+        if np.isnan(seg_tave_water[jj]):
             continue
         # Skip if marked as permanently invalid
         if seginc_swrad[jj] < -99.0:
@@ -2054,8 +2057,8 @@ def _compute_water_temp_numba(
         lateral_flows: Lateral flow values (MUTATED if tracking - output)
     """
     for jj in segment_order:
-        # Skip segments marked as never having flow
-        if seg_tave_water[jj] < -99.0:
+        # Skip segments marked as never having flow (NaN = never has flow)
+        if np.isnan(seg_tave_water[jj]):
             continue
 
         # Compute upstream temperature and flow in one pass
@@ -2087,7 +2090,7 @@ def _compute_water_temp_numba(
 
         # Skip if marked as permanently invalid
         if seginc_swrad[jj] < -99.0:
-            seg_tave_water[jj] = -99.9
+            seg_tave_water[jj] = np.nan
             continue
 
         # Check for no-flow conditions

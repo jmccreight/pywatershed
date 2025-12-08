@@ -1,4 +1,5 @@
 import pathlib as pl
+from typing import Union
 
 import numpy as np
 import xarray as xr
@@ -16,6 +17,7 @@ def assert_allclose(
     also_check_w_np: bool = True,
     print_max_errs: bool = False,
     var_name: str = "",
+    sentinel_to_nan: Union[float, list, None] = None,
 ):
     """Reinvent np.testing.assert_allclose to get useful diagnostincs in debug
 
@@ -31,7 +33,22 @@ def assert_allclose(
         also_check_w_np: first check using np.testing.assert_allclose using
             the same options.
         print_max_errs: bool=False. Print max abs and rel err for each var.
+        sentinel_to_nan: Optional sentinel value(s) to convert to NaN before
+            comparison. Can be a single float or a list of floats. Values
+            less than or equal to the sentinel will be converted to NaN.
+            This is useful for comparing outputs where one system uses
+            sentinel values (e.g., -99.9) and another uses NaN.
     """
+
+    # Convert sentinel values to NaN in both arrays
+    if sentinel_to_nan is not None:
+        actual = actual.copy()
+        desired = desired.copy()
+        if isinstance(sentinel_to_nan, (int, float)):
+            sentinel_to_nan = [sentinel_to_nan]
+        for sentinel in sentinel_to_nan:
+            actual = np.where(actual <= sentinel, np.nan, actual)
+            desired = np.where(desired <= sentinel, np.nan, desired)
 
     if also_check_w_np:
         np.testing.assert_allclose(
@@ -87,6 +104,7 @@ def compare_in_memory(
     fail_after_all_vars: bool = True,
     verbose: bool = False,
     var_tolerances: dict = None,
+    var_sentinel_to_nan: dict = None,
 ):
     # TODO: docstring
 
@@ -128,6 +146,11 @@ def compare_in_memory(
             var_rtol = var_tolerances[var].get("rtol", rtol)
             var_atol = var_tolerances[var].get("atol", atol)
 
+        # Get variable-specific sentinel value to convert to NaN
+        sentinel = None
+        if var_sentinel_to_nan is not None and var in var_sentinel_to_nan:
+            sentinel = var_sentinel_to_nan[var]
+
         if not fail_after_all_vars:
             assert_allclose(
                 actual,
@@ -138,6 +161,7 @@ def compare_in_memory(
                 strict=strict,
                 also_check_w_np=also_check_w_np,
                 var_name=var,
+                sentinel_to_nan=sentinel,
             )
 
         else:
@@ -151,6 +175,7 @@ def compare_in_memory(
                     strict=strict,
                     also_check_w_np=also_check_w_np,
                     var_name=var,
+                    sentinel_to_nan=sentinel,
                 )
                 if verbose:
                     print(f"compare_netcdfs all close for variable: {var}")
@@ -187,6 +212,7 @@ def compare_netcdfs(
     fail_after_all_vars: bool = True,
     verbose: bool = False,
     var_tolerances: dict = None,
+    var_sentinel_to_nan: dict = None,
 ):
     # TODO: docstring
     # TODO: improve error message
@@ -207,6 +233,11 @@ def compare_netcdfs(
             var_rtol = var_tolerances[var].get("rtol", rtol)
             var_atol = var_tolerances[var].get("atol", atol)
 
+        # Get variable-specific sentinel value to convert to NaN
+        sentinel = None
+        if var_sentinel_to_nan is not None and var in var_sentinel_to_nan:
+            sentinel = var_sentinel_to_nan[var]
+
         if not fail_after_all_vars:
             assert_allclose(
                 actual=result.values,
@@ -218,6 +249,7 @@ def compare_netcdfs(
                 also_check_w_np=also_check_w_np,
                 print_max_errs=print_var_max_errs,
                 var_name=var,
+                sentinel_to_nan=sentinel,
             )
             if verbose:
                 print(f"compare_netcdfs all close for variable: {var}")
@@ -234,6 +266,7 @@ def compare_netcdfs(
                     also_check_w_np=also_check_w_np,
                     print_max_errs=print_var_max_errs,
                     var_name=var,
+                    sentinel_to_nan=sentinel,
                 )
                 if verbose:
                     print(f"compare_netcdfs all close for variable: {var}")

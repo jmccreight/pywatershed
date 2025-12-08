@@ -15,6 +15,12 @@ from pywatershed.hydrology.prms_stream_shade import (
 from pywatershed.hydrology.prms_stream_temp import PRMSStreamTemp
 from pywatershed.parameters import PrmsParameters
 
+# Define sentinel values that should be treated as NaN for
+# comparison. PRMS uses -99.9 for missing data, pywatershed
+# uses NaN
+var_sentinel_to_nan = {"seg_tave_water": -99.9}
+
+
 # compare in memory (faster) or full output files? or both!
 do_compare_output_files = True
 do_compare_in_memory = False
@@ -276,6 +282,7 @@ def test_compare_prms(
                 atol=atol,
                 rtol=rtol,
                 skip_missing_ans=True,
+                var_sentinel_to_nan=var_sentinel_to_nan,
             )
 
     stream_temp.finalize()
@@ -347,13 +354,13 @@ def test_compare_prms(
             print(f"  Mean simulated: {np.mean(sim_valid):.6f}")
 
         print("\n" + "=" * 80)
-
         compare_netcdfs(
             compare_vars,
             tmp_path / simulation["name"].replace(":", "_"),
             output_dir,
             atol=atol,
             rtol=rtol,
+            var_sentinel_to_nan=var_sentinel_to_nan,
         )
 
     # The following is currently part of the test, nowhere else is the repr of
