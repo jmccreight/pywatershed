@@ -1,4 +1,5 @@
 import pathlib as pl
+from pathlib import Path
 from typing import Literal, Union
 from warnings import warn
 
@@ -11,7 +12,10 @@ from ..base.conservative_process import ConservativeProcess
 from ..base.control import Control
 from ..constants import cfs_to_cms, nan, nearzero, zero
 from ..parameters import Parameters
-from .prms_stream_shade import PRMSStreamShade
+from .prms_stream_shade import (
+    PRMSStreamShade,
+    PRMSStreamShadeConstant,
+)
 
 # Constants from PRMS
 NEARZERO = nearzero
@@ -84,21 +88,30 @@ class PRMSStreamTemp(ConservativeProcess):
         hru_rain: Rainfall for each HRU (from PRMSAtmosphere)
         soltab_potsw: Potential shortwave radiation table for current day
             (from PRMSSolarGeometry or Adapter)
-        humidity_hru: Humidity for each HRU (from CBH via Adapter), optional.
-            Required when strmtemp_humidity_flag=0. If None,
-            strmtemp_humidity_flag must be 1.
+        # humidity_hru: Humidity for each HRU (from CBH via Adapter), optional.
+        #     Required when strmtemp_humidity_flag=0. If None,
+        #     strmtemp_humidity_flag must be 1.
         seg_flow_width: Flow-dependent width from PRMSHydraulicGeometry
         seg_flow_depth: Flow-dependent depth from PRMSHydraulicGeometry
         seg_flow_area: Flow-dependent cross-sectional area from
             PRMSHydraulicGeometry
         seg_flow_velocity: Flow-dependent velocity from
             PRMSHydraulicGeometry
-        stream_shade: PRMSStreamShade instance (Dynamic or Constant)
-        strmtemp_humidity_flag: Flag to select humidity source. 0=use
-            humidity_hru input (HRU-level from CBH), 1=use seg_humidity
-            parameter (monthly values by segment). If None, defers to
-            control.options["strmtemp_humidity_flag"]. If not found in
-            either, raises ValueError.
+        stream_shade: PRMSStreamShade instance (Dynamic or Constant).
+            If provided, stream_shade_class and stream_shade_parameters
+            are ignored.
+        stream_shade_class: Class to use for stream shade computation
+            (e.g., PRMSStreamShadeDynamic, PRMSStreamShadeConstant).
+            Only used if stream_shade is None.
+        stream_shade_parameters: Parameters for stream shade computation.
+            Can be a Parameters object or a Path to a parameter file.
+            Only used if stream_shade is None and stream_shade_class is
+            provided.
+        # strmtemp_humidity_flag: Flag to select humidity source. 0=use
+        #     humidity_hru input (HRU-level from CBH), 1=use seg_humidity
+        #     parameter (monthly values by segment). If None, defers to
+        #     control.options["strmtemp_humidity_flag"]. If not found in
+        #     either, raises ValueError.
         imbalance_behavior: one of ["defer", None, "warn", "error"]
         verbose: Print extra information or not?
         use_vectorized_shade: Use vectorized shade computation for all
@@ -122,13 +135,15 @@ class PRMSStreamTemp(ConservativeProcess):
         snowmelt: adaptable,
         hru_rain: adaptable,
         soltab_potsw: adaptable,
-        humidity_hru: adaptable = None,
+        # humidity_hru: adaptable = None,
         seg_flow_width: adaptable = None,
         seg_flow_depth: adaptable = None,
         seg_flow_area: adaptable = None,
         seg_flow_velocity: adaptable = None,
-        stream_shade: PRMSStreamShade = None,
-        strmtemp_humidity_flag: int = None,
+        stream_shade: Union[PRMSStreamShade, None] = None,
+        stream_shade_class: Union[type, None] = None,
+        stream_shade_parameters: Union[Parameters, Path, None] = None,
+        # strmtemp_humidity_flag: Union[int, None] = None,
         imbalance_behavior: Literal["defer", None, "warn", "error"] = "defer",
         verbose: bool = False,
         use_vectorized_shade: bool = True,
@@ -142,8 +157,25 @@ class PRMSStreamTemp(ConservativeProcess):
         )
         self.name = "PRMSStreamTemp"
 
-        self._set_inputs(locals())
-        self._set_options(locals())
+        # Handle stream_shade initialization before _set_inputs
+        # This resolves the stream_shade from multiple possible input styles
+        stream_shade = self._init_stream_shade(
+            stream_shade=stream_shade,
+            stream_shade_class=stream_shade_class,
+            stream_shade_parameters=stream_shade_parameters,
+            parameters=parameters,
+            discretization=discretization,
+        )
+
+        # Update locals with resolved stream_shade for _set_inputs
+        # Remove the class/parameters options since they've been resolved
+        input_locals = locals().copy()
+        input_locals["stream_shade"] = stream_shade
+        input_locals.pop("stream_shade_class", None)
+        input_locals.pop("stream_shade_parameters", None)
+
+        self._set_inputs(input_locals)
+        self._set_options(input_locals)
 
         # Just the names without the catergorization, in one list.
         self._energy_flux_vars = [
@@ -186,6 +218,80 @@ class PRMSStreamTemp(ConservativeProcess):
 
         return
 
+    def _init_stream_shade(
+        self,
+        stream_shade: Union[PRMSStreamShade, None],
+        stream_shade_class: Union[type, None],
+        stream_shade_parameters: Union[Parameters, Path, None],
+        parameters: Parameters,
+        discretization: Parameters,
+    ) -> PRMSStreamShade:
+        """Initialize stream shade from various input options.
+
+        Three cases are handled:
+        1. stream_shade is provided directly - use it as-is
+        2. stream_shade_class and optionally stream_shade_parameters are
+           provided - instantiate the class with the parameters
+        3. All are None - default to PRMSStreamShadeConstant using
+           parameters from self._params
+
+        Args:
+            stream_shade: Pre-instantiated PRMSStreamShade object
+            stream_shade_class: Class to instantiate for shade computation
+            stream_shade_parameters: Parameters for shade class (Parameters
+                object or Path)
+            parameters: The main parameters for PRMSStreamTemp
+            discretization: Discretization parameters
+
+        Returns:
+            PRMSStreamShade instance
+        """
+        nsegment = discretization.dims["nsegment"]
+
+        # Case 1: stream_shade provided directly
+        if stream_shade is not None:
+            if not isinstance(stream_shade, PRMSStreamShade):
+                raise TypeError(
+                    f"stream_shade must be a PRMSStreamShade instance, "
+                    f"got {type(stream_shade)}"
+                )
+            return stream_shade
+
+        # Case 2: stream_shade_class provided
+        if stream_shade_class is not None:
+            if not issubclass(stream_shade_class, PRMSStreamShade):
+                raise TypeError(
+                    f"stream_shade_class must be a subclass of "
+                    f"PRMSStreamShade, got {stream_shade_class}"
+                )
+
+            # Load parameters if provided as path
+            if stream_shade_parameters is not None:
+                if isinstance(stream_shade_parameters, (str, Path)):
+                    shade_params = Parameters.from_netcdf(
+                        stream_shade_parameters
+                    )
+                else:
+                    shade_params = stream_shade_parameters
+            else:
+                # Use the main parameters if no separate shade params provided
+                shade_params = parameters
+
+            return stream_shade_class(shade_params, nsegment)
+
+        # Case 3: All None - default to PRMSStreamShadeConstant
+        # Try to instantiate using the main parameters
+        try:
+            return PRMSStreamShadeConstant(parameters, nsegment)
+        except (KeyError, AttributeError) as e:
+            raise ValueError(
+                "stream_shade not provided and could not initialize "
+                "PRMSStreamShadeConstant from parameters. Either provide "
+                "stream_shade, or stream_shade_class with "
+                "stream_shade_parameters, or ensure parameters contain "
+                f"the required shade parameters. Original error: {e}"
+            ) from e
+
     def initialize_netcdf(
         self,
         output_dir: Union[str, pl.Path] = None,
@@ -223,12 +329,13 @@ class PRMSStreamTemp(ConservativeProcess):
             else:
                 # Exclude energy flux variables
                 output_vars = [
-                    v
-                    for v in self.get_variables()
-                    if v not in self._energy_flux_vars
+                    vv
+                    for vv in self.get_variables()
+                    if vv not in self._energy_flux_vars
                 ]
         else:
             # Check if energy flux variables are requested when not tracking
+            output_vars = list(set(self.get_variables()) & set(output_vars))
             if not self._track_energy_fluxes:
                 conflicting_vars = set(self._energy_flux_vars) & set(
                     output_vars
@@ -302,7 +409,7 @@ class PRMSStreamTemp(ConservativeProcess):
             "snowmelt",
             "hru_rain",
             "soltab_potsw",
-            "humidity_hru",
+            # "humidity_hru",
         )
 
     @staticmethod
@@ -438,34 +545,34 @@ class PRMSStreamTemp(ConservativeProcess):
         self.albedo = float(self.albedo[0])
         self.melt_temp = float(self.melt_temp[0])
 
-        # Handle humidity flag: _set_options already checked __init__ arg
-        # then control.options, so we just need to validate and convert
-        if self._strmtemp_humidity_flag is None:
-            msg = (
-                "strmtemp_humidity_flag must be provided either as an "
-                "__init__ argument or in control.options. "
-                "Use 0 for HRU humidity from CBH (humidity_hru input), "
-                "or 1 for monthly segment humidity parameter (seg_humidity)."
-            )
-            raise ValueError(msg)
+        # # Handle humidity flag: _set_options already checked __init__ arg
+        # # then control.options, so we just need to validate and convert
+        # if self._strmtemp_humidity_flag is None:
+        #     msg = (
+        #         "strmtemp_humidity_flag must be provided either as an "
+        #         "__init__ argument or in control.options. "
+        #         "Use 0 for HRU humidity from CBH (humidity_hru input), "
+        #         "or 1 for monthly segment humidity parameter (seg_humidity)."
+        #     )
+        #     raise ValueError(msg)
 
-        # Convert to int if it's an array (e.g., from control file)
-        flag_val = self._strmtemp_humidity_flag
-        if hasattr(flag_val, "__len__"):
-            flag_val = flag_val[0]
-        self._strmtemp_humidity_flag = int(flag_val)
+        # # Convert to int if it's an array (e.g., from control file)
+        # flag_val = self._strmtemp_humidity_flag
+        # if hasattr(flag_val, "__len__"):
+        #     flag_val = flag_val[0]
+        # self._strmtemp_humidity_flag = int(flag_val)
 
-        # Validate humidity input based on flag
-        if self._strmtemp_humidity_flag == 0:
-            # Check if humidity_hru is provided (optional input)
-            if self._input_variables_dict.get("humidity_hru") is None:
-                msg = (
-                    "humidity_hru input is required when "
-                    "strmtemp_humidity_flag=0. "
-                    "Either provide humidity_hru or set "
-                    "strmtemp_humidity_flag=1 to use seg_humidity parameter."
-                )
-                raise ValueError(msg)
+        # # Validate humidity input based on flag
+        # if self._strmtemp_humidity_flag == 0:
+        #     # Check if humidity_hru is provided (optional input)
+        #     if self._input_variables_dict.get("humidity_hru") is None:
+        #         msg = (
+        #             "humidity_hru input is required when "
+        #             "strmtemp_humidity_flag=0. "
+        #             "Either provide humidity_hru or set "
+        #             "strmtemp_humidity_flag=1 to use seg_humidity parameter."
+        #         )
+        #         raise ValueError(msg)
 
         # Compute hru_cossl from hru_slope (matches Fortran/PRMSSolarGeometry)
         self._hru_cossl = np.cos(np.arctan(self.hru_slope))
@@ -807,19 +914,23 @@ class PRMSStreamTemp(ConservativeProcess):
         """
         nowmonth = self.control.current_month
 
-        # Handle humidity based on flag
-        if self._strmtemp_humidity_flag == 1:
-            # Use monthly parameter seg_humidity
-            # seg_humidity has dims [nsegment, nmonth]
-            humidity_hru_data = None
-            seg_humidity_month = self.seg_humidity[:, nowmonth - 1]
-        else:
-            # Use HRU humidity from CBH (flag == 0)
-            # TEMPORARY: multiply by 0 to match buggy Fortran that doesn't
-            # read humidity CBH, see prms_5.2.1.1/prms/utils_prms.f90 ln 176
-            # CORRECT eventually: humidity_hru_data = self.humidity_hru
-            humidity_hru_data = self.humidity_hru * 0.0
-            seg_humidity_month = None
+        # # Handle humidity based on flag
+        # if self._strmtemp_humidity_flag == 1:
+        #     # Use monthly parameter seg_humidity
+        #     # seg_humidity has dims [nsegment, nmonth]
+        #     humidity_hru_data = None
+        #     seg_humidity_month = self.seg_humidity[:, nowmonth - 1]
+        # else:
+        #     # Use HRU humidity from CBH (flag == 0)
+        #     # TEMPORARY: multiply by 0 to match buggy Fortran that doesn't
+        #     # read humidity CBH, see prms_5.2.1.1/prms/utils_prms.f90 ln 176
+        #     # CORRECT eventually: humidity_hru_data = self.humidity_hru
+        #     humidity_hru_data = self.humidity_hru * 0.0
+        #     seg_humidity_month = None
+        # Hardcode to use HRU humidity (flag == 0) with zeros for now
+        humidity_hru_data = np.zeros(self.nhru)
+        seg_humidity_month = np.zeros(self.nsegment)
+        strmtemp_humidity_flag = 0
 
         # Use numba-optimized function for performance
         _compute_segment_aggregates_numba(
@@ -844,13 +955,14 @@ class PRMSStreamTemp(ConservativeProcess):
             self.hru_rain,
             self.soltab_potsw,
             self._hru_cossl,
-            humidity_hru_data
-            if humidity_hru_data is not None
-            else np.zeros(self.nhru),
-            self._strmtemp_humidity_flag,
-            seg_humidity_month
-            if seg_humidity_month is not None
-            else np.zeros(self.nsegment),
+            humidity_hru_data,
+            # if humidity_hru_data is not None
+            # else np.zeros(self.nhru),
+            # self._strmtemp_humidity_flag,
+            strmtemp_humidity_flag,
+            seg_humidity_month,
+            # if seg_humidity_month is not None
+            # else np.zeros(self.nsegment),
             self.segment_order,
             self.seg_close,
             # Output arrays for meteorological variables

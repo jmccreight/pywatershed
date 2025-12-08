@@ -35,6 +35,13 @@ energy_flux_options = (
     (False, None),  # Don't track fluxes, no budget checking
 )
 
+# Parametrize stream shade initialization styles:
+# - "instance": Pass a pre-instantiated PRMSStreamShade object
+# - "class_params": Pass stream_shade_class and stream_shade_parameters
+# - "default": Pass None for all, defaulting to PRMSStreamShadeConstant
+shade_init_styles = ("instance", "class_params", "default")[0:2]
+shade_init_ids = [f"shade_{ss}" for ss in shade_init_styles]
+
 
 @pytest.fixture(scope="function")
 def control(simulation):
@@ -111,6 +118,15 @@ def parameters(parameter_style, simulation, control, request):
     return params
 
 
+@pytest.fixture(
+    scope="function",
+    params=shade_init_styles,
+    ids=shade_init_ids,
+)
+def shade_init_style(request):
+    return request.param
+
+
 def test_compare_prms(
     simulation,
     control,
@@ -118,6 +134,7 @@ def test_compare_prms(
     parameters,
     parameters_shade,
     energy_flux_config,
+    shade_init_style,
     tmp_path,
 ):
     tmp_path = pl.Path(tmp_path)
@@ -126,21 +143,50 @@ def test_compare_prms(
     # Unpack energy flux configuration
     track_energy_fluxes, imbalance_behavior = energy_flux_config
 
-    # Step 1: Instantiate PRMSStreamShade to compose into PRMSStreamTemp
+    # Step 1: Prepare stream shade based on initialization style
+    # This tests the three ways to provide shade to PRMSStreamTemp:
+    # - "instance": Pre-instantiated PRMSStreamShade object
+    # - "class_params": Pass class and parameters separately
+    # - "default": Pass None, defaulting to PRMSStreamShadeConstant
     stream_temp_shade_flag = control.options.get(
         "stream_temp_shade_flag", np.array([0])
     )[0]
 
-    if stream_temp_shade_flag == 0:
-        # Dynamic shade computation
-        stream_shade = PRMSStreamShadeDynamic(
-            parameters_shade, discretization.dims["nsegment"]
-        )
+    if shade_init_style == "instance":
+        # Case 1: Pass a pre-instantiated stream_shade object
+        if stream_temp_shade_flag == 0:
+            stream_shade = PRMSStreamShadeDynamic(
+                parameters_shade, discretization.dims["nsegment"]
+            )
+        else:
+            stream_shade = PRMSStreamShadeConstant(
+                parameters_shade, discretization.dims["nsegment"]
+            )
+        stream_shade_class = None
+        stream_shade_parameters = None
+    elif shade_init_style == "class_params":
+        # Case 2: Pass stream_shade_class and stream_shade_parameters
+        stream_shade = None
+        if stream_temp_shade_flag == 0:
+            stream_shade_class = PRMSStreamShadeDynamic
+        else:
+            stream_shade_class = PRMSStreamShadeConstant
+        stream_shade_parameters = parameters_shade
     else:
-        # Constant shade parameters; currently unused by test
-        stream_shade = PRMSStreamShadeConstant(
-            parameters_shade, discretization.dims["nsegment"]
-        )
+        # Case 3: Pass None for all, defaulting to PRMSStreamShadeConstant
+        # This requires the main parameters to contain shade parameters
+        # We need to merge shade parameters into the main parameters
+        stream_shade = None
+        stream_shade_class = None
+        stream_shade_parameters = None
+        # For this case to work, parameters must contain shade params
+        # Merge shade parameters into main parameters if not already there
+        try:
+            # Check if shade params already exist
+            parameters.get_param_values("segshade_sum")
+        except (KeyError, AttributeError):
+            # Merge shade parameters into parameters for default case
+            parameters = Parameters.merge(parameters, parameters_shade)
 
     # Step 2: Prepare inputs for PRMSStreamTemp
     # Most inputs come from PRMS output files, but some need special handling
@@ -169,13 +215,15 @@ def test_compare_prms(
             nc_path = output_dir / f"{key}.nc"
             stream_temp_inputs[key] = nc_path
 
-    # Step 3: Instantiate PRMSStreamTemp with composed stream_shade
+    # Step 3: Instantiate PRMSStreamTemp with the appropriate shade init style
     stream_temp = PRMSStreamTemp(
         control,
         discretization,
         parameters,
         **stream_temp_inputs,
         stream_shade=stream_shade,
+        stream_shade_class=stream_shade_class,
+        stream_shade_parameters=stream_shade_parameters,
         imbalance_behavior=imbalance_behavior,
         track_energy_fluxes=track_energy_fluxes,
     )

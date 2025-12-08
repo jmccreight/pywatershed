@@ -19,7 +19,7 @@ do_compare_output_files = True
 do_compare_in_memory = True
 rtol = atol = 1.0e-5
 
-params = ("params_sep", "params_one")[1:]  # TODO: use both again
+params = ("params_sep", "params_one")  # TODO: use both again
 
 
 @pytest.fixture(scope="function")

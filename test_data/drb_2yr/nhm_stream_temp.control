@@ -45,6 +45,11 @@ strmtemp_humidity_flag
 1
 0
 ####
+stream_temp_shade_flag
+1
+1
+0
+####
 initial_deltat
 1
 2

@@ -33,7 +33,10 @@ from .hydrology.prms_channel_flow_graph import (
 from .hydrology.prms_et import PRMSEt
 from .hydrology.prms_groundwater import PRMSGroundwater
 from .hydrology.prms_groundwater_no_dprst import PRMSGroundwaterNoDprst
-from .hydrology.prms_hydraulic_geometry import PRMSHydraulicGeometry
+from .hydrology.prms_hydraulic_geometry import (
+    PRMSHydraulicGeometry,
+    PRMSHydraulicGeometryDefault,
+)
 from .hydrology.prms_runoff import PRMSRunoff
 from .hydrology.prms_runoff_no_dprst import PRMSRunoffNoDprst
 from .hydrology.prms_snow import PRMSSnow
@@ -110,6 +113,7 @@ __all__ = (
     "PRMSGroundwater",
     "PRMSGroundwaterNoDprst",
     "PRMSHydraulicGeometry",
+    "PRMSHydraulicGeometryDefault",
     "PRMSRunoff",
     "PRMSRunoffAg",
     "PRMSRunoffNoDprst",

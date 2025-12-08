@@ -46,6 +46,7 @@ pws_control_options_avail = [
     "stream_temp_flag",
     "stream_temp_shade_flag",
     "streamflow_module",
+    "strmtemp_humidity_flag",
     "time_step_units",
     "verbosity",
 ]
@@ -64,6 +65,7 @@ prms_legacy_options_avail = [
     "stream_temp_flag",
     "stream_temp_shade_flag",
     "strmflow_module",
+    "strmtemp_humidity_flag",
     "print_debug",
 ]
 
