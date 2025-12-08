@@ -912,7 +912,7 @@ class PRMSStreamTemp(ConservativeProcess):
         - seginc_sroff, seginc_ssflow, seginc_gwflow, seginc_swrad (flow/rad)
         - seg_tave_air, seg_melt, seg_rain, seg_ccov, seg_humid (met vars)
         """
-        nowmonth = self.control.current_month
+        # nowmonth = self.control.current_month
 
         # # Handle humidity based on flag
         # if self._strmtemp_humidity_flag == 1:

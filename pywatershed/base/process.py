@@ -1,7 +1,7 @@
 import inspect
 import os
 import pathlib as pl
-from typing import Literal, Union
+from typing import Iterable, Literal, Union
 from warnings import warn
 
 import numpy as np
@@ -815,10 +815,14 @@ class Process(Accessor):
             elif arg_val is None:
                 args[vv] = opt_val
 
-            elif (set(opt_val) & self_vars) == self_vars:
+            elif (
+                isinstance(opt_val, Iterable) and isinstance(arg_val, Iterable)
+            ) and ((set(opt_val) & self_vars) == self_vars):
                 args[vv] = self_vars
 
-            elif len(set(opt_val) & self_vars) == 0:
+            elif (
+                isinstance(opt_val, Iterable) and isinstance(arg_val, Iterable)
+            ) and len(set(opt_val) & self_vars) == 0:
                 args[vv] = None
 
             elif opt_val is not None and arg_val is not None:
