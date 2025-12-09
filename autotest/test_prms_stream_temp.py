@@ -43,7 +43,7 @@ energy_flux_options = (
 
 # Parametrize stream shade initialization styles:
 # - "instance": Pass a pre-instantiated PRMSStreamShade object
-# - "class_params": Pass stream_shade_class and stream_shade_parameters (loaded)
+# - "class_params": Pass stream_shade_class & stream_shade_parameters (loaded)
 # - "class_params_path": Pass stream_shade_class and stream_shade_parameters
 #   as a path (like the notebooks do)
 # - "default": Pass None for all, defaulting to PRMSStreamShadeConstant
