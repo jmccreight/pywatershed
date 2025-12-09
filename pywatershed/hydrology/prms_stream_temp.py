@@ -42,7 +42,7 @@ class PRMSStreamTemp(ConservativeProcess):
 
     A representation of stream temperature from PRMS. with two structural
     differences. This class uses:
-    - PRMSHydraulicGeometry as an upstream process to get the hydraulic
+    - PRMSHydraulicGeometryFull as an upstream process to get the hydraulic
       geometry variables (which were renamed seg_flow_*)
     - PRMSStreamShade as a shade representation to be passed/composed on
       initialization.
@@ -92,12 +92,12 @@ class PRMSStreamTemp(ConservativeProcess):
         # humidity_hru: Humidity for each HRU (from CBH via Adapter), optional.
         #     Required when strmtemp_humidity_flag=0. If None,
         #     strmtemp_humidity_flag must be 1.
-        seg_flow_width: Flow-dependent width from PRMSHydraulicGeometry
-        seg_flow_depth: Flow-dependent depth from PRMSHydraulicGeometry
+        seg_flow_width: Flow-dependent width from PRMSHydraulicGeometryFull
+        seg_flow_depth: Flow-dependent depth from PRMSHydraulicGeometryFull
         seg_flow_area: Flow-dependent cross-sectional area from
-            PRMSHydraulicGeometry
+            PRMSHydraulicGeometryFull
         seg_flow_velocity: Flow-dependent velocity from
-            PRMSHydraulicGeometry
+            PRMSHydraulicGeometryFull
         stream_shade: PRMSStreamShade instance (Dynamic or Constant).
             If provided, stream_shade_class and stream_shade_parameters
             are ignored.
@@ -820,7 +820,7 @@ class PRMSStreamTemp(ConservativeProcess):
         self._compute_seg_potet()
 
         # Note: Hydraulic geometry (seg_flow_*) is now provided by upstream
-        # PRMSHydraulicGeometry process, not computed here
+        # PRMSHydraulicGeometryFull process, not computed here
 
         # Compute running average temperatures for groundwater and subsurface
         # Skip segments marked as never having flow (matches Fortran checks)
@@ -1023,7 +1023,7 @@ class PRMSStreamTemp(ConservativeProcess):
         return
 
     # Note: _compute_hydraulic_geometry removed - now handled by
-    # PRMSHydraulicGeometry process
+    # PRMSHydraulicGeometryFull process
 
     def _update_running_avg_temp(self, seg_idx: int, comp_type: str) -> None:
         """Update running average temperature for groundwater or subsurface.

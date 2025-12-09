@@ -9,8 +9,8 @@ from pywatershed.base.adapter import adapter_factory
 from pywatershed.base.control import Control
 from pywatershed.base.parameters import Parameters
 from pywatershed.hydrology.prms_hydraulic_geometry import (
-    PRMSHydraulicGeometry,
-    PRMSHydraulicGeometryDefault,
+    PRMSHydraulicGeometryFull,
+    PRMSHydraulicGeometryWidthOnly,
 )
 from pywatershed.parameters import PrmsParameters
 
@@ -60,7 +60,9 @@ def parameters(simulation, control, request):
         param_file = simulation["dir"] / control.options["parameter_file"]
         params = PrmsParameters.load(param_file)
     else:
-        param_file = simulation["dir"] / "parameters_PRMSHydraulicGeometry.nc"
+        param_file = (
+            simulation["dir"] / "parameters_PRMSHydraulicGeometryFull.nc"
+        )
         params = PrmsParameters.from_netcdf(param_file)
 
     return params
@@ -69,23 +71,23 @@ def parameters(simulation, control, request):
 def test_compare_default_depth(
     simulation, control, discretization, parameters, tmp_path
 ):
-    """Test PRMSHydraulicGeometryDefault (uses default depth parameters)."""
+    """Test PRMSHydraulicGeometryWidthOnly (uses default depth parameters)."""
     tmp_path = pl.Path(tmp_path)
     output_dir = simulation["output_dir"]
 
     input_variables = {}
-    for key in PRMSHydraulicGeometryDefault.get_inputs():
+    for key in PRMSHydraulicGeometryWidthOnly.get_inputs():
         nc_path = output_dir / f"{key}.nc"
         input_variables[key] = nc_path
 
-    hydraulic_geom = PRMSHydraulicGeometryDefault(
+    hydraulic_geom = PRMSHydraulicGeometryWidthOnly(
         control,
         discretization,
         parameters,
         **input_variables,
     )
 
-    compare_vars = set(PRMSHydraulicGeometryDefault.get_variables())
+    compare_vars = set(PRMSHydraulicGeometryWidthOnly.get_variables())
 
     if do_compare_output_files:
         nc_parent = tmp_path / simulation["name"].replace(":", "_")
@@ -133,7 +135,7 @@ def test_compare_default_depth(
 def test_compare_full(
     simulation, control, discretization, parameters, tmp_path
 ):
-    """Test PRMSHydraulicGeometry.
+    """Test PRMSHydraulicGeometryFull.
     Currently manually adding in default depth_alpha and depth_m parameters to
     test against default results from PRMS.
     """
@@ -166,18 +168,18 @@ def test_compare_full(
     parameters_with_depth = pws_Parameters.from_ds(params_ds)
 
     input_variables = {}
-    for key in PRMSHydraulicGeometry.get_inputs():
+    for key in PRMSHydraulicGeometryFull.get_inputs():
         nc_path = output_dir / f"{key}.nc"
         input_variables[key] = nc_path
 
-    hydraulic_geom = PRMSHydraulicGeometry(
+    hydraulic_geom = PRMSHydraulicGeometryFull(
         control,
         discretization,
         parameters_with_depth,
         **input_variables,
     )
 
-    compare_vars = set(PRMSHydraulicGeometry.get_variables())
+    compare_vars = set(PRMSHydraulicGeometryFull.get_variables())
 
     if do_compare_output_files:
         nc_parent = tmp_path / simulation["name"].replace(":", "_")

@@ -10,7 +10,7 @@ NEARZERO = 1e-6
 CFS_TO_CMS = 0.028316847
 
 
-class PRMSHydraulicGeometry(Process):
+class PRMSHydraulicGeometryFull(Process):
     """PRMS hydraulic geometry.
 
     Computes flow-dependent hydraulic geometry (width, depth, area, velocity)
@@ -44,7 +44,7 @@ class PRMSHydraulicGeometry(Process):
             discretization=discretization,
             parameters=parameters,
         )
-        self.name = "PRMSHydraulicGeometry"
+        self.name = "PRMSHydraulicGeometryFull"
 
         self._set_inputs(locals())
         self._set_options(locals())
@@ -149,7 +149,7 @@ class PRMSHydraulicGeometry(Process):
 
 
 # JLM: I dont love the design conceptually, but it is efficient.
-class PRMSHydraulicGeometryDefault(PRMSHydraulicGeometry):
+class PRMSHydraulicGeometryWidthOnly(PRMSHydraulicGeometryFull):
     """PRMS hydraulic geometry with default depth parameters.
 
     This subclass uses PRMS default values for depth_alpha and depth_m when
@@ -186,7 +186,7 @@ class PRMSHydraulicGeometryDefault(PRMSHydraulicGeometry):
             seg_outflow=seg_outflow,
             verbose=verbose,
         )
-        self.name = "PRMSHydraulicGeometryDefault"
+        self.name = "PRMSHydraulicGeometryWidthOnly"
         self.depth_alpha = np.full(self.nsegment, 0.27, dtype=np.float64)
         self.depth_m = np.full(self.nsegment, 0.39, dtype=np.float64)
 

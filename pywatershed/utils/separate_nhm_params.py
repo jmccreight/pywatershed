@@ -117,8 +117,8 @@ def separate_domain_params_dis_to_ncdf(
         pywatershed.PRMSGroundwater,
         pywatershed.PRMSGroundwaterNoDprst,
         pywatershed.PRMSChannel,
-        pywatershed.PRMSHydraulicGeometry,
-        pywatershed.PRMSHydraulicGeometryDefault,
+        pywatershed.PRMSHydraulicGeometryFull,
+        pywatershed.PRMSHydraulicGeometryWidthOnly,
         pywatershed.PRMSStreamShadeDynamic,
         pywatershed.PRMSStreamTemp,
     ]
