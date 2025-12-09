@@ -467,13 +467,6 @@ class PRMSStreamTemp(ConservativeProcess):
 
         """
         # Set output_vars appropriately based on tracking
-        (
-            output_dir,
-            output_vars,
-            separate_files,
-        ) = self._reconcile_nc_args_w_control_opts(
-            output_dir, output_vars, separate_files
-        )
 
         if output_vars is None:
             if self._track_energy_fluxes:
