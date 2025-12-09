@@ -43,9 +43,16 @@ energy_flux_options = (
 
 # Parametrize stream shade initialization styles:
 # - "instance": Pass a pre-instantiated PRMSStreamShade object
-# - "class_params": Pass stream_shade_class and stream_shade_parameters
+# - "class_params": Pass stream_shade_class and stream_shade_parameters (loaded)
+# - "class_params_path": Pass stream_shade_class and stream_shade_parameters
+#   as a path (like the notebooks do)
 # - "default": Pass None for all, defaulting to PRMSStreamShadeConstant
-shade_init_styles = ("instance", "class_params", "default")[0:2]
+shade_init_styles = (
+    "instance",
+    "class_params",
+    "class_params_path",
+    "default",
+)
 shade_init_ids = [f"shade_{ss}" for ss in shade_init_styles]
 
 
@@ -119,7 +126,7 @@ def parameters(parameter_style, simulation, control, request):
         params = PrmsParameters.load(param_file)
     else:
         param_file = simulation["dir"] / "parameters_PRMSStreamTemp.nc"
-        params = PrmsParameters.from_netcdf(param_file)
+        params = Parameters.from_netcdf(param_file)
 
     return params
 
@@ -171,15 +178,26 @@ def test_compare_prms(
         stream_shade_class = None
         stream_shade_parameters = None
     elif shade_init_style == "class_params":
-        # Case 2: Pass stream_shade_class and stream_shade_parameters
+        # Case 2: Pass stream_shade_class and stream_shade_parameters (loaded)
         stream_shade = None
         if stream_temp_shade_flag == 0:
             stream_shade_class = PRMSStreamShadeDynamic
         else:
             stream_shade_class = PRMSStreamShadeConstant
         stream_shade_parameters = parameters_shade
+    elif shade_init_style == "class_params_path":
+        # Case 3: Pass stream_shade_class and stream_shade_parameters as path
+        # This matches how the notebooks initialize PRMSStreamTemp
+        stream_shade = None
+        if stream_temp_shade_flag == 0:
+            stream_shade_class = PRMSStreamShadeDynamic
+        else:
+            stream_shade_class = PRMSStreamShadeConstant
+        stream_shade_parameters = (
+            simulation["dir"] / "parameters_PRMSStreamShadeDynamic.nc"
+        )
     else:
-        # Case 3: Pass None for all, defaulting to PRMSStreamShadeConstant
+        # Case 4: Pass None for all, defaulting to PRMSStreamShadeConstant
         # This requires the main parameters to contain shade parameters
         # We need to merge shade parameters into the main parameters
         stream_shade = None
@@ -187,11 +205,11 @@ def test_compare_prms(
         stream_shade_parameters = None
         # For this case to work, parameters must contain shade params
         # Merge shade parameters into main parameters if not already there
-        try:
-            # Check if shade params already exist
-            parameters.get_param_values("segshade_sum")
-        except (KeyError, AttributeError):
-            # Merge shade parameters into parameters for default case
+
+        if not isinstance(parameters, PrmsParameters):
+            # In the case of params_one, we get a PrmsParameters object replete
+            # with the necessary parameters. In the case of params_sep, we get
+            # a Parameters object to which we need to add shade parameters.
             parameters = Parameters.merge(parameters, parameters_shade)
 
     # Step 2: Prepare inputs for PRMSStreamTemp
