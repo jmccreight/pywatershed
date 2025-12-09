@@ -796,6 +796,9 @@ class Process(Accessor):
 
         self_vars = set(self.get_variables())
 
+        def is_not_str_iteratable(it: Iterable):
+            return isinstance(it, Iterable) and not isinstance(it, str)
+
         for vv in args.keys():
             arg_val = args[vv]
             opt_name = arg_opt_name_map[vv]
@@ -815,18 +818,20 @@ class Process(Accessor):
             elif arg_val is None:
                 args[vv] = opt_val
 
-            elif (isinstance(opt_val, Iterable)) and (
+            elif is_not_str_iteratable(opt_val) and (
                 (set(opt_val) & self_vars) == self_vars
             ):
                 args[vv] = self_vars
 
-            elif (isinstance(opt_val, Iterable)) and len(
-                set(opt_val) & self_vars
-            ) == 0:
+            elif (
+                is_not_str_iteratable(opt_val)
+                and len(set(opt_val) & self_vars) == 0
+            ):
                 args[vv] = None
 
             elif (
-                isinstance(opt_val, Iterable) and isinstance(arg_val, Iterable)
+                is_not_str_iteratable(opt_val)
+                and is_not_str_iteratable(arg_val)
             ) and (set(opt_val) & set(arg_val)) == set(arg_val):
                 args[vv] = arg_val
 
