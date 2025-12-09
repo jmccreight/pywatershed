@@ -25,6 +25,8 @@ process_order_nhm = [
     "PRMSGroundwater",
     "PRMSGroundwaterNoDprst",
     "PRMSChannel",
+    "PRMSHydraulicGeometryWidthOnly",
+    "PRMSStreamTemp",
 ]
 
 
@@ -63,7 +65,7 @@ class Model:
     * parameters: A PrmsParameters object.
 
     The first example below provides details. An extended example is given by
-    `examples/02_prms_legacy_models.ipynb <https://github.com/EC-USGS/pywatershed/blob/develop/examples/02_prms_legacy_models.ipynb>`__.
+    `examples/02_prms_legacy_models.ipynb <https://github.com/DOI-USGS/pywatershed/blob/develop/examples/02_prms_legacy_models.ipynb>`__.
 
     pywatershed-centric instatiation
     ------------------------------------
@@ -90,7 +92,7 @@ class Model:
     different.
 
     See the second and third examples below for more details and see
-    `examples/01_multi-process_models.ipynb <https://github.com/EC-USGS/pywatershed/blob/develop/examples/01_multi-process_models.ipynb>`__
+    `examples/01_multi-process_models.ipynb <https://github.com/DOI-USGS/pywatershed/blob/develop/examples/01_multi-process_models.ipynb>`__
     for an extended example.
 
     Model dictionary values description:
@@ -231,7 +233,7 @@ class Model:
     ...     "time_step": 24,
     ...     "time_step_units": "h",
     ...     "verbosity": 0,
-    ...     "budget_type": "warn",
+    ...     "imbalance_behavior": "warn",
     ...     "input_dir": str(domain_dir),
     ... }
     >>> control_file = domain_dir / "example_control.yaml"
@@ -594,6 +596,9 @@ class Model:
                     )
                     # dis = val["dis"]
                     # val["dis"] = model_dict[dis]
+                    for subkey in val.keys():
+                        if "_class" in subkey:
+                            val[subkey] = getattr(pywatershed, val[subkey])
 
             elif isinstance(val, list):
                 pass

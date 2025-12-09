@@ -11,9 +11,38 @@ from pywatershed.parameters import PrmsParameters
 do_compare_output_files = False
 do_compare_in_memory = True
 
-rtol = atol = 1.0e-10
+# rtol = atol = 1.0e-10  # PRMS 5.2.1
+rtol = atol = 5.0e-5  # GSFLOW 2.4.1
 
 params = ("params_sep", "params_one")
+
+
+@pytest.fixture(scope="function")
+def tols(simulation):
+    import warnings
+
+    with warnings.catch_warnings():
+        # This is the only way to silence "invalid" options.
+        warnings.simplefilter("ignore")
+
+        ctl = Control.load_prms(
+            simulation["control_file"],
+            warn_unused_options=False,
+            keep_unused_options=True,
+        )
+
+    if "executable_desc" in ctl.options.keys():
+        exe_desc = ctl.options["executable_desc"][0].lower()
+    else:
+        exe_desc = "prms"
+
+    if "prms" in exe_desc:
+        tols = {"atol": 1.0e-10, "rtol": 1.0e-10}
+    elif "gsflow" in exe_desc:
+        tols = {"atol": 5.0e-5, "rtol": 5.0e-5}
+    else:
+        raise ValueError(f"Unknown executable description: {exe_desc}")
+    return tols
 
 
 @pytest.fixture(scope="function")
@@ -47,12 +76,24 @@ def parameters(simulation, control, request):
     "from_prms_file", (True, False), ids=("from_prms_file", "compute")
 )
 def test_compare_prms(
-    simulation, control, discretization, parameters, tmp_path, from_prms_file
+    simulation,
+    control,
+    discretization,
+    parameters,
+    tols,
+    tmp_path,
+    from_prms_file,
 ):
     output_dir = simulation["output_dir"]
+    atol = tols["atol"]
+    rtol = tols["rtol"]
+    print(f"{atol=}")
+    print(f"{rtol=}")
 
     prms_soltab_file = simulation["dir"] / "soltab_debug"
     if from_prms_file:
+        if not prms_soltab_file.exists():
+            pytest.skip("No 'soltab_debug' file found in the simulation dir.")
         from_prms_file = prms_soltab_file
     else:
         from_prms_file = None

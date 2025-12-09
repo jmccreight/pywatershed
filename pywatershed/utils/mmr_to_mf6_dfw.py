@@ -39,7 +39,7 @@ class MmrToMf6Dfw:
     time varying boundary conditions.
 
     Please see the example notebook
-    `examples/mmr_to_mf6_dfw.ipynb <https://github.com/EC-USGS/pywatershed/blob/develop/examples/mmr_to_mf6_dfw.ipynb>`__ which demonstrates running the Delaware River
+    `examples/mmr_to_mf6_dfw.ipynb <https://github.com/DOI-USGS/pywatershed/blob/develop/examples/mmr_to_mf6_dfw.ipynb>`__ which demonstrates running the Delaware River
     Basin in MF6 DFW based on the PRMS data and its lateral inflows.
 
     In addition to standard MF6 packages and their input files (e.g. IMS, OC,

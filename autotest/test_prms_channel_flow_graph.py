@@ -135,7 +135,7 @@ def test_prms_channel_flow_graph_compare_prms(
         parameters=params_flow_graph,
         inflows=inflow_prms,
         node_maker_dict=node_maker_dict,
-        budget_type="error",
+        imbalance_behavior="error",
     )
 
     if do_compare_output_files:
@@ -269,7 +269,7 @@ def test_hru_segment_flow_exchange(
 
     control.options = control.options | {
         "input_dir": simulation["output_dir"],
-        "budget_type": "error",
+        "imbalance_behavior": "error",
         "calc_method": "numba",
         "netcdf_output_dir": None,
     }
@@ -329,7 +329,7 @@ def test_hru_segment_flow_exchange(
             "node_maker_dict": node_maker_dict,
             "parameters": params_flow_graph,
             "dis": None,
-            "budget_type": "error",
+            "imbalance_behavior": "error",
         },
     }
 
@@ -408,7 +408,7 @@ def test_prms_channel_flow_graph_to_model_dict(
     run_dir = tmp_path
     control.options = control.options | {
         "input_dir": input_dir,
-        "budget_type": "error",
+        "imbalance_behavior": "error",
         "calc_method": "numba",
         "netcdf_output_dir": run_dir,
         "netcdf_output_var_names": [
@@ -464,7 +464,7 @@ def test_prms_channel_flow_graph_to_model_dict(
         new_nodes_maker_indices=check_indices,
         new_nodes_maker_ids=check_ids,
         new_nodes_flow_to_nhm_seg=random_seg_ids,
-        graph_budget_type="warn",  # move to error
+        graph_imbalance_behavior="warn",  # move to error
     )
     model = Model(model_dict)
 

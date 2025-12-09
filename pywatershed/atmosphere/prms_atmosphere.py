@@ -60,7 +60,7 @@ class PRMSAtmosphere(Process):
     complete preprocessing of the input CBH files to the fields the model
     actually uses on initialization. For an example of preprocessing the
     variables in PRMSAtmosphere, see
-    `this notebook <https://github.com/EC-USGS/pywatershed/tree/main/examples/04_preprocess_atm.ipynb>`_.
+    `this notebook <https://github.com/DOI-USGS/pywatershed/tree/main/examples/04_preprocess_atm.ipynb>`_.
 
     The full time version of a variable is given by the "private" version of
     the variable which is named with a single-leading underscore (eg tmaxf for

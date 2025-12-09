@@ -82,7 +82,15 @@ def parse_args():
     parser.add_argument(
         "--remove_prms_output_dirs",
         help=(
-            "Option to remove existing PRMS output directories before running"
+            "Option to remove existing PRMS/GSFLOW output directories before "
+            "running"
+        ),
+        action="store_true",
+    )
+    parser.add_argument(
+        "--write_log",
+        help=(
+            "Write the PRMS/GSFLOW stdout to log matching control file name."
         ),
         action="store_true",
     )
@@ -103,10 +111,17 @@ def parse_args():
         f"--remove_prms_output_dirs={known.remove_prms_output_dirs}"
     ]
 
-    arg_list = (
-        domain_list + unknown + remove_prms_csvs + remove_prms_output_dirs
-    )
+    write_log = []
+    if known.write_log:
+        write_log = ["--write_log"]
 
+    arg_list = (
+        domain_list
+        + unknown
+        + remove_prms_csvs
+        + remove_prms_output_dirs
+        + write_log
+    )
     return arg_list
 
 
@@ -170,14 +185,14 @@ def main():
 
     if remove_prms_output_dirs:
         # todo: make this take the domain argument
-        print("\nRemoving existing PRMS output directories ...")
+        print("\nRemoving existing PRMS/GSFLOW output directories ...")
         rm_output_dirs_list = arg_list + ["remove_output_dirs.py"]
         retcode_output_dirs = pytest.main(rm_output_dirs_list)
         if retcode_output_dirs != pytest.ExitCode.OK:
-            print("\nRemoving existing PRMS output dirs failed.")
+            print("\nRemoving existing PRMS/GSFLOW output dirs failed.")
             sys.exit(retcode_output_dirs.value)
 
-    print("\nRunning PRMS simulations ...")
+    print("\nRunning PRMS/GSFLOW simulations ...")
     # if -n is in the list and numeric and > ndomains+1
     #     then set it to ndomains + 1 just for running the domains
     n_orig = None
@@ -214,19 +229,19 @@ def main():
 
     retcode_run = pytest.main(run_arg_list)
     if retcode_run != pytest.ExitCode.OK:
-        print("Running PRMS domains failed.")
+        print("Running PRMS/GSFLOW domains failed.")
         sys.exit(retcode_run.value)
 
-    print("\nConverting PRMS output to NetCDF ...")
+    print("\nConverting PRMS/GSFLOW output to NetCDF ...")
     retcode_conv = pytest.main(conv_arg_list)
     if retcode_conv != pytest.ExitCode.OK:
-        print("\nConverting PRMS output to NetCDF failed.")
+        print("\nConverting PRMS/GSFLOW output to NetCDF failed.")
         sys.exit(retcode_run.value)
 
-    print("\nConverting final PRMS output to NetCDF ...")
+    print("\nConverting final PRMS/GSFLOW output to NetCDF ...")
     retcode_conv = pytest.main(conv_final_arg_list)
     if retcode_conv != pytest.ExitCode.OK:
-        print("\nConverting final PRMS output to NetCDF failed.")
+        print("\nConverting final PRMS/GSFLOW output to NetCDF failed.")
         sys.exit(retcode_run.value)
 
     for ss in simulations:
@@ -240,11 +255,11 @@ def main():
 
     if remove_prms_csvs:
         # todo: make this take the domain argument
-        print("\nRemoving PRMS CSV output file ...")
+        print("\nRemoving PRMS/GSFLOW CSV output file ...")
         rm_csv_arg_list = arg_list + ["remove_prms_csvs.py"]
         retcode_rm_csvs = pytest.main(rm_csv_arg_list)
         if retcode_rm_csvs != pytest.ExitCode.OK:
-            print("\nRemoving PRMS CSV output files failed.")
+            print("\nRemoving PRMS/GSFLOW CSV output files failed.")
             sys.exit(retcode_rm_csvs.value)
 
     print("\nSuccess generating pywatershed test data for the simulations ")

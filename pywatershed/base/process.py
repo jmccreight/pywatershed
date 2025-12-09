@@ -1,7 +1,7 @@
 import inspect
 import os
 import pathlib as pl
-from typing import Literal, Union
+from typing import Iterable, Literal, Union
 from warnings import warn
 
 import numpy as np
@@ -579,6 +579,7 @@ class Process(Accessor):
         output_vars: list = None,
         extra_coords: dict = None,
         addtl_output_vars: list = None,
+        **kwargs,
     ) -> None:
         """Initialize NetCDF output.
 
@@ -588,7 +589,7 @@ class Process(Accessor):
             separate_files: boolean indicating if storage component output
                 variables should be written to a separate file for each
                 variable
-            output_vars: list of variable names to outuput.
+            output_vars: list of variable names to output.
 
         Returns:
             None
@@ -793,6 +794,11 @@ class Process(Accessor):
             "separate_files": separate_files,
         }
 
+        self_vars = set(self.get_variables())
+
+        def is_not_str_iteratable(it: Iterable):
+            return isinstance(it, Iterable) and not isinstance(it, str)
+
         for vv in args.keys():
             arg_val = args[vv]
             opt_name = arg_opt_name_map[vv]
@@ -811,6 +817,23 @@ class Process(Accessor):
 
             elif arg_val is None:
                 args[vv] = opt_val
+
+            elif is_not_str_iteratable(opt_val) and (
+                (set(opt_val) & self_vars) == self_vars
+            ):
+                args[vv] = self_vars
+
+            elif (
+                is_not_str_iteratable(opt_val)
+                and len(set(opt_val) & self_vars) == 0
+            ):
+                args[vv] = None
+
+            elif (
+                is_not_str_iteratable(opt_val)
+                and is_not_str_iteratable(arg_val)
+            ) and (set(opt_val) & set(arg_val)) == set(arg_val):
+                args[vv] = arg_val
 
             elif opt_val is not None and arg_val is not None:
                 if opt_val == arg_val:

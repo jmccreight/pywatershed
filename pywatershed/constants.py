@@ -123,3 +123,27 @@ class SegmentType(Enum):
     SINK = 9
     INBOUNDGREATLAKES = 10
     OUTBOUNDGREATLAKES = 11
+
+
+# PRMS naming conventions
+
+# The keys/names for CBH variables in the control files dont match the internal
+# variable names. It's vague to me what these are in the headers of the CBH
+# files, it's also a bit vague in the tables.
+# One place it is partially documented in pyPRMS
+# https://github.com/DOI-USGS/pyPRMS/blob/49cbb8cd46b6760b1be67c106b8074688abaab39/tests/func/test_Control/ctl_metadata_default.csv#L96
+cbh_ctl_var_map = {
+    "albedo_day": "albedo_hru",
+    "cloud_cover_day": "cloud_cover_cbh",
+    "humidity_day": "humidity_hru",
+    "potet_day": "potet",
+    "precip_day": "prcp",
+    "swrad_day": "swrad",
+    "tmax_day": "tmax",
+    "tmin_day": "tmin",
+    "transp_day": "transp_on",
+    "windspeed_day": "windspeed_hru",
+    "AET_cbh_file": "actet",
+    "PET_cbh_file": "potet",
+    "rhavg": "rhavg",
+}

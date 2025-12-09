@@ -235,7 +235,8 @@ jobs:
         working-directory: autotest
         run: |
           python generate_test_data.py \
-            --domain=sagehen_5yr --control_pattern=sagehen_no_cascades.control \
+            --domain=sagehen_5yr \
+            --control_pattern=sagehen_no_cascades.control \
             --remove_prms_csvs --remove_prms_output_dirs
 
       - name: sagehen_5yr_no_cascades - list netcdf input files
@@ -256,18 +257,46 @@ jobs:
           --cov=pywatershed
           --cov-report=xml
           --junitxml=pytest_sagehen_5yr_no_cascades.xml
+          --ignore=test_cbh_to_netcdf.py
+          --ignore=test_control_read.py
+          --ignore=test_domain_subset.py
+          --ignore=test_mmr_to_mf6_dfw.py
+          --ignore=test_model.py
+          --ignore=test_netcdf_subset.py
+          --ignore=test_nhm_restart.py
+          --ignore=test_obsin_flow_node.py
+          --ignore=test_pass_through_flow_graph.py
+          --ignore=test_prms_atmosphere_transp_frost.py
+          --ignore=test_prms_channel.py
+          --ignore=test_prms_channel_flow_graph.py
+          --ignore=test_prms_et.py
+          --ignore=test_prms_et_can_runoff.py
+          --ignore=test_prms_et_canopy.py
+          --ignore=test_prms_hydraulic_geometry.py
+          --ignore=test_prms_runoff.py
+          --ignore=test_prms_soilzone_ag.py
+          --ignore=test_prms_stream_temp.py
+          --ignore=test_source_sink_flow_node.py
+          --ignore=test_starfit_flow_graph.py
 
-      - name: hru_1_nhm - generate and manage test data domain, run PRMS and convert csv output to NetCDF
+      - name: hru_1 all configs - generate and manage test data, run PRMS and convert csv output to NetCDF
         working-directory: autotest
         run: |
           python generate_test_data.py \
-            -n=auto --domain=hru_1 --control_pattern=nhm.control \
-            --remove_prms_csvs --remove_prms_output_dirs
+            -n=auto --domain=hru_1 \
+            --remove_prms_csvs --remove_prms_output_dirs \
+            --control_pattern=nhm.control \
+            --control_pattern=frost.control
 
       - name: hru_1_nhm - list netcdf input files
         working-directory: test_data
         run: |
           find hru_1/output -name '*.nc' | sort -n
+
+      - name: hru_1_nhm_transp_frost - list netcdf input files
+        working-directory: test_data
+        run: |
+          find hru_1/output_transp_frost -name '*.nc' | sort -n
 
       - name: hru_1_nhm - pywatershed tests
         working-directory: autotest
@@ -282,23 +311,44 @@ jobs:
           --cov=pywatershed
           --cov-report=xml
           --junitxml=pytest_hru_1_nhm.xml
+          --ignore=test_domain_subset.py
+          --ignore=test_mmr_to_mf6_dfw.py
+          --ignore=test_obsin_flow_node.py
+          --ignore=test_pass_through_flow_graph.py
+          --ignore=test_prms_atmosphere_transp_frost.py
+          --ignore=test_prms_channel_flow_graph.py
+          --ignore=test_prms_hydraulic_geometry.py
+          --ignore=test_prms_soilzone_ag.py
+          --ignore=test_prms_stream_temp.py
+          --ignore=test_source_sink_flow_node.py
+          --ignore=test_starfit_flow_graph.py
 
-      - name: drb_2yr with and without dprst and obsin - generate and manage test data
+      - name: hru_1_nhm_transp_frost - pywatershed tests
+        working-directory: autotest
+        run: pytest
+          -vv
+          -rs
+          -n=auto
+          -m "not domainless"
+          --domain=hru_1
+          --control_pattern=transp_frost.control
+          --durations=0
+          --cov=pywatershed
+          --cov-report=xml
+          --junitxml=pytest_hru_1_transp_frost.xml
+          test_prms_atmosphere_transp_frost.py
+
+      - name: drb_2yr all domains - generate and manage test data
         working-directory: autotest
         run: |
           python generate_test_data.py \
             -n=auto --domain=drb_2yr \
             --remove_prms_csvs --remove_prms_output_dirs
 
-      - name: drb_2yr_nhm - list netcdf input files
+      - name: drb_2yr all domains - list netcdf input files
         working-directory: test_data
         run: |
-          find drb_2yr/output -name '*.nc' | sort -n
-
-      - name: drb_2yr_no_dprst - list netcdf input files
-        working-directory: test_data
-        run: |
-          find drb_2yr/output_no_dprst -name '*.nc' | sort -n
+          find drb_2yr/output*/ -name '*.nc' | sort -n
 
       - name: drb_2yr_nhm - pywatershed tests
         working-directory: autotest
@@ -313,16 +363,19 @@ jobs:
           --cov=pywatershed
           --cov-report=xml
           --junitxml=pytest_drb_2yr_nhm.xml
+          --ignore=test_obsin_flow_node.py
+          --ignore=test_prms_atmosphere_transp_frost.py
+          --ignore=test_prms_hydraulic_geometry.py
+          --ignore=test_prms_stream_temp.py
+          --ignore=test_domain_subset.py
+          --ignore=test_prms_soilzone_ag.py
+          --ignore=test_source_sink_flow_node.py
+          --ignore=test_starfit_flow_graph.py
 
       # Specific tests not redundant with dprst
       - name: drb_2yr_no_dprst - pywatershed tests
         working-directory: autotest
         run: pytest
-          test_prms_runoff.py
-          test_prms_soilzone.py
-          test_prms_groundwater.py
-          test_prms_above_snow.py
-          test_prms_below_snow.py
           -vv
           -rs
           -n=auto
@@ -333,12 +386,16 @@ jobs:
           --cov=pywatershed
           --cov-report=xml
           --junitxml=pytest_drb_2yr_no_dprst.xml
+          test_prms_runoff.py
+          test_prms_soilzone.py
+          test_prms_groundwater.py
+          test_prms_above_snow.py
+          test_prms_below_snow.py
 
       # Specific tests not redundant with dprst
       - name: drb_2yr_obsin - pywatershed tests
         working-directory: autotest
         run: pytest
-          test_obsin_flow_node.py
           -vv
           -n=0
           -m "not domainless"
@@ -347,24 +404,68 @@ jobs:
           --durations=0
           --cov=pywatershed
           --cov-report=xml
-          --junitxml=pytest_drb_2yr_no_dprst.xml
+          --junitxml=pytest_drb_2yr_obsin.xml
+          test_obsin_flow_node.py
 
-      - name: ucb_2yr_nhm - generate and manage test data
+      # Specific tests not redundant with dprst
+      - name: drb_2yr_nhm_transp_frost - pywatershed tests
+        working-directory: autotest
+        run: pytest
+          -vv
+          -rs
+          -n=auto
+          -m "not domainless"
+          --domain=drb_2yr
+          --control_pattern=transp_frost
+          --durations=0
+          --cov=pywatershed
+          --cov-report=xml
+          --junitxml=pytest_drb_2yr_transp_frost.xml
+          test_prms_atmosphere_transp_frost.py
+
+      # Specific tests not redundant with dprst
+      - name: drb_2yr_stream_temp - pywatershed tests
+        working-directory: autotest
+        run: pytest
+          -vv
+          -rs
+          -n=auto
+          -m "not domainless"
+          --domain=drb_2yr
+          --control_pattern=stream_temp
+          --durations=0
+          --cov=pywatershed
+          --cov-report=xml
+          --junitxml=pytest_drb_2yr_stream_temp.xml
+          test_prms_hydraulic_geometry.py
+          test_prms_stream_temp.py
+
+      - name: ucb_2yr all configs - generate and manage test data
         working-directory: autotest
         run: |
           python generate_test_data.py \
-            -n=auto --domain=ucb_2yr --control_pattern=nhm.control \
-            --remove_prms_csvs --remove_prms_output_dirs
+            -n=auto \
+            --domain=ucb_2yr \
+            --remove_prms_csvs \
+            --remove_prms_output_dirs \
+            --control_pattern=nhm.control \
+            --control_pattern=transp_frost.control
 
       - name: ucb_2yr_nhm - list netcdf input files
         working-directory: test_data
         run: |
           find ucb_2yr/output -name '*.nc' | sort -n
 
+      - name: ucb_2yr_nhm_transp_frost - list netcdf input files
+        working-directory: test_data
+        run: |
+          find ucb_2yr/output_transp_frost -name '*.nc' | sort -n
+
       - name: ucb_2yr_nhm - pywatershed tests
         working-directory: autotest
         run: pytest
           -vv
+          -rs
           -n=auto
           -m "not domainless"
           --domain=ucb_2yr
@@ -373,6 +474,29 @@ jobs:
           --cov=pywatershed
           --cov-report=xml
           --junitxml=pytest_ucb_2yr_nhm.xml
+          --ignore=test_netcdf_subset.py
+          --ignore=test_obsin_flow_node.py
+          --ignore=test_pass_through_flow_graph.py
+          --ignore=test_prms_atmosphere_transp_frost.py
+          --ignore=test_mmr_to_mf6_dfw.py
+          --ignore=test_prms_hydraulic_geometry.py
+          --ignore=test_prms_stream_temp.py
+          --ignore=test_prms_soilzone_ag.py
+
+      - name: ucb_2yr_nhm_transp_frost - pywatershed tests
+        working-directory: autotest
+        run: pytest
+          -vv
+          -rs
+          -n=auto
+          -m "not domainless"
+          --domain=ucb_2yr
+          --control_pattern=transp_frost.control
+          --durations=0
+          --cov=pywatershed
+          --cov-report=xml
+          --junitxml=pytest_ucb_2yr_nhm_transp_frost.xml
+          test_prms_atmosphere_transp_frost.py
 
       - name: Upload test results
         if: always()

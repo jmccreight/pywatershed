@@ -68,10 +68,11 @@ class Starfit(ConservativeProcess):
         discretization: a discretization of class Parameters
         parameters: a parameter object of class Parameters
         lake_inflow: Daily lake inflow
-        budget_type: one of ["defer", None, "warn", "error"] with "defer" being
-            the default and defering to control.options["budget_type"] when
-            available. When control.options["budget_type"] is not avaiable,
-            budget_type is set to "warn".
+        imbalance_behavior: one of ["defer", None, "warn", "error"]
+            with "defer" being the default and defering to
+            control.options["imbalance_behavior"] when available. When
+            control.options["imbalance_behavior"] is not avaiable,
+            imbalance_behavior is set to "warn".
         verbose: Print extra information or not?
         load_n_time_batches: not-implemented
 
@@ -83,7 +84,7 @@ class Starfit(ConservativeProcess):
         discretization: Parameters,
         parameters: Parameters,
         lake_inflow: adaptable,
-        budget_type: Literal["defer", None, "warn", "error"] = "defer",
+        imbalance_behavior: Literal["defer", None, "warn", "error"] = "defer",
         verbose: bool = False,
         load_n_time_batches: int = 1,
         io_in_cfs: bool = True,
@@ -555,7 +556,7 @@ class StarfitFlowNode(FlowNode):
     [Computer software]. https://github.com/IMMM-SFA/mosartwmpy
 
     See :class:`FlowGraph` for discussion and a worked example. The notebook
-    `examples/06_flow_graph_starfit.ipynb <https://github.com/EC-USGS/pywatershed/blob/develop/examples/06_flow_graph_starfit.ipynb>`__
+    `examples/06_flow_graph_starfit.ipynb <https://github.com/DOI-USGS/pywatershed/blob/develop/examples/06_flow_graph_starfit.ipynb>`__
     highlights adding a StarfitFlowNode a :class:`FlowGraph` otherwised
     comprised of :class:`PRMSChannelFlowNode`\ s using the helper functions
     :func:`prms_channel_flow_graph_to_model_dict`
@@ -597,7 +598,7 @@ class StarfitFlowNode(FlowNode):
         io_in_cfs: bool = True,
         compute_daily: bool = False,
         nhrs_substep: int = None,
-        budget_type: Literal["defer", None, "warn", "error"] = None,
+        imbalance_behavior: Literal["defer", None, "warn", "error"] = None,
     ):
         """Initialize a StarfitFlowNode.
 
@@ -637,7 +638,7 @@ class StarfitFlowNode(FlowNode):
             compute_daily: Daily or subtimestep calculation?
             nhrs_substep: Number of hours in the subtimestep. If not passed,
               compute_daily defaults to 24, otherwise 1.
-            budget_type: One of "defer", "warn", or "error".
+            imbalance_behavior: One of "defer", "warn", or "error".
         """
         self.name = "StarfitFlowNode"
         self.control = control
@@ -778,25 +779,27 @@ class StarfitFlowNode(FlowNode):
         else:
             self._lake_storage_sub[:] = self._initial_storage
 
-        self._budget_type = budget_type
-        if self._budget_type == "defer":
-            if "budget_type" in self.control.options.keys():
-                self._budget_type = self.control.options["budget_type"]
+        self._imbalance_behavior = imbalance_behavior
+        if self._imbalance_behavior == "defer":
+            if "imbalance_behavior" in self.control.options.keys():
+                self._imbalance_behavior = self.control.options[
+                    "imbalance_behavior"
+                ]
             else:
-                self._budget_type = "warn"
-        if self._budget_type is not None:
+                self._imbalance_behavior = "warn"
+        if self._imbalance_behavior is not None:
             # this budget is not configured to output files
-            self.budget = Budget.from_storage_unit(
+            self.mass_budget = Budget.from_storage_unit(
                 self,
                 time_unit="D",
                 description=self.name,
-                imbalance_fatal=(self._budget_type == "error"),
+                imbalance_fatal=(self._imbalance_behavior == "error"),
                 basis="unit",
                 ignore_nans=False,
                 verbose=False,
             )
         else:
-            self.budget = None
+            self.mass_budget = None
 
         self._compute_daily = compute_daily
         if self._compute_daily:
@@ -855,9 +858,9 @@ class StarfitFlowNode(FlowNode):
             self._lake_storage_old[:] *= cm_to_cf  # necessary
             self._lake_storage_change_flow_units[:] *= cms_to_cfs
 
-        if self.budget is not None:
-            self.budget.advance()
-            self.budget.calculate()
+        if self.mass_budget is not None:
+            self.mass_budget.advance()
+            self.mass_budget.calculate()
 
         return
 
@@ -1168,7 +1171,7 @@ class StarfitFlowNodeMaker(FlowNodeMaker):
     :class:`FlowGraph`.
 
     See :class:`FlowGraph` for discussion and a worked example. The notebook
-    `examples/06_flow_graph_starfit.ipynb <https://github.com/EC-USGS/pywatershed/blob/develop/examples/06_flow_graph_starfit.ipynb>`__
+    `examples/06_flow_graph_starfit.ipynb <https://github.com/DOI-USGS/pywatershed/blob/develop/examples/06_flow_graph_starfit.ipynb>`__
     highlights adding a StarfitFlowNode a :class:`FlowGraph` otherwised
     comprised of :class:`PRMSChannelFlowNode`\ s using the helper functions
     :func:`prms_channel_flow_graph_to_model_dict`
@@ -1183,7 +1186,7 @@ class StarfitFlowNodeMaker(FlowNodeMaker):
         io_in_cfs: bool = True,
         verbose: bool = None,
         compute_daily: bool = False,
-        budget_type: Literal["defer", None, "warn", "error"] = None,
+        imbalance_behavior: Literal["defer", None, "warn", "error"] = None,
         nhrs_substep: int = None,
     ) -> None:
         """Instantiate StarfitFlowNodeMaker.
@@ -1198,14 +1201,14 @@ class StarfitFlowNodeMaker(FlowNodeMaker):
                 units of cubic meters per second.
             compute_daily: Daily or subtimestep calculation?
             nhrs_substep: Number of hours in the subtimestep.
-            budget_type: One of "defer", "warn", or "error".
+            imbalance_behavior: One of "defer", "warn", or "error".
             verbose: bool = None,
         """
         self.name = "StarfitFlowNodeMaker"
         self._calc_method = calc_method
         self._io_in_cfs = io_in_cfs
         self._compute_daily = compute_daily
-        self._budget_type = budget_type
+        self._imbalance_behavior = imbalance_behavior
         self._nhrs_substep = nhrs_substep
         self._set_data(discretization, parameters)
 
@@ -1243,7 +1246,7 @@ class StarfitFlowNodeMaker(FlowNodeMaker):
             calc_method=self._calc_method,
             io_in_cfs=self._io_in_cfs,
             compute_daily=self._compute_daily,
-            budget_type=self._budget_type,
+            imbalance_behavior=self._imbalance_behavior,
             nhrs_substep=self._nhrs_substep,
         )
 

@@ -54,7 +54,7 @@ class StarfitSourceSinkFlowNode(StarfitFlowNode):
         calc_method: Literal["numba", "numpy"] = None,
         io_in_cfs: bool = True,
         nhrs_substep: int = one,
-        budget_type: Literal["defer", None, "warn", "error"] = None,
+        imbalance_behavior: Literal["defer", None, "warn", "error"] = None,
     ) -> None:
         """Initialize a StarfitSourceSinkFlowNode.
 
@@ -100,7 +100,7 @@ class StarfitSourceSinkFlowNode(StarfitFlowNode):
             io_in_cfs: Are the units in cubic feet per second? False gives
                 units of cubic meters per second.
             nhrs_substep: Number of hours in the subtimestep.
-            budget_type: One of "defer", "warn", or "error".
+            imbalance_behavior: One of "defer", "warn", or "error".
         """
         from datetime import datetime
 
@@ -144,7 +144,7 @@ class StarfitSourceSinkFlowNode(StarfitFlowNode):
             io_in_cfs=io_in_cfs,
             compute_daily=False,
             nhrs_substep=nhrs_substep,
-            budget_type=budget_type,
+            imbalance_behavior=imbalance_behavior,
         )
         self.name = "StarfitSourceSinkFlowNode"
 
@@ -334,7 +334,7 @@ class StarfitSourceSinkFlowNodeMaker(StarfitFlowNodeMaker):
         calc_method: Literal["numba", "numpy"] = None,
         io_in_cfs: bool = True,
         verbose: bool = None,
-        budget_type: Literal["defer", None, "warn", "error"] = None,
+        imbalance_behavior: Literal["defer", None, "warn", "error"] = None,
         nhrs_substep: int = 1,
     ) -> None:
         """Instantiate StarfitFlowNodeMaker.
@@ -358,7 +358,7 @@ class StarfitSourceSinkFlowNodeMaker(StarfitFlowNodeMaker):
             io_in_cfs: Are the units in cubic feet per second? False gives
                 units of cubic meters per second.
             nhrs_substep: Number of hours in the subtimestep.
-            budget_type: One of "defer", "warn", or "error".
+            imbalance_behavior: One of "defer", "warn", or "error".
             verbose: bool = None,
         """
         super().__init__(
@@ -367,7 +367,7 @@ class StarfitSourceSinkFlowNodeMaker(StarfitFlowNodeMaker):
             calc_method=calc_method,
             io_in_cfs=io_in_cfs,
             verbose=verbose,
-            budget_type=budget_type,
+            imbalance_behavior=imbalance_behavior,
             nhrs_substep=nhrs_substep,
         )
         self.name = "StarfitSourceSinkNodeMaker"
@@ -415,7 +415,7 @@ class StarfitSourceSinkFlowNodeMaker(StarfitFlowNodeMaker):
             missing_data_as_zero=self._missing_data_as_zero,
             calc_method=self._calc_method,
             io_in_cfs=self._io_in_cfs,
-            budget_type=self._budget_type,
+            imbalance_behavior=self._imbalance_behavior,
             nhrs_substep=self._nhrs_substep,
         )
 

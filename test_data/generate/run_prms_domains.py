@@ -16,7 +16,9 @@ def test_run_prms(simulation, exe):
     output_dir = simulation["output_dir"]
     print(f"\n\n\n{'*' * 70}\n{'*' * 70}")
     print(
-        f"run_domains.py: Running '{control_file.name}' in {ws}\n\n",
+        "run_domains.py: "
+        f"Running '{exe} {control_file.name}  -MAXDATALNLEN 60000' "
+        f"in {ws}\n\n",
         flush=True,
     )
 
@@ -25,18 +27,27 @@ def test_run_prms(simulation, exe):
         shutil.rmtree(output_dir)
     output_dir.mkdir(parents=True)
 
+    if "prms" in str(exe):
+        success_msg = "Normal completion of PRMS"
+    else:
+        # gsflow in this case
+        success_msg = "Normal completion of GSFLOW"
+
     # the command to run the model looks like this
     # exe control_file -MAXDATALNLEN 60000
     success, buff = run_model(
         exe,
         control_file,
         model_ws=ws,
-        cargs=[
-            "-MAXDATALNLEN",
-            "60000",
-        ],
-        normal_msg="Normal completion of PRMS",
+        cargs=["-MAXDATALNLEN", "60000"],
+        report=True,
+        normal_msg=success_msg,
     )
+
+    if simulation["write_log"]:
+        with open(f"{control_file}.log", "w") as file:
+            for line in buff:
+                file.write(line + "\n")
 
     assert success, f"could not run prms model in '{ws}'"
 

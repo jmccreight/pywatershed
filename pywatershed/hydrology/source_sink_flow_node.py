@@ -124,9 +124,9 @@ class SourceSinkFlowNode(FlowNode):
         return
 
     def advance(self) -> None:
-        # if self.budget is not None:
-        #     self.budget.advance()
-        #     self.budget.calculate()
+        # if self.mass_budget is not None:
+        #     self.mass_budget.advance()
+        #     self.mass_budget.calculate()
 
         return
 

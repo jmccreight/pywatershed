@@ -19,6 +19,23 @@ v2.1.0 (Unreleased)
 
 New Features
 ~~~~~~~~~~~~~~~~
+- The :class:`base.ConservativeProcess` class now supports both mass and energy budgets.
+  Processes can specify which quantity to budget using the ``quantity`` parameter in
+  ``_set_budget()``. The new ``mass_budget`` and ``energy_budget`` properties provide
+  explicit access to each budget type. The legacy ``budget`` property is deprecated
+  and will be removed in the next major release - use ``mass_budget`` instead.
+  (:pull:`343`) By `James McCreight <https://github.com/jmccreight>`_.
+- The new :class:`PRMSStreamTemp` class provides stream temperature simulation using the PRMS
+  stream temperature methodology, computing water temperatures based on energy balance
+  in stream segments. The class supports optional energy flux tracking and budgeting via the
+  ``track_energy_fluxes`` parameter (default: True). When enabled, it computes and tracks 11
+  energy flux components including advective heat transport (upstream, lateral, outflow),
+  surface energy exchange (solar radiation, longwave emission/absorption, evaporative cooling,
+  convective exchange), and internal sources (friction heating, groundwater conduction). These
+  fluxes are available as output variables and included in the energy budget. When disabled
+  (``track_energy_fluxes=False``), energy flux variables are set to None and excluded from
+  NetCDF output, with ``imbalance_behavior`` required to be None.
+  (:pull:`343`) By `James McCreight <https://github.com/jmccreight>`_.
 - Option for :class:`Model` class to read from a single netcdf file or (not and,
   the existing option,) from a directory containing multiple netcdf files.
   (:pull:`333`) By `James McCreight <https://github.com/jmccreight>`_.
@@ -45,12 +62,30 @@ New Features
 
 Breaking Changes
 ~~~~~~~~~~~~~~~~
+- The ``budget_type`` parameter has been renamed to ``imbalance_behavior`` in
+  :class:`base.ConservativeProcess` and all its subclasses, in :class:`base.FlowGraph`, and in
+  control options. Update all ``budget_type`` references to ``imbalance_behavior`` in
+  your code and configuration files. This breaking change clarifies what the parameter does
+  and is intentionally distinct from the from budget quantity parameter.
+  (:pull:`343`) By `James McCreight <https://github.com/jmccreight>`_.
+- Budget netcdf output filenames have changed to include the quantity type.
+  Mass budgets are now named ``ProcessName_mass_budget.nc`` instead of
+  ``ProcessName_budget.nc``. Energy budgets use ``ProcessName_energy_budget.nc``.
+  (:pull:`343`) By `James McCreight <https://github.com/jmccreight>`_.
 
 Bug fixes
 ~~~~~~~~~
+ - PRMS 5.2.1.1 had a bug in stream where division by hru area was repeated
+ multiple times. In the old code this ocurred in routing.f90 on lines 764 and
+ 765 and then again on 789 and 790, where seginc_swrad and seginc_potet were
+ divided despite this having already occured on lines 744 and 744. Comments
+ regarding the fix are found on lines 764 and 793 in the fixed code.
 
 Internal changes
 ~~~~~~~~~~~~~~~~
+- The :class:`base.ConservativeProcess` class now uses ``_mass_budget`` and
+  ``_energy_budget`` attributes internally instead of ``budget``. The ``budget``
+  property remains as a deprecated alias for ``_mass_budget`` for backward compatibility.
 - Refactor of test_data/generate/convert_prms_output_to_nc.py to put final variables into
   a separate file to run by pytests both after all other variables are generated and
   so the final variables are run serially.
@@ -95,7 +130,7 @@ New Features
   observations with sink and source tracking in mass balance),
   :class:`PRMSChannelFlowNode`\ s, and :class:`StarfitFlowNode`\ s. A new
   example notebook,
-  `examples/06_flow_graph_starfit.ipynb <https://github.com/EC-USGS/pywatershed/blob/develop/examples/06_flow_graph_starfit.ipynb>`__
+  `examples/06_flow_graph_starfit.ipynb <https://github.com/DOI-USGS/pywatershed/blob/develop/examples/06_flow_graph_starfit.ipynb>`__
   demonstrates adding STARFIT reservoir nodes into a FlowGraph otherwise
   simulating `PRMSChannel` and highlights helper functions for this use case.
   (:pull:`233`) By `James McCreight <https://github.com/jmccreight>`_.
@@ -103,7 +138,7 @@ New Features
   (DFW) routing from PRMS NHM input files and a few simple assumptions. The
   lateral (to-channel) fluxes from a PRMS are used as time varying boundary
   conditions. A new notebook runs the Delaware River Basin using MF6 DFW:
-  `examples/07_mmr_to_mf6_chf_dfw.ipynb <https://github.com/EC-USGS/pywatershed/blob/develop/examples/07_mmr_to_mf6_chf_dfw.ipynb>`__.
+  `examples/07_mmr_to_mf6_chf_dfw.ipynb <https://github.com/DOI-USGS/pywatershed/blob/develop/examples/07_mmr_to_mf6_chf_dfw.ipynb>`__.
   (:pull:`290`) By `James McCreight <https://github.com/jmccreight>`_.
 - No depression storage subclasses are available for PRMSRunoff, PRMSSoilzone,
   and PRMSGroundwater by adding "NoDprst" to the end of the names. Depression
@@ -239,8 +274,8 @@ Documentation
 - Implement sphinx_autodoc_typehints.
   (:pull:`257`) By `James McCreight <https://github.com/jmccreight>`_.
 - New gh-pages branch (without history) to publish
-  `"pywatershed notes" <https://ec-usgs.github.io/pywatershed/>`_ including the
-  `extended release notes for v1.0.0 <https://ec-usgs.github.io/pywatershed/2023/12/18/v1-0-0-overview>`_.
+  `"pywatershed notes" <https://doi-usgs.github.io/pywatershed/>`_ including the
+  `extended release notes for v1.0.0 <https://doi-usgs.github.io/pywatershed/2023/12/18/v1-0-0-overview>`_.
   This branch publishes analysis supporting the version 1.0.0 release.
 - Add about section for version 1.0 to describe how pywatershed matches PRMS'
   NHM configuration and how to perform the comparison.

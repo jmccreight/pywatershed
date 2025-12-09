@@ -172,7 +172,7 @@ def test_compare_prms(
         parameters=parameters_flow_graph,
         inflows=inflows_graph,
         node_maker_dict=node_maker_dict,
-        budget_type="error",
+        imbalance_behavior="error",
     )
 
     if do_compare_output_files:
@@ -309,7 +309,7 @@ def test_inflow_exchange_compare_prms(
 
     control.options = control.options | {
         "input_dir": simulation["output_dir"],
-        "budget_type": "error",
+        "imbalance_behavior": "error",
         "calc_method": "numba",
         "netcdf_output_var_names": ["node_outflows"],
         "netcdf_output_dir": tmp_path,
@@ -328,7 +328,7 @@ def test_inflow_exchange_compare_prms(
             "node_maker_dict": node_maker_dict,
             "parameters": parameters_flow_graph,
             "dis": None,
-            "budget_type": "error",
+            "imbalance_behavior": "error",
         },
     }
 

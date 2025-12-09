@@ -25,7 +25,7 @@ control = pws.Control.load(work_dir / "control.test")
 
 control.options = control.options | {
     "input_dir": work_dir,
-    "budget_type": None,
+    "imbalance_behavior": None,
     "verbose": False,
     "calc_method": "numba",
 }

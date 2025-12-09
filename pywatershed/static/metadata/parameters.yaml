@@ -34,6 +34,12 @@ adjmix_rain:
     - precipitation_hru
   type: F
   units: decimal fraction
+ag_contrib_fraction:
+  desc: Fraction of irrigated area for each HRU
+  dims:
+    0: nhru
+  type: F
+  units: decimal fraction
 ag_cov_type:
   default: -1
   desc: Cover type designation for agriculture area of each HRU
@@ -554,6 +560,30 @@ dday_slope:
     - ddsolrad
   type: F
   units: dday/temp_units
+depth_alpha:
+  default: 0.27
+  desc: Alpha coefficient in power function for depth calculation
+  dims:
+    0: nsegment
+  help: Alpha coefficient in power function for depth calculation (for units M and CMS)
+  maximum: 0.63
+  minimum: 0.12
+  modules:
+    - stream_temp
+  type: F
+  units: meters
+depth_m:
+  default: 0.39
+  desc: M value in power function for depth calculation
+  dims:
+    0: nsegment
+  help: M value in power function for depth calculation (for units M and CMS)
+  maximum: 0.40
+  minimum: 0.38
+  modules:
+    - stream_temp
+  type: F
+  units: none
 den_init:
   default: 0.1
   desc: Initial density of new-fallen snow
@@ -842,6 +872,40 @@ freeh2o_cap:
     - snowcomp
   type: F
   units: decimal fraction
+from_segment:
+  default: None
+  desc: Unstructured/sparse array which gives potentially multiple upstream
+    indices. The start:end indices in this array for a given segment index
+    are obtained by from_segment_starts[ind] and likewise for from_segment_ends.
+    If those two values are the same, the segment has no upstream segments.
+  dims:
+    0: from_nhm_seg_unstruct
+  help: See desc.
+  maximum: None
+  minimum: 1
+  type: I
+  units: 1-based index
+from_segment_ends:
+  default: None
+  desc: Look up end index in unstructured from_segment array for upstream
+    indices. This value is one less than what python would use and is 1-based.
+  dims:
+    0: from_nhm_seg_unstruct
+  help: Look up start index in unstructured from_segment array for upstream indices.
+  maximum: None
+  minimum: 1
+  type: I
+  units: 1-based index
+from_segment_starts:
+  default: None
+  desc: Look up start index in unstructured from_segment array for upstream indices.
+  dims:
+    0: from_nhm_seg_unstruct
+  help: Look up start index in unstructured from_segment array for upstream indices.
+  maximum: None
+  minimum: 1
+  type: I
+  units: 1-based index
 frost_temp:
   default: 28.0
   desc: Temperature of killing frost
@@ -3360,11 +3424,23 @@ ssstor_init_frac:
     - convert_params
   type: F
   units: decimal fraction
+stream_temp_shade_flag:
+  default: 0
+  desc: Flag to indicate stream temperature shade computation method
+  dims:
+    0: scalar
+  help: "Flag to indicate stream temperature shade computation method: 0=compute shade from topography and vegetation parameters; 1=use constant segshade_sum and segshade_win parameters"
+  maximum: 1
+  minimum: 0
+  modules:
+    - stream_temp
+  type: I
+  units: none
 stream_tave_init:
   default: NaN
   desc: Cold-start stream average stream temperature
   dims:
-    0: scalar
+    0: nsegment
   help: Cold-start stream average stream temperature
   maximum: unbounded
   minimum: unbounded

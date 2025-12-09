@@ -32,7 +32,7 @@ class PRMSEt(Process):
         dprst_evap_hru: adaptable,
         perv_actet: adaptable,
         verbose: bool = False,
-        budget_type: Literal["defer", None, "warn", "error"] = "defer",
+        imbalance_behavior: Literal["defer", None, "warn", "error"] = "defer",
     ) -> "PRMSEt":
         super().__init__(
             control=control,
@@ -45,14 +45,14 @@ class PRMSEt(Process):
         self._set_options(locals())
 
         # Cant set the default budget for ET
-        # self.set_budget(budget_type)
+        # self.set_budget(imbalance_behavior)
         # because the input/output conventions dont match.
         # potet is an "input" but all the other inputs to
         # the class are actually outputs
 
         # explicitly declare the budget
-        if budget_type is None:
-            self.budget = None
+        if imbalance_behavior is None:
+            self.mass_budget = None
         else:
             budget_terms = {
                 "inputs": {"potet": self.potet},
@@ -65,11 +65,11 @@ class PRMSEt(Process):
                 },
                 "storage_changes": {"unused_potet": self.unused_potet},
             }
-            self.budget = Budget(
+            self.mass_budget = Budget(
                 control=self.control,
                 **budget_terms,
                 description=self.name,
-                imbalance_fatal=(budget_type == "strict"),
+                imbalance_fatal=(imbalance_behavior == "strict"),
             )
 
         return

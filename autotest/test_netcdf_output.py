@@ -33,7 +33,7 @@ def control(simulation):
         simulation["control_file"], warn_unused_options=False
     )
     control.edit_n_time_steps(n_time_steps)
-    control.options["budget_type"] = "error"
+    control.options["imbalance_behavior"] = "error"
     del control.options["netcdf_output_var_names"]
     del control.options["netcdf_output_dir"]
     return control
@@ -183,14 +183,14 @@ def test_process_budgets(
             for bb in check_budget_sum_vars:
                 if tt == 0:
                     # use the output data to figure out the shape
-                    shp = model.processes[pp].budget[f"_{bb}"].shape
+                    shp = model.processes[pp].mass_budget[f"_{bb}"].shape
                     if len(shp):
                         shp = shp[0]
                     else:
                         shp = 1
                     check_dict[pp][bb] = np.zeros((n_time_steps, shp))
 
-                check_dict[pp][bb][tt, :] = model.processes[pp].budget[
+                check_dict[pp][bb][tt, :] = model.processes[pp].mass_budget[
                     f"_{bb}"
                 ]
 
@@ -216,17 +216,17 @@ def test_process_budgets(
             continue
 
         for bb in check_budget_sum_vars:
-            nc_data = xr.open_dataset(tmp_dir / f"{pp}_budget.nc")[bb]
+            nc_data = xr.open_dataset(tmp_dir / f"{pp}_mass_budget.nc")[bb]
             assert np.allclose(check_dict[pp][bb], nc_data)
 
         if budget_sum_param == "some":
-            nc_data = xr.open_dataset(tmp_dir / f"{pp}_budget.nc")
+            nc_data = xr.open_dataset(tmp_dir / f"{pp}_mass_budget.nc")
             for nn in set(budget_sum_vars_all).difference(
                 set(check_budget_sum_vars)
             ):
                 assert nn not in nc_data.variables
         elif not budget_sum_param:
-            assert not (tmp_dir / f"{pp}_budget.nc").exists()
+            assert not (tmp_dir / f"{pp}_mass_budget.nc").exists()
 
     return
 
@@ -350,10 +350,10 @@ def test_separate_together_var_list(
             # no budgets for solar or atmosphere
             if proc_key in ["PRMSSolarGeometry", "PRMSAtmosphere"]:
                 continue
-            nc_file = test_output_dir / f"{proc_key}_budget.nc"
+            nc_file = test_output_dir / f"{proc_key}_mass_budget.nc"
             ds = xr.open_dataset(nc_file)
             for ss in budget_sum_vars_all:
-                assert (proc.budget[ss] == ds[ss][-1, :]).all()
+                assert (proc.mass_budget[ss] == ds[ss][-1, :]).all()
 
             del ds
     return

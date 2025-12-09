@@ -58,7 +58,7 @@ def get_control(simulation, init_time=None, end_time=None):
     control = pws.Control.load_prms(
         simulation["control_file"], warn_unused_options=False
     )
-    control.options["budget_type"] = "error"
+    control.options["imbalance_behavior"] = "error"
     if init_time is not None:
         control.edit_init_start_times(init_time)
     if end_time is not None:

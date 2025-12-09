@@ -1,4 +1,6 @@
+import pathlib as pl
 from types import MappingProxyType
+from typing import Union
 
 import numpy as np
 
@@ -62,3 +64,76 @@ def assert_dicts_equal(dic1, dic2):
             ):
                 continue
             assert dic1[kk] == dic2[kk]
+
+
+def detect_prms_exe():
+    import sys
+    from platform import processor
+
+    platform = sys.platform.lower()
+    if platform == "win32":
+        exe_name = "prms_win_gfort_dbl_prec.exe"
+    elif platform == "darwin":
+        if processor() == "arm":
+            exe_name = "prms_mac_m1_ifort_dbl_prec"
+        else:
+            exe_name = "prms_mac_intel_gfort_dbl_prec"
+    elif platform == "linux":
+        exe_name = "prms_linux_gfort_dbl_prec"
+    else:
+        exe_name = "---"  # this will raise an error
+    exe_pth = pl.Path(f"../bin/{exe_name}")
+    return exe_pth
+
+
+def run_prms(
+    control_file: pl.Path,
+    run_dir: Union[pl.Path, None] = None,
+    write_log: bool = False,
+) -> None:
+    import shutil
+
+    from flopy import run_model
+
+    from pywatershed import Control
+
+    exe_path = detect_prms_exe()
+    if run_dir is None:
+        run_dir = control_file.parent
+
+    control = Control.load_prms(control_file, warn_unused_options=False)
+    output_dir = run_dir / control.options["netcdf_output_dir"]
+    # delete the existing output dir and re-create it
+    if output_dir.exists():
+        shutil.rmtree(output_dir)
+    output_dir.mkdir(parents=True)
+
+    print(
+        f"Running '{control_file.name}' in {run_dir}\n\n",
+        flush=True,
+    )
+    # the command to run the model looks like this
+    # exe control_file -MAXDATALNLEN 60000
+    success, buff = run_model(
+        exe_path,
+        control_file,
+        model_ws=run_dir,
+        cargs=[
+            "-MAXDATALNLEN",
+            "60000",
+        ],
+        report=True,
+        normal_msg="Normal completion of PRMS",
+    )
+
+    if write_log:
+        with open(f"{control_file}.log", "w") as file:
+            for line in buff:
+                file.write(line + "\n")
+
+    if not success:
+        raise RuntimeError(
+            f"PRMS failed to run {control_file} using {exe_path}."
+        )
+
+    return None
