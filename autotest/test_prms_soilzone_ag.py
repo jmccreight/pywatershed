@@ -174,11 +174,6 @@ def test_compare_prms(
             "soil_lower_max",
             "soil_rechr_change_hru",
             "soil_zone_max",  # not a prms variable?
-            # soil_saturated and ag_soil_saturated: the logic for setting
-            # these flags is unclear in the Fortran source. Skipping for
-            # now until we can investigate further.
-            "soil_saturated",
-            "ag_soil_saturated",
         }
     )
 

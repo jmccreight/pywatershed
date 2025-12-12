@@ -99,7 +99,7 @@ def exe(simulation):
             pytest.skip(f"GSFLOW binary not yet provided for {platform}")
         elif platform == "darwin":
             if processor() == "arm":
-                exe_name = "gsflow_2.4.0_ifort_apple_silicon_dbl_prec"
+                exe_name = "gsflow_2.4.0_ifort_apple_silicon"
             else:
                 pytest.skip(
                     f"GSFLOW binary not yet provided for {platform}:intel"

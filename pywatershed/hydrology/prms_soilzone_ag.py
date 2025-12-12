@@ -1395,6 +1395,19 @@ class PRMSSoilzoneAg(ConservativeProcess):
                 #     breakpoint()
 
                 if ag_avail_targetAET > 0.0:
+                    # Set ag_soil_saturated flag if ag soil moisture ratio > 0.9999
+                    # Fortran reference: compute_szactet line ~1448
+                    # Must check BEFORE ET is subtracted from ag_soil_moist
+                    # Only set when Et_type > 1 (evap or transp active)
+                    # Et_type > 1 when: transp_on OR snow_free >= 0.01
+                    ag_et_type_gt_1 = (
+                        transp_on[ihru] or snow_free[ihru] >= 0.01
+                    )
+                    if ag_et_type_gt_1:
+                        ag_pcts = ag_soil_moist[ihru] / ag_soil_moist_max[ihru]
+                        if ag_pcts > 0.9999:
+                            ag_soil_saturated[ihru] = 1
+
                     # Call compute_szactet for ag area
                     (
                         ag_soil_moist[ihru],
@@ -1432,6 +1445,18 @@ class PRMSSoilzoneAg(ConservativeProcess):
                 avail_potet = 0.0
 
             if soil_moist[ihru] > 0.0 and avail_potet > 0.0:
+                # Set soil_saturated flag if soil moisture ratio > 0.9999
+                # Fortran reference: compute_szactet line ~1448
+                # Must check BEFORE ET is subtracted from soil_moist
+                # Only set when Et_type > 1 (evap or transp active)
+                # Et_type > 1 when: transp_on OR snow_free >= 0.01
+                # IF ( pcts>0.9999 ) Soil_saturated = 1
+                et_type_gt_1 = transp_on[ihru] or snow_free[ihru] >= 0.01
+                if et_type_gt_1:
+                    pcts = soil_moist[ihru] / soil_moist_max[ihru]
+                    if pcts > 0.9999:
+                        soil_saturated[ihru] = 1
+
                 (
                     soil_moist[ihru],
                     soil_rechr[ihru],
