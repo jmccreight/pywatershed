@@ -175,7 +175,7 @@ class PRMSSoilzoneAg(ConservativeProcess):
         snow_evap: adaptable,
         snowcov_area: adaptable,
         ag_frac: adaptable,
-        aet_external: adaptable = None,
+        AET_external: adaptable = None,
         dprst_flag: bool = None,
         iter_aet_flag: bool = False,
         imbalance_behavior: Literal["defer", None, "warn", "error"] = "defer",
@@ -216,10 +216,10 @@ class PRMSSoilzoneAg(ConservativeProcess):
                     control=self.control,
                 )
 
-        # Validate aet_external input when iter_aet_flag is True
+        # Validate AET_external input when iter_aet_flag is True
         if self._iter_aet_flag:
-            if aet_external is None:
-                msg = "aet_external input is required when iter_aet_flag=True"
+            if AET_external is None:
+                msg = "AET_external input is required when iter_aet_flag=True"
                 raise ValueError(msg)
 
         # This uses options
@@ -290,7 +290,7 @@ class PRMSSoilzoneAg(ConservativeProcess):
             "snow_evap",
             "snowcov_area",
             "ag_frac",
-            "aet_external",
+            "AET_external",
         )
 
     @staticmethod
@@ -877,7 +877,7 @@ class PRMSSoilzoneAg(ConservativeProcess):
                 transp_on=self.transp_on,
                 snow_evap=self.snow_evap,
                 snowcov_area=self.snowcov_area,
-                aet_external=self.aet_external,
+                aet_external=self.AET_external,
                 ag_irrigation_add=self.ag_irrigation_add,
                 # State variables
                 soil_moist=self.soil_moist,

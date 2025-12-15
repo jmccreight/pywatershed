@@ -10,7 +10,7 @@ actet:
     0: nhru
   type: float64
   units: inches
-aet_external:
+AET_external:
   desc: Actual evapotranspiration for each HRU that is read from a CBH File.
   dims:
     0: nhru

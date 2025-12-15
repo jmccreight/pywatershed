@@ -48,6 +48,7 @@ output*/
 
 pywatershed/data/pywatershed_addtl_domains
 ucb_ag_spinup_2yr*/
+ucb_ag_analysis_2yr*/
 
 # emacs
 *~
@@ -58,6 +59,7 @@ autotest/coverage.xml
 autotest/codecov
 autotest/.coverage
 autotest/temp
+autotest/prms_restart_transp_on/*
 
 # test_data
 test_data/.test_data_version*
