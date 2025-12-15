@@ -84,6 +84,38 @@ additional_cbh_meta = {
         ),
         "context": "scalar",
     },
+    "springfrost_dynamic": {
+        "datatype": "string",
+        "description": (
+            "Pathname to the dynamic spring frost parameter file."
+        ),
+        "context": "scalar",
+        "force_default": False,
+    },
+    "dyn_springfrost_flag": {
+        "datatype": "int32",
+        "description": (
+            "Flag governing the use of springfrost_dynamic file data "
+            "(0=off; 1=on)."
+        ),
+        "context": "scalar",
+        "force_default": False,
+    },
+    "fallfrost_dynamic": {
+        "datatype": "string",
+        "description": ("Pathname to the dynamic fall frost parameter file."),
+        "context": "scalar",
+        "force_default": False,
+    },
+    "dyn_fallfrost_flag": {
+        "datatype": "int32",
+        "description": (
+            "Flag governing the use of fallfrost_dynamic file data "
+            "(0=off; 1=on)."
+        ),
+        "context": "scalar",
+        "force_default": False,
+    },
 }
 
 # TODO move this code in to a global function to be called. like init_module.
@@ -230,6 +262,9 @@ class DomainSubset:
 
         # TODO: make these individual methods available externally?
         #       IE the case of Noah's parameter files.
+
+        print("Subsetting dynamic parameter files.")
+        self._subset_dynamic_params()
 
         print("Subsetting parameters.")
         self._subset_params()
@@ -562,6 +597,92 @@ class DomainSubset:
 
         return None
 
+    def _subset_dynamic_params(self) -> None:
+        """Subset dynamic parameter files if they are active in the control.
+
+        This method checks for dynamic parameter files (ag_frac_dynamic,
+        springfrost_dynamic, fallfrost_dynamic) in the control file,
+        verifies their associated flags are enabled, and subsets them
+        based on the HRU mask.
+        """
+        from .prms_dyn_param import (
+            DYNAMIC_PARAM_CONFIG,
+            PrmsDynamicParameter,
+        )
+
+        self._sub_dynamic_param_files = {}
+
+        # Get the control directory for resolving relative paths
+        control_dir = self._full_control_file.parent
+
+        # Use pyPRMS control to access control variables
+        control = pws.utils.utils.pyprms_control_no_defaults(
+            self._full_control_file, metadata=pyprms_meta, verbose=False
+        )
+        control_vars = control.control_variables
+
+        for param_name, config in DYNAMIC_PARAM_CONFIG.items():
+            flag_name = config["flag_name"]
+            dtype = config["dtype"]
+
+            # Check if the flag variable exists and is enabled
+            if flag_name not in control_vars:
+                continue
+
+            flag_value = control_vars[flag_name].values
+            if isinstance(flag_value, (list, np.ndarray)):
+                flag_value = flag_value[0]
+            flag_value = int(flag_value)
+
+            if flag_value != 1:
+                continue
+
+            # Check if the file path variable exists
+            if param_name not in control_vars:
+                warn(
+                    f"Dynamic parameter flag {flag_name} is set but "
+                    f"{param_name} is not specified in control file."
+                )
+                continue
+
+            file_path = control_vars[param_name].values
+            if isinstance(file_path, (list, np.ndarray)):
+                file_path = file_path[0]
+
+            # Resolve the path relative to control directory
+            file_path = pl.Path(file_path)
+            if not file_path.is_absolute():
+                file_path = control_dir / file_path
+
+            if not file_path.exists():
+                warn(
+                    f"Dynamic parameter file not found: {file_path}. "
+                    f"Skipping subsetting for {param_name}."
+                )
+                continue
+
+            print(f"  Subsetting {param_name}: {file_path}")
+
+            # Load and subset the dynamic parameter file
+            try:
+                dyn_param = PrmsDynamicParameter.load(file_path, dtype=dtype)
+                subset_param = dyn_param.subset(self._sub_nhm_ids_mask)
+
+                # Store the subsetted data and original filename for writing
+                self._sub_dynamic_param_files[param_name] = {
+                    "data": subset_param,
+                    "original_path": file_path,
+                    "control_var_name": param_name,
+                }
+            except Exception as e:
+                warn(
+                    f"Error subsetting dynamic parameter file {file_path}: "
+                    f"{e}. Skipping."
+                )
+                continue
+
+        return None
+
     def _subset_data_file(self):
         if hasattr(self, "_sub_data_file"):
             return None
@@ -659,6 +780,9 @@ class DomainSubset:
 
         self._data_file_to_ascii(write_dir=write_dir)
 
+        # Write dynamic parameter files
+        self._write_dynamic_params(write_dir=write_dir)
+
         # TODO: rename the data file in to the write_dir
         self._sub_control.write(write_dir / self._sub_control_file_name)
 
@@ -707,8 +831,50 @@ class DomainSubset:
         ].values
         self._sub_params.to_netcdf(write_dir / param_file_name)
 
+        # Write dynamic parameter files
+        self._write_dynamic_params(write_dir=write_dir)
+
         # write control file
         self._sub_control.write(write_dir / self._sub_control_file_name)
+        return None
+
+    def _write_dynamic_params(self, write_dir: pl.Path) -> None:
+        """Write subsetted dynamic parameter files and update control.
+
+        Args:
+            write_dir: Directory to write the files to
+        """
+        if not hasattr(self, "_sub_dynamic_param_files"):
+            return None
+
+        if not self._sub_dynamic_param_files:
+            return None
+
+        for param_name, file_info in self._sub_dynamic_param_files.items():
+            subset_param = file_info["data"]
+            original_path = file_info["original_path"]
+
+            # Use original filename, write directly to write_dir
+            output_filename = original_path.name
+            output_path = write_dir / output_filename
+            subset_param.write(output_path)
+
+            # Update control file to point to new filename (no path prefix)
+            if param_name in self._sub_control.control_variables:
+                self._sub_control.control_variables[
+                    param_name
+                ].values = output_filename
+            else:
+                # Add the control variable if it doesn't exist
+                meta = additional_cbh_meta.get(param_name, {})
+                vv = pp.ControlVariable(
+                    name=param_name, strict=False, meta=meta
+                )
+                vv.__dict__["_ControlVariable__values"] = output_filename
+                self._sub_control.control_variables[param_name] = vv
+
+            print(f"  Wrote dynamic parameter file: {output_path}")
+
         return None
 
     def _cbh_dataset_to_ascii(self, write_dir):
