@@ -203,11 +203,16 @@ def test_compare_prms(
                     control,
                 )
             elif key in ["ag_frac"]:
-                nc_path = adapter_factory(
-                    parameters.parameters[key].copy(),
-                    key,
-                    control,
-                )
+                # Check for dynamic parameter file first
+                dyn_ag_frac_file = simulation["dir"] / "dyn_ag_frac.param"
+                if dyn_ag_frac_file.exists():
+                    nc_path = dyn_ag_frac_file
+                else:
+                    nc_path = adapter_factory(
+                        parameters.parameters[key].copy(),
+                        key,
+                        control,
+                    )
             else:
                 nc_path = None
 

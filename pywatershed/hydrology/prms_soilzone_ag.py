@@ -1,4 +1,4 @@
-"""PRMS Soil Zone with Agricultural Area and Iterative AET Matching.
+"""PRMS Soilzone with agricultural area and iterative AET matching.
 
 This module implements PRMSSoilzoneAg, a soil zone process that extends the
 base PRMS soilzone with:
@@ -54,6 +54,7 @@ Implementation Notes
 """
 
 import pathlib as pl
+import warnings
 from typing import Literal, Union
 from warnings import warn
 
@@ -129,7 +130,9 @@ class PRMSSoilzoneAg(ConservativeProcess):
             iter_aet_flag is True)
         dprst_flag: use depression storage or not? None uses value in control
             file, which otherwise defaults to True.
-        iter_aet_flag: Flag to enable iterative AET matching (default False)
+        iter_aet_flag: Flag to enable iterative AET matching. If None,
+            uses value from control.options["iter_aet_flag"] if available,
+            otherwise defaults to False.
         imbalance_behavior: one of ["defer", None, "warn", "error"]
             with "defer" being the default and defering to
             control.options["imbalance_behavior"] when available. When
@@ -177,7 +180,7 @@ class PRMSSoilzoneAg(ConservativeProcess):
         ag_frac: adaptable,
         AET_external: adaptable = None,
         dprst_flag: bool = None,
-        iter_aet_flag: bool = False,
+        iter_aet_flag: Literal[True, False, None] = None,
         imbalance_behavior: Literal["defer", None, "warn", "error"] = "defer",
         calc_method: Literal["numpy"] = None,
         adjust_parameters: Literal["warn", "error", "no"] = "warn",
@@ -199,8 +202,10 @@ class PRMSSoilzoneAg(ConservativeProcess):
         self._set_inputs(locals())
         self._set_options(locals())
 
-        # Set iter_aet_flag from input
-        self._iter_aet_flag = iter_aet_flag
+        # if iter_aet_flag not in control.options, _set_options  sets None, but
+        # let's be more explicit.
+        if self._iter_aet_flag is None:
+            self._iter_aet_flag = False
 
         if self._dprst_flag is None:
             self._dprst_flag = True
@@ -791,6 +796,128 @@ class PRMSSoilzoneAg(ConservativeProcess):
         self.slow_stor_prev[:] = self.slow_stor
         return
 
+    def _update_ag_areas(self):
+        """Update ag_area and related quantities when ag_frac changes.
+
+        This method recalculates derived areas that depend on ag_frac,
+        which may change dynamically via an AdapterDynamicParameter.
+
+        When ag_frac changes, the behavior follows Fortran logic in
+        dynamic_soil_param_read.f90 lines 503-528:
+        - If ag_frac DECREASES: keep ag_soil_moist unchanged, send excess
+          water volume to slow_stor (GVR storage)
+        - If ag_frac INCREASES: scale down ag_soil_moist to conserve depth
+          (ag_soil_moist = ag_soil_moist * old_frac / new_frac)
+        - If ag_frac goes to ZERO: transfer water to slow_stor
+
+        Fortran reference: dynamic_soil_param_read.f90
+        """
+        # Store old values for scaling calculations
+        old_ag_frac = (
+            self.ag_area / self.hru_area
+        )  # old ag_frac from old ag_area
+        old_hru_area_perv = self.hru_area_perv.copy()
+
+        # Recalculate agricultural area
+        new_ag_area = self.ag_frac * self.hru_area
+
+        # Recalculate pervious area to exclude agricultural area
+        new_hru_area_perv = self.hru_area - self.hru_area_imperv
+        wh_active = np.where(self.hru_type != HruType.INACTIVE.value)
+        if self._dprst_flag:
+            dprst_area_max = self.dprst_frac * self.hru_area
+            new_hru_area_perv[wh_active] = (
+                new_hru_area_perv[wh_active]
+                - dprst_area_max[wh_active]
+                - new_ag_area[wh_active]
+            )
+        else:
+            new_hru_area_perv[wh_active] = (
+                new_hru_area_perv[wh_active] - new_ag_area[wh_active]
+            )
+
+        # Track water to transfer to slow_stor
+        to_slow_stor = np.zeros(self.nhru)
+
+        # Handle ag_frac changes following Fortran logic
+        # Use np.isclose to avoid false positives from floating-point noise
+        for ihru in range(self.nhru):
+            if np.isclose(self.ag_frac[ihru], old_ag_frac[ihru]):
+                # No change
+                continue
+
+            if self.ag_soil_moist[ihru] > 0.0:
+                if self.ag_frac[ihru] > 0.0:
+                    if self.ag_frac[ihru] < old_ag_frac[ihru]:
+                        # ag_frac DECREASED: keep ag_soil_moist unchanged,
+                        # send excess water volume to slow_stor
+                        # Fortran: to_slow_stor = Ag_soil_moist(i) * (Ag_frac(i) - frac_ag)
+                        excess_volume = self.ag_soil_moist[ihru] * (
+                            old_ag_frac[ihru] - self.ag_frac[ihru]
+                        )
+                        to_slow_stor[ihru] = excess_volume
+                        # ag_soil_moist and ag_soil_rechr remain unchanged
+                    elif old_ag_frac[ihru] < self.ag_frac[ihru]:
+                        # ag_frac INCREASED: scale down ag_soil_moist
+                        # Fortran: Ag_soil_moist(i) = Ag_soil_moist(i)*Ag_frac(i)/frac_ag
+                        scale = old_ag_frac[ihru] / self.ag_frac[ihru]
+                        self.ag_soil_moist[ihru] = (
+                            self.ag_soil_moist[ihru] * scale
+                        )
+                        self.ag_soil_rechr[ihru] = (
+                            self.ag_soil_rechr[ihru] * scale
+                        )
+                else:
+                    # ag_frac went to ZERO: transfer all water to slow_stor
+                    # Fortran: tmp = Ag_soil_moist(i)*Ag_frac(i)
+                    to_slow_stor[ihru] = (
+                        self.ag_soil_moist[ihru] * old_ag_frac[ihru]
+                    )
+                    self.ag_soil_moist[ihru] = 0.0
+                    self.ag_soil_rechr[ihru] = 0.0
+
+        # Add excess water to slow_stor (GVR storage)
+        # This matches Fortran behavior of sending excess to gravity reservoir
+        self.slow_stor[:] = self.slow_stor + to_slow_stor
+
+        # Scale pervious soil moisture when pervious area changes
+        # Fortran: Soil_moist(i) = Soil_moist(i)*tmp where tmp = Hru_perv(i)/hruperv
+        # Use np.isclose to avoid false positives from floating-point noise
+        wh_perv_changed = np.where(
+            (~np.isclose(old_hru_area_perv, new_hru_area_perv))
+            & (new_hru_area_perv > 0.0)
+        )
+        if len(wh_perv_changed[0]) > 0:
+            scale_perv = (
+                old_hru_area_perv[wh_perv_changed]
+                / new_hru_area_perv[wh_perv_changed]
+            )
+            self.soil_moist[wh_perv_changed] = (
+                self.soil_moist[wh_perv_changed] * scale_perv
+            )
+            self.soil_rechr[wh_perv_changed] = (
+                self.soil_rechr[wh_perv_changed] * scale_perv
+            )
+
+        # Handle case where pervious area goes to zero
+        wh_perv_to_zero = np.where(
+            (old_hru_area_perv > 0.0) & np.isclose(new_hru_area_perv, 0.0)
+        )
+        if len(wh_perv_to_zero[0]) > 0:
+            self.soil_moist[wh_perv_to_zero] = 0.0
+            self.soil_rechr[wh_perv_to_zero] = 0.0
+
+        # Update the stored area values
+        self.ag_area[:] = new_ag_area
+        self.hru_area_perv[:] = new_hru_area_perv
+
+        # Recompute pervious fraction
+        self.hru_frac_perv[wh_active] = (
+            self.hru_area_perv[wh_active] / self.hru_area[wh_active]
+        )
+
+        return
+
     def _calculate(self, simulation_time):
         """Main calculation routine with iterative AET matching.
 
@@ -799,6 +926,9 @@ class PRMSSoilzoneAg(ConservativeProcess):
         This method implements the iterative loop that adjusts irrigation
         to match observed AET when iter_aet_flag is True.
         """
+        # Update ag_area and related quantities in case ag_frac changed
+        self._update_ag_areas()
+
         # Store initial values for iteration (Fortran: It0 variables)
         it0_soil_moist = self.soil_moist.copy()
         it0_soil_rechr = self.soil_rechr.copy()
@@ -1536,12 +1666,19 @@ class PRMSSoilzoneAg(ConservativeProcess):
                         soil_lower_ratio[ihru] = 1.0
                         soil_lower[ihru] = soil_lower_max[ihru]
                     else:
-                        raise ValueError(
+                        # Warn but continue - this may be expected in
+                        # reanalysis settings with dynamic parameters
+                        # (Fortran has STOP commented out for same reason)
+                        warnings.warn(
                             f"HRU {ihru}: soil_lower exceeds soil_lower_max "
                             f"by {excess:.2e} (ratio = "
                             f"{soil_lower_ratio[ihru]:.6f}). "
-                            f"This indicates a mass balance error."
+                            f"This may indicate a mass balance error.",
+                            UserWarning,
                         )
+                        # Cap the values to allow continuation
+                        soil_lower_ratio[ihru] = 1.0
+                        soil_lower[ihru] = soil_lower_max[ihru]
 
             ssres_in[ihru] = soil_to_ssr[ihru]
             if pref_flow_flag:
