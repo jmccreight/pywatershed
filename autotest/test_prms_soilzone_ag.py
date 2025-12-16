@@ -58,16 +58,16 @@ var_tolerance_exceptions = {
 # }
 domain_hru_time_exceptions = {
     "ucb_ag_spinup_2yr:nhm_ic_w_output_subset": {
-        # HRU 1311, timestep 706:
-        #   - soil_moist ratio (pcts) = 0.2500000586 in Python vs ~0.2499999
-        #     in Fortran
-        #   - Crosses 0.25 threshold for SAND soil type ET reduction
-        #   - Python: pcts >= 0.25, no reduction, potet_lower = 0.0453
-        #   - Fortran: pcts < 0.25, reduction applied, potet_lower = 0.0064
+        # HRU 3642, timestep 40:
+        #   - snow_free = 1.0 - snowcov_area = 0.010000000000000009 in Python
+        #     vs ~0.00999999 in Fortran (single precision)
+        #   - Crosses 0.01 threshold for snow_free ET calculation
+        #   - Python: snow_free >= 0.01, et_type = EVAP_ONLY, ET computed
+        #   - Fortran: snow_free < 0.01, et_type = ET_DEFAULT, et = 0
         #   - This affects downstream ET calculations and soil moisture
         #     accounting
-        1311: (
-            706,
+        3642: (
+            40,
             [
                 "potet_lower",
                 "potet_rechr",
@@ -79,7 +79,7 @@ domain_hru_time_exceptions = {
                 "soil_moist_tot",
                 "soil_rechr_change",
             ],
-            "SAND soil 0.25 threshold crossing for ET reduction",
+            "snow_free 0.01 threshold crossing for ET calculation",
         ),
     },
 }
