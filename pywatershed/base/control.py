@@ -34,6 +34,7 @@ pws_control_options_avail = [
     # "restart",
     "input_dir",  #
     "input_file",
+    "iter_aet_flag",
     # "load_n_time_batches",
     "netcdf_output_dir",
     "netcdf_output_var_names",
@@ -56,6 +57,7 @@ prms_legacy_options_avail = [
     "end_time",
     # "init_vars_from_file",
     "initial_deltat",
+    "iter_aet_flag",
     "nhruOutBaseFileName",
     "nhruOutVar_names",
     "nsegmentOutBaseFileName",
@@ -310,6 +312,8 @@ class Control(Accessor):
             # special cases, unmapped names
             if oo == "dprst_flag":
                 opts[oo] = bool(opts[oo][0])
+            if oo == "iter_aet_flag":
+                opts[oo] = opts[oo][0].tolist()
 
         start_time = control.control["start_time"]
         end_time = control.control["end_time"]

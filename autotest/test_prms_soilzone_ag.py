@@ -196,7 +196,7 @@ def test_compare_prms(
         # TODO: this is hacky for accommodating dprst_flag, improve the design
         # so people dont have to pass None for dead options.
         if not nc_path.exists():
-            if key in ["aet_external"]:
+            if key in ["AET_external"]:
                 nc_path = adapter_factory(
                     np.zeros(parameters.dimensions["nhru"]),
                     key,
