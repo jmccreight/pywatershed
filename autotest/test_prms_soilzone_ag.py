@@ -57,6 +57,20 @@ var_tolerance_exceptions = {
 #     {hru_index: (start_timestep, affected_vars, reason)}
 # }
 domain_hru_time_exceptions = {
+    "ucb_ag_analysis_2yr:nhm_dynamic_2000_2020_w_output_subset_no_restart": {
+        # HRU 1279, timestep 472:
+        #   - ag_soil_moist = 2.000002 (Fortran) vs 1.9999997 (Python)
+        #   - pcts = 0.5000004 (Fortran) vs 0.49999991 (Python)
+        #   - Crosses 0.5 threshold for LOAM soil potet_lower reduction
+        #   - Fortran: pcts >= 0.5, no reduction, ag_potet_lower = 0.05
+        #   - Python: pcts < 0.5, reduction applied, ag_potet_lower = 0.025
+        #   - This is a floating-point precision boundary issue
+        1279: (
+            472,
+            ["ag_potet_lower"],
+            "pcts 0.5 threshold crossing for LOAM soil ag_potet_lower",
+        ),
+    },
     "ucb_ag_spinup_2yr:nhm_ic_w_output_subset": {
         # HRU 3642, timestep 40:
         #   - snow_free = 1.0 - snowcov_area = 0.010000000000000009 in Python

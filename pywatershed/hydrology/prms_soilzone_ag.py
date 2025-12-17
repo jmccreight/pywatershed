@@ -54,7 +54,6 @@ Implementation Notes
 """
 
 import pathlib as pl
-import warnings
 from typing import Literal, Union
 from warnings import warn
 
@@ -898,6 +897,8 @@ class PRMSSoilzoneAg(ConservativeProcess):
             self.soil_rechr[wh_perv_changed] = (
                 self.soil_rechr[wh_perv_changed] * scale_perv
             )
+            # Note: soil_lower is NOT updated here - it will be recomputed
+            # as soil_moist - soil_rechr in the main HRU loop
 
         # Handle case where pervious area goes to zero
         wh_perv_to_zero = np.where(
@@ -906,6 +907,7 @@ class PRMSSoilzoneAg(ConservativeProcess):
         if len(wh_perv_to_zero[0]) > 0:
             self.soil_moist[wh_perv_to_zero] = 0.0
             self.soil_rechr[wh_perv_to_zero] = 0.0
+            # Note: soil_lower will be recomputed in the main HRU loop
 
         # Update the stored area values
         self.ag_area[:] = new_ag_area
@@ -1529,10 +1531,16 @@ class PRMSSoilzoneAg(ConservativeProcess):
                     # Fortran reference: compute_szactet line ~1448
                     # Must check BEFORE ET is subtracted from ag_soil_moist
                     # Only set when Et_type > 1 (evap or transp active)
-                    # Et_type > 1 when: transp_on OR snow_free >= 0.01
+                    # Fortran Et_type logic:
+                    #   Et_type = 1 if Avail_potet < NEARZERO
+                    #   Et_type = 1 if Transp_on==OFF and Snow_free < 0.01
+                    #   Et_type = 3 if Transp_on==ON and Cov_type > BARESOIL
+                    #   Et_type = 1 if Transp_on==ON and Cov_type==BARESOIL and Snow_free < 0.01
+                    #   Et_type = 2 if Transp_on==ON and Cov_type==BARESOIL and Snow_free >= 0.01
+                    # So Et_type > 1 when: (transp_on AND cov_type > 0) OR snow_free >= 0.01
                     ag_et_type_gt_1 = (
-                        transp_on[ihru] or snow_free[ihru] >= 0.01
-                    )
+                        transp_on[ihru] and ag_cov_type[ihru] > 0
+                    ) or snow_free[ihru] >= 0.01
                     if ag_et_type_gt_1:
                         ag_pcts = ag_soil_moist[ihru] / ag_soil_moist_max[ihru]
                         if ag_pcts > 0.9999:
@@ -1579,9 +1587,17 @@ class PRMSSoilzoneAg(ConservativeProcess):
                 # Fortran reference: compute_szactet line ~1448
                 # Must check BEFORE ET is subtracted from soil_moist
                 # Only set when Et_type > 1 (evap or transp active)
-                # Et_type > 1 when: transp_on OR snow_free >= 0.01
+                # Fortran Et_type logic:
+                #   Et_type = 1 if Avail_potet < NEARZERO
+                #   Et_type = 1 if Transp_on==OFF and Snow_free < 0.01
+                #   Et_type = 3 if Transp_on==ON and Cov_type > BARESOIL
+                #   Et_type = 1 if Transp_on==ON and Cov_type==BARESOIL and Snow_free < 0.01
+                #   Et_type = 2 if Transp_on==ON and Cov_type==BARESOIL and Snow_free >= 0.01
+                # So Et_type > 1 when: (transp_on AND cov_type > 0) OR snow_free >= 0.01
                 # IF ( pcts>0.9999 ) Soil_saturated = 1
-                et_type_gt_1 = transp_on[ihru] or snow_free[ihru] >= 0.01
+                et_type_gt_1 = (
+                    transp_on[ihru] and cov_type[ihru] > 0
+                ) or snow_free[ihru] >= 0.01
                 if et_type_gt_1:
                     pcts = soil_moist[ihru] / soil_moist_max[ihru]
                     if pcts > 0.9999:
@@ -1663,22 +1679,20 @@ class PRMSSoilzoneAg(ConservativeProcess):
                 if soil_lower_ratio[ihru] > 1.0:
                     excess = soil_lower_ratio[ihru] - 1.0
                     if excess < 1e-4:
+                        # Cap only small excesses due to floating-point error
                         soil_lower_ratio[ihru] = 1.0
                         soil_lower[ihru] = soil_lower_max[ihru]
-                    else:
-                        # Warn but continue - this may be expected in
-                        # reanalysis settings with dynamic parameters
-                        # (Fortran has STOP commented out for same reason)
-                        warnings.warn(
-                            f"HRU {ihru}: soil_lower exceeds soil_lower_max "
-                            f"by {excess:.2e} (ratio = "
-                            f"{soil_lower_ratio[ihru]:.6f}). "
-                            f"This may indicate a mass balance error.",
-                            UserWarning,
-                        )
-                        # Cap the values to allow continuation
-                        soil_lower_ratio[ihru] = 1.0
-                        soil_lower[ihru] = soil_lower_max[ihru]
+                    # else:
+                    #     # Fortran prints error but does NOT cap when excess
+                    #     # >= 1e-4. This can happen in reanalysis settings
+                    #     # with dynamic parameters (Fortran STOP is commented)
+                    #     warnings.warn(
+                    #         f"HRU {ihru}: soil_lower exceeds soil_lower_max "
+                    #         f"by {excess:.2e} (ratio = "
+                    #         f"{soil_lower_ratio[ihru]:.6f}). "
+                    #         f"This may indicate a mass balance error.",
+                    #         UserWarning,
+                    #     )
 
             ssres_in[ihru] = soil_to_ssr[ihru]
             if pref_flow_flag:
