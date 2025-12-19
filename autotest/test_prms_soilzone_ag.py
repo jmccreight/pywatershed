@@ -1,3 +1,32 @@
+"""Tests for PRMSSoilzoneAg against PRMS/GSFLOW Fortran outputs.
+
+This test module validates the PRMSSoilzoneAg implementation by comparing
+Python outputs against pre-computed Fortran (PRMS/GSFLOW) outputs for
+agricultural soilzone simulations.
+
+Test Domains
+------------
+Two test domains are used (configured via pytest fixtures):
+
+1. **ucb_ag_spinup_2yr** (open-loop): Tests basic dual-area soil moisture
+   accounting without iterative AET matching (iter_aet_flag=False).
+
+2. **ucb_ag_analysis_2yr** (closed-loop): Tests full iterative AET matching
+   with observed AET data (iter_aet_flag=True).
+
+Tolerance Strategy
+------------------
+- **Default tolerances**: rtol=1e-5, atol=1e-5 for most variables
+- **Variable-specific exceptions**: Some variables accumulate floating-point
+  errors over time or involve precision-sensitive calculations. These have
+  relaxed tolerances defined in `var_tolerance_exceptions`.
+- **HRU-time exceptions**: Specific HRU-timestep combinations where Python
+  and Fortran diverge due to threshold crossings (e.g., pcts < 0.5 for LOAM
+  soil, snow_free < 0.01 for ET type). At these points, Python values are
+  replaced with Fortran values to allow the test to continue.
+
+"""
+
 import pathlib as pl
 
 import numpy as np
@@ -12,8 +41,8 @@ from pywatershed.hydrology.prms_soilzone_ag import PRMSSoilzoneAg
 from pywatershed.parameters import Parameters, PrmsParameters
 
 # compare in memory (faster) or full output files? or both!
-do_compare_output_files = True  # TODO: True
-do_compare_in_memory = True  # TODO: False once it's working
+do_compare_output_files = True
+do_compare_in_memory = True
 
 # Default tolerances for most variables (depth-based)
 default_rtol = 1.0e-5
@@ -25,8 +54,7 @@ default_atol = 1.0e-5
 #     errors while the absolute errors are still near precision.
 var_tolerance_exceptions = {
     "ssres_flow_vol": {"atol": 2.0, "rtol": 1.0e-2},  # cubic feet
-    # ratio capping differences,
-    # TODO, see if we can relax this with additional tune up
+    # ratio capping: small differences when soil_lower is near soil_lower_max
     "soil_lower_ratio": {"atol": 1.0e-4, "rtol": 1.0e-5},
     # Flow variables accumulate single-precision errors over time
     "slow_flow": {"atol": 2.0e-5, "rtol": 1.0e-5},

@@ -1892,7 +1892,37 @@ class PRMSSoilzoneAg(ConservativeProcess):
 
         Fortran reference: SUBROUTINE compute_szactet in soilzone.f90
 
-        This is the same as in the base PRMSSoilzone class.
+        This function determines the evapotranspiration type (Et_type) and
+        computes actual ET based on soil moisture availability and soil type.
+
+        Et_type Logic
+        -------------
+        The Et_type determines whether ET occurs and how it's computed:
+
+        - Et_type = 1 (ET_DEFAULT): No ET computed (et = 0)
+        - Et_type = 2 (EVAP_ONLY): Evaporation only (scaled by snow_free)
+        - Et_type = 3 (EVAP_PLUS_TRANSP): Full evapotranspiration
+
+        Et_type is determined by:
+
+        1. If avail_potet < NEARZERO → Et_type = 1
+        2. If transp_on == OFF:
+           - If snow_free < 0.01 → Et_type = 1
+           - Else → Et_type = 2
+        3. If transp_on == ON and cov_type > BARESOIL → Et_type = 3
+        4. If transp_on == ON and cov_type == BARESOIL:
+           - If snow_free < 0.01 → Et_type = 1
+           - Else → Et_type = 2
+
+        Note: The soil_saturated flag check (pcts > 0.9999) is performed in
+        the calling code BEFORE this function is called, and only when
+        Et_type > 1. The condition for Et_type > 1 is:
+        ``(transp_on AND cov_type > 0) OR snow_free >= 0.01``
+
+        Returns
+        -------
+        tuple
+            (soil_moist, soil_rechr, avail_potet, potet_rechr, potet_lower, et)
         """
         from ..constants import ETType, SoilType, nearzero
 
