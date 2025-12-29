@@ -376,6 +376,7 @@ class PRMSSoilzoneAg(ConservativeProcess):
             "slow_stor",
             "ag_soil_moist",
             "ag_soil_rechr",
+            "soil_lower",
         ]
 
     @staticmethod
@@ -750,7 +751,8 @@ class PRMSSoilzoneAg(ConservativeProcess):
             + self.ag_soil_moist * self.ag_frac
         )
 
-        self.soil_lower = self.soil_moist - self.soil_rechr
+        if not self._restart_read:
+            self.soil_lower = self.soil_moist - self.soil_rechr
         self.soil_lower_max = self.soil_moist_max - self.soil_rechr_max
 
         wh_soil_lower_stor = np.where(self.soil_lower_max > zero)
@@ -916,6 +918,13 @@ class PRMSSoilzoneAg(ConservativeProcess):
         # Recompute pervious fraction
         self.hru_frac_perv[wh_active] = (
             self.hru_area_perv[wh_active] / self.hru_area[wh_active]
+        )
+
+        # Recalculate soil_zone_max since it depends on hru_frac_perv and ag_frac
+        self.soil_zone_max[:] = (
+            self._sat_threshold
+            + self.soil_moist_max * self.hru_frac_perv
+            + self.ag_soil_moist_max * self.ag_frac
         )
 
         return
