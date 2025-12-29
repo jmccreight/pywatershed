@@ -219,9 +219,10 @@ class PRMSRunoffNoDprst(PRMSRunoff):
 
     @staticmethod
     def get_restart_variables() -> list:
-        raise NotImplementedError(
-            "Restart capability not implemented for PRMSRunoffNoDprst"
-        )
+        return [
+            "imperv_stor",
+            "hru_impervstor",
+        ]
 
     @staticmethod
     def get_mass_budget_terms():

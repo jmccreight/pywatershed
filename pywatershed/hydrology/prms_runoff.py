@@ -270,16 +270,16 @@ class PRMSRunoff(ConservativeProcess):
 
     @staticmethod
     def get_restart_variables() -> list:
-        raise NotImplementedError(
-            "Restart capability not implemented for PRMSRunoff"
-        )
-        # return [
-        #     "hru_impervstor",
-        #     "dprst_stor_hru",
-        #     "dprst_area_open",
-        #     "dprst_area_clos",
-        #     "dprst_vol_thres_open",
-        # ]
+        return [
+            "imperv_stor",
+            "hru_impervstor",
+            "dprst_stor_hru",
+            "dprst_area_open",
+            "dprst_area_clos",
+            "dprst_vol_open",
+            "dprst_vol_clos",
+            "dprst_vol_thres_open",
+        ]
 
     @staticmethod
     def get_mass_budget_terms():
@@ -382,17 +382,19 @@ class PRMSRunoff(ConservativeProcess):
 
                 # calculate the initial open and closed depression storage
                 # volume:
-                # if not self._restart_read:
-                self._dprst_open_flag = ACTIVE
-                if self._dprst_open_flag == ACTIVE:
-                    self.dprst_vol_open[i] = (
-                        self.dprst_frac_init[i] * self.dprst_vol_open_max[i]
-                    )
-                self._dprst_clos_flag = ACTIVE
-                if self._dprst_clos_flag == ACTIVE:
-                    self.dprst_vol_clos[i] = (
-                        self.dprst_frac_init[i] * self.dprst_vol_clos_max[i]
-                    )
+                if not self._restart_read:
+                    self._dprst_open_flag = ACTIVE
+                    if self._dprst_open_flag == ACTIVE:
+                        self.dprst_vol_open[i] = (
+                            self.dprst_frac_init[i]
+                            * self.dprst_vol_open_max[i]
+                        )
+                    self._dprst_clos_flag = ACTIVE
+                    if self._dprst_clos_flag == ACTIVE:
+                        self.dprst_vol_clos[i] = (
+                            self.dprst_frac_init[i]
+                            * self.dprst_vol_clos_max[i]
+                        )
 
                 # threshold volume is calculated as the % of maximum open
                 # depression storage above which flow occurs *  total open
