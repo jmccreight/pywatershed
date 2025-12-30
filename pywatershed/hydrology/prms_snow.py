@@ -288,10 +288,22 @@ class PRMSSnow(ConservativeProcess):
 
     @staticmethod
     def get_restart_variables() -> list:
-        raise NotImplementedError(
-            "Restart capability not implemented for PRMSSnow"
-        )
-        # return ["freeh2o", "pk_ice"]
+        return [
+            "freeh2o",
+            "iasw",
+            "pk_def",
+            "pk_depth",
+            "pk_den",
+            "pk_ice",
+            "pksv",
+            "pkwater_equiv",
+            "pss",
+            "pst",
+            "scrv",
+            "slst",
+            "snowcov_area",
+            "snowcov_areasv",
+        ]
 
     @staticmethod
     def get_mass_budget_terms():
@@ -360,7 +372,8 @@ class PRMSSnow(ConservativeProcess):
         self.deninv = one / den_init
         self.denmaxinv = one / self.den_max
 
-        self.pkwater_equiv[:] = self.snowpack_init.copy()
+        if not self._restart_read:
+            self.pkwater_equiv[:] = self.snowpack_init.copy()
 
         sd = int(self.ndeplval / 11)
         self.snarea_curve_2d = np.reshape(self.snarea_curve, (sd, 11))
@@ -376,10 +389,8 @@ class PRMSSnow(ConservativeProcess):
             # <
             self.hru_deplcrv = self.hru_deplcrv.astype("int64")
 
-        if True:
-            # For now there is no restart capability. we'll use the following
-            # line above when there is
-            # if self.control.options["restart"] in [0, 2, 3]:
+        if not self._restart_read:
+            # Skip initialization of state variables when restarting
 
             # The super().__init__ already set_initial_conditions using its
             # set_initial_conditions
@@ -464,10 +475,9 @@ class PRMSSnow(ConservativeProcess):
             self.pst[:] = self.pkwater_equiv.copy()
 
         else:
-            raise RuntimeError("Snow restart capability not implemented")
-            # JLM: a list of restart variables dosent shed light on what states
-            # actually have memory.
-            # JLM: could there be a diagnostic part of the advance?
+            # Restart path: state variables are loaded by the base class
+            # from restart files, so no initialization needed here.
+            pass
 
         return
 

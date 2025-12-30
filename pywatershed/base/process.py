@@ -429,10 +429,13 @@ class Process(Accessor):
         for vv in self.restart_variables:
             rst_file = self._restart_read / f"{init_strftime}-{vv}.nc"
             print(f"Restarting from file: {rst_file}")
+            # Use decode_timedelta=False to prevent xarray from converting
+            # float data with time-like units (e.g., "days") to timedelta64
+            data = load_dataarray(rst_file, decode_timedelta=False).values
             if isinstance(self[vv], TimeseriesArray):
-                self[vv].data[0, :] = load_dataarray(rst_file).values
+                self[vv].data[0, :] = data
             else:
-                self[vv][:] = load_dataarray(rst_file).values
+                self[vv][:] = data
 
         return
 
