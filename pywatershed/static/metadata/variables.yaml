@@ -82,10 +82,44 @@ ag_soil_lower_stor_max:
     0: nhru
   type: float64
   units: inches
+ag_soil_lower_change:
+  desc: Change in storage in the lower zone of the irrigated area for each HRU
+  dims:
+    0: nhru
+  type: float64
+  units: inches
+ag_soil_lower_change_hru:
+  desc: Change in storage in the lower zone of the irrigated area for each HRU,
+    normalized to HRU area
+  dims:
+    0: nhru
+  type: float64
+  units: inches
+ag_cap_infil_tot:
+  desc: Infiltration to the irrigated area fraction of each HRU, normalized to
+    HRU area (depth over entire HRU)
+  dims:
+    0: nhru
+  type: float64
+  units: inches
 ag_soil_moist:
   desc:
     Water storage for upper portion in the capillary reservoir of the irrigated
     area for each HRU that.
+  dims:
+    0: nhru
+  type: float64
+  units: inches
+ag_soil_moist_change:
+  desc: Change in water storage for the capillary reservoir of the irrigated
+    area for each HRU
+  dims:
+    0: nhru
+  type: float64
+  units: inches
+ag_soil_moist_change_hru:
+  desc: Change in water storage for the capillary reservoir of the irrigated
+    area for each HRU, normalized to HRU area
   dims:
     0: nhru
   type: float64
@@ -108,6 +142,20 @@ ag_soil_rechr:
 ag_soil_rechr_max:
   desc: Water storage for upper portion in the capillary reservoir of the
     irrigated area for each HRU that is only available for transpiration (?)
+  dims:
+    0: nhru
+  type: float64
+  units: inches
+ag_soil_rechr_change:
+  desc: Change in water storage for the recharge zone of the irrigated area
+    capillary reservoir for each HRU
+  dims:
+    0: nhru
+  type: float64
+  units: inches
+ag_soil_rechr_change_hru:
+  desc: Change in water storage for the recharge zone of the irrigated area
+    capillary reservoir for each HRU, normalized to HRU area
   dims:
     0: nhru
   type: float64

@@ -348,10 +348,19 @@ class PRMSSoilzoneAg(ConservativeProcess):
             "perv_soil_to_gw": zero,
             "perv_soil_to_gvr": zero,
             # Agricultural area variables (whole HRU basis)
+            "ag_cap_infil_tot": zero,
             "ag_soil_moist": nan,
+            "ag_soil_moist_prev": nan,
+            "ag_soil_moist_change": zero,
+            "ag_soil_moist_change_hru": zero,
             "ag_soil_rechr": nan,
+            "ag_soil_rechr_prev": nan,
+            "ag_soil_rechr_change": zero,
+            "ag_soil_rechr_change_hru": zero,
             "ag_soil_rechr_max": nan,
             "ag_soil_lower": nan,
+            "ag_soil_lower_change": zero,
+            "ag_soil_lower_change_hru": zero,
             "ag_soil_lower_stor_max": nan,
             "ag_actet": zero,
             "hru_ag_actet": zero,
@@ -383,8 +392,8 @@ class PRMSSoilzoneAg(ConservativeProcess):
     def get_mass_budget_terms() -> dict:
         return {
             "inputs": [
-                "infil",
-                "infil_ag",
+                "cap_infil_tot",
+                "ag_cap_infil_tot",
             ],
             "outputs": [
                 "perv_actet_hru",
@@ -401,6 +410,8 @@ class PRMSSoilzoneAg(ConservativeProcess):
                 "soil_lower_change_hru",
                 "slow_stor_change",
                 "pref_flow_stor_change",
+                "ag_soil_rechr_change_hru",
+                "ag_soil_lower_change_hru",
             ],
         }
 
@@ -417,7 +428,7 @@ class PRMSSoilzoneAg(ConservativeProcess):
         Fortran reference: szinit_ag() and initialization in szdecl_ag()
         """
 
-        self._ag_cap_infil_tot = self.hru_percent_imperv * np.nan
+        self.ag_cap_infil_tot = self.hru_percent_imperv * np.nan
 
         # Derived parameters for impervious and pervious areas
         self.hru_area_imperv = self.hru_percent_imperv * self.hru_area
@@ -795,6 +806,9 @@ class PRMSSoilzoneAg(ConservativeProcess):
         self.soil_rechr_prev[:] = self.soil_rechr
         self.soil_lower_prev[:] = self.soil_lower
         self.slow_stor_prev[:] = self.slow_stor
+        # Agricultural soil moisture previous values
+        self.ag_soil_moist_prev[:] = self.ag_soil_moist
+        self.ag_soil_rechr_prev[:] = self.ag_soil_rechr
         return
 
     def _update_ag_areas(self):
@@ -1033,6 +1047,8 @@ class PRMSSoilzoneAg(ConservativeProcess):
                 soil_rechr_prev=self.soil_rechr_prev,
                 soil_lower_prev=self.soil_lower_prev,
                 slow_stor_prev=self.slow_stor_prev,
+                ag_soil_moist_prev=self.ag_soil_moist_prev,
+                ag_soil_rechr_prev=self.ag_soil_rechr_prev,
                 # Output variables
                 soil_to_gw=self.soil_to_gw,
                 soil_to_ssr=self.soil_to_ssr,
@@ -1049,7 +1065,7 @@ class PRMSSoilzoneAg(ConservativeProcess):
                 ag_potet_lower=self.ag_potet_lower,
                 cap_waterin=self.cap_waterin,
                 cap_infil_tot=self.cap_infil_tot,
-                ag_cap_infil_tot=self._ag_cap_infil_tot,
+                ag_cap_infil_tot=self.ag_cap_infil_tot,
                 # ag_water_in=self.ag_water_in,
                 pref_flow_in=self.pref_flow_in,
                 pref_flow_infil=self.pref_flow_infil,
@@ -1085,6 +1101,12 @@ class PRMSSoilzoneAg(ConservativeProcess):
                 soil_rechr_change=self.soil_rechr_change,
                 soil_rechr_change_hru=self.soil_rechr_change_hru,
                 slow_stor_change=self.slow_stor_change,
+                ag_soil_moist_change=self.ag_soil_moist_change,
+                ag_soil_moist_change_hru=self.ag_soil_moist_change_hru,
+                ag_soil_rechr_change=self.ag_soil_rechr_change,
+                ag_soil_rechr_change_hru=self.ag_soil_rechr_change_hru,
+                ag_soil_lower_change=self.ag_soil_lower_change,
+                ag_soil_lower_change_hru=self.ag_soil_lower_change_hru,
             )
 
             # Unpack results
@@ -1193,6 +1215,8 @@ class PRMSSoilzoneAg(ConservativeProcess):
         soil_rechr_prev,
         soil_lower_prev,
         slow_stor_prev,
+        ag_soil_moist_prev,
+        ag_soil_rechr_prev,
         # Output variables
         soil_to_gw,
         soil_to_ssr,
@@ -1245,6 +1269,12 @@ class PRMSSoilzoneAg(ConservativeProcess):
         soil_rechr_change,
         soil_rechr_change_hru,
         slow_stor_change,
+        ag_soil_moist_change,
+        ag_soil_moist_change_hru,
+        ag_soil_rechr_change,
+        ag_soil_rechr_change_hru,
+        ag_soil_lower_change,
+        ag_soil_lower_change_hru,
     ) -> tuple:
         """Numpy-based calculation for agricultural soilzone.
 
@@ -1769,6 +1799,16 @@ class PRMSSoilzoneAg(ConservativeProcess):
         # Convert to HRU basis (multiply by area fractions)
         soil_lower_change_hru[:] = soil_lower_change * hru_frac_perv
         soil_rechr_change_hru[:] = soil_rechr_change * hru_frac_perv
+
+        # Agricultural soil moisture storage changes
+        ag_soil_moist_change[:] = ag_soil_moist - ag_soil_moist_prev
+        ag_soil_rechr_change[:] = ag_soil_rechr - ag_soil_rechr_prev
+        ag_soil_lower_change[:] = ag_soil_moist_change - ag_soil_rechr_change
+
+        # Convert to HRU basis (multiply by area fractions)
+        ag_soil_moist_change_hru[:] = ag_soil_moist_change * ag_frac
+        ag_soil_rechr_change_hru[:] = ag_soil_rechr_change * ag_frac
+        ag_soil_lower_change_hru[:] = ag_soil_lower_change * ag_frac
 
         # Return iteration control variables
         return (add_estimated_irrigation, num_hrus_ag_iter, unsatisfied_big)

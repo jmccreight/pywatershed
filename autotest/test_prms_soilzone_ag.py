@@ -128,7 +128,7 @@ domain_hru_time_exceptions = {
 
 calc_methods = ("numpy", "numba")[0:1]  # TODO: fix
 params = ("params_sep", "params_one")[1:]  # TODO: fix
-imbalance_behavior = None  # TODO: fix
+imbalance_behavior = "error"
 
 
 @pytest.fixture(scope="function")
