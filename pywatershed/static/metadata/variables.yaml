@@ -131,6 +131,13 @@ ag_soil_moist_prev:
     0: nhru
   type: float64
   units: inches
+ag_soil_moist_redistribution:
+  desc: Water redistributed in agricultural soil moisture due to ag_frac changes
+    (used to separate redistribution from hydrologic process changes)
+  dims:
+    0: nhru
+  type: float64
+  units: inches
 ag_soil_rechr:
   desc: Water storage for upper portion in the capillary reservoir of the
     irrigated area for each HRU that is available for both evaporation and
@@ -164,6 +171,13 @@ ag_soil_rechr_prev:
   desc: Previous timestep water storage for upper portion in the capillary
     reservoir of the irrigated area for each HRU that is available for both
     evaporation and transpiration
+  dims:
+    0: nhru
+  type: float64
+  units: inches
+ag_soil_rechr_redistribution:
+  desc: Water redistributed in agricultural recharge zone due to ag_frac changes
+    (used to separate redistribution from hydrologic process changes)
   dims:
     0: nhru
   type: float64
@@ -3103,6 +3117,13 @@ slow_stor_prev:
   type: float64
   units: inches
   var_category: mass storage
+slow_stor_redistribution:
+  desc: Water redistributed in slow storage due to ag_frac changes
+    (used to separate redistribution from hydrologic process changes)
+  dims:
+    0: nhru
+  type: float64
+  units: inches
 slst:
   desc: Days since last new snow for each HRU
   dims:
@@ -3209,12 +3230,19 @@ soil_lower_max:
 soil_lower_prev:
   desc:
     Previous storage in the lower zone of the capillary reservoir that is only available
-    for transpiration for each HRU
+    for transpiration for each HRU, depth on pervious area
   dims:
     0: nhru
   type: float64
   units: inches
   var_category: mass storage
+soil_lower_redistribution:
+  desc: Water redistributed in pervious soil lower zone due to ag_frac changes
+    (used to separate redistribution from hydrologic process changes)
+  dims:
+    0: nhru
+  type: float64
+  units: inches
 soil_lower_ratio:
   desc:
     Water content ratio in the lower zone of the capillary reservoir for each
@@ -3278,12 +3306,19 @@ soil_rechr_change_hru:
 soil_rechr_prev:
   desc:
     Previous storage for recharge zone (upper portion) of the capillary reservoir that
-    is available for both evaporation and transpiration
+    is available for both evaporation and transpiration for each HRU, depth on pervious area
   dims:
     0: nhru
   type: float64
   units: inches
   var_category: mass storage
+soil_rechr_redistribution:
+  desc: Water redistributed in pervious recharge zone due to ag_frac changes
+    (used to separate redistribution from hydrologic process changes)
+  dims:
+    0: nhru
+  type: float64
+  units: inches
 soil_rechr_max:
   desc:
     Maximum storage for soil recharge zone (upper portion of capillary reservoir

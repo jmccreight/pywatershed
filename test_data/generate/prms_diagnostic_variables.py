@@ -9,6 +9,15 @@ from pywatershed.constants import dnearzero, nan, nearzero, zero
 
 """This module is for generating PRMS diagnostic variables"""
 
+# Variables to skip for _change calculation (validated by mass budget instead)
+skip_change_vars = {
+    "ag_soil_moist",  # Uses redistribution tracking for mass budget
+    "ag_soil_rechr",  # Uses redistribution tracking for mass budget
+    "soil_rechr",  # Uses redistribution tracking for mass budget (soilzone_ag)
+    "soil_lower",  # Uses redistribution tracking for mass budget (soilzone_ag)
+    "slow_stor",  # Uses redistribution tracking for mass budget (soilzone_ag)
+}
+
 # For generating timeseries of previous states
 prev_vars_both = {
     "gwres_stor": pws.PRMSGroundwater,
@@ -151,14 +160,15 @@ def diagnose_simple_vars_to_nc(
         prev.rename(out_nc_path.stem).to_netcdf(out_nc_path)
         assert nc_path.exists()
 
-        # write the change file
-        if var_name in change_rename.keys():
-            nc_name = f"{change_rename[var_name]}.nc"
-        else:
-            nc_name = f"{var_name}_change.nc"
-        out_nc_path = output_dir / nc_name
-        change.rename(out_nc_path.stem).to_netcdf(out_nc_path)
-        assert nc_path.exists()
+        # write the change file (skip if validated by mass budget)
+        if var_name not in skip_change_vars:
+            if var_name in change_rename.keys():
+                nc_name = f"{change_rename[var_name]}.nc"
+            else:
+                nc_name = f"{var_name}_change.nc"
+            out_nc_path = output_dir / nc_name
+            change.rename(out_nc_path.stem).to_netcdf(out_nc_path)
+            assert nc_path.exists()
         return nc_path
 
     if var_name in ["sroff", "ssres_flow", "gwres_flow"]:

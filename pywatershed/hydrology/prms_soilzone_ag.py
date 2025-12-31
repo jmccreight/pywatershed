@@ -375,6 +375,12 @@ class PRMSSoilzoneAg(ConservativeProcess):
             "ag_irrigation_add": zero,
             "ag_irrigation_add_vol": zero,
             "ag_aet_external_vol": zero,
+            # Redistribution tracking (for ag_frac changes)
+            "ag_soil_moist_redistribution": zero,
+            "ag_soil_rechr_redistribution": zero,
+            "soil_rechr_redistribution": zero,
+            "soil_lower_redistribution": zero,
+            "slow_stor_redistribution": zero,
         }
 
     @staticmethod
@@ -954,6 +960,48 @@ class PRMSSoilzoneAg(ConservativeProcess):
         # Update ag_area and related quantities in case ag_frac changed
         self._update_ag_areas()
 
+        # After ag_frac changes, recompute soil_lower from the scaled values
+        # (Note: _update_ag_areas scales soil_moist and soil_rechr but doesn't
+        # update soil_lower, so we need to do it here)
+        self.soil_lower[:] = self.soil_moist - self.soil_rechr
+
+        # Calculate how much water was redistributed due to ag_frac changes.
+        #
+        # MASS BUDGET APPROACH:
+        # When ag_frac changes (e.g., on Jan 1 annually), water is redistributed:
+        # - Agricultural soil water may be transferred to slow_stor or scaled
+        # - Pervious soil water is scaled to conserve volume over new area
+        # These redistributions are area-accounting adjustments, not hydrologic
+        # processes, so they must be excluded from mass budget calculations.
+        #
+        # To maintain correct mass balance while preserving the semantic meaning
+        # of "_prev" variables (= truly previous timestep values), we:
+        # 1. Keep _prev values as they were at end of previous timestep
+        # 2. Track how much was redistributed in these _redistribution variables
+        # 3. Calculate _change = current - prev - redistribution
+        #
+        # This gives us:
+        # - Correct _prev semantics (match Fortran postprocessed _prev values)
+        # - Correct mass budget (_change excludes area redistributions)
+        #
+        # NOTE: The _change variables calculated this way will NOT match simple
+        # Fortran postprocessing (current - previous) because Fortran includes
+        # the redistributions. This is intentional - the mass budget validates
+        # these variables, not external comparison.
+        self.ag_soil_moist_redistribution[:] = (
+            self.ag_soil_moist - self.ag_soil_moist_prev
+        )
+        self.ag_soil_rechr_redistribution[:] = (
+            self.ag_soil_rechr - self.ag_soil_rechr_prev
+        )
+        self.soil_rechr_redistribution[:] = (
+            self.soil_rechr - self.soil_rechr_prev
+        )
+        self.soil_lower_redistribution[:] = (
+            self.soil_lower - self.soil_lower_prev
+        )
+        self.slow_stor_redistribution[:] = self.slow_stor - self.slow_stor_prev
+
         # Store initial values for iteration (Fortran: It0 variables)
         it0_soil_moist = self.soil_moist.copy()
         it0_soil_rechr = self.soil_rechr.copy()
@@ -1107,6 +1155,11 @@ class PRMSSoilzoneAg(ConservativeProcess):
                 ag_soil_rechr_change_hru=self.ag_soil_rechr_change_hru,
                 ag_soil_lower_change=self.ag_soil_lower_change,
                 ag_soil_lower_change_hru=self.ag_soil_lower_change_hru,
+                ag_soil_moist_redistribution=self.ag_soil_moist_redistribution,
+                ag_soil_rechr_redistribution=self.ag_soil_rechr_redistribution,
+                soil_rechr_redistribution=self.soil_rechr_redistribution,
+                soil_lower_redistribution=self.soil_lower_redistribution,
+                slow_stor_redistribution=self.slow_stor_redistribution,
             )
 
             # Unpack results
@@ -1275,6 +1328,11 @@ class PRMSSoilzoneAg(ConservativeProcess):
         ag_soil_rechr_change_hru,
         ag_soil_lower_change,
         ag_soil_lower_change_hru,
+        ag_soil_moist_redistribution,
+        ag_soil_rechr_redistribution,
+        soil_rechr_redistribution,
+        soil_lower_redistribution,
+        slow_stor_redistribution,
     ) -> tuple:
         """Numpy-based calculation for agricultural soilzone.
 
@@ -1791,18 +1849,33 @@ class PRMSSoilzoneAg(ConservativeProcess):
 
         # Calculate storage changes for mass budget
         # Fortran reference: Not explicitly in szrun_ag, but needed for budget
+        #
+        # Subtract redistributions to get only hydrologic process changes.
+        # This ensures mass balance is correct by excluding area-accounting
+        # adjustments that occur when ag_frac changes dynamically.
         pref_flow_stor_change[:] = pref_flow_stor - pref_flow_stor_prev
-        soil_lower_change[:] = soil_lower - soil_lower_prev
-        soil_rechr_change[:] = soil_rechr - soil_rechr_prev
-        slow_stor_change[:] = slow_stor - slow_stor_prev
+        soil_lower_change[:] = (
+            soil_lower - soil_lower_prev - soil_lower_redistribution
+        )
+        soil_rechr_change[:] = (
+            soil_rechr - soil_rechr_prev - soil_rechr_redistribution
+        )
+        slow_stor_change[:] = (
+            slow_stor - slow_stor_prev - slow_stor_redistribution
+        )
 
         # Convert to HRU basis (multiply by area fractions)
         soil_lower_change_hru[:] = soil_lower_change * hru_frac_perv
         soil_rechr_change_hru[:] = soil_rechr_change * hru_frac_perv
 
         # Agricultural soil moisture storage changes
-        ag_soil_moist_change[:] = ag_soil_moist - ag_soil_moist_prev
-        ag_soil_rechr_change[:] = ag_soil_rechr - ag_soil_rechr_prev
+        # Subtract redistributions to get only hydrologic process changes
+        ag_soil_moist_change[:] = (
+            ag_soil_moist - ag_soil_moist_prev - ag_soil_moist_redistribution
+        )
+        ag_soil_rechr_change[:] = (
+            ag_soil_rechr - ag_soil_rechr_prev - ag_soil_rechr_redistribution
+        )
         ag_soil_lower_change[:] = ag_soil_moist_change - ag_soil_rechr_change
 
         # Convert to HRU basis (multiply by area fractions)
