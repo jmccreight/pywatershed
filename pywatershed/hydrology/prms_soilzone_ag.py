@@ -57,6 +57,7 @@ import pathlib as pl
 from typing import Literal, Union
 from warnings import warn
 
+import numba as nb
 import numpy as np
 
 from ..base.adapter import adaptable, adapter_factory
@@ -137,7 +138,9 @@ class PRMSSoilzoneAg(ConservativeProcess):
             control.options["imbalance_behavior"] when available. When
             control.options["imbalance_behavior"] is not avaiable,
             imbalance_behavior is set to "warn".
-        calc_method: one of ["numpy"]. None defaults to "numpy".
+        calc_method: one of ["numpy", "numba"]. None defaults to "numpy".
+            The "numba" option provides significant performance improvements,
+            especially for the iterative AET matching loop.
         adjust_parameters: one of ["warn", "error", "no"]. Default is "warn",
             the code edits the parameters and issues a warning. If "error" is
             selected the the code issues warnings about all edited parameters
@@ -793,6 +796,8 @@ class PRMSSoilzoneAg(ConservativeProcess):
 
         if self._calc_method.lower() == "numpy":
             self._calculate_soilzone_ag = self._calculate_numpy
+        elif self._calc_method.lower() == "numba":
+            self._calculate_soilzone_ag = self._calculate_numba
         else:
             msg = (
                 f"calc_method '{self._calc_method}' not supported for "
@@ -1887,6 +1892,265 @@ class PRMSSoilzoneAg(ConservativeProcess):
         return (add_estimated_irrigation, num_hrus_ag_iter, unsatisfied_big)
 
     @staticmethod
+    def _calculate_numba(
+        soil_iter,
+        iter_aet_flag,
+        pref_flow_flag,
+        snow_free,
+        compute_soilmoist,
+        compute_szactet,
+        compute_interflow,
+        compute_gwflow,
+        # Parameters
+        cov_type,
+        ag_cov_type,
+        fastcoef_lin,
+        fastcoef_sq,
+        hru_frac_perv,
+        hru_type,
+        ag_frac,
+        ag_area,
+        hru_area,
+        hru_area_perv,
+        pref_flow_den,
+        pref_flow_infil_frac,
+        sat_threshold,
+        slowcoef_lin,
+        slowcoef_sq,
+        soil_moist_max,
+        soil_rechr_max,
+        soil_type,
+        ag_soil_type,
+        ag_soil_moist_max,
+        ag_soil_rechr_max,
+        soil2gw_max,
+        ag_soil2gw_max,
+        ssr2gw_exp,
+        ssr2gw_rate,
+        ag_soilwater_deficit_min,
+        soilzone_aet_converge,
+        # Inputs
+        dprst_evap_hru,
+        dprst_seep_hru,
+        hru_impervevap,
+        hru_intcpevap,
+        infil,
+        infil_ag,
+        potet,
+        transp_on,
+        snow_evap,
+        snowcov_area,
+        aet_external,
+        ag_irrigation_add,
+        # State variables
+        soil_moist,
+        soil_rechr,
+        ag_soil_moist,
+        ag_soil_rechr,
+        pref_flow_stor,
+        slow_stor,
+        ssres_stor,
+        # Previous timestep values for storage changes
+        pref_flow_stor_prev,
+        soil_rechr_prev,
+        soil_lower_prev,
+        slow_stor_prev,
+        ag_soil_moist_prev,
+        ag_soil_rechr_prev,
+        # Output variables
+        soil_to_gw,
+        soil_to_ssr,
+        perv_soil_to_gw,
+        perv_soil_to_gvr,
+        ag_soil_to_gw,
+        ag_soil_to_gvr,
+        ssr_to_gw,
+        slow_flow,
+        ssres_flow,
+        potet_rechr,
+        potet_lower,
+        ag_potet_rechr,
+        ag_potet_lower,
+        cap_waterin,
+        cap_infil_tot,
+        ag_cap_infil_tot,
+        # ag_water_in,
+        pref_flow_in,
+        pref_flow_infil,
+        pref_flow,
+        perv_actet,
+        perv_actet_hru,
+        ag_actet,
+        hru_ag_actet,
+        hru_actet,
+        soil_lower,
+        ag_soil_lower,
+        dunnian_flow,
+        pref_flow_max,
+        pref_flow_thrsh,
+        soil_lower_max,
+        ag_soil_lower_stor_max,
+        soil_zone_max,
+        soil_moist_tot,
+        ssres_in,
+        recharge,
+        unused_potet,
+        unused_ag_et,
+        ag_hortonian,
+        ag_soil_saturated,
+        ag_soilwater_deficit,
+        swale_actet,
+        soil_saturated,
+        sroff,
+        soil_lower_ratio,
+        pref_flow_stor_change,
+        soil_lower_change,
+        soil_lower_change_hru,
+        soil_rechr_change,
+        soil_rechr_change_hru,
+        slow_stor_change,
+        ag_soil_moist_change,
+        ag_soil_moist_change_hru,
+        ag_soil_rechr_change,
+        ag_soil_rechr_change_hru,
+        ag_soil_lower_change,
+        ag_soil_lower_change_hru,
+        ag_soil_moist_redistribution,
+        ag_soil_rechr_redistribution,
+        soil_rechr_redistribution,
+        soil_lower_redistribution,
+        slow_stor_redistribution,
+    ) -> tuple:
+        """Numba-optimized calculation for agricultural soilzone.
+
+        This is a wrapper that calls the numba-compiled function.
+        """
+        return _calculate_soilzone_ag_numba(
+            soil_iter,
+            iter_aet_flag,
+            pref_flow_flag,
+            snow_free,
+            # Parameters
+            cov_type,
+            ag_cov_type,
+            fastcoef_lin,
+            fastcoef_sq,
+            hru_frac_perv,
+            hru_type,
+            ag_frac,
+            ag_area,
+            hru_area,
+            hru_area_perv,
+            pref_flow_den,
+            pref_flow_infil_frac,
+            sat_threshold,
+            slowcoef_lin,
+            slowcoef_sq,
+            soil_moist_max,
+            soil_rechr_max,
+            soil_type,
+            ag_soil_type,
+            ag_soil_moist_max,
+            ag_soil_rechr_max,
+            soil2gw_max,
+            ag_soil2gw_max,
+            ssr2gw_exp,
+            ssr2gw_rate,
+            ag_soilwater_deficit_min,
+            soilzone_aet_converge,
+            # Inputs
+            dprst_evap_hru,
+            dprst_seep_hru,
+            hru_impervevap,
+            hru_intcpevap,
+            infil,
+            infil_ag,
+            potet,
+            transp_on,
+            snow_evap,
+            snowcov_area,
+            aet_external,
+            ag_irrigation_add,
+            # State variables
+            soil_moist,
+            soil_rechr,
+            ag_soil_moist,
+            ag_soil_rechr,
+            pref_flow_stor,
+            slow_stor,
+            ssres_stor,
+            # Previous timestep values for storage changes
+            pref_flow_stor_prev,
+            soil_rechr_prev,
+            soil_lower_prev,
+            slow_stor_prev,
+            ag_soil_moist_prev,
+            ag_soil_rechr_prev,
+            # Output variables
+            soil_to_gw,
+            soil_to_ssr,
+            perv_soil_to_gw,
+            perv_soil_to_gvr,
+            ag_soil_to_gw,
+            ag_soil_to_gvr,
+            ssr_to_gw,
+            slow_flow,
+            ssres_flow,
+            potet_rechr,
+            potet_lower,
+            ag_potet_rechr,
+            ag_potet_lower,
+            cap_waterin,
+            cap_infil_tot,
+            ag_cap_infil_tot,
+            pref_flow_in,
+            pref_flow_infil,
+            pref_flow,
+            perv_actet,
+            perv_actet_hru,
+            ag_actet,
+            hru_ag_actet,
+            hru_actet,
+            soil_lower,
+            ag_soil_lower,
+            dunnian_flow,
+            pref_flow_max,
+            pref_flow_thrsh,
+            soil_lower_max,
+            ag_soil_lower_stor_max,
+            soil_zone_max,
+            soil_moist_tot,
+            ssres_in,
+            recharge,
+            unused_potet,
+            unused_ag_et,
+            ag_hortonian,
+            ag_soil_saturated,
+            ag_soilwater_deficit,
+            swale_actet,
+            soil_saturated,
+            sroff,
+            soil_lower_ratio,
+            pref_flow_stor_change,
+            soil_lower_change,
+            soil_lower_change_hru,
+            soil_rechr_change,
+            soil_rechr_change_hru,
+            slow_stor_change,
+            ag_soil_moist_change,
+            ag_soil_moist_change_hru,
+            ag_soil_rechr_change,
+            ag_soil_rechr_change_hru,
+            ag_soil_lower_change,
+            ag_soil_lower_change_hru,
+            ag_soil_moist_redistribution,
+            ag_soil_rechr_redistribution,
+            soil_rechr_redistribution,
+            soil_lower_redistribution,
+            slow_stor_redistribution,
+        )
+
+    @staticmethod
     def _compute_soilmoist(
         perv_frac,
         soil_moist_max,
@@ -2140,3 +2404,793 @@ class PRMSSoilzoneAg(ConservativeProcess):
             potet_lower,
             et,
         )
+
+
+# ============================================================================
+# Numba-optimized functions
+# ============================================================================
+
+
+@nb.jit(nopython=True)
+def _compute_soilmoist_numba(
+    perv_frac,
+    soil_moist_max,
+    soil_rechr_max,
+    soil2gw_max,
+    infil,
+    soil_moist,
+    soil_rechr,
+    soil_to_gw,
+    soil_to_ssr,
+):
+    """Numba-optimized soil moisture accounting."""
+    # PRMSIV Step 4 (eqn 1-125)
+    soil_rechr = min(soil_rechr + infil, soil_rechr_max)
+
+    # PRMSIV Step 5
+    excess = soil_moist + infil
+    soil_moist = min(excess, soil_moist_max)
+
+    # PRMSIV Step 6
+    excess = (excess - soil_moist_max) * perv_frac
+
+    if excess > 0.0:
+        if soil2gw_max > 0.0:
+            soil_to_gw = min(soil2gw_max, excess)
+            excess = excess - soil_to_gw
+
+        if excess > (infil * perv_frac):
+            infil = 0.0
+        else:
+            infil = infil - (excess / perv_frac)
+
+        soil_to_ssr = max(0.0, excess)
+
+    return (
+        infil,
+        soil_moist,
+        soil_rechr,
+        soil_to_gw,
+        soil_to_ssr,
+    )
+
+
+@nb.jit(nopython=True)
+def _compute_interflow_numba(coef_lin, coef_sq, ssres_in, storage, inter_flow):
+    """Numba-optimized interflow computation."""
+    if (coef_lin <= 0.0) and (ssres_in <= 0.0):
+        c1 = coef_sq * storage
+        inter_flow = storage * (c1 / (1.0 + c1))
+
+    elif (coef_lin > 0.0) and (coef_sq <= 0.0):
+        c2 = 1.0 - np.exp(-coef_lin)
+        inter_flow = ssres_in * (1.0 - c2 / coef_lin) + storage * c2
+
+    elif coef_sq > 0.0:
+        c3 = np.sqrt(coef_lin**2.0 + 4.0 * coef_sq * ssres_in)
+        sos = storage - ((c3 - coef_lin) / (2.0 * coef_sq))
+
+        if c3 == 0.0:
+            # In numba, we can't raise RuntimeError, so return 0
+            inter_flow = 0.0
+        else:
+            c1 = coef_sq * sos / c3
+            c2 = 1.0 - np.exp(-c3)
+
+            if (1.0 + c1 * c2) > 0.0:
+                inter_flow = ssres_in + (
+                    (sos * (1.0 + c1) * c2) / (1.0 + c1 * c2)
+                )
+            else:
+                inter_flow = ssres_in
+    else:
+        inter_flow = 0.0
+
+    if inter_flow < 0.0:
+        inter_flow = 0.0
+    elif inter_flow > storage:
+        inter_flow = storage
+
+    storage = storage - inter_flow
+    return storage, inter_flow
+
+
+@nb.jit(nopython=True)
+def _compute_gwflow_numba(ssr2gw_rate, ssr2gw_exp, slow_stor):
+    """Numba-optimized groundwater flow computation."""
+    ssr_to_gw = max(0.0, ssr2gw_rate * slow_stor**ssr2gw_exp)
+    ssr_to_gw = min(ssr_to_gw, slow_stor)
+    slow_stor = slow_stor - ssr_to_gw
+    return ssr_to_gw, slow_stor
+
+
+@nb.jit(nopython=True)
+def _compute_szactet_numba(
+    transp_on,
+    cov_type,
+    soil_type,
+    soil_moist_max,
+    soil_rechr_max,
+    snow_free,
+    soil_moist,
+    soil_rechr,
+    avail_potet,
+    potet_rechr,
+    potet_lower,
+):
+    """Numba-optimized actual ET computation from soil zone."""
+    nearzero = 1e-6
+
+    # Determine type of evapotranspiration
+    if avail_potet < nearzero:
+        et_type = 1  # ET_DEFAULT
+        avail_potet = 0.0
+    elif not transp_on:
+        if snow_free < 0.01:
+            et_type = 1  # ET_DEFAULT
+        else:
+            et_type = 2  # EVAP_ONLY
+    elif cov_type > 0:
+        et_type = 3  # EVAP_PLUS_TRANSP
+    elif snow_free < 0.01:
+        et_type = 1  # ET_DEFAULT
+    else:
+        et_type = 2  # EVAP_ONLY
+
+    # Compute ET based on type
+    if et_type in [2, 3]:  # EVAP_ONLY or EVAP_PLUS_TRANSP
+        pcts = soil_moist / soil_moist_max
+        pctr = soil_rechr / soil_rechr_max
+        potet_lower = avail_potet
+        potet_rechr = avail_potet
+
+        if soil_type == 1:  # SAND
+            if pcts < 0.25:
+                potet_lower = 0.5 * pcts * avail_potet
+            if pctr < 0.25:
+                potet_rechr = 0.5 * pctr * avail_potet
+
+        elif soil_type == 2:  # LOAM
+            if pcts < 0.5:
+                potet_lower = pcts * avail_potet
+            if pctr < 0.5:
+                potet_rechr = pctr * avail_potet
+
+        elif soil_type == 3:  # CLAY
+            if (pcts < TWOTHIRDS) and (pcts > ONETHIRD):
+                potet_lower = pcts * avail_potet
+            elif pcts <= ONETHIRD:
+                potet_lower = 0.5 * pcts * avail_potet
+
+            if (pctr < TWOTHIRDS) and (pctr > ONETHIRD):
+                potet_rechr = pctr * avail_potet
+            elif pctr <= ONETHIRD:
+                potet_rechr = 0.5 * pctr * avail_potet
+
+        # Soil moisture accounting
+        if et_type == 2:  # EVAP_ONLY
+            potet_rechr = potet_rechr * snow_free
+
+        if potet_rechr > soil_rechr:
+            potet_rechr = soil_rechr
+            soil_rechr = 0.0
+        else:
+            soil_rechr = soil_rechr - potet_rechr
+
+        if (et_type == 2) or (potet_rechr >= potet_lower):  # EVAP_ONLY
+            if potet_rechr > soil_moist:
+                potet_rechr = soil_moist
+                soil_moist = 0.0
+            else:
+                soil_moist = soil_moist - potet_rechr
+
+            et = potet_rechr
+
+        elif potet_lower > soil_moist:
+            et = soil_moist
+            soil_moist = 0.0
+        else:
+            soil_moist = soil_moist - potet_lower
+            et = potet_lower
+
+        if soil_rechr > soil_moist:
+            soil_rechr = soil_moist
+
+    else:
+        et = 0.0
+
+    return (
+        soil_moist,
+        soil_rechr,
+        avail_potet,
+        potet_rechr,
+        potet_lower,
+        et,
+    )
+
+
+@nb.jit(nopython=True)
+def _calculate_soilzone_ag_numba(
+    soil_iter,
+    iter_aet_flag,
+    pref_flow_flag,
+    snow_free,
+    # Parameters
+    cov_type,
+    ag_cov_type,
+    fastcoef_lin,
+    fastcoef_sq,
+    hru_frac_perv,
+    hru_type,
+    ag_frac,
+    ag_area,
+    hru_area,
+    hru_area_perv,
+    pref_flow_den,
+    pref_flow_infil_frac,
+    sat_threshold,
+    slowcoef_lin,
+    slowcoef_sq,
+    soil_moist_max,
+    soil_rechr_max,
+    soil_type,
+    ag_soil_type,
+    ag_soil_moist_max,
+    ag_soil_rechr_max,
+    soil2gw_max,
+    ag_soil2gw_max,
+    ssr2gw_exp,
+    ssr2gw_rate,
+    ag_soilwater_deficit_min,
+    soilzone_aet_converge,
+    # Inputs
+    dprst_evap_hru,
+    dprst_seep_hru,
+    hru_impervevap,
+    hru_intcpevap,
+    infil,
+    infil_ag,
+    potet,
+    transp_on,
+    snow_evap,
+    snowcov_area,
+    aet_external,
+    ag_irrigation_add,
+    # State variables
+    soil_moist,
+    soil_rechr,
+    ag_soil_moist,
+    ag_soil_rechr,
+    pref_flow_stor,
+    slow_stor,
+    ssres_stor,
+    # Previous timestep values for storage changes
+    pref_flow_stor_prev,
+    soil_rechr_prev,
+    soil_lower_prev,
+    slow_stor_prev,
+    ag_soil_moist_prev,
+    ag_soil_rechr_prev,
+    # Output variables
+    soil_to_gw,
+    soil_to_ssr,
+    perv_soil_to_gw,
+    perv_soil_to_gvr,
+    ag_soil_to_gw,
+    ag_soil_to_gvr,
+    ssr_to_gw,
+    slow_flow,
+    ssres_flow,
+    potet_rechr,
+    potet_lower,
+    ag_potet_rechr,
+    ag_potet_lower,
+    cap_waterin,
+    cap_infil_tot,
+    ag_cap_infil_tot,
+    pref_flow_in,
+    pref_flow_infil,
+    pref_flow,
+    perv_actet,
+    perv_actet_hru,
+    ag_actet,
+    hru_ag_actet,
+    hru_actet,
+    soil_lower,
+    ag_soil_lower,
+    dunnian_flow,
+    pref_flow_max,
+    pref_flow_thrsh,
+    soil_lower_max,
+    ag_soil_lower_stor_max,
+    soil_zone_max,
+    soil_moist_tot,
+    ssres_in,
+    recharge,
+    unused_potet,
+    unused_ag_et,
+    ag_hortonian,
+    ag_soil_saturated,
+    ag_soilwater_deficit,
+    swale_actet,
+    soil_saturated,
+    sroff,
+    soil_lower_ratio,
+    pref_flow_stor_change,
+    soil_lower_change,
+    soil_lower_change_hru,
+    soil_rechr_change,
+    soil_rechr_change_hru,
+    slow_stor_change,
+    ag_soil_moist_change,
+    ag_soil_moist_change_hru,
+    ag_soil_rechr_change,
+    ag_soil_rechr_change_hru,
+    ag_soil_lower_change,
+    ag_soil_lower_change_hru,
+    ag_soil_moist_redistribution,
+    ag_soil_rechr_redistribution,
+    soil_rechr_redistribution,
+    soil_lower_redistribution,
+    slow_stor_redistribution,
+):
+    """Numba-optimized calculation for agricultural soilzone.
+
+    This implements the soil water balance for both pervious and
+    agricultural areas of each HRU with significant performance improvements
+    through numba JIT compilation.
+    """
+    nhru = len(hru_type)
+
+    # Initialize outputs for this iteration
+    add_estimated_irrigation = False
+    num_hrus_ag_iter = 0
+    unsatisfied_big = 0.0
+
+    # Initialize per-timestep variables
+    soil_to_gw[:] = 0.0
+    soil_to_ssr[:] = 0.0
+    perv_soil_to_gw[:] = 0.0
+    perv_soil_to_gvr[:] = 0.0
+    ag_soil_to_gw[:] = 0.0
+    ag_soil_to_gvr[:] = 0.0
+    ssr_to_gw[:] = 0.0
+    slow_flow[:] = 0.0
+    ssres_flow[:] = 0.0
+    potet_rechr[:] = 0.0
+    potet_lower[:] = 0.0
+    ag_potet_rechr[:] = 0.0
+    ag_potet_lower[:] = 0.0
+    ag_actet[:] = 0.0
+    hru_ag_actet[:] = 0.0
+    ag_soil_saturated[:] = 0.0
+    ag_hortonian[:] = 0.0
+    unused_ag_et[:] = 0.0
+    ag_soilwater_deficit[:] = 0.0
+    ag_cap_infil_tot[:] = 0.0
+    ag_soil_lower[:] = 0.0
+    swale_actet[:] = 0.0
+    soil_saturated[:] = 0.0
+    dunnian_flow[:] = 0.0
+    pref_flow_infil[:] = 0.0
+    pref_flow_in[:] = 0.0
+    pref_flow[:] = 0.0
+
+    # HRU loop
+    for ihru in range(nhru):
+        # Skip inactive HRUs
+        if hru_type[ihru] == 0:  # INACTIVE
+            continue
+
+        # Initial AET from impervious, interception, and snow
+        hruactet = hru_impervevap[ihru] + hru_intcpevap[ihru] + snow_evap[ihru]
+        hruactet += dprst_evap_hru[ihru]
+
+        # Handle LAKE HRUs separately
+        if hru_type[ihru] == 2:  # LAKE
+            unused_potet[ihru] = potet[ihru] - hruactet
+            hru_actet[ihru] = hruactet
+            continue
+
+        # Get area fractions
+        perv_frac = hru_frac_perv[ihru]
+        agfrac = ag_frac[ihru]
+        perv_area = hru_area_perv[ihru]
+        agarea = ag_area[ihru]
+
+        perv_on_flag = perv_area > 0.0
+        ag_on_flag = agarea > 0.0
+
+        # Available PET after impervious, interception, snow evap
+        avail_potet = potet[ihru] - hruactet
+        if avail_potet < 0.0:
+            avail_potet = 0.0
+            hruactet = potet[ihru]
+
+        # Initialize flow components
+        dunnianflw = 0.0
+        dunnianflw_pfr = 0.0
+
+        # Add infiltration to soil
+        capwater_maxin = infil[ihru]
+        ag_water_maxin = infil_ag[ihru]
+
+        # Add irrigation if iterating
+        if iter_aet_flag:
+            ag_water_maxin = ag_water_maxin + ag_irrigation_add[ihru]
+
+        # Compute preferential flow (if enabled)
+        prefflow = 0.0
+        if pref_flow_flag:
+            if pref_flow_infil_frac[ihru] > 0.0:
+                ag_pref_flow_maxin = 0.0
+                cap_pref_flow_maxin = 0.0
+
+                if ag_water_maxin > 0.0:
+                    ag_pref_flow_maxin = (
+                        ag_water_maxin * pref_flow_infil_frac[ihru]
+                    )
+                    ag_water_maxin = ag_water_maxin - ag_pref_flow_maxin
+                    ag_pref_flow_maxin = ag_pref_flow_maxin * agfrac
+
+                if capwater_maxin > 0.0:
+                    cap_pref_flow_maxin = (
+                        capwater_maxin * pref_flow_infil_frac[ihru]
+                    )
+                    capwater_maxin = capwater_maxin - cap_pref_flow_maxin
+                    cap_pref_flow_maxin = cap_pref_flow_maxin * perv_frac
+
+                pref_flow_maxin = cap_pref_flow_maxin + ag_pref_flow_maxin
+
+                # Add to preferential flow storage
+                pref_flow_stor[ihru] = pref_flow_stor[ihru] + pref_flow_maxin
+                dunnianflw_pfr = max(
+                    0.0, pref_flow_stor[ihru] - pref_flow_max[ihru]
+                )
+
+                if dunnianflw_pfr > 0.0:
+                    pref_flow_stor[ihru] = pref_flow_max[ihru]
+
+                pref_flow_infil[ihru] = pref_flow_maxin - dunnianflw_pfr
+
+        # Set cap_infil_tot and ag_cap_infil_tot BEFORE compute_soilmoist
+        if perv_on_flag:
+            cap_infil_tot[ihru] = capwater_maxin * perv_frac
+        if ag_on_flag:
+            ag_cap_infil_tot[ihru] = ag_water_maxin * agfrac
+
+        # Compute soil moisture for pervious area
+        perv_soil_to_gvr[ihru] = 0.0
+        if perv_on_flag:
+            if capwater_maxin + soil_moist[ihru] > 0.0:
+                (
+                    capwater_maxin,
+                    soil_moist[ihru],
+                    soil_rechr[ihru],
+                    perv_soil_to_gw[ihru],
+                    perv_soil_to_gvr[ihru],
+                ) = _compute_soilmoist_numba(
+                    perv_frac,
+                    soil_moist_max[ihru],
+                    soil_rechr_max[ihru],
+                    soil2gw_max[ihru],
+                    capwater_maxin,
+                    soil_moist[ihru],
+                    soil_rechr[ihru],
+                    perv_soil_to_gw[ihru],
+                    perv_soil_to_gvr[ihru],
+                )
+
+        # Compute soil moisture for agricultural area
+        if ag_on_flag:
+            if ag_water_maxin + ag_soil_moist[ihru] > 0.0:
+                (
+                    ag_water_maxin,
+                    ag_soil_moist[ihru],
+                    ag_soil_rechr[ihru],
+                    ag_soil_to_gw[ihru],
+                    ag_soil_to_gvr[ihru],
+                ) = _compute_soilmoist_numba(
+                    agfrac,
+                    ag_soil_moist_max[ihru],
+                    ag_soil_rechr_max[ihru],
+                    soil2gw_max[ihru],
+                    ag_water_maxin,
+                    ag_soil_moist[ihru],
+                    ag_soil_rechr[ihru],
+                    ag_soil_to_gw[ihru],
+                    ag_soil_to_gvr[ihru],
+                )
+
+        # Combine soil to gw and ssr
+        soil_to_gw[ihru] = perv_soil_to_gw[ihru] + ag_soil_to_gw[ihru]
+        soil_to_ssr[ihru] = perv_soil_to_gvr[ihru] + ag_soil_to_gvr[ihru]
+
+        cap_waterin[ihru] = capwater_maxin * perv_frac
+
+        # Compute slow interflow and ssr_to_gw
+        availh2o = slow_stor[ihru] + soil_to_ssr[ihru]
+        topfr = 0.0
+
+        # Compute for non-swale HRUs
+        if hru_type[ihru] != 3:  # SWALE
+            if pref_flow_flag:
+                topfr = max(0.0, availh2o - pref_flow_thrsh[ihru])
+
+            ssresin = soil_to_ssr[ihru] - topfr
+            slow_stor[ihru] = availh2o - topfr
+
+            # Compute slow contribution to interflow
+            if slow_stor[ihru] > 0.0:
+                slow_stor[ihru], slow_flow[ihru] = _compute_interflow_numba(
+                    slowcoef_lin[ihru],
+                    slowcoef_sq[ihru],
+                    ssresin,
+                    slow_stor[ihru],
+                    slow_flow[ihru],
+                )
+        else:
+            # Swale - no lateral flow
+            slow_stor[ihru] = availh2o
+
+        # Compute flow to groundwater
+        if slow_stor[ihru] > 0.0 and ssr2gw_rate[ihru] > 0.0:
+            ssr_to_gw[ihru], slow_stor[ihru] = _compute_gwflow_numba(
+                ssr2gw_rate[ihru],
+                ssr2gw_exp[ihru],
+                slow_stor[ihru],
+            )
+
+        # Compute contribution to Dunnian flow from PFR
+        dunnianflw_gvr = 0.0
+        if pref_flow_flag:
+            if pref_flow_max[ihru] > 0.0:
+                availh2o = pref_flow_stor[ihru] + topfr
+                dunnianflw_gvr = max(0.0, availh2o - pref_flow_max[ihru])
+                if dunnianflw_gvr > 0.0:
+                    topfr = topfr - dunnianflw_gvr
+                    if topfr < 0.0:
+                        topfr = 0.0
+
+                pref_flow_in[ihru] = pref_flow_infil[ihru] + topfr
+                pref_flow_stor[ihru] = pref_flow_stor[ihru] + topfr
+
+                if pref_flow_stor[ihru] > 0.0:
+                    pref_flow_stor[ihru], prefflow = _compute_interflow_numba(
+                        fastcoef_lin[ihru],
+                        fastcoef_sq[ihru],
+                        pref_flow_in[ihru],
+                        pref_flow_stor[ihru],
+                        prefflow,
+                    )
+        elif not (pref_flow_max[ihru] > 0.0):
+            if hru_type[ihru] != 3:  # SWALE
+                dunnianflw_gvr = topfr
+
+        # Compute actual evapotranspiration
+        pervactet = 0.0
+        agactet = 0.0
+        ag_hruactet = 0.0
+        unsatisfied_ag_et = 0.0
+
+        # Agricultural ET
+        if ag_on_flag:
+            if iter_aet_flag:
+                ag_AETtarget = aet_external[ihru]
+            else:
+                ag_AETtarget = potet[ihru]
+
+            ag_avail_targetAET = ag_AETtarget - hru_intcpevap[ihru]
+            if ag_avail_targetAET < 0.0:
+                ag_avail_targetAET = 0.0
+
+            if ag_avail_targetAET > 0.0:
+                # Set ag_soil_saturated flag if ag soil moisture ratio > 0.9999
+                ag_et_type_gt_1 = (
+                    transp_on[ihru] and ag_cov_type[ihru] > 0
+                ) or snow_free[ihru] >= 0.01
+                if ag_et_type_gt_1:
+                    ag_pcts = ag_soil_moist[ihru] / ag_soil_moist_max[ihru]
+                    if ag_pcts > 0.9999:
+                        ag_soil_saturated[ihru] = 1
+
+                # Call compute_szactet for ag area
+                (
+                    ag_soil_moist[ihru],
+                    ag_soil_rechr[ihru],
+                    _,
+                    ag_potet_rechr[ihru],
+                    ag_potet_lower[ihru],
+                    agactet,
+                ) = _compute_szactet_numba(
+                    transp_on[ihru],
+                    ag_cov_type[ihru],
+                    ag_soil_type[ihru],
+                    ag_soil_moist_max[ihru],
+                    ag_soil_rechr_max[ihru],
+                    snow_free[ihru],
+                    ag_soil_moist[ihru],
+                    ag_soil_rechr[ihru],
+                    ag_avail_targetAET,
+                    ag_potet_rechr[ihru],
+                    ag_potet_lower[ihru],
+                )
+
+                ag_hruactet = agactet * agfrac
+
+            unsatisfied_ag_et = ag_avail_targetAET - agactet
+            unused_ag_et[ihru] = unsatisfied_ag_et
+
+            # Add back canopy interception
+            ag_actet[ihru] = agactet + hru_intcpevap[ihru]
+
+        # Pervious ET
+        avail_potet = potet[ihru] - hruactet - ag_hruactet
+        if avail_potet < 0.0:
+            avail_potet = 0.0
+
+        if soil_moist[ihru] > 0.0 and avail_potet > 0.0:
+            # Set soil_saturated flag if soil moisture ratio > 0.9999
+            et_type_gt_1 = (
+                transp_on[ihru] and cov_type[ihru] > 0
+            ) or snow_free[ihru] >= 0.01
+            if et_type_gt_1:
+                pcts = soil_moist[ihru] / soil_moist_max[ihru]
+                if pcts > 0.9999:
+                    soil_saturated[ihru] = 1
+
+            (
+                soil_moist[ihru],
+                soil_rechr[ihru],
+                _,
+                potet_rechr[ihru],
+                potet_lower[ihru],
+                pervactet,
+            ) = _compute_szactet_numba(
+                transp_on[ihru],
+                cov_type[ihru],
+                soil_type[ihru],
+                soil_moist_max[ihru],
+                soil_rechr_max[ihru],
+                snow_free[ihru],
+                soil_moist[ihru],
+                soil_rechr[ihru],
+                avail_potet,
+                potet_rechr[ihru],
+                potet_lower[ihru],
+            )
+
+        # Combine ET components
+        perv_actet_hru[ihru] = pervactet * perv_frac
+        hru_ag_actet[ihru] = ag_hruactet
+        hru_actet[ihru] = hruactet + perv_actet_hru[ihru] + ag_hruactet
+        perv_actet[ihru] = pervactet
+
+        # Soil moisture accounting
+        soil_lower[ihru] = soil_moist[ihru] - soil_rechr[ihru]
+
+        # Compute interflow and excess flow
+        if hru_type[ihru] != 3:  # SWALE
+            dunnianflw = dunnianflw_gvr + dunnianflw_pfr
+            dunnian_flow[ihru] = dunnianflw
+
+            # Treat pref_flow as interflow
+            ssres_flow[ihru] = slow_flow[ihru]
+            if pref_flow_flag:
+                if pref_flow_max[ihru] > 0.0:
+                    pref_flow[ihru] = prefflow
+                    ssres_flow[ihru] = ssres_flow[ihru] + prefflow
+
+            # Treat dunnianflw as surface runoff
+            sroff[ihru] = sroff[ihru] + dunnian_flow[ihru]
+            ssres_stor[ihru] = slow_stor[ihru]
+            if pref_flow_flag:
+                ssres_stor[ihru] = ssres_stor[ihru] + pref_flow_stor[ihru]
+
+        else:
+            # Swale HRU
+            availh2o = slow_stor[ihru] - sat_threshold[ihru]
+            swale_actet[ihru] = 0.0
+            if availh2o > 0.0:
+                unsatisfied_et = potet[ihru] - hru_actet[ihru]
+                if unsatisfied_et > 0.0:
+                    availh2o = min(availh2o, unsatisfied_et)
+                    swale_actet[ihru] = availh2o
+                    hru_actet[ihru] = hru_actet[ihru] + swale_actet[ihru]
+                    slow_stor[ihru] = slow_stor[ihru] - swale_actet[ihru]
+
+            ssres_stor[ihru] = slow_stor[ihru]
+
+        # Soil lower ratio
+        if soil_lower_max[ihru] > 0.0:
+            soil_lower_ratio[ihru] = soil_lower[ihru] / soil_lower_max[ihru]
+            # Cap ratio at 1.0 if excess is due to rounding error (< 1e-4)
+            if soil_lower_ratio[ihru] > 1.0:
+                excess = soil_lower_ratio[ihru] - 1.0
+                if excess < 1e-4:
+                    soil_lower_ratio[ihru] = 1.0
+                    soil_lower[ihru] = soil_lower_max[ihru]
+
+        ssres_in[ihru] = soil_to_ssr[ihru]
+        if pref_flow_flag:
+            ssres_in[ihru] = ssres_in[ihru] + pref_flow_infil[ihru]
+
+        unused_potet[ihru] = potet[ihru] - hru_actet[ihru]
+
+        # Total soil moisture
+        soil_moist_tot[ihru] = (
+            ssres_stor[ihru]
+            + soil_moist[ihru] * perv_frac
+            + ag_soil_moist[ihru] * agfrac
+        )
+
+        # Recharge
+        recharge[ihru] = soil_to_gw[ihru] + ssr_to_gw[ihru]
+        recharge[ihru] = recharge[ihru] + dprst_seep_hru[ihru]
+
+        # Agricultural soil lower
+        if ag_on_flag:
+            ag_soil_lower[ihru] = ag_soil_moist[ihru] - ag_soil_rechr[ihru]
+
+            # Check for irrigation need
+            if iter_aet_flag and transp_on[ihru]:
+                if unsatisfied_ag_et > soilzone_aet_converge:
+                    ag_soilwater_deficit[ihru] = (
+                        ag_soil_moist_max[ihru] - ag_soil_moist[ihru]
+                    ) / ag_soil_moist_max[ihru]
+
+                    if (
+                        ag_soilwater_deficit[ihru]
+                        > ag_soilwater_deficit_min[ihru]
+                    ):
+                        unsatisfied_max = unsatisfied_ag_et
+                        if unsatisfied_ag_et > ag_soil_moist_max[ihru]:
+                            unsatisfied_max = ag_soil_moist_max[ihru]
+                        else:
+                            # Speed up convergence after 20 iterations
+                            if soil_iter > 20:
+                                unsatisfied_max = (
+                                    unsatisfied_max + unsatisfied_ag_et
+                                )
+                            add_estimated_irrigation = True
+                            num_hrus_ag_iter += 1
+
+                        ag_irrigation_add[ihru] = (
+                            ag_irrigation_add[ihru] + unsatisfied_max
+                        )
+
+                        if unsatisfied_max > unsatisfied_big:
+                            unsatisfied_big = unsatisfied_max
+
+    # End HRU loop
+
+    # Calculate storage changes for mass budget
+    pref_flow_stor_change[:] = pref_flow_stor - pref_flow_stor_prev
+    soil_lower_change[:] = (
+        soil_lower - soil_lower_prev - soil_lower_redistribution
+    )
+    soil_rechr_change[:] = (
+        soil_rechr - soil_rechr_prev - soil_rechr_redistribution
+    )
+    slow_stor_change[:] = slow_stor - slow_stor_prev - slow_stor_redistribution
+
+    # Convert to HRU basis (multiply by area fractions)
+    soil_lower_change_hru[:] = soil_lower_change * hru_frac_perv
+    soil_rechr_change_hru[:] = soil_rechr_change * hru_frac_perv
+
+    # Agricultural soil moisture storage changes
+    ag_soil_moist_change[:] = (
+        ag_soil_moist - ag_soil_moist_prev - ag_soil_moist_redistribution
+    )
+    ag_soil_rechr_change[:] = (
+        ag_soil_rechr - ag_soil_rechr_prev - ag_soil_rechr_redistribution
+    )
+    ag_soil_lower_change[:] = ag_soil_moist_change - ag_soil_rechr_change
+
+    # Convert to HRU basis (multiply by area fractions)
+    ag_soil_moist_change_hru[:] = ag_soil_moist_change * ag_frac
+    ag_soil_rechr_change_hru[:] = ag_soil_rechr_change * ag_frac
+    ag_soil_lower_change_hru[:] = ag_soil_lower_change * ag_frac
+
+    # Return iteration control variables
+    return (add_estimated_irrigation, num_hrus_ag_iter, unsatisfied_big)
