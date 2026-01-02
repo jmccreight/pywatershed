@@ -128,8 +128,8 @@ domain_hru_time_exceptions = {
     },
 }
 
-calc_methods = ("numpy", "numba")[0:1]  # TODO: fix
-params = ("params_sep", "params_one")[1:]  # TODO: fix
+calc_methods = ("numpy", "numba")
+params = ("params_sep", "params_one")
 imbalance_behavior = "error"
 
 

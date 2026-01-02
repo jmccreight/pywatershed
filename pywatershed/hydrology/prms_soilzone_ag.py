@@ -66,6 +66,7 @@ from ..base.control import Control
 from ..constants import (
     HruType,
     nan,
+    numba_num_threads,
     one,
     zero,
 )
@@ -140,7 +141,8 @@ class PRMSSoilzoneAg(ConservativeProcess):
             imbalance_behavior is set to "warn".
         calc_method: one of ["numpy", "numba"]. None defaults to "numpy".
             The "numba" option provides significant performance improvements,
-            especially for the iterative AET matching loop.
+            especially for the iterative AET matching loop. Parallelism is
+            controlled via the NUMBA_NUM_THREADS environment variable.
         adjust_parameters: one of ["warn", "error", "no"]. Default is "warn",
             the code edits the parameters and issues a warning. If "error" is
             selected the the code issues warnings about all edited parameters
@@ -787,23 +789,47 @@ class PRMSSoilzoneAg(ConservativeProcess):
         return
 
     def _init_calc_method(self):
-        """Initialize calculation method.
-
-        Currently only numpy is supported for the agricultural variant.
-        """
+        """Initialize calculation method."""
         if self._calc_method is None:
             self._calc_method = "numpy"
 
-        if self._calc_method.lower() == "numpy":
-            self._calculate_soilzone_ag = self._calculate_numpy
-        elif self._calc_method.lower() == "numba":
-            self._calculate_soilzone_ag = self._calculate_numba
-        else:
+        avail_methods = ["numpy", "numba"]
+
+        if self._calc_method.lower() not in avail_methods:
             msg = (
-                f"calc_method '{self._calc_method}' not supported for "
-                "PRMSSoilzoneAg, using 'numpy'"
+                f"Invalid calc_method={self._calc_method} for {self.name}. "
+                f"Setting calc_method to 'numpy' for {self.name}"
             )
-            warn(msg, UserWarning)
+            warn(msg)
+            self._calc_method = "numpy"
+
+        if self._calc_method.lower() == "numba":
+            import numba as nb
+
+            numba_msg = f"{self.name} jit compiling with numba "
+            nb_parallel = (numba_num_threads is not None) and (
+                numba_num_threads > 1
+            )
+            if nb_parallel:
+                numba_msg += f"and using {numba_num_threads} threads"
+            else:
+                numba_msg += "in sequential mode"
+            print(numba_msg, flush=True)
+
+            # JIT compile the module-level function with appropriate parallel setting
+
+            # Clear any existing compilation
+            if hasattr(_calculate_soilzone_ag_numba, "_cache"):
+                _calculate_soilzone_ag_numba._cache.clear()
+
+            # Compile with the right parallel setting
+            self._calculate_soilzone_ag_numba_compiled = nb.njit(
+                parallel=nb_parallel
+            )(_calculate_soilzone_ag_numba)
+
+            self._calculate_soilzone_ag = self._calculate_numba
+
+        else:
             self._calculate_soilzone_ag = self._calculate_numpy
 
         return
@@ -1891,8 +1917,8 @@ class PRMSSoilzoneAg(ConservativeProcess):
         # Return iteration control variables
         return (add_estimated_irrigation, num_hrus_ag_iter, unsatisfied_big)
 
-    @staticmethod
     def _calculate_numba(
+        self,
         soil_iter,
         iter_aet_flag,
         pref_flow_flag,
@@ -2025,7 +2051,7 @@ class PRMSSoilzoneAg(ConservativeProcess):
 
         This is a wrapper that calls the numba-compiled function.
         """
-        return _calculate_soilzone_ag_numba(
+        return self._calculate_soilzone_ag_numba_compiled(
             soil_iter,
             iter_aet_flag,
             pref_flow_flag,
@@ -2609,7 +2635,6 @@ def _compute_szactet_numba(
     )
 
 
-@nb.jit(nopython=True)
 def _calculate_soilzone_ag_numba(
     soil_iter,
     iter_aet_flag,
@@ -2776,8 +2801,15 @@ def _calculate_soilzone_ag_numba(
     pref_flow_in[:] = 0.0
     pref_flow[:] = 0.0
 
-    # HRU loop
-    for ihru in range(nhru):
+    # Arrays to track which HRUs need irrigation (for post-loop reduction)
+    # Prevents race conditions when multiple threads try to update shared variables
+    hru_needs_irrigation = np.empty(nhru, dtype=np.int32)
+    hru_needs_irrigation[:] = 0
+    hru_unsatisfied_max = np.empty(nhru, dtype=np.float64)
+    hru_unsatisfied_max[:] = 0.0
+
+    # HRU loop - uses prange for parallel execution when numba_num_threads > 1
+    for ihru in nb.prange(nhru):
         # Skip inactive HRUs
         if hru_type[ihru] == 0:  # INACTIVE
             continue
@@ -3152,17 +3184,29 @@ def _calculate_soilzone_ag_numba(
                                 unsatisfied_max = (
                                     unsatisfied_max + unsatisfied_ag_et
                                 )
-                            add_estimated_irrigation = True
-                            num_hrus_ag_iter += 1
+                            # Mark this HRU as needing irrigation (thread-safe)
+                            hru_needs_irrigation[ihru] = 1
 
                         ag_irrigation_add[ihru] = (
                             ag_irrigation_add[ihru] + unsatisfied_max
                         )
 
-                        if unsatisfied_max > unsatisfied_big:
-                            unsatisfied_big = unsatisfied_max
+                        # Store for reduction after loop (thread-safe)
+                        hru_unsatisfied_max[ihru] = unsatisfied_max
 
     # End HRU loop
+
+    # Compute iteration control variables after parallel loop (avoid race conditions)
+    add_estimated_irrigation = False
+    num_hrus_ag_iter = 0
+    unsatisfied_big = 0.0
+
+    for ihru in range(nhru):
+        if hru_needs_irrigation[ihru] > 0:
+            add_estimated_irrigation = True
+            num_hrus_ag_iter += 1
+        if hru_unsatisfied_max[ihru] > unsatisfied_big:
+            unsatisfied_big = hru_unsatisfied_max[ihru]
 
     # Calculate storage changes for mass budget
     pref_flow_stor_change[:] = pref_flow_stor - pref_flow_stor_prev
