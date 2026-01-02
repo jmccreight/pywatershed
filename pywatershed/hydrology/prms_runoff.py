@@ -1351,3 +1351,410 @@ class PRMSRunoff(ConservativeProcess):
                 imperv_evap = avail_et / imperv_frac
             imperv_stor = imperv_stor - imperv_evap
         return imperv_stor, imperv_evap
+
+
+class PRMSRunoffAg(PRMSRunoff):
+    """PRMS surface runoff with agricultural infiltration.
+
+    Extension of PRMSRunoff that calculates infiltration for both pervious
+    and agricultural areas separately. This is required for agricultural
+    soilzone simulations (PRMSSoilzoneAg).
+
+    Implementation based on GSFLOW with agricultural extensions, following
+    the same logic as PRMSRunoff but adding parallel calculations for
+    agricultural areas.
+
+    Args:
+        Same as PRMSRunoff, but ag_soil_moist_prev and ag_soil_rechr_prev
+        are required (not optional).
+    """
+
+    def __init__(
+        self,
+        control: Control,
+        discretization: Parameters,
+        parameters: Parameters,
+        soil_lower_prev: adaptable,
+        soil_rechr_prev: adaptable,
+        net_ppt: adaptable,
+        net_rain: adaptable,
+        net_snow: adaptable,
+        potet: adaptable,
+        snowmelt: adaptable,
+        snow_evap: adaptable,
+        pkwater_equiv: adaptable,
+        pptmix_nopack: adaptable,
+        snowcov_area: adaptable,
+        through_rain: adaptable,
+        hru_intcpevap: adaptable,
+        intcp_changeover: adaptable,
+        ag_soil_moist_prev: adaptable,
+        ag_soil_rechr_prev: adaptable,
+        dprst_flag: Union[bool, None] = None,
+        imbalance_behavior: Literal["defer", None, "warn", "error"] = "defer",
+        calc_method: Literal["numba", "numpy", None] = None,
+        verbose: Union[bool, None] = None,
+        restart_read: Union[pl.Path, bool] = False,
+        restart_write: Union[pl.Path, bool] = False,
+        restart_write_freq: Literal["y", "m", "d", "f", False] = False,
+    ) -> None:
+        super().__init__(
+            control=control,
+            discretization=discretization,
+            parameters=parameters,
+            soil_lower_prev=soil_lower_prev,
+            soil_rechr_prev=soil_rechr_prev,
+            net_ppt=net_ppt,
+            net_rain=net_rain,
+            net_snow=net_snow,
+            potet=potet,
+            snowmelt=snowmelt,
+            snow_evap=snow_evap,
+            pkwater_equiv=pkwater_equiv,
+            pptmix_nopack=pptmix_nopack,
+            snowcov_area=snowcov_area,
+            through_rain=through_rain,
+            hru_intcpevap=hru_intcpevap,
+            intcp_changeover=intcp_changeover,
+            ag_soil_moist_prev=ag_soil_moist_prev,
+            ag_soil_rechr_prev=ag_soil_rechr_prev,
+            dprst_flag=dprst_flag,
+            imbalance_behavior=imbalance_behavior,
+            calc_method=calc_method,
+            verbose=verbose,
+            restart_read=restart_read,
+            restart_write=restart_write,
+            restart_write_freq=restart_write_freq,
+        )
+
+        self.name = "PRMSRunoffAg"
+
+        # Adjust pervious area to exclude agricultural area
+        # Following GSFLOW basin.f90 line 457-461:
+        #   perv_area = perv_area - Ag_area(i)
+        #   Hru_perv(i) = perv_area
+        # This is critical: in GSFLOW, Hru_perv does NOT include Ag_area
+        # This must be done after basin_init() which is called in parent __init__
+        self.hru_perv = self.hru_perv - self.ag_area
+        self.hru_frac_perv = self.hru_perv / self.hru_area
+
+        return
+
+    @staticmethod
+    def get_inputs() -> tuple:
+        return (
+            "soil_lower_prev",
+            "soil_rechr_prev",
+            "ag_soil_moist_prev",
+            "ag_soil_rechr_prev",
+            "net_rain",
+            "net_ppt",
+            "net_snow",
+            "potet",
+            "snowmelt",
+            "snow_evap",
+            "pkwater_equiv",
+            "pptmix_nopack",
+            "snowcov_area",
+            "through_rain",
+            "hru_intcpevap",
+            "intcp_changeover",
+        )
+
+    @staticmethod
+    def get_parameters() -> tuple:
+        return (
+            "hru_type",
+            "hru_area",
+            "hru_in_to_cf",
+            "hru_percent_imperv",
+            "imperv_stor_max",
+            "carea_max",
+            "smidx_coef",
+            "smidx_exp",
+            "soil_moist_max",
+            "snowinfil_max",
+            "ag_soil_moist_max",
+            "ag_soil_rechr_max_frac",
+            "ag_frac",
+            "dprst_depth_avg",
+            "dprst_et_coef",
+            "dprst_flow_coef",
+            "dprst_frac",
+            "dprst_frac_init",
+            "dprst_frac_open",
+            "dprst_seep_rate_clos",
+            "dprst_seep_rate_open",
+            "sro_to_dprst_imperv",
+            "sro_to_dprst_perv",
+            "va_open_exp",
+            "va_clos_exp",
+            "op_flow_thres",
+        )
+
+    @staticmethod
+    def get_init_values() -> dict:
+        init_values = PRMSRunoff.get_init_values()
+        # Add agricultural infiltration and runoff outputs
+        init_values["infil_ag"] = zero
+        init_values["infil_ag_hru"] = zero  # For mass balance
+        init_values["hru_sroff_ag"] = zero  # Agricultural surface runoff
+        return init_values
+
+    @staticmethod
+    def get_mass_budget_terms():
+        """Get mass budget terms for agricultural runoff.
+
+        In GSFLOW with agriculture, the pervious area (hru_perv) is reduced
+        by ag_area. We calculate infil_hru to include BOTH pervious and
+        agricultural infiltration:
+        - Parent calculates: infil_hru = infil * hru_frac_perv (adjusted)
+        - We add: infil_ag_hru = infil_ag * ag_frac
+        - Final infil_hru = pervious_infil + ag_infil (total infiltration)
+
+        Surface runoff is split into three components:
+        - hru_sroffi: impervious runoff
+        - hru_sroffp: pervious runoff
+        - hru_sroff_ag: agricultural runoff (new)
+        """
+        return {
+            "inputs": [
+                "through_rain",
+                "snowmelt",
+                "intcp_changeover",
+            ],
+            "outputs": [
+                # sroff = hru_sroffi + hru_sroffp + hru_sroff_ag + dprst_sroff_hru
+                "hru_sroffi",
+                "hru_sroffp",
+                "hru_sroff_ag",  # Agricultural surface runoff
+                "dprst_sroff_hru",
+                "infil_hru",  # Includes both pervious and agricultural infiltration
+                "hru_impervevap",
+                "dprst_seep_hru",
+                "dprst_evap_hru",
+            ],
+            "storage_changes": [
+                "hru_impervstor_change",
+                "dprst_stor_hru_change",
+            ],
+        }
+
+    def _set_initial_conditions(self):
+        """Set initial conditions for variables not in get_init_values"""
+        super()._set_initial_conditions()
+        self.infil_ag = self["infil_ag"]
+        self.infil_ag_hru = self["infil_ag_hru"]
+        self.hru_sroff_ag = self["hru_sroff_ag"]
+
+        # Calculate ag_soil_rechr_max from ag_soil_moist_max and fraction
+        self.ag_soil_rechr_max = (
+            self.ag_soil_moist_max * self.ag_soil_rechr_max_frac
+        )
+
+        # Calculate ag_area from ag_frac
+        # Following PRMSSoilzoneAg line 447-451
+        self.ag_area = self.ag_frac * self.hru_area
+
+        return
+
+    def _calculate(self, time_length, vectorized=False):
+        """Calculate runoff with agricultural infiltration."""
+        # Call parent to get all normal calculations
+        super()._calculate(time_length, vectorized)
+
+        # Now calculate infil_ag in parallel
+        self._calculate_infil_ag()
+
+        # Calculate infil_ag_hru for mass balance
+        # Similar to infil_hru = infil * hru_frac_perv
+        # infil_ag_hru = infil_ag * ag_frac
+        self.infil_ag_hru[:] = self.infil_ag * self.ag_frac
+
+        # Update infil_hru to include both pervious and agricultural infiltration
+        # Parent calculated: infil_hru = infil * hru_frac_perv (adjusted for ag area)
+        # Total infiltration to HRU = pervious infil + ag infil
+        self.infil_hru[:] = self.infil_hru + self.infil_ag_hru
+
+        return
+
+    def _calculate_infil_ag(self):
+        """Calculate agricultural infiltration and runoff."""
+        # ag_soil_moist_prev is already the TOTAL ag soil moisture
+        # (equivalent to ag_soil_lower + ag_soil_rechr in Fortran)
+        # Do NOT add ag_soil_rechr_prev to it!
+
+        self.infil_ag[:] = 0.0
+        # Array to accumulate agricultural runoff
+        sroff_ag_array = np.zeros(self.nhru, dtype=np.float64)
+
+        for i in range(self.nhru):
+            # Skip HRUs with no agricultural area
+            # Following Fortran: IF ( Ag_area(i)>0.0 ) ag_on = ACTIVE
+            if self.ag_area[i] <= 0.0:
+                continue
+
+            infil_ag = 0.0
+            sroff_ag = 0.0
+
+            # Process intcp_changeover
+            if self.intcp_changeover[i] > 0.0:
+                infil_ag = infil_ag + self.intcp_changeover[i]
+                if self.hru_type[i] == LAND:
+                    infil_ag, sroff_ag = self.ag_comp(
+                        self.ag_soil_moist_prev[i],
+                        self.ag_soil_rechr_prev[i],
+                        self.carea_max[i],
+                        self.smidx_coef[i],
+                        self.smidx_exp[i],
+                        self.intcp_changeover[i],
+                        self.intcp_changeover[i],
+                        infil_ag,
+                        sroff_ag,
+                    )
+
+            # Process pptmix_nopack
+            if self.pptmix_nopack[i] != 0:
+                infil_ag = infil_ag + self.through_rain[i]
+                if self.hru_type[i] == LAND:
+                    infil_ag, sroff_ag = self.ag_comp(
+                        self.ag_soil_moist_prev[i],
+                        self.ag_soil_rechr_prev[i],
+                        self.carea_max[i],
+                        self.smidx_coef[i],
+                        self.smidx_exp[i],
+                        self.through_rain[i],
+                        self.through_rain[i],
+                        infil_ag,
+                        sroff_ag,
+                    )
+
+            # Process snowmelt
+            if self.snowmelt[i] > 0.0:
+                infil_ag = infil_ag + self.snowmelt[i]
+                if self.hru_type[i] == LAND:
+                    if (self.pkwater_equiv[i] > 0.0) or (
+                        self.net_rain[i] < nearzero
+                    ):
+                        # Check capacity
+                        infil_ag, sroff_ag = self.check_capacity_ag(
+                            self.ag_soil_moist_prev[i],
+                            self.ag_soil_moist_max[i],
+                            self.snowinfil_max[i],
+                            infil_ag,
+                            sroff_ag,
+                        )
+                    else:
+                        # Snowmelt occurred and depleted the snowpack
+                        infil_ag, sroff_ag = self.ag_comp(
+                            self.ag_soil_moist_prev[i],
+                            self.ag_soil_rechr_prev[i],
+                            self.carea_max[i],
+                            self.smidx_coef[i],
+                            self.smidx_exp[i],
+                            self.snowmelt[i],
+                            self.net_ppt[i],
+                            infil_ag,
+                            sroff_ag,
+                        )
+
+            elif self.pkwater_equiv[i] < dnearzero:
+                # No snowpack
+                if self.net_snow[i] < nearzero and self.through_rain[i] > 0.0:
+                    infil_ag = infil_ag + self.through_rain[i]
+                    if self.hru_type[i] == LAND:
+                        infil_ag, sroff_ag = self.ag_comp(
+                            self.ag_soil_moist_prev[i],
+                            self.ag_soil_rechr_prev[i],
+                            self.carea_max[i],
+                            self.smidx_coef[i],
+                            self.smidx_exp[i],
+                            self.through_rain[i],
+                            self.through_rain[i],
+                            infil_ag,
+                            sroff_ag,
+                        )
+
+            elif infil_ag > 0.0:
+                # Snowpack exists, check capacity
+                if self.hru_type[i] == LAND:
+                    infil_ag, sroff_ag = self.check_capacity_ag(
+                        self.ag_soil_moist_prev[i],
+                        self.ag_soil_moist_max[i],
+                        self.snowinfil_max[i],
+                        infil_ag,
+                        sroff_ag,
+                    )
+
+            self.infil_ag[i] = infil_ag
+            sroff_ag_array[i] = sroff_ag
+
+        # Store agricultural runoff as a separate output variable
+        # Following Fortran line 804: runoff = runoff + DBLE( Sroff_ag*Ag_area(i) )
+        # sroff_ag is depth on ag area, so multiply by ag_frac to get depth on HRU area
+        # In Fortran, hru_sroffp is pervious-only, agricultural runoff is added separately to total
+        self.hru_sroff_ag[:] = sroff_ag_array * self.ag_frac
+
+        # Add agricultural runoff to total sroff
+        self.sroff[:] = self.sroff + self.hru_sroff_ag
+
+        # Recalculate sroff_vol since we changed sroff
+        self.sroff_vol[:] = self.sroff * self.hru_in_to_cf
+
+        return
+
+    @staticmethod
+    def ag_comp(
+        ag_soil_moist_prev,
+        ag_soil_rechr_prev,
+        carea_max,
+        smidx_coef,
+        smidx_exp,
+        pptp,
+        ptc,
+        infil_ag,
+        sroff_ag,
+    ):
+        """Agricultural area runoff computations.
+
+        Similar to perv_comp but uses agricultural soil moisture.
+        """
+        smidx_module = True
+        if smidx_module:
+            # Use total ag soil moisture
+            smidx = ag_soil_moist_prev + 0.5 * ptc
+            if smidx > 25.0:
+                ca_fraction = carea_max
+            else:
+                ca_fraction = smidx_coef * 10.0 ** (smidx_exp * smidx)
+        else:
+            raise Exception("carea method not implemented for ag_comp")
+
+        if ca_fraction > carea_max:
+            ca_fraction = carea_max
+
+        srpp = ca_fraction * pptp
+        infil_ag = infil_ag - srpp
+        sroff_ag = sroff_ag + srpp
+
+        return infil_ag, sroff_ag
+
+    @staticmethod
+    def check_capacity_ag(
+        ag_soil_moist_prev,
+        ag_soil_moist_max,
+        snowinfil_max,
+        infil_ag,
+        sroff_ag,
+    ):
+        """
+        Fill agricultural soil to ag_soil_moist_max, if more than capacity
+        restrict infiltration by snowinfil_max, with excess added to runoff.
+        """
+        capacity = ag_soil_moist_max - ag_soil_moist_prev
+        excess = infil_ag - capacity
+        if excess > snowinfil_max:
+            sroff_ag = sroff_ag + excess - snowinfil_max
+            infil_ag = snowinfil_max + capacity
+
+        return infil_ag, sroff_ag

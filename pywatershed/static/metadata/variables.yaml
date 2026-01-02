@@ -1905,6 +1905,12 @@ hru_sroffp:
     0: nhru
   type: float64
   units: inches
+hru_sroff_ag:
+  desc: HRU area-weighted average surface runoff from agricultural areas for each HRU
+  dims:
+    0: nhru
+  type: float64
+  units: inches
 hru_storage:
   desc: Storage for each HRU
   dims:
@@ -1964,6 +1970,13 @@ infil:
   var_category: mass flux
 infil_ag:
   desc: Infiltration to the irrigated area fraction of each HRU
+  dims:
+    0: nhru
+  type: float64
+  units: inches
+  var_category: mass flux
+infil_ag_hru:
+  desc: Infiltration to the irrigated area fraction of each HRU, depth on HRU area
   dims:
     0: nhru
   type: float64
