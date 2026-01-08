@@ -1440,6 +1440,44 @@ class PRMSRunoffAg(PRMSRunoff):
 
         return
 
+    def _init_calc_method(self):
+        if self._calc_method is None:
+            self._calc_method = "numba"
+
+        if self._calc_method.lower() not in ["numpy", "numba"]:
+            msg = (
+                f"Invalid calc_method={self._calc_method} for {self.name}. "
+                f"Setting calc_method to 'numba' for {self.name}"
+            )
+            warn(msg, UserWarning)
+            self._calc_method = "numba"
+
+        if self._calc_method.lower() == "numba":
+            import numba as nb
+
+            numba_msg = f"{self.name} jit compiling with numba "
+            nb_parallel = (numba_num_threads is not None) and (
+                numba_num_threads > 1
+            )
+            if nb_parallel:
+                numba_msg += f"and using {numba_num_threads} threads"
+            print(numba_msg, flush=True)
+
+            self._calculate_runoff = nb.njit(
+                self._calculate_numpy_ag, parallel=nb_parallel
+            )
+            self.check_capacity = nb.njit(self.check_capacity)
+            self.perv_comp = nb.njit(self.perv_comp)
+            self.compute_infil = nb.njit(self.compute_infil)
+            self.compute_infil_ag = nb.njit(self.compute_infil_ag)
+            self.dprst_comp_ag = nb.njit(self.dprst_comp_ag)
+            self.imperv_et = nb.njit(self.imperv_et)
+
+        else:
+            self._calculate_runoff = self._calculate_numpy_ag
+
+        return
+
     @staticmethod
     def get_inputs() -> tuple:
         return (
@@ -1560,21 +1598,125 @@ class PRMSRunoffAg(PRMSRunoff):
 
     def _calculate(self, time_length, vectorized=False):
         """Calculate runoff with agricultural infiltration."""
-        # Call parent to get all normal calculations
-        super()._calculate(time_length, vectorized)
+        (
+            self.infil[:],
+            self.infil_ag[:],
+            self.contrib_fraction[:],
+            self.hru_sroffp[:],
+            self.hru_sroff_ag[:],
+            self.hru_sroffi[:],
+            self.imperv_evap[:],
+            self.hru_impervevap[:],
+            self.imperv_stor[:],
+            self.dprst_in[:],
+            self.dprst_vol_open[:],
+            self.dprst_vol_clos[:],
+            self.dprst_sroff_hru[:],
+            self.dprst_evap_hru[:],
+            self.dprst_seep_hru[:],
+            self.dprst_insroff_hru[:],
+            self.dprst_vol_open_frac[:],
+            self.dprst_vol_clos_frac[:],
+            self.dprst_vol_frac[:],
+            self.dprst_stor_hru[:],
+            self.sroff[:],
+        ) = self._calculate_runoff(
+            infil=self.infil,
+            infil_ag=self.infil_ag,
+            nhru=self.nhru,
+            hru_area=self.hru_area,
+            hru_perv=self.hru_perv,
+            hru_frac_perv=self.hru_frac_perv,
+            hru_sroffp=self.hru_sroffp,
+            hru_sroff_ag=self.hru_sroff_ag,
+            contrib_fraction=self.contrib_fraction,
+            hru_percent_imperv=self.hru_percent_imperv,
+            hru_sroffi=self.hru_sroffi,
+            imperv_evap=self.imperv_evap,
+            hru_imperv=self.hru_imperv,
+            hru_impervevap=self.hru_impervevap,
+            potet=self.potet,
+            snow_evap=self.snow_evap,
+            hru_intcpevap=self.hru_intcpevap,
+            soil_lower_prev=self.soil_lower_prev,
+            soil_rechr_prev=self.soil_rechr_prev,
+            ag_soil_moist_prev=self.ag_soil_moist_prev,
+            ag_soil_rechr_prev=self.ag_soil_rechr_prev,
+            soil_moist_max=self.soil_moist_max,
+            ag_soil_moist_max=self.ag_soil_moist_max,
+            ag_soil_rechr_max=self.ag_soil_rechr_max,
+            ag_area=self.ag_area,
+            ag_frac=self.ag_frac,
+            carea_max=self.carea_max,
+            smidx_coef=self.smidx_coef,
+            smidx_exp=self.smidx_exp,
+            pptmix_nopack=self.pptmix_nopack,
+            net_rain=self.net_rain,
+            net_ppt=self.net_ppt,
+            imperv_stor=self.imperv_stor,
+            imperv_stor_max=self.imperv_stor_max,
+            snowmelt=self.snowmelt,
+            snowinfil_max=self.snowinfil_max,
+            net_snow=self.net_snow,
+            pkwater_equiv=self.pkwater_equiv,
+            hru_type=self.hru_type,
+            intcp_changeover=self.intcp_changeover,
+            dprst_in=self.dprst_in,
+            dprst_seep_hru=self.dprst_seep_hru,
+            dprst_area_max=self.dprst_area_max,
+            dprst_vol_open=self.dprst_vol_open,
+            dprst_vol_clos=self.dprst_vol_clos,
+            dprst_sroff_hru=self.dprst_sroff_hru,
+            dprst_evap_hru=self.dprst_evap_hru,
+            dprst_insroff_hru=self.dprst_insroff_hru,
+            dprst_vol_open_frac=self.dprst_vol_open_frac,
+            dprst_vol_clos_frac=self.dprst_vol_clos_frac,
+            dprst_vol_frac=self.dprst_vol_frac,
+            dprst_stor_hru=self.dprst_stor_hru,
+            dprst_area_clos_max=self.dprst_area_clos_max,
+            dprst_area_clos=self.dprst_area_clos,
+            dprst_vol_open_max=self.dprst_vol_open_max,
+            dprst_area_open_max=self.dprst_area_open_max,
+            dprst_area_open=self.dprst_area_open,
+            sro_to_dprst_perv=self.sro_to_dprst_perv,
+            sro_to_dprst_imperv=self.sro_to_dprst_imperv,
+            dprst_frac_open=self.dprst_frac_open,
+            dprst_frac_clos=self.dprst_frac_clos,
+            va_open_exp=self.va_open_exp,
+            dprst_vol_clos_max=self.dprst_vol_clos_max,
+            va_clos_exp=self.va_clos_exp,
+            snowcov_area=self.snowcov_area,
+            dprst_et_coef=self.dprst_et_coef,
+            dprst_seep_rate_open=self.dprst_seep_rate_open,
+            dprst_vol_thres_open=self.dprst_vol_thres_open,
+            dprst_flow_coef=self.dprst_flow_coef,
+            dprst_seep_rate_clos=self.dprst_seep_rate_clos,
+            sroff=self.sroff,
+            hru_impervstor=self.hru_impervstor,
+            check_capacity=self.check_capacity,
+            perv_comp=self.perv_comp,
+            compute_infil=self.compute_infil,
+            dprst_comp_ag=self.dprst_comp_ag,
+            imperv_et=self.imperv_et,
+            ag_comp=self.ag_comp,
+            check_capacity_ag=self.check_capacity_ag,
+            through_rain=self.through_rain,
+            dprst_flag=self._dprst_flag,
+        )
 
-        # Now calculate infil_ag in parallel
-        self._calculate_infil_ag()
-
-        # Calculate infil_ag_hru for mass balance
-        # Similar to infil_hru = infil * hru_frac_perv
-        # infil_ag_hru = infil_ag * ag_frac
+        self.infil_hru[:] = (
+            self.infil * self.hru_frac_perv + self.infil_ag * self.ag_frac
+        )
         self.infil_ag_hru[:] = self.infil_ag * self.ag_frac
 
-        # Update infil_hru to include both pervious and agricultural infiltration
-        # Parent calculated: infil_hru = infil * hru_frac_perv (adjusted for ag area)
-        # Total infiltration to HRU = pervious infil + ag infil
-        self.infil_hru[:] = self.infil_hru + self.infil_ag_hru
+        self.hru_impervstor_change[:] = (
+            self.hru_impervstor - self.hru_impervstor_old
+        )
+        self.dprst_stor_hru_change[:] = (
+            self.dprst_stor_hru - self.dprst_stor_hru_old
+        )
+
+        self.sroff_vol[:] = self.sroff * self.hru_in_to_cf
 
         return
 
@@ -1702,6 +1844,688 @@ class PRMSRunoffAg(PRMSRunoff):
         self.sroff_vol[:] = self.sroff * self.hru_in_to_cf
 
         return
+
+    @staticmethod
+    def _calculate_numpy_ag(
+        infil,
+        infil_ag,
+        nhru,
+        hru_area,
+        hru_perv,
+        hru_frac_perv,
+        hru_sroffp,
+        hru_sroff_ag,
+        contrib_fraction,
+        hru_percent_imperv,
+        hru_sroffi,
+        imperv_evap,
+        hru_imperv,
+        hru_impervevap,
+        potet,
+        snow_evap,
+        hru_intcpevap,
+        soil_lower_prev,
+        soil_rechr_prev,
+        ag_soil_moist_prev,
+        ag_soil_rechr_prev,
+        soil_moist_max,
+        ag_soil_moist_max,
+        ag_soil_rechr_max,
+        ag_area,
+        ag_frac,
+        carea_max,
+        smidx_coef,
+        smidx_exp,
+        pptmix_nopack,
+        net_rain,
+        net_ppt,
+        imperv_stor,
+        imperv_stor_max,
+        snowmelt,
+        snowinfil_max,
+        net_snow,
+        pkwater_equiv,
+        hru_type,
+        intcp_changeover,
+        dprst_in,
+        dprst_seep_hru,
+        dprst_area_max,
+        dprst_vol_open,
+        dprst_vol_clos,
+        dprst_sroff_hru,
+        dprst_evap_hru,
+        dprst_insroff_hru,
+        dprst_vol_open_frac,
+        dprst_vol_clos_frac,
+        dprst_vol_frac,
+        dprst_stor_hru,
+        dprst_area_clos_max,
+        dprst_area_clos,
+        dprst_vol_open_max,
+        dprst_area_open_max,
+        dprst_area_open,
+        sro_to_dprst_perv,
+        sro_to_dprst_imperv,
+        dprst_frac_open,
+        dprst_frac_clos,
+        va_open_exp,
+        dprst_vol_clos_max,
+        va_clos_exp,
+        snowcov_area,
+        dprst_et_coef,
+        dprst_seep_rate_open,
+        dprst_vol_thres_open,
+        dprst_flow_coef,
+        dprst_seep_rate_clos,
+        sroff,
+        hru_impervstor,
+        check_capacity,
+        perv_comp,
+        compute_infil,
+        dprst_comp_ag,
+        imperv_et,
+        ag_comp,
+        check_capacity_ag,
+        through_rain,
+        dprst_flag,
+    ):
+        """Modified calculation that includes agricultural runoff in depression
+        storage routing.
+        """
+
+        dprst_chk = 0
+        infil[:] = 0.0
+        infil_ag[:] = 0.0
+
+        soil_moist_prev = soil_lower_prev + soil_rechr_prev
+
+        for i in range(nhru):
+            runoff = zero
+            hruarea = hru_area[i]
+            perv_area = hru_perv[i]
+            perv_frac = hru_frac_perv[i]
+            srp = zero
+            sri = zero
+            sroff_ag = zero
+            hru_sroffp[i] = zero
+            hru_sroff_ag[i] = zero
+            contrib_fraction[i] = zero
+            hruarea_imperv = hru_imperv[i]
+            imperv_frac = zero
+            if hruarea_imperv > zero:
+                imperv_frac = hru_percent_imperv[i]
+                hru_sroffi[i] = zero
+                imperv_evap[i] = zero
+                hru_impervevap[i] = zero
+
+            avail_et = potet[i] - snow_evap[i] - hru_intcpevap[i]
+            availh2o = intcp_changeover[i] + net_rain[i]
+
+            # Calculate pervious infiltration
+            (
+                sri,
+                srp,
+                imperv_stor[i],
+                infil[i],
+                contrib_fraction[i],
+            ) = compute_infil(
+                contrib_fraction=contrib_fraction[i],
+                soil_moist_prev=soil_moist_prev[i],
+                soil_moist_max=soil_moist_max[i],
+                carea_max=carea_max[i],
+                smidx_coef=smidx_coef[i],
+                smidx_exp=smidx_exp[i],
+                pptmix_nopack=pptmix_nopack[i],
+                net_rain=net_rain[i],
+                net_ppt=net_ppt[i],
+                imperv_stor=imperv_stor[i],
+                imperv_stor_max=imperv_stor_max[i],
+                snowmelt=snowmelt[i],
+                snowinfil_max=snowinfil_max[i],
+                net_snow=net_snow[i],
+                pkwater_equiv=pkwater_equiv[i],
+                infil=infil[i],
+                hru_type=hru_type[i],
+                intcp_changeover=intcp_changeover[i],
+                hruarea_imperv=hruarea_imperv,
+                sri=sri,
+                srp=srp,
+                check_capacity=check_capacity,
+                perv_comp=perv_comp,
+                through_rain=through_rain[i],
+            )
+
+            # Calculate agricultural infiltration (if ag area exists)
+            if ag_area[i] > 0.0:
+                infil_ag[i], sroff_ag = PRMSRunoffAg._compute_infil_ag(
+                    ag_soil_moist_prev=ag_soil_moist_prev[i],
+                    ag_soil_rechr_prev=ag_soil_rechr_prev[i],
+                    ag_soil_moist_max=ag_soil_moist_max[i],
+                    ag_soil_rechr_max=ag_soil_rechr_max[i],
+                    carea_max=carea_max[i],
+                    smidx_coef=smidx_coef[i],
+                    smidx_exp=smidx_exp[i],
+                    snowinfil_max=snowinfil_max[i],
+                    pptmix_nopack=pptmix_nopack[i],
+                    net_rain=net_rain[i],
+                    net_ppt=net_ppt[i],
+                    snowmelt=snowmelt[i],
+                    net_snow=net_snow[i],
+                    pkwater_equiv=pkwater_equiv[i],
+                    hru_type=hru_type[i],
+                    intcp_changeover=intcp_changeover[i],
+                    through_rain=through_rain[i],
+                    ag_comp=ag_comp,
+                    check_capacity_ag=check_capacity_ag,
+                )
+
+            frzen = OFF
+
+            # Route through depression storage including agricultural runoff
+            if dprst_flag == ACTIVE:
+                dprst_in[i] = 0.0
+                dprst_chk = OFF
+                if dprst_area_max[i] > 0.0:
+                    dprst_chk = ACTIVE
+                    if frzen == OFF:
+                        (
+                            dprst_in[i],
+                            dprst_vol_open[i],
+                            dprst_area_open[i],
+                            avail_et,
+                            dprst_vol_clos[i],
+                            dprst_sroff_hru[i],
+                            srp,
+                            sri,
+                            sroff_ag,
+                            dprst_evap_hru[i],
+                            dprst_seep_hru[i],
+                            dprst_insroff_hru[i],
+                            dprst_vol_open_frac[i],
+                            dprst_vol_clos_frac[i],
+                            dprst_vol_frac[i],
+                            dprst_stor_hru[i],
+                        ) = dprst_comp_ag(
+                            dprst_vol_clos=dprst_vol_clos[i],
+                            dprst_area_clos_max=dprst_area_clos_max[i],
+                            dprst_area_clos=dprst_area_clos[i],
+                            dprst_vol_open_max=dprst_vol_open_max[i],
+                            dprst_vol_open=dprst_vol_open[i],
+                            dprst_area_open_max=dprst_area_open_max[i],
+                            dprst_sroff_hru=dprst_sroff_hru[i],
+                            sro_to_dprst_perv=sro_to_dprst_perv[i],
+                            sro_to_dprst_imperv=sro_to_dprst_imperv[i],
+                            dprst_evap_hru=dprst_evap_hru[i],
+                            pptmix_nopack=pptmix_nopack[i],
+                            snowmelt=snowmelt[i],
+                            pkwater_equiv=pkwater_equiv[i],
+                            net_snow=net_snow[i],
+                            hru_area=hru_area[i],
+                            dprst_insroff_hru=dprst_insroff_hru[i],
+                            dprst_frac_open=dprst_frac_open[i],
+                            dprst_frac_clos=dprst_frac_clos[i],
+                            va_open_exp=va_open_exp[i],
+                            dprst_vol_clos_max=dprst_vol_clos_max[i],
+                            dprst_vol_clos_frac=dprst_vol_clos_frac[i],
+                            va_clos_exp=va_clos_exp[i],
+                            potet=potet[i],
+                            snowcov_area=snowcov_area[i],
+                            dprst_et_coef=dprst_et_coef[i],
+                            dprst_seep_rate_open=dprst_seep_rate_open[i],
+                            dprst_vol_thres_open=dprst_vol_thres_open[i],
+                            dprst_flow_coef=dprst_flow_coef[i],
+                            dprst_seep_rate_clos=dprst_seep_rate_clos[i],
+                            avail_et=avail_et,
+                            net_rain=availh2o,
+                            dprst_in=dprst_in[i],
+                            srp=srp,
+                            sri=sri,
+                            sroff_ag=sroff_ag,
+                            imperv_frac=imperv_frac,
+                            perv_frac=perv_frac,
+                            ag_frac=ag_frac[i],
+                        )
+                        runoff = runoff + dprst_sroff_hru[i] * hruarea
+
+            # Compute runoff for pervious, impervious, and agricultural areas
+            srunoff = zero
+            if hru_type[i] == LAND:
+                runoff = runoff + srp * perv_area + sri * hruarea_imperv
+                if ag_area[i] > 0.0:
+                    runoff = runoff + sroff_ag * ag_area[i]
+                srunoff = runoff / hruarea
+                hru_sroffp[i] = srp * perv_frac
+                hru_sroff_ag[i] = sroff_ag * ag_frac[i]
+
+            # Compute evaporation from impervious area
+            if hruarea_imperv > 0.0:
+                if imperv_stor[i] > 0.0:
+                    imperv_stor[i], imperv_evap[i] = imperv_et(
+                        imperv_stor[i],
+                        potet[i],
+                        imperv_evap[i],
+                        snowcov_area[i],
+                        avail_et,
+                        imperv_frac,
+                    )
+                    hru_impervevap[i] = imperv_evap[i] * imperv_frac
+                    avail_et = avail_et - hru_impervevap[i]
+                    if avail_et < 0.0:
+                        hru_impervevap[i] = hru_impervevap[i] + avail_et
+                        if hru_impervevap[i] < 0.0:
+                            hru_impervevap[i] = 0.0
+                        imperv_evap[i] = imperv_evap[i] / imperv_frac
+                        imperv_stor[i] = (
+                            imperv_stor[i] - avail_et / imperv_frac
+                        )
+                        avail_et = 0.0
+
+                    hru_impervstor[i] = imperv_stor[i] * imperv_frac
+
+                hru_sroffi[i] = sri * imperv_frac
+
+            if dprst_chk == ACTIVE:
+                dprst_stor_hru[i] = (
+                    dprst_vol_open[i] + dprst_vol_clos[i]
+                ) / hruarea
+
+            sroff[i] = srunoff
+
+        return (
+            infil,
+            infil_ag,
+            contrib_fraction,
+            hru_sroffp,
+            hru_sroffi,
+            hru_sroff_ag,
+            imperv_evap,
+            hru_impervevap,
+            imperv_stor,
+            dprst_in,
+            dprst_vol_open,
+            dprst_vol_clos,
+            dprst_sroff_hru,
+            dprst_evap_hru,
+            dprst_seep_hru,
+            dprst_insroff_hru,
+            dprst_vol_open_frac,
+            dprst_vol_clos_frac,
+            dprst_vol_frac,
+            dprst_stor_hru,
+            sroff,
+        )
+
+    @staticmethod
+    def _compute_infil_ag(
+        ag_soil_moist_prev,
+        ag_soil_rechr_prev,
+        ag_soil_moist_max,
+        ag_soil_rechr_max,
+        carea_max,
+        smidx_coef,
+        smidx_exp,
+        snowinfil_max,
+        pptmix_nopack,
+        net_rain,
+        net_ppt,
+        snowmelt,
+        net_snow,
+        pkwater_equiv,
+        hru_type,
+        intcp_changeover,
+        through_rain,
+        ag_comp,
+        check_capacity_ag,
+    ):
+        """Calculate agricultural infiltration and runoff for a single HRU."""
+        infil_ag = 0.0
+        sroff_ag = 0.0
+
+        # Process intcp_changeover
+        if intcp_changeover > 0.0:
+            infil_ag = infil_ag + intcp_changeover
+            if hru_type == LAND:
+                infil_ag, sroff_ag = ag_comp(
+                    ag_soil_moist_prev,
+                    ag_soil_rechr_prev,
+                    carea_max,
+                    smidx_coef,
+                    smidx_exp,
+                    intcp_changeover,
+                    intcp_changeover,
+                    infil_ag,
+                    sroff_ag,
+                )
+
+        # Process pptmix_nopack
+        if pptmix_nopack != 0:
+            infil_ag = infil_ag + through_rain
+            if hru_type == LAND:
+                infil_ag, sroff_ag = ag_comp(
+                    ag_soil_moist_prev,
+                    ag_soil_rechr_prev,
+                    carea_max,
+                    smidx_coef,
+                    smidx_exp,
+                    through_rain,
+                    through_rain,
+                    infil_ag,
+                    sroff_ag,
+                )
+
+        # Process snowmelt
+        if snowmelt > 0.0:
+            infil_ag = infil_ag + snowmelt
+            if hru_type == LAND:
+                if (pkwater_equiv > 0.0) or (net_rain < nearzero):
+                    # Check capacity
+                    infil_ag, sroff_ag = check_capacity_ag(
+                        ag_soil_moist_prev,
+                        ag_soil_moist_max,
+                        snowinfil_max,
+                        infil_ag,
+                        sroff_ag,
+                    )
+                else:
+                    # Snowmelt occurred and depleted the snowpack
+                    infil_ag, sroff_ag = ag_comp(
+                        ag_soil_moist_prev,
+                        ag_soil_rechr_prev,
+                        carea_max,
+                        smidx_coef,
+                        smidx_exp,
+                        snowmelt,
+                        net_ppt,
+                        infil_ag,
+                        sroff_ag,
+                    )
+
+        elif pkwater_equiv < dnearzero:
+            # No snowpack
+            if net_snow < nearzero and through_rain > 0.0:
+                infil_ag = infil_ag + through_rain
+                if hru_type == LAND:
+                    infil_ag, sroff_ag = ag_comp(
+                        ag_soil_moist_prev,
+                        ag_soil_rechr_prev,
+                        carea_max,
+                        smidx_coef,
+                        smidx_exp,
+                        through_rain,
+                        through_rain,
+                        infil_ag,
+                        sroff_ag,
+                    )
+
+        elif infil_ag > 0.0:
+            # Snowpack exists, check capacity
+            if hru_type == LAND:
+                infil_ag, sroff_ag = check_capacity_ag(
+                    ag_soil_moist_prev,
+                    ag_soil_moist_max,
+                    snowinfil_max,
+                    infil_ag,
+                    sroff_ag,
+                )
+
+        return infil_ag, sroff_ag
+
+    @staticmethod
+    def dprst_comp_ag(
+        dprst_vol_clos,
+        dprst_area_clos_max,
+        dprst_area_clos,
+        dprst_vol_open_max,
+        dprst_vol_open,
+        dprst_area_open_max,
+        dprst_sroff_hru,
+        sro_to_dprst_perv,
+        sro_to_dprst_imperv,
+        dprst_evap_hru,
+        pptmix_nopack,
+        snowmelt,
+        pkwater_equiv,
+        net_snow,
+        hru_area,
+        dprst_insroff_hru,
+        dprst_frac_open,
+        dprst_frac_clos,
+        va_open_exp,
+        dprst_vol_clos_max,
+        dprst_vol_clos_frac,
+        va_clos_exp,
+        potet,
+        snowcov_area,
+        dprst_et_coef,
+        dprst_seep_rate_open,
+        dprst_vol_thres_open,
+        dprst_flow_coef,
+        dprst_seep_rate_clos,
+        avail_et,
+        net_rain,
+        dprst_in,
+        srp,
+        sri,
+        sroff_ag,
+        imperv_frac,
+        perv_frac,
+        ag_frac,
+    ):
+        """Depression storage computation with agricultural runoff routing.
+
+        This is a modified version of dprst_comp that also routes agricultural
+        runoff through depression storage, following the Fortran implementation
+        in srunoff.f90 lines 1687-1700.
+
+        """
+        cascade_flag = OFF
+
+        if cascade_flag > OFF:
+            raise Exception("Cascades not implemented for PRMSRunoffAg")
+        else:
+            inflow = 0.0
+
+        if pptmix_nopack:
+            inflow = inflow + net_rain
+
+        if snowmelt > zero:
+            inflow = inflow + snowmelt
+        elif pkwater_equiv < dnearzero:
+            if net_snow < nearzero and net_rain > 0.0:
+                inflow = inflow + net_rain
+
+        dprst_in = 0.0
+        if dprst_area_open_max > 0.0:
+            dprst_in = inflow * dprst_area_open_max
+            dprst_vol_open = dprst_vol_open + dprst_in
+
+        if dprst_area_clos_max > 0.0:
+            tmp1 = inflow * dprst_area_clos_max
+            dprst_vol_clos = dprst_vol_clos + tmp1
+            dprst_in = dprst_in + tmp1
+        dprst_in = dprst_in / hru_area
+
+        # Add pervious surface runoff fraction to depressions
+        dprst_srp = 0.0
+        dprst_sri = 0.0
+        dprst_sra = 0.0
+
+        if srp > 0.0:
+            tmp = srp * perv_frac * sro_to_dprst_perv * hru_area
+            if dprst_area_open_max > 0.0:
+                dprst_srp_open = tmp * dprst_frac_open
+                dprst_srp = dprst_srp_open / hru_area
+                dprst_vol_open = dprst_vol_open + dprst_srp_open
+            if dprst_area_clos_max > 0.0:
+                dprst_srp_clos = tmp * dprst_frac_clos
+                dprst_srp = dprst_srp + dprst_srp_clos / hru_area
+                dprst_vol_clos = dprst_vol_clos + dprst_srp_clos
+            srp = srp - dprst_srp / perv_frac
+            if srp < zero:
+                srp = zero
+
+        if sri > 0.0:
+            tmp = sri * imperv_frac * sro_to_dprst_imperv * hru_area
+            if dprst_area_open_max > 0.0:
+                dprst_sri_open = tmp * dprst_frac_open
+                dprst_sri = dprst_sri_open / hru_area
+                dprst_vol_open = dprst_vol_open + dprst_sri_open
+            if dprst_area_clos_max > 0.0:
+                dprst_sri_clos = tmp * dprst_frac_clos
+                dprst_sri = dprst_sri + dprst_sri_clos / hru_area
+                dprst_vol_clos = dprst_vol_clos + dprst_sri_clos
+            sri = sri - dprst_sri / imperv_frac
+            if sri < 0.0:
+                sri = 0.0
+
+        # Add pervious and impervious contributions first
+        dprst_insroff_hru = dprst_srp + dprst_sri
+
+        # Add agricultural surface runoff fraction to depressions
+        # Following Fortran srunoff.f90 lines 1687-1700
+        if sroff_ag > 0.0:
+            tmp = sroff_ag * ag_frac * sro_to_dprst_perv * hru_area
+            if dprst_area_open_max > 0.0:
+                dprst_sra_open = tmp * dprst_frac_open
+                dprst_sra = dprst_sra_open / hru_area
+                dprst_vol_open = dprst_vol_open + dprst_sra_open
+            if dprst_area_clos_max > 0.0:
+                dprst_sra_clos = tmp * dprst_frac_clos
+                dprst_sra = dprst_sra + dprst_sra_clos / hru_area
+                dprst_vol_clos = dprst_vol_clos + dprst_sra_clos
+            sroff_ag = sroff_ag - dprst_sra / ag_frac
+            if sroff_ag < 0.0:
+                sroff_ag = 0.0
+            dprst_insroff_hru = dprst_insroff_hru + dprst_sra
+
+        dprst_area_open = 0.0
+        if dprst_vol_open > 0.0:
+            open_vol_r = dprst_vol_open / dprst_vol_open_max
+            if open_vol_r < nearzero:
+                frac_op_ar = 0.0
+            elif open_vol_r > 1.0:
+                frac_op_ar = 1.0
+            else:
+                frac_op_ar = np.exp(va_open_exp * np.log(open_vol_r))
+            dprst_area_open = dprst_area_open_max * frac_op_ar
+            if dprst_area_open > dprst_area_open_max:
+                dprst_area_open = dprst_area_open_max
+
+        if dprst_area_clos_max > 0.0:
+            dprst_area_clos = 0.0
+            if dprst_vol_clos > 0.0:
+                clos_vol_r = dprst_vol_clos / dprst_vol_clos_max
+                if clos_vol_r < nearzero:
+                    frac_cl_ar = 0.0
+                elif clos_vol_r > 1.0:
+                    frac_cl_ar = 1.0
+                else:
+                    frac_cl_ar = np.exp(va_clos_exp * np.log(clos_vol_r))
+                dprst_area_clos = dprst_area_clos_max * frac_cl_ar
+                if dprst_area_clos > dprst_area_clos_max:
+                    dprst_area_clos = dprst_area_clos_max
+
+        # Evaporate water from depressions
+        unsatisfied_et = avail_et
+        dprst_avail_et = potet * (1.0 - snowcov_area) * dprst_et_coef
+        dprst_evap_hru = 0.0
+        if dprst_avail_et > 0.0:
+            dprst_evap_open = 0.0
+            dprst_evap_clos = 0.0
+            if dprst_area_open > 0.0:
+                dprst_evap_open = min(
+                    dprst_area_open * dprst_avail_et, dprst_vol_open
+                )
+                dprst_evap_open = min(
+                    dprst_area_open * dprst_avail_et, dprst_vol_open
+                )
+                if dprst_evap_open / hru_area > unsatisfied_et:
+                    dprst_evap_open = unsatisfied_et * hru_area
+                if dprst_evap_open > dprst_vol_open:
+                    dprst_evap_open = dprst_vol_open
+                unsatisfied_et = unsatisfied_et - dprst_evap_open / hru_area
+                dprst_vol_open = dprst_vol_open - dprst_evap_open
+
+            if dprst_area_clos > 0.0:
+                dprst_evap_clos = min(
+                    dprst_area_clos * dprst_avail_et, dprst_vol_clos
+                )
+                if dprst_evap_clos / hru_area > unsatisfied_et:
+                    dprst_evap_clos = unsatisfied_et * hru_area
+                if dprst_evap_clos > dprst_vol_clos:
+                    dprst_evap_clos = dprst_vol_clos
+                dprst_vol_clos = dprst_vol_clos - dprst_evap_clos
+
+            dprst_evap_hru = (dprst_evap_open + dprst_evap_clos) / hru_area
+
+        # Compute seepage
+        dprst_seep_hru = 0.0
+        if dprst_vol_open > 0.0:
+            seep_open = dprst_vol_open * dprst_seep_rate_open
+            dprst_vol_open = dprst_vol_open - seep_open
+            if dprst_vol_open < 0.0:
+                seep_open = seep_open + dprst_vol_open
+                dprst_vol_open = 0.0
+            dprst_seep_hru = seep_open / hru_area
+
+        if dprst_area_clos_max > 0.0:
+            if dprst_vol_clos > 0.0:
+                seep_clos = dprst_vol_clos * dprst_seep_rate_clos
+                dprst_vol_clos = dprst_vol_clos - seep_clos
+                if dprst_vol_clos < 0.0:
+                    seep_clos = seep_clos + dprst_vol_clos
+                    dprst_vol_clos = 0.0
+                dprst_seep_hru = dprst_seep_hru + seep_clos / hru_area
+
+        # Compute open surface runoff
+        dprst_sroff_hru = 0.0
+        if dprst_vol_open > 0.0:
+            dprst_sroff_hru = max(0.0, dprst_vol_open - dprst_vol_open_max)
+            dprst_sroff_hru = dprst_sroff_hru + max(
+                0.0,
+                (dprst_vol_open - dprst_sroff_hru - dprst_vol_thres_open)
+                * dprst_flow_coef,
+            )
+            dprst_vol_open = dprst_vol_open - dprst_sroff_hru
+            dprst_sroff_hru = dprst_sroff_hru / hru_area
+
+        # Update fractions
+        dprst_stor_hru = (dprst_vol_open + dprst_vol_clos) / hru_area
+        if dprst_vol_open_max > 0.0:
+            dprst_vol_open_frac = dprst_vol_open / dprst_vol_open_max
+        else:
+            dprst_vol_open_frac = 0.0
+
+        if dprst_vol_clos_max > 0.0:
+            dprst_vol_clos_frac = dprst_vol_clos / dprst_vol_clos_max
+        else:
+            dprst_vol_clos_frac = 0.0
+
+        if (dprst_vol_open_max + dprst_vol_clos_max) > 0.0:
+            dprst_vol_frac = (dprst_vol_open + dprst_vol_clos) / (
+                dprst_vol_open_max + dprst_vol_clos_max
+            )
+        else:
+            dprst_vol_frac = 0.0
+
+        return (
+            dprst_in,
+            dprst_vol_open,
+            dprst_area_open,
+            avail_et,
+            dprst_vol_clos,
+            dprst_sroff_hru,
+            srp,
+            sri,
+            sroff_ag,
+            dprst_evap_hru,
+            dprst_seep_hru,
+            dprst_insroff_hru,
+            dprst_vol_open_frac,
+            dprst_vol_clos_frac,
+            dprst_vol_frac,
+            dprst_stor_hru,
+        )
 
     @staticmethod
     def ag_comp(

@@ -190,9 +190,25 @@ def diagnose_simple_vars_to_nc(
         else:
             dprst_frac = zero
         perv_frac = 1.0 - imperv_frac - dprst_frac
+
+        # Check if agriculture is active
+        soilzone_module = control.options.get("soilzone_module", [None])[0]
+        ag_active = soilzone_module == "soilzone_ag"
+
         ds = xr.open_dataset(nc_path.with_suffix(".nc"))
         ds = ds.rename(infil="infil_hru")
-        ds["infil_hru"] = ds["infil_hru"] * perv_frac
+
+        if ag_active:
+            # Load infil_ag and ag_frac
+            infil_ag_ds = xr.open_dataset(data_dir / "infil_ag.nc")
+            ag_frac = params["ag_frac"]
+            ds["infil_hru"] = (
+                ds["infil_hru"] * perv_frac + infil_ag_ds["infil_ag"] * ag_frac
+            )
+            infil_ag_ds.close()
+        else:
+            ds["infil_hru"] = ds["infil_hru"] * perv_frac
+
         ds.to_netcdf(output_dir / "infil_hru.nc")
         ds.close()
 
