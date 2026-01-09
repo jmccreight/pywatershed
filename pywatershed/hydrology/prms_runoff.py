@@ -974,7 +974,7 @@ class PRMSRunoff(ConservativeProcess):
             avail_water = avail_water + snowmelt
             infil = infil + snowmelt
             if hru_flag == 1:
-                if (pkwater_equiv > 0.0) or (net_rain < nearzero):
+                if (pkwater_equiv > 0.0) or not (net_ppt - net_snow > 0.0):
                     # Pervious area computations
                     infil, srp = check_capacity(
                         soil_moist_prev,
@@ -1959,7 +1959,6 @@ class PRMSRunoffAg(PRMSRunoff):
                 hru_impervevap[i] = zero
 
             avail_et = potet[i] - snow_evap[i] - hru_intcpevap[i]
-            availh2o = intcp_changeover[i] + net_rain[i]
 
             # Calculate pervious infiltration
             (
@@ -2056,10 +2055,8 @@ class PRMSRunoffAg(PRMSRunoff):
                             sro_to_dprst_perv=sro_to_dprst_perv[i],
                             sro_to_dprst_imperv=sro_to_dprst_imperv[i],
                             dprst_evap_hru=dprst_evap_hru[i],
-                            pptmix_nopack=pptmix_nopack[i],
+                            through_rain=through_rain[i],
                             snowmelt=snowmelt[i],
-                            pkwater_equiv=pkwater_equiv[i],
-                            net_snow=net_snow[i],
                             hru_area=hru_area[i],
                             dprst_insroff_hru=dprst_insroff_hru[i],
                             dprst_frac_open=dprst_frac_open[i],
@@ -2076,7 +2073,6 @@ class PRMSRunoffAg(PRMSRunoff):
                             dprst_flow_coef=dprst_flow_coef[i],
                             dprst_seep_rate_clos=dprst_seep_rate_clos[i],
                             avail_et=avail_et,
-                            net_rain=availh2o,
                             dprst_in=dprst_in[i],
                             srp=srp,
                             sri=sri,
@@ -2282,10 +2278,8 @@ class PRMSRunoffAg(PRMSRunoff):
         sro_to_dprst_perv,
         sro_to_dprst_imperv,
         dprst_evap_hru,
-        pptmix_nopack,
+        through_rain,
         snowmelt,
-        pkwater_equiv,
-        net_snow,
         hru_area,
         dprst_insroff_hru,
         dprst_frac_open,
@@ -2302,7 +2296,6 @@ class PRMSRunoffAg(PRMSRunoff):
         dprst_flow_coef,
         dprst_seep_rate_clos,
         avail_et,
-        net_rain,
         dprst_in,
         srp,
         sri,
@@ -2318,21 +2311,8 @@ class PRMSRunoffAg(PRMSRunoff):
         in srunoff.f90 lines 1687-1700.
 
         """
-        cascade_flag = OFF
+        inflow = through_rain + snowmelt
 
-        if cascade_flag > OFF:
-            raise Exception("Cascades not implemented for PRMSRunoffAg")
-        else:
-            inflow = 0.0
-
-        if pptmix_nopack:
-            inflow = inflow + net_rain
-
-        if snowmelt > zero:
-            inflow = inflow + snowmelt
-        elif pkwater_equiv < dnearzero:
-            if net_snow < nearzero and net_rain > 0.0:
-                inflow = inflow + net_rain
 
         dprst_in = 0.0
         if dprst_area_open_max > 0.0:
