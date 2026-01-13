@@ -204,12 +204,42 @@ class PRMSRunoffAg(PRMSRunoff):
 
     @staticmethod
     def get_init_values() -> dict:
-        init_values = PRMSRunoff.get_init_values()
-        # Add agricultural infiltration and runoff outputs
-        init_values["infil_ag"] = zero
-        init_values["infil_ag_hru"] = zero  # For mass balance
-        init_values["hru_sroff_ag"] = zero  # Agricultural surface runoff
-        return init_values
+        return {
+            "contrib_fraction": zero,
+            "infil": zero,
+            "infil_hru": zero,
+            "sroff": zero,
+            "sroff_vol": zero,
+            "hru_sroffp": zero,
+            "hru_sroffi": zero,
+            "imperv_stor": zero,
+            "imperv_evap": zero,
+            "hru_impervevap": zero,
+            "hru_impervstor": zero,
+            "hru_impervstor_old": zero,
+            "hru_impervstor_change": zero,
+            "dprst_vol_frac": zero,
+            "dprst_vol_clos": zero,
+            "dprst_vol_open": zero,
+            "dprst_vol_clos_frac": zero,
+            "dprst_vol_open_frac": zero,
+            "dprst_area_clos": zero,
+            "dprst_area_open": zero,
+            "dprst_area_clos_max": zero,
+            "dprst_area_open_max": zero,
+            "dprst_sroff_hru": zero,
+            "dprst_seep_hru": zero,
+            "dprst_evap_hru": zero,
+            "dprst_insroff_hru": zero,
+            "dprst_stor_hru": zero,
+            "dprst_stor_hru_old": zero,
+            "dprst_stor_hru_change": zero,
+            "dprst_vol_thres_open": zero,
+            "infil_ag": zero,
+            "infil_ag_hru": zero,
+            "hru_sroff_ag": zero,
+            "intcp_changeover_budget": zero,
+        }
 
     @staticmethod
     def get_mass_budget_terms():
@@ -231,7 +261,7 @@ class PRMSRunoffAg(PRMSRunoff):
             "inputs": [
                 "through_rain",
                 "snowmelt",
-                "intcp_changeover",
+                "intcp_changeover_budget",
             ],
             "outputs": [
                 # sroff = hru_sroffi + hru_sroffp + hru_sroff_ag + dprst_sroff_hru
@@ -275,8 +305,8 @@ class PRMSRunoffAg(PRMSRunoff):
             self.infil_ag[:],
             self.contrib_fraction[:],
             self.hru_sroffp[:],
-            self.hru_sroff_ag[:],
             self.hru_sroffi[:],
+            self.hru_sroff_ag[:],
             self.imperv_evap[:],
             self.hru_impervevap[:],
             self.imperv_stor[:],
@@ -515,6 +545,12 @@ class PRMSRunoffAg(PRMSRunoff):
 
         # Recalculate sroff_vol since we changed sroff
         self.sroff_vol[:] = self.sroff * self.hru_in_to_cf
+
+        # before mass balance
+        if self._intcp_changeover_in_net_rain:
+            self.intcp_changeover_budget[:] = 0.0
+        else:
+            self.intcp_changeover_budget[:] = self.intcp_changeover
 
         return
 

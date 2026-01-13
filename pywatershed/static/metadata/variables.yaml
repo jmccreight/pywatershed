@@ -2025,6 +2025,19 @@ intcp_changeover:
   type: float64
   units: inches
   var_category: mass flux
+intcp_changeover_budget:
+  desc: Canopy throughfall for mass budget accounting
+  dims:
+    0: nhru
+  help:
+    Canopy throughfall caused by canopy density change from winter to summer,
+    adjusted for mass budget accounting depending on if inputs include
+    intcp_changeover in net_rain (e.g. GSFLOW). When
+    intcp_changeover_in_net_rain=True, this is zero because intcp_changeover
+    is already included in through_rain. When
+    intcp_changeover_in_net_rain=False, this equals intcp_changeover.
+  type: float64
+  units: inches
 intcp_evap:
   desc: Evaporation from the canopy for each HRU
   dims:

@@ -99,6 +99,7 @@ def test_compare_prms(
         "infil_ag_hru",  # currently not post-processed but infil_ag is
         "hru_sroff_ag",  # PRMS does can not write this variable
         "sroff_vol",  # errors for large HRUs, rely on sroff
+        "intcp_changeover_budget",  # not a PRMS/GSFLOW variable
     }
 
     control.options["netcdf_output_var_names"] = comparison_var_names
@@ -122,7 +123,7 @@ def test_compare_prms(
         discretization=discretization,
         parameters=parameters,
         **input_variables,
-        imbalance_behavior=None,  # TODO: "error",
+        imbalance_behavior="error",
         calc_method=calc_method,
         intcp_changeover_in_net_rain=intcp_changeover_in_net_rain,
     )
