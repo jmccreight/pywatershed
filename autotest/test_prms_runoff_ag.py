@@ -5,7 +5,7 @@ from utils_compare import compare_in_memory, compare_netcdfs
 
 from pywatershed.base.adapter import adapter_factory
 from pywatershed.base.control import Control
-from pywatershed.hydrology.prms_runoff import PRMSRunoffAg
+from pywatershed.hydrology.prms_runoff_ag import PRMSRunoffAg
 from pywatershed.parameters import Parameters, PrmsParameters
 
 # compare in memory (faster) or full output files? or both!
