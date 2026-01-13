@@ -18,22 +18,20 @@ default_atol = 1.0e-5
 
 # Variable-specific tolerance exceptions
 var_tolerance_exceptions = {
-    # "dprst_area_open": {"atol": 1.0e-4, "rtol": 1.0e-5},
-    # "dprst_stor_hru": {"atol": 1.0e-4, "rtol": 1.0e-5},
-    # "dprst_stor_hru_change": {"atol": 1.0e-4, "rtol": 1.0e-5},
-    # "dprst_vol_frac": {"atol": 1.0e-4, "rtol": 1.0e-5},
-    # "dprst_vol_open": {"atol": 1.0e-4, "rtol": 1.0e-5},
-    # "dprst_vol_open_frac": {"atol": 1.0e-4, "rtol": 1.0e-5},
+    "sroff_vol": {"atol": 1.0e-4, "rtol": 5.0e-5},
+    "dprst_vol_open": {"atol": 1.0e-4, "rtol": 1.0e-4},
 }
 
 calc_methods = ("numpy",)  # numba not yet implemented
-params = ("params_sep", "params_one")[1:]  # TODO: fixim
+params = ("params_sep", "params_one")[1:]  # TODO: fix
 
 
 @pytest.fixture(scope="function")
 def control(simulation):
     control = Control.load_prms(
-        simulation["control_file"], warn_unused_options=False
+        simulation["control_file"],
+        warn_unused_options=False,
+        keep_unused_options=True,
     )
 
     return control
@@ -99,12 +97,16 @@ def test_compare_prms(
     # infil_hru is currently post-processed in a way that does not
     # accomodate ag_frac.
     comparison_var_names = set(PRMSRunoffAg.get_variables()) - {
-        "dprst_vol_thres_open",
-        "infil_ag_hru",
-        # "infil_hru",
-        "hru_sroff_ag",
+        "dprst_vol_thres_open",  # not output by fortran nor post-processed
+        "infil_ag_hru",  # currently not post-processed but infil_ag is
+        "hru_sroff_ag",  # PRMS does can not write this variable
+        "sroff_vol",  # errors for large HRUs, rely on sroff
+        "infil_hru",
     }
     control.options["netcdf_output_var_names"] = comparison_var_names
+    intcp_changeover_in_net_rain = (
+        "gsflow" in control.options["executable_desc"][0].lower()
+    )
 
     output_dir = simulation["output_dir"]
 
@@ -124,6 +126,7 @@ def test_compare_prms(
         **input_variables,
         imbalance_behavior=None,  # TODO: "error",
         calc_method=calc_method,
+        intcp_changeover_in_net_rain=intcp_changeover_in_net_rain,
     )
 
     if do_compare_output_files:

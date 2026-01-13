@@ -123,6 +123,7 @@ class PRMSRunoff(ConservativeProcess):
         ag_soil_moist_prev: Union[adaptable, None] = None,
         ag_soil_rechr_prev: Union[adaptable, None] = None,
         dprst_flag: Union[bool, None] = None,
+        intcp_changeover_in_net_rain: bool = False,
         imbalance_behavior: Literal["defer", None, "warn", "error"] = "defer",
         calc_method: Literal["numba", "numpy", None] = None,
         verbose: Union[bool, None] = None,
@@ -147,10 +148,6 @@ class PRMSRunoff(ConservativeProcess):
 
         self._set_inputs(locals())
         self._set_options(locals())
-
-        if self._dprst_flag is None:
-            self._dprst_flag = True
-
         self._set_budget()
         self._init_calc_method()
 
@@ -594,6 +591,7 @@ class PRMSRunoff(ConservativeProcess):
             imperv_et=self.imperv_et,
             through_rain=self.through_rain,
             dprst_flag=self._dprst_flag,
+            intcp_changeover_in_net_rain=self._intcp_changeover_in_net_rain,
         )
 
         self.infil_hru[:] = self.infil * self.hru_frac_perv
@@ -683,6 +681,7 @@ class PRMSRunoff(ConservativeProcess):
         imperv_et,
         through_rain,
         dprst_flag,
+        intcp_changeover_in_net_rain,
     ):
         dprst_chk = 0
         infil[:] = 0.0
@@ -745,6 +744,7 @@ class PRMSRunoff(ConservativeProcess):
                 check_capacity=check_capacity,
                 perv_comp=perv_comp,
                 through_rain=through_rain[i],
+                intcp_changeover_in_net_rain=intcp_changeover_in_net_rain,
             )
 
             frzen = OFF  # cdl todo: hardwired
@@ -911,6 +911,7 @@ class PRMSRunoff(ConservativeProcess):
         check_capacity,
         perv_comp,
         through_rain,
+        intcp_changeover_in_net_rain,
     ):
         isglacier = False  # todo -- hardwired
         hru_flag = 0
@@ -920,7 +921,7 @@ class PRMSRunoff(ConservativeProcess):
         avail_water = 0.0
 
         # compute runoff from canopy changeover water
-        if intcp_changeover > 0.0:
+        if intcp_changeover > 0.0 and not intcp_changeover_in_net_rain:
             avail_water = avail_water + intcp_changeover
             infil = infil + intcp_changeover
             if hru_flag == 1:
@@ -1391,6 +1392,7 @@ class PRMSRunoffAg(PRMSRunoff):
         ag_soil_moist_prev: adaptable,
         ag_soil_rechr_prev: adaptable,
         dprst_flag: Union[bool, None] = None,
+        intcp_changeover_in_net_rain: bool = False,
         imbalance_behavior: Literal["defer", None, "warn", "error"] = "defer",
         calc_method: Literal["numba", "numpy", None] = None,
         verbose: Union[bool, None] = None,
@@ -1419,6 +1421,7 @@ class PRMSRunoffAg(PRMSRunoff):
             ag_soil_moist_prev=ag_soil_moist_prev,
             ag_soil_rechr_prev=ag_soil_rechr_prev,
             dprst_flag=dprst_flag,
+            intcp_changeover_in_net_rain=intcp_changeover_in_net_rain,
             imbalance_behavior=imbalance_behavior,
             calc_method=calc_method,
             verbose=verbose,
@@ -1702,6 +1705,7 @@ class PRMSRunoffAg(PRMSRunoff):
             check_capacity_ag=self.check_capacity_ag,
             through_rain=self.through_rain,
             dprst_flag=self._dprst_flag,
+            intcp_changeover_in_net_rain=self._intcp_changeover_in_net_rain,
         )
 
         self.infil_hru[:] = (
@@ -1928,6 +1932,7 @@ class PRMSRunoffAg(PRMSRunoff):
         check_capacity_ag,
         through_rain,
         dprst_flag,
+        intcp_changeover_in_net_rain,
     ):
         """Modified calculation that includes agricultural runoff in depression
         storage routing.
@@ -1992,6 +1997,7 @@ class PRMSRunoffAg(PRMSRunoff):
                 check_capacity=check_capacity,
                 perv_comp=perv_comp,
                 through_rain=through_rain[i],
+                intcp_changeover_in_net_rain=intcp_changeover_in_net_rain,
             )
 
             # Calculate agricultural infiltration (if ag area exists)
@@ -2016,6 +2022,7 @@ class PRMSRunoffAg(PRMSRunoff):
                     through_rain=through_rain[i],
                     ag_comp=ag_comp,
                     check_capacity_ag=check_capacity_ag,
+                    intcp_changeover_in_net_rain=intcp_changeover_in_net_rain,
                 )
 
             frzen = OFF
@@ -2172,13 +2179,14 @@ class PRMSRunoffAg(PRMSRunoff):
         through_rain,
         ag_comp,
         check_capacity_ag,
+        intcp_changeover_in_net_rain,
     ):
         """Calculate agricultural infiltration and runoff for a single HRU."""
         infil_ag = 0.0
         sroff_ag = 0.0
 
         # Process intcp_changeover
-        if intcp_changeover > 0.0:
+        if intcp_changeover > 0.0 and not intcp_changeover_in_net_rain:
             infil_ag = infil_ag + intcp_changeover
             if hru_type == LAND:
                 infil_ag, sroff_ag = ag_comp(
@@ -2312,7 +2320,6 @@ class PRMSRunoffAg(PRMSRunoff):
 
         """
         inflow = through_rain + snowmelt
-
 
         dprst_in = 0.0
         if dprst_area_open_max > 0.0:

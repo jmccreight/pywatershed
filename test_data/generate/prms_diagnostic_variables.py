@@ -94,7 +94,9 @@ def diagnose_simple_vars_to_nc(
         output_dir = data_dir
 
     nc_path = data_dir / f"{var_name}.nc"
-    control = pws.Control.load_prms(control_file, warn_unused_options=False)
+    control = pws.Control.load_prms(
+        control_file, warn_unused_options=False, keep_unused_options=True
+    )
     param_file = control_file.parent / control.options["parameter_file"]
 
     if var_name in previous_vars.keys():
@@ -175,43 +177,13 @@ def diagnose_simple_vars_to_nc(
         params = pws.parameters.PrmsParameters.load(param_file)
         ds = xr.open_dataset(nc_path)
         ds = ds.rename({var_name: f"{var_name}_vol"})
+        # Zero out tiny values before multiplying by large conversion factor
+        ds[f"{var_name}_vol"] = ds[f"{var_name}_vol"].where(
+            np.abs(ds[f"{var_name}_vol"]) > 1e-11, 0.0
+        )
         ds = ds * params.data_vars["hru_in_to_cf"]
         ds.to_netcdf(output_dir / f"{var_name}_vol.nc")
         ds.close()
-
-    if var_name == "infil":
-        params = pws.parameters.PrmsParameters.load(param_file).parameters
-        imperv_frac = params["hru_percent_imperv"]
-        if (
-            "dprst_flag" in control.options.keys()
-            and control.options["dprst_flag"]
-        ):
-            dprst_frac = params["dprst_frac"]
-        else:
-            dprst_frac = zero
-        perv_frac = 1.0 - imperv_frac - dprst_frac
-
-        # Check if agriculture is active
-        soilzone_module = control.options.get("soilzone_module", [None])[0]
-        ag_active = soilzone_module == "soilzone_ag"
-
-        ds = xr.open_dataset(nc_path.with_suffix(".nc"))
-        ds = ds.rename(infil="infil_hru")
-
-        if ag_active:
-            # Load infil_ag and ag_frac
-            infil_ag_ds = xr.open_dataset(data_dir / "infil_ag.nc")
-            ag_frac = params["ag_frac"]
-            ds["infil_hru"] = (
-                ds["infil_hru"] * perv_frac + infil_ag_ds["infil_ag"] * ag_frac
-            )
-            infil_ag_ds.close()
-        else:
-            ds["infil_hru"] = ds["infil_hru"] * perv_frac
-
-        ds.to_netcdf(output_dir / "infil_hru.nc")
-        ds.close()
-
     return True
 
 
@@ -245,7 +217,9 @@ def diagnose_final_vars_to_nc(
     if output_dir is None:
         output_dir = data_dir
 
-    control = pws.Control.load_prms(control_file, warn_unused_options=False)
+    control = pws.Control.load_prms(
+        control_file, warn_unused_options=False, keep_unused_options=True
+    )
     param_file = control_file.parent / control.options["parameter_file"]
 
     if var_name == "through_rain":
@@ -311,6 +285,44 @@ def diagnose_final_vars_to_nc(
             data[vv].close()
 
         assert out_file.exists()
+
+    if var_name == "infil":
+        params = pws.parameters.PrmsParameters.load(param_file).parameters
+        imperv_frac = params["hru_percent_imperv"]
+        if (
+            "dprst_flag" in control.options.keys()
+            and control.options["dprst_flag"]
+        ):
+            dprst_frac = params["dprst_frac"]
+        else:
+            dprst_frac = zero
+        perv_frac = 1.0 - imperv_frac - dprst_frac
+
+        # Check if agriculture is active
+        soilzone_module = control.options.get("soilzone_module", [None])[0]
+        ag_active = soilzone_module == "soilzone_ag"
+
+        ds = xr.open_dataset(data_dir / "infil.nc")
+        ds = ds.rename(infil="infil_hru")
+
+        if ag_active:
+            # Load infil_ag and ag_frac
+            ag_frac = params["ag_frac"]
+            perv_frac = 1.0 - imperv_frac - dprst_frac - ag_frac
+
+            infil_ag_file = data_dir / "infil_ag.nc"
+            if not infil_ag_file.exists():
+                raise FileNotFoundError(f"File {infil_ag_file} not found")
+            else:
+                infil_ag_ds = xr.open_dataset(infil_ag_file)
+
+
+            infil_ag_ds.close()
+        else:
+            ds["infil_hru"] = ds["infil_hru"] * perv_frac
+
+        ds.to_netcdf(output_dir / "infil_hru.nc")
+        ds.close()
 
     # The rest of the conversion is on ly for muskingum_mann variables
     if control.options["streamflow_module"] != "muskingum_mann":

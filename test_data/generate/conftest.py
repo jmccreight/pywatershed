@@ -25,7 +25,7 @@ all_domain_dirs = sorted(
 # This would change to handle other/additional schedulers
 domain_globs_schedule = ["*conus*"]
 
-final_var_names = ["through_rain", "seg_lateral_inflow"]
+final_var_names = ["through_rain", "infil", "seg_lateral_inflow"]
 
 
 def get_ctl_exe_desc(ctl_file):
