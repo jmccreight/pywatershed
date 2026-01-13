@@ -9,7 +9,7 @@ from pywatershed.hydrology.prms_runoff import PRMSRunoffAg
 from pywatershed.parameters import Parameters, PrmsParameters
 
 # compare in memory (faster) or full output files? or both!
-do_compare_output_files = False
+do_compare_output_files = True
 do_compare_in_memory = True
 
 # Default tolerances for most variables
@@ -94,15 +94,13 @@ def test_compare_prms(
     if "ag" not in simulation["name"].lower():
         pytest.skip("test_prms_runoff_ag only valid for ag domains")
 
-    # infil_hru is currently post-processed in a way that does not
-    # accomodate ag_frac.
     comparison_var_names = set(PRMSRunoffAg.get_variables()) - {
         "dprst_vol_thres_open",  # not output by fortran nor post-processed
         "infil_ag_hru",  # currently not post-processed but infil_ag is
         "hru_sroff_ag",  # PRMS does can not write this variable
         "sroff_vol",  # errors for large HRUs, rely on sroff
-        "infil_hru",
     }
+
     control.options["netcdf_output_var_names"] = comparison_var_names
     intcp_changeover_in_net_rain = (
         "gsflow" in control.options["executable_desc"][0].lower()
@@ -176,12 +174,31 @@ def test_compare_prms(
     runoff.finalize()
 
     if do_compare_output_files:
+        # Filter out variables without answer files
+        vars_with_answers = []
+        for var in comparison_var_names:
+            var_pth = output_dir / f"{var}.nc"
+            if var_pth.exists():
+                vars_with_answers.append(var)
+
+        # Build variable-specific tolerances
+        var_tolerances = {
+            var: {"rtol": default_rtol, "atol": default_atol}
+            for var in vars_with_answers
+        }
+        for var, tols in var_tolerance_exceptions.items():
+            if var in var_tolerances:
+                var_tolerances[var] = tols
+
         compare_netcdfs(
-            comparison_var_names,
+            vars_with_answers,
             tmp_path / simulation["name"],
             output_dir,
-            atol=atol,
-            rtol=rtol,
+            atol=default_atol,
+            rtol=default_rtol,
+            var_tolerances=var_tolerances,
+            # fail_after_all_vars=False,
+            verbose=True,
         )
 
     return

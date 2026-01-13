@@ -316,7 +316,10 @@ def diagnose_final_vars_to_nc(
             else:
                 infil_ag_ds = xr.open_dataset(infil_ag_file)
 
-
+            # <
+            ds["infil_hru"] = ds["infil_hru"] * perv_frac + (
+                infil_ag_ds["infil_ag"] * ag_frac
+            )
             infil_ag_ds.close()
         else:
             ds["infil_hru"] = ds["infil_hru"] * perv_frac

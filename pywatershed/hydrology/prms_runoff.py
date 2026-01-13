@@ -236,7 +236,7 @@ class PRMSRunoff(ConservativeProcess):
             "contrib_fraction": zero,
             "infil": zero,
             "infil_hru": zero,
-            "sroff": zero,  # todo: privatize and only make vol public
+            "sroff": zero,
             "sroff_vol": zero,
             "hru_sroffp": zero,
             "hru_sroffi": zero,
