@@ -182,7 +182,7 @@ class PRMSSoilzoneAg(ConservativeProcess):
         snow_evap: adaptable,
         snowcov_area: adaptable,
         ag_frac: adaptable,
-        AET_external: adaptable = None,
+        AET_external: Union[adaptable, None] = None,
         dprst_flag: bool = None,
         iter_aet_flag: Literal[True, False, None] = None,
         imbalance_behavior: Literal["defer", None, "warn", "error"] = "defer",

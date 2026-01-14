@@ -50,12 +50,18 @@ pws_control_options_avail = [
     "strmtemp_humidity_flag",
     "time_step_units",
     "verbosity",
+    "dyn_ag_frac_flag",
+    "ag_frac_dynamic",
+    "AET_cbh_file",
+    "iter_aet_flag",
+    "executable_desc",
+    "init_vars_from_file",
+    "var_save_file",
 ]
 
 prms_legacy_options_avail = [
     "dprst_flag",
     "end_time",
-    # "init_vars_from_file",
     "initial_deltat",
     "iter_aet_flag",
     "nhruOutBaseFileName",
@@ -69,6 +75,13 @@ prms_legacy_options_avail = [
     "strmflow_module",
     "strmtemp_humidity_flag",
     "print_debug",
+    "dyn_ag_frac_flag",
+    "ag_frac_dynamic",
+    "AET_cbh_file",
+    "iter_aet_flag",
+    "executable_desc",
+    "init_vars_from_file",
+    "var_save_file",
 ]
 
 prms_to_pws_option_map = {

@@ -5,6 +5,7 @@ from warnings import warn
 import numpy as np
 
 from ..base.adapter import adaptable
+from ..base.conservative_process import ConservativeProcess
 from ..base.control import Control
 from ..constants import HruType, dnearzero, nearzero, numba_num_threads, zero
 from ..parameters import Parameters
@@ -60,6 +61,7 @@ class PRMSRunoffAg(PRMSRunoff):
         intcp_changeover: adaptable,
         ag_soil_moist_prev: adaptable,
         ag_soil_rechr_prev: adaptable,
+        ag_frac: Union[adaptable, None] = None,
         dprst_flag: Union[bool, None] = None,
         intcp_changeover_in_net_rain: bool = False,
         imbalance_behavior: Literal["defer", None, "warn", "error"] = "defer",
@@ -69,31 +71,16 @@ class PRMSRunoffAg(PRMSRunoff):
         restart_write: Union[pl.Path, bool] = False,
         restart_write_freq: Literal["y", "m", "d", "f", False] = False,
     ) -> None:
-        super().__init__(
+        self._dprst_flag = dprst_flag
+        if self._dprst_flag is None:
+            self._dprst_flag = True
+
+        # Call ConservativeProcess.__init__ directly (grandparent)
+        ConservativeProcess.__init__(
+            self,
             control=control,
             discretization=discretization,
             parameters=parameters,
-            soil_lower_prev=soil_lower_prev,
-            soil_rechr_prev=soil_rechr_prev,
-            net_ppt=net_ppt,
-            net_rain=net_rain,
-            net_snow=net_snow,
-            potet=potet,
-            snowmelt=snowmelt,
-            snow_evap=snow_evap,
-            pkwater_equiv=pkwater_equiv,
-            pptmix_nopack=pptmix_nopack,
-            snowcov_area=snowcov_area,
-            through_rain=through_rain,
-            hru_intcpevap=hru_intcpevap,
-            intcp_changeover=intcp_changeover,
-            ag_soil_moist_prev=ag_soil_moist_prev,
-            ag_soil_rechr_prev=ag_soil_rechr_prev,
-            dprst_flag=dprst_flag,
-            intcp_changeover_in_net_rain=intcp_changeover_in_net_rain,
-            imbalance_behavior=imbalance_behavior,
-            calc_method=calc_method,
-            verbose=verbose,
             restart_read=restart_read,
             restart_write=restart_write,
             restart_write_freq=restart_write_freq,
@@ -101,12 +88,34 @@ class PRMSRunoffAg(PRMSRunoff):
 
         self.name = "PRMSRunoffAg"
 
+        self._set_inputs(locals())
+        self._set_options(locals())
+
+        self._set_budget()
+        self._init_calc_method()
+
+        self.basin_init()
+
+        if self._dprst_flag:
+            self.dprst_init()
+
+        if restart_read is not False or restart_write is not False:
+            self.restart_read = False
+            self.restart_write = False
+
+        # PRMSRunoffAg-specific initialization
+        dyn_ag_frac_flag = self.control.options.get("dyn_ag_frac_flag", False)
+        if not dyn_ag_frac_flag:
+            assert "ag_frac" not in self._input_variables_dict.keys()
+            self.ag_frac = self._params.parameters["ag_frac"]
+        else:
+            assert "ag_frac" in self._input_variables_dict.keys()
+
+        # Calculate ag_area from ag_frac
+        # Following PRMSSoilzoneAg line 447-451
+        self.ag_area = self.ag_frac * self.hru_area
+
         # Adjust pervious area to exclude agricultural area
-        # Following GSFLOW basin.f90 line 457-461:
-        #   perv_area = perv_area - Ag_area(i)
-        #   Hru_perv(i) = perv_area
-        # This is critical: in GSFLOW, Hru_perv does NOT include Ag_area
-        # This must be done after basin_init() which is called in parent __init__
         self.hru_perv = self.hru_perv - self.ag_area
         self.hru_frac_perv = self.hru_perv / self.hru_area
 
@@ -169,6 +178,7 @@ class PRMSRunoffAg(PRMSRunoff):
             "through_rain",
             "hru_intcpevap",
             "intcp_changeover",
+            "ag_frac",
         )
 
     @staticmethod
@@ -186,7 +196,6 @@ class PRMSRunoffAg(PRMSRunoff):
             "snowinfil_max",
             "ag_soil_moist_max",
             "ag_soil_rechr_max_frac",
-            "ag_frac",
             "dprst_depth_avg",
             "dprst_et_coef",
             "dprst_flow_coef",
@@ -200,6 +209,7 @@ class PRMSRunoffAg(PRMSRunoff):
             "va_open_exp",
             "va_clos_exp",
             "op_flow_thres",
+            "ag_frac",
         )
 
     @staticmethod
@@ -292,9 +302,30 @@ class PRMSRunoffAg(PRMSRunoff):
             self.ag_soil_moist_max * self.ag_soil_rechr_max_frac
         )
 
-        # Calculate ag_area from ag_frac
-        # Following PRMSSoilzoneAg line 447-451
-        self.ag_area = self.ag_frac * self.hru_area
+        return
+
+    def _update_ag_areas(self):
+        """Update ag_area and related quantities when ag_frac changes.
+
+        This method recalculates derived areas that depend on ag_frac,
+        which may change dynamically via an adapter.
+
+        For PRMSRunoffAg, we only need to update area fractions - there's
+        no water storage to redistribute (unlike PRMSSoilzoneAg).
+        """
+        # Recalculate agricultural area
+        new_ag_area = self.ag_frac * self.hru_area
+
+        # Recalculate pervious area to exclude agricultural area
+        # Start from hru_area, subtract imperv, dprst (if active), and ag
+        new_hru_perv = self.hru_area - self.hru_imperv - new_ag_area
+        if self._dprst_flag:
+            new_hru_perv = new_hru_perv - self.dprst_area_max
+
+        # Update the instance variables
+        self.ag_area = new_ag_area
+        self.hru_perv = new_hru_perv
+        self.hru_frac_perv = self.hru_perv / self.hru_area
 
         return
 
@@ -406,6 +437,9 @@ class PRMSRunoffAg(PRMSRunoff):
             dprst_flag=self._dprst_flag,
             intcp_changeover_in_net_rain=self._intcp_changeover_in_net_rain,
         )
+
+        # Update ag_area and related quantities in case ag_frac changed
+        self._update_ag_areas()
 
         self.infil_hru[:] = (
             self.infil * self.hru_frac_perv + self.infil_ag * self.ag_frac

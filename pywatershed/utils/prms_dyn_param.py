@@ -15,14 +15,26 @@ Supported dynamic parameter types:
 - fallfrost_dynamic: Dynamic fall frost dates (integer values)
 """
 
+import datetime as dt
 import pathlib as pl
-from typing import Union
+from typing import TYPE_CHECKING, Optional, Union
 
 import numpy as np
+import xarray as xr
+
+from ..base import meta
+from ..constants import fill_value_f4
+
+if TYPE_CHECKING:
+    from ..base.control import Control
 
 
 class PrmsDynamicParameter:
     """Class for reading, subsetting, and writing PRMS dynamic parameter files.
+
+    This class handles PRMS dynamic parameter files that contain time-varying
+    parameter values. It provides methods for loading, subsetting, writing to
+    text format, and converting to NetCDF CBH (Climate by HRU) format.
 
     Attributes:
         header_lines: List of header lines from the file
@@ -32,6 +44,66 @@ class PrmsDynamicParameter:
         nhru: Number of HRUs in the data
         date_separator: Separator string between date and first value (e.g., " " or "  ")
         line_ending: Line ending style ("\n" for Unix, "\r\n" for Windows)
+        daily_start_date: datetime object representing the start date used when
+            building daily_data_array. Initially None. Set this before accessing
+            daily_data_array to control the start date, or it will default to
+            the first date in the data. Can also be set from a Control object
+            passed to __init__.
+        daily_end_date: datetime object representing the end date used when
+            building daily_data_array. Initially None. Set this before accessing
+            daily_data_array to control the end date, or it will default to
+            the last date in .dates plus the timedelta between the last and
+            second-to-last dates. Can also be set from a Control object passed
+            to __init__.
+        daily_data_array: xarray DataArray of shape (time, nhru) containing daily
+            values with all dates filled in. This is lazily computed on first
+            access and cached for reuse. Access as a property to get the xarray
+            DataArray, or use .daily_data_array.values to get the numpy array.
+
+    Methods:
+        load: Class method to load a dynamic parameter file from disk
+        subset: Create a subset of the data for selected HRU indices
+        write: Write the dynamic parameter data to a text file
+        to_netcdf: Write the dynamic parameter data to a NetCDF CBH file
+        _build_daily_data: Private method to build complete daily time series with filled dates
+        daily_data_array: Property to lazily access the daily data as xarray DataArray
+
+    Example:
+        >>> # Load a dynamic parameter file
+        >>> ag_frac = PrmsDynamicParameter.load("dyn_ag_frac.param")
+        >>>
+        >>> # Load with a Control object to set start/end dates
+        >>> from pywatershed import Control
+        >>> control = Control.load_prms("control.file")
+        >>> ag_frac_ctl = PrmsDynamicParameter.load(
+        ...     "dyn_ag_frac.param", control=control
+        ... )
+        >>>
+        >>> # Subset to specific HRUs
+        >>> subset = ag_frac.subset(np.array([0]))
+        >>> subset.write("subset_ag_frac.param")
+        >>>
+        >>> # Access daily data array (lazily computed on first access)
+        >>> daily_xr = (
+        ...     ag_frac.daily_data_array
+        ... )  # xarray DataArray (time, nhru)
+        >>> print(daily_xr.shape)  # e.g., (7305, 3851) for 20 years daily
+        >>> daily_values = ag_frac.daily_data_array.values  # Get numpy array
+        >>>
+        >>> # Set custom start and end dates before accessing
+        >>> ag_frac.daily_start_date = "2019-01-01"
+        >>> ag_frac.daily_end_date = "2020-12-31"
+        >>> daily_xr = ag_frac.daily_data_array  # Uses specified date range
+        >>> print(daily_xr.shape)  # (731, 3851) for 2 years daily
+        >>>
+        >>> # Convert to NetCDF CBH format (uses cached daily_data_array)
+        >>> ag_frac.to_netcdf("ag_frac.nc")
+        >>>
+        >>> # End date defaults to last date + interval if not set
+        >>> ag_frac2 = PrmsDynamicParameter.load("dyn_ag_frac.param")
+        >>> # If dates are yearly (e.g., 2000-01-01, 2001-01-01, ...),
+        >>> # end_date will be 2021-01-01 (one year after last date)
+        >>> daily_xr2 = ag_frac2.daily_data_array
     """
 
     def __init__(
@@ -42,6 +114,7 @@ class PrmsDynamicParameter:
         dtype: str = "float",
         date_separator: str = " ",
         line_ending: str = "\n",
+        control: Optional["Control"] = None,
     ) -> None:
         """Initialize a PrmsDynamicParameter object.
 
@@ -52,6 +125,7 @@ class PrmsDynamicParameter:
             dtype: Data type of values, either 'float' or 'int'
             date_separator: Separator between date and first value
             line_ending: Line ending style ("\n" for Unix, "\r\n" for Windows)
+            control: Optional Control object to set start and end times
         """
         self.header_lines = header_lines
         self.dates = dates
@@ -60,17 +134,27 @@ class PrmsDynamicParameter:
         self.nhru = data.shape[1] if len(data.shape) > 1 else 0
         self.date_separator = date_separator
         self.line_ending = line_ending
+        self._daily_start_date = None
+        self._daily_end_date = None
+        self._daily_data_array = None
+
+        # Set start/end dates from control if provided
+        if control is not None:
+            self._daily_start_date = control.start_time
+            self._daily_end_date = control.end_time
 
     @staticmethod
     def load(
         file_path: Union[str, pl.Path],
         dtype: str = "float",
+        control: Optional["Control"] = None,
     ) -> "PrmsDynamicParameter":
         """Load a PRMS dynamic parameter file.
 
         Args:
             file_path: Path to the dynamic parameter file
             dtype: Data type of the values ('float' or 'int')
+            control: Optional Control object to set start and end times
 
         Returns:
             PrmsDynamicParameter object containing the file data
@@ -178,6 +262,7 @@ class PrmsDynamicParameter:
             dtype=dtype,
             date_separator=date_separator,
             line_ending=line_ending,
+            control=control,
         )
 
     def subset(
@@ -287,6 +372,365 @@ class PrmsDynamicParameter:
                     f"{year} {month} {day}{self.date_separator}{values_str}{newline}"
                 )
 
+    @property
+    def daily_start_date(self) -> Optional[Union[str, dt.datetime]]:
+        """Get the start date for daily data array.
+
+        Returns:
+            Start date as datetime object or string, or None if not set
+        """
+        return self._daily_start_date
+
+    @daily_start_date.setter
+    def daily_start_date(
+        self, value: Optional[Union[str, dt.datetime]]
+    ) -> None:
+        """Set the start date for daily data array.
+
+        Setting this will clear the cached daily_data_array, forcing it to be
+        rebuilt on next access with the new start date.
+
+        Args:
+            value: Start date as datetime object, string, or None
+        """
+        self._daily_start_date = value
+        # Clear cache to force rebuild with new start date
+        self._daily_data_array = None
+
+    @property
+    def daily_end_date(self) -> Optional[Union[str, dt.datetime]]:
+        """Get the end date for daily data array.
+
+        Returns:
+            End date as datetime object or string, or None if not set
+        """
+        return self._daily_end_date
+
+    @daily_end_date.setter
+    def daily_end_date(self, value: Optional[Union[str, dt.datetime]]) -> None:
+        """Set the end date for daily data array.
+
+        Setting this will clear the cached daily_data_array, forcing it to be
+        rebuilt on next access with the new end date.
+
+        Args:
+            value: End date as datetime object, string, or None
+        """
+        self._daily_end_date = value
+        # Clear cache to force rebuild with new end date
+        self._daily_data_array = None
+
+    def _build_daily_data(self) -> None:
+        """Build a daily data array with all days filled in.
+
+        This private method creates a complete daily time series from
+        self.daily_start_date to the last date in the data, filling in missing
+        days with fill values. The result is stored as an xarray DataArray in
+        self._daily_data_array.
+
+        self._daily_start_date if set, otherwise defaults to the first date
+        in self.dates. Uses self._daily_end_date if set, otherwise defaults to
+        the last date in self.dates plus the timedelta between the last and
+        second-to-last dates.
+        """
+        # Parse start date
+        start_date = self._daily_start_date
+        if start_date is None:
+            # Use first date from data
+            start_date = dt.datetime(
+                int(self.dates[0, 0]),
+                int(self.dates[0, 1]),
+                int(self.dates[0, 2]),
+            )
+        elif isinstance(start_date, str):
+            start_date = dt.datetime.fromisoformat(start_date)
+            self._daily_start_date = start_date
+        else:
+            # Convert numpy datetime64 or pandas Timestamp to Python datetime
+            if hasattr(start_date, "to_pydatetime"):
+                # pandas Timestamp
+                start_date = start_date.to_pydatetime()
+            elif isinstance(start_date, np.datetime64):
+                # numpy datetime64
+                start_date = start_date.astype("M8[ms]").astype("O")
+            # If it's already a datetime, this does nothing
+
+        # Generate all daily times
+        # Find the range of dates in the data
+        dates_as_datetime = [
+            dt.datetime(int(y), int(m), int(d)) for y, m, d in self.dates
+        ]
+        min_date = min(dates_as_datetime)
+
+        # Determine end date
+        end_date = self._daily_end_date
+        if end_date is None:
+            # Default: last date plus the timedelta between last and second-to-last
+            if len(self.dates) >= 2:
+                last_date = dt.datetime(
+                    int(self.dates[-1, 0]),
+                    int(self.dates[-1, 1]),
+                    int(self.dates[-1, 2]),
+                )
+                second_last_date = dt.datetime(
+                    int(self.dates[-2, 0]),
+                    int(self.dates[-2, 1]),
+                    int(self.dates[-2, 2]),
+                )
+                timedelta = last_date - second_last_date
+                end_date = last_date + timedelta
+            else:
+                # Only one date, assume daily
+                end_date = dates_as_datetime[0] + dt.timedelta(days=1)
+        elif isinstance(end_date, str):
+            end_date = dt.datetime.fromisoformat(end_date)
+            self._daily_end_date = end_date
+        else:
+            # Convert numpy datetime64 or pandas Timestamp to Python datetime
+            if hasattr(end_date, "to_pydatetime"):
+                # pandas Timestamp
+                end_date = end_date.to_pydatetime()
+            elif isinstance(end_date, np.datetime64):
+                # numpy datetime64
+                end_date = end_date.astype("M8[ms]").astype("O")
+            # If it's already a datetime, this does nothing
+
+        max_date = end_date
+
+        # Create a mapping from dates to data indices
+        date_to_index = {
+            dt.datetime(int(y), int(m), int(d)): i
+            for i, (y, m, d) in enumerate(self.dates)
+        }
+
+        # Generate all daily times from start_date to max_date
+        n_days = (max_date - start_date).days + 1
+        all_dates = [start_date + dt.timedelta(days=i) for i in range(n_days)]
+
+        # Create data array with all daily values
+        if self.dtype == "int":
+            data_dtype = np.int32
+            fill_value = -999
+        else:
+            data_dtype = np.float64
+            fill_value = fill_value_f4
+
+        full_data = np.full((n_days, self.nhru), fill_value, dtype=data_dtype)
+
+        # Fill in data where we have it
+        for i, date in enumerate(all_dates):
+            if date in date_to_index:
+                data_idx = date_to_index[date]
+                full_data[i, :] = self.data[data_idx, :]
+
+        # Extract nhm_id from header
+        nhm_ids = None
+        for line in self.header_lines:
+            parts = line.split()
+            if (
+                len(parts) > 4
+                and parts[0].lower() == "year"
+                and parts[1].lower() == "month"
+                and parts[2].lower() == "day"
+            ):
+                # HRU IDs are after "year month day HRU"
+                nhm_ids = np.array(
+                    [int(x) for x in parts[4:]], dtype=np.uint32
+                )
+                break
+
+        if nhm_ids is None:
+            # Generate default IDs if not found in header
+            nhm_ids = np.arange(1, self.nhru + 1, dtype=np.uint32)
+
+        # Create time coordinate as datetime64
+        time_values = np.array(
+            [start_date + dt.timedelta(days=i) for i in range(n_days)],
+            dtype="datetime64[ns]",
+        )
+
+        # Create xarray DataArray
+        time_coord = xr.DataArray(
+            time_values,
+            dims=["time"],
+        )
+
+        nhm_id_coord = xr.DataArray(
+            nhm_ids,
+            dims=["nhru"],
+            attrs={
+                "type": "i4",
+                "desc": "NHM Hydrologic Response Unit (HRU) ID",
+                "cf_role": "timeseries_id",
+            },
+        )
+
+        # Determine fill value based on dtype
+        if self.dtype == "int":
+            fill_value = -999
+        else:
+            fill_value = fill_value_f4
+
+        # Store fill_value for later use in encoding, don't put in attrs
+        data_array = xr.DataArray(
+            full_data,
+            dims=["time", "nhru"],
+            coords={"time": time_coord, "nhm_id": nhm_id_coord},
+        )
+        # Store fill_value as an attribute on the DataArray object for later retrieval
+        data_array.attrs["_fill_value_for_encoding"] = fill_value
+
+        self._daily_data_array = data_array
+
+    @property
+    def daily_data_array(self) -> xr.DataArray:
+        """Get the daily data as an xarray DataArray (lazy property).
+
+        Lazily builds and caches the complete daily time series on first access.
+        Subsequent accesses return the cached DataArray. The DataArray includes
+        time and nhm_id coordinates and covers all days from daily_start_date
+        (or first date in data) to the last date in the data.
+
+        To get the numpy array values, use .daily_data_array.values
+
+        Returns:
+            xarray DataArray of shape (time, nhru) with daily values
+        """
+        if self._daily_data_array is None:
+            self._build_daily_data()
+        return self._daily_data_array
+
+    def to_netcdf(
+        self,
+        file_path: Union[str, pl.Path],
+        param_name: Optional[str] = None,
+        start_date: Optional[Union[str, dt.datetime]] = None,
+        metadata: Optional[dict] = None,
+    ) -> None:
+        """Write the dynamic parameter data to a NetCDF CBH file.
+
+        This creates a NetCDF file with all daily times implied by the parameter file,
+        following the Climate by HRU (CBH) format used by pywatershed. The time
+        range spans from daily_start_date (or start_date parameter) to daily_end_date.
+        If daily_end_date is not set, it defaults to the last date in self.dates plus
+        the interval between the last and second-to-last dates.
+
+        Args:
+            file_path: Path to write the NetCDF file to
+            param_name: Name of the parameter variable (e.g., 'ag_frac', 'tmax').
+                If None, attempts to extract from the file name or header.
+            start_date: Start date for the time series. If provided, temporarily
+                sets daily_start_date for this write. If None, uses daily_start_date
+                if set, otherwise defaults to the first date in self.dates. Can be
+                a string in 'YYYY-MM-DD' format or a datetime object.
+            metadata: Optional dictionary of variable metadata. If None, attempts
+                to load from variables.yaml. Should contain keys like 'desc',
+                'units', 'dims'.
+        """
+        file_path = pl.Path(file_path)
+
+        # Extract parameter name if not provided
+        if param_name is None:
+            # Try to get from file path (e.g., 'dyn_ag_frac.param' -> 'ag_frac')
+            name = file_path.stem
+            if name.startswith("dyn_"):
+                param_name = name[4:]  # Remove 'dyn_' prefix
+            else:
+                param_name = name
+            # Remove common suffixes
+            if param_name.endswith("_dynamic"):
+                param_name = param_name[:-8]
+
+        # Extract nhm_id from header
+        nhm_ids = None
+        for line in self.header_lines:
+            parts = line.split()
+            if (
+                len(parts) > 4
+                and parts[0].lower() == "year"
+                and parts[1].lower() == "month"
+                and parts[2].lower() == "day"
+            ):
+                # HRU IDs are after "year month day HRU"
+                nhm_ids = np.array(
+                    [int(x) for x in parts[4:]], dtype=np.uint32
+                )
+                break
+
+        if nhm_ids is None:
+            # Generate default IDs if not found in header
+            nhm_ids = np.arange(1, self.nhru + 1, dtype=np.uint32)
+
+        # Load metadata if not provided
+        if metadata is None:
+            # Try to get metadata from meta module
+            var_meta = meta.find_variables([param_name])
+            if param_name in var_meta:
+                metadata = var_meta[param_name]
+            else:
+                metadata = {}
+
+        # Set defaults for missing metadata
+        desc = metadata.get("desc", f"Dynamic parameter {param_name}")
+        units = metadata.get("units", "unknown")
+        dims = metadata.get("dims", ["nhru"])
+
+        # Set start_date if provided, then build/rebuild daily data
+        if start_date is not None:
+            # Parse start_date to datetime for comparison
+            if isinstance(start_date, str):
+                start_date_dt = dt.datetime.fromisoformat(start_date)
+            else:
+                start_date_dt = start_date
+
+            # Rebuild if start_date or end_date changed
+            needs_rebuild = False
+            if self._daily_start_date != start_date_dt:
+                self.daily_start_date = start_date  # Setter will clear cache
+                needs_rebuild = True
+
+        # Get the daily data array (builds if needed)
+        data_var = self.daily_data_array.copy()
+
+        # Add variable-specific metadata
+        data_var.attrs.update(
+            {
+                "desc": desc,
+                "units": units,
+                "dims": "nhru",
+                "coordinates": "nhm_id",
+            }
+        )
+        data_var.name = param_name
+
+        # Create Dataset
+        ds = xr.Dataset(
+            {param_name: data_var},
+            attrs={"Description": "Climate by HRU"},
+        )
+
+        # Get fill value from data_var attributes (stored with different name to avoid conflict)
+        fill_value = data_var.attrs.pop("_fill_value_for_encoding", None)
+
+        # Determine fill value if not found
+        if fill_value is None:
+            if self.dtype == "int":
+                fill_value = -999
+            else:
+                fill_value = fill_value_f4
+
+        # Set encoding for proper NetCDF output
+        encoding = {
+            param_name: {"_FillValue": fill_value},
+            "time": {
+                "units": f"days since {self._daily_start_date.strftime('%Y-%m-%d')}",
+                "calendar": "proleptic_gregorian",
+            },
+        }
+
+        # Write to NetCDF
+        ds.to_netcdf(file_path, encoding=encoding, format="NETCDF4")
+
 
 # Mapping of control variable names to their associated flag names and dtypes
 DYNAMIC_PARAM_CONFIG = {
@@ -337,8 +781,10 @@ def get_dynamic_param_files_from_control(
     else:
         control_dir = pl.Path(control_dir)
 
-    # Read control file and parse variables
-    control_vars = _parse_control_file(control_file)
+    # Load control file using Control.load_prms()
+    from ..base.control import Control
+
+    control = Control.load_prms(control_file, warn_unused_options=False)
 
     active_files = {}
 
@@ -346,22 +792,19 @@ def get_dynamic_param_files_from_control(
         flag_name = config["flag_name"]
 
         # Check if the flag is set and enabled (value = 1)
-        if flag_name in control_vars:
-            flag_value = control_vars[flag_name]
-            if isinstance(flag_value, list):
-                flag_value = flag_value[0]
-            flag_value = int(flag_value)
-        else:
-            flag_value = 0
+        flag_value = getattr(control.options, flag_name, 0)
+        if isinstance(flag_value, list):
+            flag_value = flag_value[0]
+        flag_value = int(flag_value)
 
         if flag_value != 1:
             continue
 
         # Check if the file path is specified
-        if param_name not in control_vars:
+        if not hasattr(control.options, param_name):
             continue
 
-        file_path = control_vars[param_name]
+        file_path = getattr(control.options, param_name)
         if isinstance(file_path, list):
             file_path = file_path[0]
 
@@ -379,86 +822,6 @@ def get_dynamic_param_files_from_control(
             }
 
     return active_files
-
-
-def _parse_control_file(control_file: Union[str, pl.Path]) -> dict:
-    """Parse a PRMS control file and return a dictionary of variables.
-
-    Args:
-        control_file: Path to the control file
-
-    Returns:
-        Dictionary mapping variable names to their values
-    """
-    control_vars = {}
-    control_file = pl.Path(control_file)
-
-    with open(control_file, "r") as f:
-        lines = f.readlines()
-
-    i = 0
-    while i < len(lines):
-        line = lines[i].strip()
-
-        # Look for variable block start (####)
-        if line.startswith("####"):
-            i += 1
-            if i >= len(lines):
-                break
-
-            # Variable name
-            var_name = lines[i].strip()
-            i += 1
-            if i >= len(lines):
-                break
-
-            # Number of values
-            try:
-                n_values = int(lines[i].strip())
-            except ValueError:
-                i += 1
-                continue
-            i += 1
-            if i >= len(lines):
-                break
-
-            # Data type (1=int, 2=float, 4=string)
-            try:
-                dtype_code = int(lines[i].strip())
-            except ValueError:
-                i += 1
-                continue
-            i += 1
-
-            # Read values
-            values = []
-            for _ in range(n_values):
-                if i >= len(lines):
-                    break
-                val_line = lines[i].strip()
-                i += 1
-
-                if dtype_code == 1:  # integer
-                    try:
-                        values.append(int(val_line))
-                    except ValueError:
-                        values.append(val_line)
-                elif dtype_code == 2:  # float
-                    try:
-                        values.append(float(val_line))
-                    except ValueError:
-                        values.append(val_line)
-                else:  # string (4) or other
-                    values.append(val_line)
-
-            if len(values) == 1:
-                control_vars[var_name] = values[0]
-            else:
-                control_vars[var_name] = values
-        else:
-            i += 1
-
-    return control_vars
 
 
 def subset_dynamic_param_file(

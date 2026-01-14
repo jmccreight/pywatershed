@@ -111,7 +111,20 @@ def test_compare_prms(
 
     input_variables = {}
     for key in PRMSRunoffAg.get_inputs():
-        nc_pth = output_dir / f"{key}.nc"
+        if key in ["ag_frac"]:
+            dyn_ag_frac_flag = control.options.get("dyn_ag_frac_flag", False)
+            # Check for dynamic parameter file first
+            if dyn_ag_frac_flag:
+                nc_pth = (
+                    simulation["dir"] / control.options["ag_frac_dynamic"][0]
+                )
+            else:
+                nc_pth = None
+
+        else:
+            nc_pth = output_dir / f"{key}.nc"
+
+        # <
         input_variables[key] = nc_pth
 
     if do_compare_output_files:

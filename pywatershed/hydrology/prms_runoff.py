@@ -1352,5 +1352,3 @@ class PRMSRunoff(ConservativeProcess):
                 imperv_evap = avail_et / imperv_frac
             imperv_stor = imperv_stor - imperv_evap
         return imperv_stor, imperv_evap
-
-

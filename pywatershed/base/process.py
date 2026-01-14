@@ -404,6 +404,10 @@ class Process(Accessor):
     def _set_inputs(self, args):
         self._input_variables_dict = {}
         for ii in self.inputs:
+            if args[ii] is None:
+                # This should need no warning, just downstream consequences
+                continue
+
             ii_dims = self.control.meta.get_dimensions(ii)[ii]
             # This accomodates Timeseries like objects that need to init
             # both full rank and reduced rank versions of their data

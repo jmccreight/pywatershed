@@ -307,20 +307,38 @@ def diagnose_final_vars_to_nc(
 
         if ag_active:
             # Load infil_ag and ag_frac
-            ag_frac = params["ag_frac"]
+            # Check if ag_frac is dynamic
+            dyn_ag_frac_flag = control.options.get("dyn_ag_frac_flag", [0])[0]
+
+            if dyn_ag_frac_flag:
+                ag_frac_file = (
+                    control_file.parent / control.options["ag_frac_dynamic"][0]
+                )
+                if ag_frac_file.exists():
+                    ag_frac = pws.utils.PrmsDynamicParameter.load(
+                        ag_frac_file, control=control
+                    ).daily_data_array.rename(nhru="nhm_id")
+                else:
+                    raise FileNotFoundError(
+                        f"Dynamic ag_frac file not found: {ag_frac_file}"
+                    )
+            else:
+                # Static ag_frac from parameters
+                ag_frac = params["ag_frac"]
+
             perv_frac = 1.0 - imperv_frac - dprst_frac - ag_frac
 
             infil_ag_file = data_dir / "infil_ag.nc"
             if not infil_ag_file.exists():
                 raise FileNotFoundError(f"File {infil_ag_file} not found")
             else:
-                infil_ag_ds = xr.open_dataset(infil_ag_file)
+                infil_ag = xr.open_dataarray(infil_ag_file)
 
             # <
             ds["infil_hru"] = ds["infil_hru"] * perv_frac + (
-                infil_ag_ds["infil_ag"] * ag_frac
+                infil_ag * ag_frac
             )
-            infil_ag_ds.close()
+            infil_ag.close()
         else:
             ds["infil_hru"] = ds["infil_hru"] * perv_frac
 
