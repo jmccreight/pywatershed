@@ -22,7 +22,7 @@ var_tolerance_exceptions = {
     "dprst_vol_open": {"atol": 3.0e-4, "rtol": 3.0e-4},
 }
 
-calc_methods = ("numpy",)  # numba not yet implemented
+calc_methods = ("numba", "numpy")
 params = ("params_sep", "params_one")[1:]  # TODO: fix
 
 

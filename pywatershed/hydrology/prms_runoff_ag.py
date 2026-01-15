@@ -150,9 +150,11 @@ class PRMSRunoffAg(PRMSRunoff):
             self.check_capacity = nb.njit(self.check_capacity)
             self.perv_comp = nb.njit(self.perv_comp)
             self.compute_infil = nb.njit(self.compute_infil)
-            self.compute_infil_ag = nb.njit(self.compute_infil_ag)
+            self._compute_infil_ag = nb.njit(self._compute_infil_ag)
             self.dprst_comp_ag = nb.njit(self.dprst_comp_ag)
             self.imperv_et = nb.njit(self.imperv_et)
+            self.ag_comp = nb.njit(self.ag_comp)
+            self.check_capacity_ag = nb.njit(self.check_capacity_ag)
 
         else:
             self._calculate_runoff = self._calculate_numpy_ag
@@ -433,6 +435,7 @@ class PRMSRunoffAg(PRMSRunoff):
             imperv_et=self.imperv_et,
             ag_comp=self.ag_comp,
             check_capacity_ag=self.check_capacity_ag,
+            compute_infil_ag=self._compute_infil_ag,
             through_rain=self.through_rain,
             dprst_flag=self._dprst_flag,
             intcp_changeover_in_net_rain=self._intcp_changeover_in_net_rain,
@@ -669,6 +672,7 @@ class PRMSRunoffAg(PRMSRunoff):
         imperv_et,
         ag_comp,
         check_capacity_ag,
+        compute_infil_ag,
         through_rain,
         dprst_flag,
         intcp_changeover_in_net_rain,
@@ -741,7 +745,7 @@ class PRMSRunoffAg(PRMSRunoff):
 
             # Calculate agricultural infiltration (if ag area exists)
             if ag_area[i] > 0.0:
-                infil_ag[i], sroff_ag = PRMSRunoffAg._compute_infil_ag(
+                infil_ag[i], sroff_ag = compute_infil_ag(
                     ag_soil_moist_prev=ag_soil_moist_prev[i],
                     ag_soil_rechr_prev=ag_soil_rechr_prev[i],
                     ag_soil_moist_max=ag_soil_moist_max[i],
