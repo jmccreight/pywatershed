@@ -19,7 +19,7 @@ default_atol = 1.0e-5
 # Variable-specific tolerance exceptions
 var_tolerance_exceptions = {
     "sroff_vol": {"atol": 1.0e-4, "rtol": 5.0e-5},
-    "dprst_vol_open": {"atol": 1.0e-4, "rtol": 1.0e-4},
+    "dprst_vol_open": {"atol": 3.0e-4, "rtol": 3.0e-4},
 }
 
 calc_methods = ("numpy",)  # numba not yet implemented

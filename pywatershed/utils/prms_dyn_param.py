@@ -517,11 +517,18 @@ class PrmsDynamicParameter:
 
         full_data = np.full((n_days, self.nhru), fill_value, dtype=data_dtype)
 
-        # Fill in data where we have it
+        # Fill in data where we have it, forward-filling between known dates
+        # First, find which data index applies to each day (forward-fill logic)
+        current_data_idx = None
         for i, date in enumerate(all_dates):
             if date in date_to_index:
-                data_idx = date_to_index[date]
-                full_data[i, :] = self.data[data_idx, :]
+                # We have data for this date, use it
+                current_data_idx = date_to_index[date]
+
+            if current_data_idx is not None:
+                # Fill with current (or most recent) data
+                full_data[i, :] = self.data[current_data_idx, :]
+            # else: leave as fill_value for dates before first known date
 
         # Extract nhm_id from header
         nhm_ids = None
