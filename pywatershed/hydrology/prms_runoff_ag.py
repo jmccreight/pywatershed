@@ -212,6 +212,7 @@ class PRMSRunoffAg(PRMSRunoff):
             "va_clos_exp",
             "op_flow_thres",
             "ag_frac",
+            "sat_threshold",
         )
 
     @staticmethod

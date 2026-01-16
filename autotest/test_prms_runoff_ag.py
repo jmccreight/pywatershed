@@ -23,7 +23,7 @@ var_tolerance_exceptions = {
 }
 
 calc_methods = ("numba", "numpy")
-params = ("params_sep", "params_one")[1:]  # TODO: fix
+params = ("params_sep", "params_one")
 
 
 @pytest.fixture(scope="function")
@@ -52,24 +52,10 @@ def parameters(simulation, control, request):
 
     else:
         # Load runoff parameters
-        param_file = simulation["dir"] / "parameters_PRMSRunoff.nc"
+        param_file = simulation["dir"] / "parameters_PRMSRunoffAg.nc"
         params = PrmsParameters.from_netcdf(param_file)
 
-        # Load ag soil parameters from soilzone_ag
-        sz_param_file = simulation["dir"] / "parameters_PRMSSoilzoneAg.nc"
-        sz_params = PrmsParameters.from_netcdf(sz_param_file)
-
-        # Merge in ag_soil_moist_max and ag_soil_rechr_max_frac
-        params.parameters["ag_soil_moist_max"] = sz_params.parameters[
-            "ag_soil_moist_max"
-        ]
-        params.parameters["ag_soil_rechr_max_frac"] = sz_params.parameters[
-            "ag_soil_rechr_max_frac"
-        ]
-
-        sat_threshold = sz_params.parameters["sat_threshold"]
-
-    if abs(sat_threshold).min() < 999.0:
+    if abs(params.parameters["sat_threshold"]).min() < 999.0:
         pytest.skip(
             "test_prms_runoff_ag only valid when sat_threshold >= 999 (or some "
             "amount) which causes zero dunnian_flow"
