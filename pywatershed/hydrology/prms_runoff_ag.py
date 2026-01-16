@@ -35,6 +35,23 @@ class PRMSRunoffAg(PRMSRunoff):
     the same logic as PRMSRunoff but adding parallel calculations for
     agricultural areas.
 
+    Restart Variables
+    -----------------
+    PRMSRunoffAg inherits get_restart_variables() from PRMSRunoff without
+    modification because it has no additional storage state variables beyond
+    the parent class. The agricultural-specific outputs (infil_ag, infil_ag_hru,
+    hru_sroff_ag) are flux variables that are recalculated each timestep, not
+    state variables that need to be saved for restart.
+
+    The ag calculations use:
+    - ag_soil_moist_prev and ag_soil_rechr_prev: These come from PRMSSoilzoneAg
+      as inputs, not from runoff itself
+    - ag_area: Derived from the ag_frac parameter and recalculated in
+      _update_ag_areas() as needed
+
+    All storage states (imperv_stor, dprst_vol_open, dprst_vol_clos, etc.) are
+    inherited from the parent class and properly saved/restored during restart.
+
     Args:
         Same as PRMSRunoff, but ag_soil_moist_prev and ag_soil_rechr_prev
         are required (not optional).
