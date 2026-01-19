@@ -34,6 +34,16 @@ def control(simulation):
         keep_unused_options=True,
     )
 
+    if "executable_desc" in control.options.keys():
+        exe_desc = control.options["executable_desc"][0].lower()
+    else:
+        exe_desc = "prms"
+
+    if "gsflow" not in exe_desc:
+        pytest.skip(
+            "Only testing PRMSSoilzoneAg for domains run with a GSFLOW exe."
+        )
+
     return control
 
 

@@ -9,15 +9,6 @@ from pywatershed.constants import dnearzero, nan, nearzero, zero
 
 """This module is for generating PRMS diagnostic variables"""
 
-# Variables to skip for _change calculation (validated by mass budget instead)
-skip_change_vars = {
-    "ag_soil_moist",  # Uses redistribution tracking for mass budget
-    "ag_soil_rechr",  # Uses redistribution tracking for mass budget
-    "soil_rechr",  # Uses redistribution tracking for mass budget (soilzone_ag)
-    "soil_lower",  # Uses redistribution tracking for mass budget (soilzone_ag)
-    "slow_stor",  # Uses redistribution tracking for mass budget (soilzone_ag)
-}
-
 # For generating timeseries of previous states
 prev_vars_both = {
     "gwres_stor": pws.PRMSGroundwater,
@@ -98,6 +89,10 @@ def diagnose_simple_vars_to_nc(
         control_file, warn_unused_options=False, keep_unused_options=True
     )
     param_file = control_file.parent / control.options["parameter_file"]
+    if "executable_desc" in control.options.keys():
+        exe_desc = control.options["executable_desc"][0].lower()
+    else:
+        exe_desc = "prms"
 
     if var_name in previous_vars.keys():
         # the _prev is the desired suffix but PRMS legacy is inconsistent
@@ -177,10 +172,11 @@ def diagnose_simple_vars_to_nc(
         params = pws.parameters.PrmsParameters.load(param_file)
         ds = xr.open_dataset(nc_path)
         ds = ds.rename({var_name: f"{var_name}_vol"})
-        # Zero out tiny values before multiplying by large conversion factor
-        ds[f"{var_name}_vol"] = ds[f"{var_name}_vol"].where(
-            np.abs(ds[f"{var_name}_vol"]) > 1e-11, 0.0
-        )
+        if "gsflow" in exe_desc.lower():
+            # Zero out tiny values before multiplying by large conversion factor
+            ds[f"{var_name}_vol"] = ds[f"{var_name}_vol"].where(
+                np.abs(ds[f"{var_name}_vol"]) > 1e-11, 0.0
+            )
         ds = ds * params.data_vars["hru_in_to_cf"]
         ds.to_netcdf(output_dir / f"{var_name}_vol.nc")
         ds.close()

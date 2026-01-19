@@ -145,18 +145,19 @@ def get_control(
             keep_unused_options=True,
         )
 
-    # Check this is an ag domain
-    domain_name = simulation["name"].split(":")[0]
-    if "ag" not in domain_name.lower():
-        pytest.skip("Only testing PRMSRunoffAg restart for ag domains.")
-
     # Check if this is GSFLOW to set intcp_changeover_in_net_rain flag
     if "executable_desc" in control.options.keys():
         exe_desc = control.options["executable_desc"][0].lower()
-        if "gsflow" in exe_desc:
-            control.options["intcp_changeover_in_net_rain"] = True
-        else:
-            control.options["intcp_changeover_in_net_rain"] = False
+    else:
+        exe_desc = "prms"
+
+    if "gsflow" not in exe_desc:
+        pytest.skip(
+            "Only testing PRMSSoilzoneAg for domains run with a GSFLOW exe."
+        )
+
+    if "gsflow" in exe_desc:
+        control.options["intcp_changeover_in_net_rain"] = True
     else:
         control.options["intcp_changeover_in_net_rain"] = False
 
