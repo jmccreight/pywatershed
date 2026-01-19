@@ -158,6 +158,7 @@ def get_control(
 
     if "gsflow" in exe_desc:
         control.options["intcp_changeover_in_net_rain"] = True
+
     else:
         control.options["intcp_changeover_in_net_rain"] = False
 
