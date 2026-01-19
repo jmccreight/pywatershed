@@ -158,14 +158,14 @@ def diagnose_simple_vars_to_nc(
         assert nc_path.exists()
 
         # write the change file (skip if validated by mass budget)
-        if var_name not in skip_change_vars:
-            if var_name in change_rename.keys():
-                nc_name = f"{change_rename[var_name]}.nc"
-            else:
-                nc_name = f"{var_name}_change.nc"
-            out_nc_path = output_dir / nc_name
-            change.rename(out_nc_path.stem).to_netcdf(out_nc_path)
-            assert nc_path.exists()
+        if var_name in change_rename.keys():
+            nc_name = f"{change_rename[var_name]}.nc"
+        else:
+            nc_name = f"{var_name}_change.nc"
+        out_nc_path = output_dir / nc_name
+        change.rename(out_nc_path.stem).to_netcdf(out_nc_path)
+        assert nc_path.exists()
+
         return nc_path
 
     if var_name in ["sroff", "ssres_flow", "gwres_flow"]:
@@ -173,7 +173,8 @@ def diagnose_simple_vars_to_nc(
         ds = xr.open_dataset(nc_path)
         ds = ds.rename({var_name: f"{var_name}_vol"})
         if "gsflow" in exe_desc.lower():
-            # Zero out tiny values before multiplying by large conversion factor
+            # Zero out tiny values before multiplying by large conversion
+            # factor
             ds[f"{var_name}_vol"] = ds[f"{var_name}_vol"].where(
                 np.abs(ds[f"{var_name}_vol"]) > 1e-11, 0.0
             )

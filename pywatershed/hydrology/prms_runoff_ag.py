@@ -39,7 +39,8 @@ class PRMSRunoffAg(PRMSRunoff):
     -----------------
     PRMSRunoffAg inherits get_restart_variables() from PRMSRunoff without
     modification because it has no additional storage state variables beyond
-    the parent class. The agricultural-specific outputs (infil_ag, infil_ag_hru,
+    the parent class. The agricultural-specific outputs (infil_ag,
+    infil_ag_hru,
     hru_sroff_ag) are flux variables that are recalculated each timestep, not
     state variables that need to be saved for restart.
 
@@ -294,12 +295,13 @@ class PRMSRunoffAg(PRMSRunoff):
                 "intcp_changeover_budget",
             ],
             "outputs": [
-                # sroff = hru_sroffi + hru_sroffp + hru_sroff_ag + dprst_sroff_hru
+                # sroff = hru_sroffi + hru_sroffp + hru_sroff_ag
+                # + dprst_sroff_hru
                 "hru_sroffi",
                 "hru_sroffp",
                 "hru_sroff_ag",  # Agricultural surface runoff
                 "dprst_sroff_hru",
-                "infil_hru",  # Includes both pervious and agricultural infiltration
+                "infil_hru",  # Includes both pervious and ag infiltration
                 "hru_impervevap",
                 "dprst_seep_hru",
                 "dprst_evap_hru",
@@ -590,9 +592,12 @@ class PRMSRunoffAg(PRMSRunoff):
             sroff_ag_array[i] = sroff_ag
 
         # Store agricultural runoff as a separate output variable
-        # Following Fortran line 804: runoff = runoff + DBLE( Sroff_ag*Ag_area(i) )
-        # sroff_ag is depth on ag area, so multiply by ag_frac to get depth on HRU area
-        # In Fortran, hru_sroffp is pervious-only, agricultural runoff is added separately to total
+        # Following Fortran line 804:
+        # runoff = runoff + DBLE( Sroff_ag*Ag_area(i) )
+        # sroff_ag is depth on ag area, so multiply by ag_frac to get
+        # depth on HRU area
+        # In Fortran, hru_sroffp is pervious-only, agricultural runoff
+        # is added separately to total
         self.hru_sroff_ag[:] = sroff_ag_array * self.ag_frac
 
         # Add agricultural runoff to total sroff

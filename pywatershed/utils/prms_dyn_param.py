@@ -42,20 +42,24 @@ class PrmsDynamicParameter:
         data: numpy array of shape (n_times, nhru) containing parameter values
         dtype: Data type of the values ('float' or 'int')
         nhru: Number of HRUs in the data
-        date_separator: Separator string between date and first value (e.g., " " or "  ")
+        date_separator: Separator string between date and first value
+            (e.g., " " or "  ")
         line_ending: Line ending style ("\n" for Unix, "\r\n" for Windows)
-        daily_start_date: datetime object representing the start date used when
-            building daily_data_array. Initially None. Set this before accessing
+        daily_start_date: datetime object representing the start date used
+            when building daily_data_array. Initially None. Set this before
+            accessing
             daily_data_array to control the start date, or it will default to
             the first date in the data. Can also be set from a Control object
             passed to __init__.
-        daily_end_date: datetime object representing the end date used when
-            building daily_data_array. Initially None. Set this before accessing
+        daily_end_date: datetime object representing the end date used
+            when building daily_data_array. Initially None. Set this before
+            accessing
             daily_data_array to control the end date, or it will default to
             the last date in .dates plus the timedelta between the last and
             second-to-last dates. Can also be set from a Control object passed
             to __init__.
-        daily_data_array: xarray DataArray of shape (time, nhru) containing daily
+        daily_data_array: xarray DataArray of shape (time, nhru)
+            containing daily
             values with all dates filled in. This is lazily computed on first
             access and cached for reuse. Access as a property to get the xarray
             DataArray, or use .daily_data_array.values to get the numpy array.
@@ -65,8 +69,10 @@ class PrmsDynamicParameter:
         subset: Create a subset of the data for selected HRU indices
         write: Write the dynamic parameter data to a text file
         to_netcdf: Write the dynamic parameter data to a NetCDF CBH file
-        _build_daily_data: Private method to build complete daily time series with filled dates
-        daily_data_array: Property to lazily access the daily data as xarray DataArray
+        _build_daily_data: Private method to build complete daily time
+            series with filled dates
+        daily_data_array: Property to lazily access the daily data as
+            xarray DataArray
 
     Example:
         >>> # Load a dynamic parameter file
@@ -201,7 +207,8 @@ class PrmsDynamicParameter:
                     if line.strip():
                         data_lines.append(line)
 
-        # Detect the separator between date and first value from first data line
+        # Detect the separator between date and first value from first
+        # data line
         date_separator = " "
         if data_lines:
             first_line = data_lines[0]
@@ -209,7 +216,6 @@ class PrmsDynamicParameter:
             parts = first_line.split()
             if len(parts) >= 4:
                 # Find where the day ends and count spaces until first value
-                day_str = parts[2]
                 # Find the day in the original line
                 pos = 0
                 tokens_found = 0
@@ -302,14 +308,16 @@ class PrmsDynamicParameter:
             if len(parts) == 2 and parts[1].isdigit():
                 # Update the count
                 new_header.append(f"{parts[0]} {new_nhru}")
-            # Check for column header line (format: "year month day HRU 1 2 3 ...")
+            # Check for column header line (format:
+            # "year month day HRU 1 2 3 ...")
             elif (
                 len(parts) > 4
                 and parts[0].lower() == "year"
                 and parts[1].lower() == "month"
                 and parts[2].lower() == "day"
             ):
-                # Keep the first 4 parts (year month day HRU) and subset the rest
+                # Keep the first 4 parts (year month day HRU) and subset
+                # the rest
                 prefix = parts[:4]
                 hru_ids = parts[4:]
                 # Subset the HRU IDs based on indices
@@ -369,7 +377,8 @@ class PrmsDynamicParameter:
                     )
 
                 f.write(
-                    f"{year} {month} {day}{self.date_separator}{values_str}{newline}"
+                    f"{year} {month} {day}{self.date_separator}"
+                    f"{values_str}{newline}"
                 )
 
     @property
@@ -460,12 +469,12 @@ class PrmsDynamicParameter:
         dates_as_datetime = [
             dt.datetime(int(y), int(m), int(d)) for y, m, d in self.dates
         ]
-        min_date = min(dates_as_datetime)
 
         # Determine end date
         end_date = self._daily_end_date
         if end_date is None:
-            # Default: last date plus the timedelta between last and second-to-last
+            # Default: last date plus the timedelta between last and
+            # second-to-last
             if len(self.dates) >= 2:
                 last_date = dt.datetime(
                     int(self.dates[-1, 0]),
@@ -584,7 +593,8 @@ class PrmsDynamicParameter:
             dims=["time", "nhru"],
             coords={"time": time_coord, "nhm_id": nhm_id_coord},
         )
-        # Store fill_value as an attribute on the DataArray object for later retrieval
+        # Store fill_value as an attribute on the DataArray object for
+        # later retrieval
         data_array.attrs["_fill_value_for_encoding"] = fill_value
 
         self._daily_data_array = data_array
@@ -593,7 +603,8 @@ class PrmsDynamicParameter:
     def daily_data_array(self) -> xr.DataArray:
         """Get the daily data as an xarray DataArray (lazy property).
 
-        Lazily builds and caches the complete daily time series on first access.
+        Lazily builds and caches the complete daily time series on first
+        access.
         Subsequent accesses return the cached DataArray. The DataArray includes
         time and nhm_id coordinates and covers all days from daily_start_date
         (or first date in data) to the last date in the data.
@@ -616,21 +627,25 @@ class PrmsDynamicParameter:
     ) -> None:
         """Write the dynamic parameter data to a NetCDF CBH file.
 
-        This creates a NetCDF file with all daily times implied by the parameter file,
-        following the Climate by HRU (CBH) format used by pywatershed. The time
-        range spans from daily_start_date (or start_date parameter) to daily_end_date.
-        If daily_end_date is not set, it defaults to the last date in self.dates plus
+        This creates a NetCDF file with all daily times implied by the
+        parameter file, following the Climate by HRU (CBH) format used by
+        pywatershed. The time range spans from daily_start_date (or
+        start_date parameter) to daily_end_date. If daily_end_date is not
+        set, it defaults to the last date in self.dates plus
         the interval between the last and second-to-last dates.
 
         Args:
             file_path: Path to write the NetCDF file to
-            param_name: Name of the parameter variable (e.g., 'ag_frac', 'tmax').
+            param_name: Name of the parameter variable (e.g., 'ag_frac',
+                'tmax').
                 If None, attempts to extract from the file name or header.
-            start_date: Start date for the time series. If provided, temporarily
-                sets daily_start_date for this write. If None, uses daily_start_date
-                if set, otherwise defaults to the first date in self.dates. Can be
+            start_date: Start date for the time series. If provided,
+                temporarily sets daily_start_date for this write. If None,
+                uses daily_start_date if set, otherwise defaults to the
+                first date in self.dates. Can be
                 a string in 'YYYY-MM-DD' format or a datetime object.
-            metadata: Optional dictionary of variable metadata. If None, attempts
+            metadata: Optional dictionary of variable metadata. If None,
+                attempts
                 to load from variables.yaml. Should contain keys like 'desc',
                 'units', 'dims'.
         """
@@ -638,7 +653,8 @@ class PrmsDynamicParameter:
 
         # Extract parameter name if not provided
         if param_name is None:
-            # Try to get from file path (e.g., 'dyn_ag_frac.param' -> 'ag_frac')
+            # Try to get from file path
+            # (e.g., 'dyn_ag_frac.param' -> 'ag_frac')
             name = file_path.stem
             if name.startswith("dyn_"):
                 param_name = name[4:]  # Remove 'dyn_' prefix
@@ -680,7 +696,6 @@ class PrmsDynamicParameter:
         # Set defaults for missing metadata
         desc = metadata.get("desc", f"Dynamic parameter {param_name}")
         units = metadata.get("units", "unknown")
-        dims = metadata.get("dims", ["nhru"])
 
         # Set start_date if provided, then build/rebuild daily data
         if start_date is not None:
@@ -691,10 +706,8 @@ class PrmsDynamicParameter:
                 start_date_dt = start_date
 
             # Rebuild if start_date or end_date changed
-            needs_rebuild = False
             if self._daily_start_date != start_date_dt:
                 self.daily_start_date = start_date  # Setter will clear cache
-                needs_rebuild = True
 
         # Get the daily data array (builds if needed)
         data_var = self.daily_data_array.copy()
@@ -716,7 +729,8 @@ class PrmsDynamicParameter:
             attrs={"Description": "Climate by HRU"},
         )
 
-        # Get fill value from data_var attributes (stored with different name to avoid conflict)
+        # Get fill value from data_var attributes (stored with different
+        # name to avoid conflict)
         fill_value = data_var.attrs.pop("_fill_value_for_encoding", None)
 
         # Determine fill value if not found
@@ -730,7 +744,9 @@ class PrmsDynamicParameter:
         encoding = {
             param_name: {"_FillValue": fill_value},
             "time": {
-                "units": f"days since {self._daily_start_date.strftime('%Y-%m-%d')}",
+                "units": (
+                    f"days since {self._daily_start_date.strftime('%Y-%m-%d')}"
+                ),
                 "calendar": "proleptic_gregorian",
             },
         }
@@ -860,7 +876,8 @@ def compare_dynamic_param_files_text(
     context_chars: int = 50,
     verbose: bool = True,
 ) -> dict:
-    """Compare two dynamic parameter files as raw text to find formatting diffs.
+    """Compare two dynamic parameter files as raw text to find formatting
+    diffs.
 
     This function compares the actual text content of the files, not the
     parsed values. Useful for identifying formatting differences like
@@ -966,11 +983,13 @@ def compare_dynamic_param_files_text(
                         print(f"  First difference at character {pos}:")
                         ctx_start = diff_info.get("context_start", 0)
                         print(
-                            f"    file1[{ctx_start}:{ctx_start + len(diff_info['file1_context'])}]: "
+                            f"    file1[{ctx_start}:"
+                            f"{ctx_start + len(diff_info['file1_context'])}]: "
                             f"'{diff_info['file1_context']}'"
                         )
                         print(
-                            f"    file2[{ctx_start}:{ctx_start + len(diff_info['file2_context'])}]: "
+                            f"    file2[{ctx_start}:"
+                            f"{ctx_start + len(diff_info['file2_context'])}]: "
                             f"'{diff_info['file2_context']}'"
                         )
 
@@ -1020,7 +1039,8 @@ def compare_dynamic_param_files(
             - 'n_times_match': bool, True if number of time steps match
             - 'header_diffs': list of header line differences
             - 'date_diffs': list of date differences
-            - 'value_diffs': list of value differences (up to max_diffs_to_report)
+            - 'value_diffs': list of value differences (up to
+              max_diffs_to_report)
             - 'n_value_diffs': total number of value differences
     """
     file1 = pl.Path(file1)

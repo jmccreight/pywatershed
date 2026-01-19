@@ -58,7 +58,6 @@ def parameters(simulation, control, request):
     if request.param == "params_one":
         param_file = simulation["dir"] / control.options["parameter_file"]
         params = PrmsParameters.load(param_file)
-        sat_threshold = params.parameters["sat_threshold"]
 
     else:
         # Load runoff parameters
@@ -67,8 +66,8 @@ def parameters(simulation, control, request):
 
     if abs(params.parameters["sat_threshold"]).min() < 999.0:
         pytest.skip(
-            "test_prms_runoff_ag only valid when sat_threshold >= 999 (or some "
-            "amount) which causes zero dunnian_flow"
+            "test_prms_runoff_ag only valid when sat_threshold >= 999 "
+            "(or some amount) which causes zero dunnian_flow"
         )
 
     return params

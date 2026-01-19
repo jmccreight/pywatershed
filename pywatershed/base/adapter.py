@@ -151,7 +151,8 @@ class AdapterDynamicParameter(Adapter):
     date in the file.
 
     Args:
-        dyn_param: a PrmsDynamicParameter object or path to a dynamic param file
+        dyn_param: a PrmsDynamicParameter object or path to a dynamic
+            param file
         variable: variable name string
         control: a Control object
         dtype: data type for loading file ('float' or 'int'), only used if

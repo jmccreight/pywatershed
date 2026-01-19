@@ -816,7 +816,8 @@ class PRMSSoilzoneAg(ConservativeProcess):
                 numba_msg += "in sequential mode"
             print(numba_msg, flush=True)
 
-            # JIT compile the module-level function with appropriate parallel setting
+            # JIT compile the module-level function with appropriate parallel
+            # setting
 
             # Clear any existing compilation
             if hasattr(_calculate_soilzone_ag_numba, "_cache"):
@@ -903,7 +904,8 @@ class PRMSSoilzoneAg(ConservativeProcess):
                     if self.ag_frac[ihru] < old_ag_frac[ihru]:
                         # ag_frac DECREASED: keep ag_soil_moist unchanged,
                         # send excess water volume to slow_stor
-                        # Fortran: to_slow_stor = Ag_soil_moist(i) * (Ag_frac(i) - frac_ag)
+                        # Fortran: to_slow_stor =
+                        #     Ag_soil_moist(i) * (Ag_frac(i) - frac_ag)
                         excess_volume = self.ag_soil_moist[ihru] * (
                             old_ag_frac[ihru] - self.ag_frac[ihru]
                         )
@@ -911,7 +913,8 @@ class PRMSSoilzoneAg(ConservativeProcess):
                         # ag_soil_moist and ag_soil_rechr remain unchanged
                     elif old_ag_frac[ihru] < self.ag_frac[ihru]:
                         # ag_frac INCREASED: scale down ag_soil_moist
-                        # Fortran: Ag_soil_moist(i) = Ag_soil_moist(i)*Ag_frac(i)/frac_ag
+                        # Fortran: Ag_soil_moist(i) =
+                        #     Ag_soil_moist(i)*Ag_frac(i)/frac_ag
                         scale = old_ag_frac[ihru] / self.ag_frac[ihru]
                         self.ag_soil_moist[ihru] = (
                             self.ag_soil_moist[ihru] * scale
@@ -933,7 +936,8 @@ class PRMSSoilzoneAg(ConservativeProcess):
         self.slow_stor[:] = self.slow_stor + to_slow_stor
 
         # Scale pervious soil moisture when pervious area changes
-        # Fortran: Soil_moist(i) = Soil_moist(i)*tmp where tmp = Hru_perv(i)/hruperv
+        # Fortran: Soil_moist(i) = Soil_moist(i)*tmp where
+        # tmp = Hru_perv(i)/hruperv
         # Use np.isclose to avoid false positives from floating-point noise
         wh_perv_changed = np.where(
             (~np.isclose(old_hru_area_perv, new_hru_area_perv))
@@ -971,7 +975,8 @@ class PRMSSoilzoneAg(ConservativeProcess):
             self.hru_area_perv[wh_active] / self.hru_area[wh_active]
         )
 
-        # Recalculate soil_zone_max since it depends on hru_frac_perv and ag_frac
+        # Recalculate soil_zone_max since it depends on hru_frac_perv and
+        # ag_frac
         self.soil_zone_max[:] = (
             self._sat_threshold
             + self.soil_moist_max * self.hru_frac_perv
@@ -999,16 +1004,18 @@ class PRMSSoilzoneAg(ConservativeProcess):
         # Calculate how much water was redistributed due to ag_frac changes.
         #
         # MASS BUDGET APPROACH:
-        # When ag_frac changes (e.g., on Jan 1 annually), water is redistributed:
+        # When ag_frac changes (e.g., on Jan 1 annually), water is
+        # redistributed:
         # - Agricultural soil water may be transferred to slow_stor or scaled
         # - Pervious soil water is scaled to conserve volume over new area
         # These redistributions are area-accounting adjustments, not hydrologic
         # processes, so they must be excluded from mass budget calculations.
         #
-        # To maintain correct mass balance while preserving the semantic meaning
-        # of "_prev" variables (= truly previous timestep values), we:
+        # To maintain correct mass balance while preserving the semantic
+        # meaning of "_prev" variables (= truly previous timestep values), we:
         # 1. Keep _prev values as they were at end of previous timestep
-        # 2. Track how much was redistributed in these _redistribution variables
+        # 2. Track how much was redistributed in these _redistribution
+        #    variables
         # 3. Calculate _change = current - prev - redistribution
         #
         # This gives us:
@@ -1655,7 +1662,8 @@ class PRMSSoilzoneAg(ConservativeProcess):
                 #     breakpoint()
 
                 if ag_avail_targetAET > 0.0:
-                    # Set ag_soil_saturated flag if ag soil moisture ratio > 0.9999
+                    # Set ag_soil_saturated flag if ag soil moisture ratio >
+                    # 0.9999
                     # Fortran reference: compute_szactet line ~1448
                     # Must check BEFORE ET is subtracted from ag_soil_moist
                     # Only set when Et_type > 1 (evap or transp active)
@@ -1663,9 +1671,12 @@ class PRMSSoilzoneAg(ConservativeProcess):
                     #   Et_type = 1 if Avail_potet < NEARZERO
                     #   Et_type = 1 if Transp_on==OFF and Snow_free < 0.01
                     #   Et_type = 3 if Transp_on==ON and Cov_type > BARESOIL
-                    #   Et_type = 1 if Transp_on==ON and Cov_type==BARESOIL and Snow_free < 0.01
-                    #   Et_type = 2 if Transp_on==ON and Cov_type==BARESOIL and Snow_free >= 0.01
-                    # So Et_type > 1 when: (transp_on AND cov_type > 0) OR snow_free >= 0.01
+                    #   Et_type = 1 if Transp_on==ON and Cov_type==BARESOIL and
+                    #       Snow_free < 0.01
+                    #   Et_type = 2 if Transp_on==ON and Cov_type==BARESOIL and
+                    #       Snow_free >= 0.01
+                    # So Et_type > 1 when: (transp_on AND cov_type > 0) OR
+                    # snow_free >= 0.01
                     ag_et_type_gt_1 = (
                         transp_on[ihru] and ag_cov_type[ihru] > 0
                     ) or snow_free[ihru] >= 0.01
@@ -1719,9 +1730,12 @@ class PRMSSoilzoneAg(ConservativeProcess):
                 #   Et_type = 1 if Avail_potet < NEARZERO
                 #   Et_type = 1 if Transp_on==OFF and Snow_free < 0.01
                 #   Et_type = 3 if Transp_on==ON and Cov_type > BARESOIL
-                #   Et_type = 1 if Transp_on==ON and Cov_type==BARESOIL and Snow_free < 0.01
-                #   Et_type = 2 if Transp_on==ON and Cov_type==BARESOIL and Snow_free >= 0.01
-                # So Et_type > 1 when: (transp_on AND cov_type > 0) OR snow_free >= 0.01
+                #   Et_type = 1 if Transp_on==ON and Cov_type==BARESOIL and
+                #       Snow_free < 0.01
+                #   Et_type = 2 if Transp_on==ON and Cov_type==BARESOIL and
+                #       Snow_free >= 0.01
+                # So Et_type > 1 when: (transp_on AND cov_type > 0) OR
+                #       snow_free >= 0.01
                 # IF ( pcts>0.9999 ) Soil_saturated = 1
                 et_type_gt_1 = (
                     transp_on[ihru] and cov_type[ihru] > 0
@@ -2802,7 +2816,8 @@ def _calculate_soilzone_ag_numba(
     pref_flow[:] = 0.0
 
     # Arrays to track which HRUs need irrigation (for post-loop reduction)
-    # Prevents race conditions when multiple threads try to update shared variables
+    # Prevents race conditions when multiple threads try to update shared
+    # variables
     hru_needs_irrigation = np.empty(nhru, dtype=np.int32)
     hru_needs_irrigation[:] = 0
     hru_unsatisfied_max = np.empty(nhru, dtype=np.float64)
@@ -3196,7 +3211,8 @@ def _calculate_soilzone_ag_numba(
 
     # End HRU loop
 
-    # Compute iteration control variables after parallel loop (avoid race conditions)
+    # Compute iteration control variables after parallel loop (avoid race
+    # conditions)
     add_estimated_irrigation = False
     num_hrus_ag_iter = 0
     unsatisfied_big = 0.0

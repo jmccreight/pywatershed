@@ -164,7 +164,7 @@ class TestPrmsDynamicParameter:
             np.testing.assert_array_equal(dyn_param.data, expected["data"])
 
     def test_round_trip_float(self):
-        """Test that reading and writing a float file produces identical results."""
+        """Test reading and writing a float file produces identical results."""
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir = pl.Path(tmpdir)
             original_file = tmpdir / "original_float.dyn"
@@ -198,7 +198,7 @@ class TestPrmsDynamicParameter:
             )
 
     def test_round_trip_int(self):
-        """Test that reading and writing an int file produces identical results."""
+        """Test reading and writing an int file produces identical results."""
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir = pl.Path(tmpdir)
             original_file = tmpdir / "original_int.dyn"
@@ -458,7 +458,8 @@ class TestRealFiles:
                 file_path, output_file, verbose=False
             )
             assert text_result["identical"], (
-                f"Text files differ: {text_result['n_line_diffs']} lines differ"
+                f"Text files differ: {text_result['n_line_diffs']} "
+                "lines differ"
             )
             print("Text round-trip successful!")
 
@@ -518,7 +519,8 @@ class TestRealFiles:
                 file_path, output_file, verbose=False
             )
             assert text_result["identical"], (
-                f"Text files differ: {text_result['n_line_diffs']} lines differ"
+                f"Text files differ: {text_result['n_line_diffs']} "
+                "lines differ"
             )
             print("Text round-trip successful!")
 
