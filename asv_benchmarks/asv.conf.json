@@ -7,7 +7,7 @@
   "project": "pywatershed",
 
   // The project's homepage
-  "project_url": "http://github.com/EC-USGS/pywatershed",
+  "project_url": "http://github.com/DOI-USGS/pywatershed",
 
   // The URL or local path of the source code repository for the
   // project being benchmarked
@@ -21,8 +21,14 @@
   // Customizable commands for building, installing, and
   // uninstalling the project. See asv.conf.json documentation.
   //
-  "install_command": ["python -mpip install ."],
-  "uninstall_command": ["return-code=any python -mpip uninstall -y {project}"],
+  // "install_command": ["python -mpip install ."],
+  // "uninstall_command": ["return-code=any python -mpip uninstall -y {project}"],
+  // "install_command": ["in-dir={env_dir} python -mpip install {wheel_file}"],
+  // "uninstall_command": ["return-code=any python -mpip uninstall -y {project}"],
+  // "build_command": [
+  //     "python setup.py build",
+  //     "PIP_NO_BUILD_ISOLATION=false python -mpip wheel --no-deps --no-index -w {build_cache_dir} {build_dir}"
+  // ],
 
   // List of branches to benchmark. If not provided, defaults to "master"
   // (for git) or "default" (for mercurial).
@@ -48,11 +54,11 @@
   "install_timeout": 600,
 
   // the base URL to show a commit for the project.
-  "show_commit_url": "http://github.com/EC-USGS/pywatershed/commit/",
+  "show_commit_url": "http://github.com/DOI-USGS/pywatershed/commit/",
 
   // The Pythons you'd like to test against.  If not provided, defaults
   // to the current version of Python used to run `asv`.
-  "pythons": ["3.11"],
+  "pythons": ["3.12"],
 
   // The list of conda channel names to be searched for benchmark
   // dependency packages in the specified order
@@ -93,9 +99,9 @@
 
   "matrix": {
     // "setuptools_scm": [""],  // GH6609
-    // "numpy": [""],
-    // "netcdf4": [""],
-    // "xarray": [""]
+    "numpy": [""],
+    "netcdf4": [""],
+    "xarray": [""]
   },
 
   // Combinations of libraries/python versions can be excluded/included

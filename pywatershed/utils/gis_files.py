@@ -17,7 +17,7 @@ def download(force=False):
 
     if not gis_dir.exists():
         gis_url = (
-            "https://github.com/EC-USGS/pywatershed/"
+            "https://github.com/DOI-USGS/pywatershed/"
             "releases/download/1.1.0/pywatershed_gis.zip"
         )
         gis_file = pkg_root_dir / "data/pywatershed_gis.zip"

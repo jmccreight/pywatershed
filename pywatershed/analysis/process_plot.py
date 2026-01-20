@@ -100,6 +100,7 @@ class ProcessPlot:
         vmin: float = None,
         vmax: float = None,
         aesthetic_width_color="darkblue",
+        missing_kwds: dict = None,
     ):
         values = process[var_name]
         if value_transform is not None:
@@ -121,11 +122,16 @@ class ProcessPlot:
             )
         else:
             if vmin is None:
-                vmin = values.min()
+                vmin = np.nanmin(values)
             if vmax is None:
-                vmax = values.max()
+                vmax = np.nanmax(values)
             if cmap is None:
                 cmap = "cool"
+            if missing_kwds is None:
+                missing_kwds = {
+                    "color": "lightgrey",
+                    "linewidth": 0.5,
+                }
 
             ax = df_plot.plot(
                 column=var_name,
@@ -134,6 +140,7 @@ class ProcessPlot:
                 vmin=vmin,
                 vmax=vmax,
                 legend=True,
+                missing_kwds=missing_kwds,
             )
 
         cx.add_basemap(

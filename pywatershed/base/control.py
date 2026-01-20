@@ -28,7 +28,7 @@ from .accessor import Accessor
 # The following are duplicated in the Control docstring below and that
 # docstring needs updated whenever any of these change.
 pws_control_options_avail = [
-    "budget_type",
+    "imbalance_behavior",
     "calc_method",
     "dprst_flag",
     # "restart",
@@ -43,7 +43,10 @@ pws_control_options_avail = [
     "restart_write",
     "restart_write_freq",
     "start_time",
+    "stream_temp_flag",
+    "stream_temp_shade_flag",
     "streamflow_module",
+    "strmtemp_humidity_flag",
     "time_step_units",
     "verbosity",
 ]
@@ -59,7 +62,10 @@ prms_legacy_options_avail = [
     "nsegmentOutVar_names",
     "param_file",
     "start_time",
+    "stream_temp_flag",
+    "stream_temp_shade_flag",
     "strmflow_module",
+    "strmtemp_humidity_flag",
     "print_debug",
 ]
 
@@ -85,14 +91,16 @@ class Control(Accessor):
     """Control manages global time and options, and provides metadata.
 
     Args:
-        start_time: the first time of integration NOT the restart time
-        end_time: the last integration time
-        time_step: length of the time step
-        init_time: the initialization time
-        options: a dictionary of global Process options.
+        init_time: The initialization or restart time. Typically one day prior
+          to start_time (but not necessarily).
+        start_time: The first time of model integration, NOT the restart or
+          init time.
+        end_time: The final integration time of the run.
+        time_step: Length of the time step (not currently optional).
+        options: A dictionary of global Process options.
 
     Available pywatershed options:
-      * budget_type: one of [None, "warn", "error"]
+      * imbalance_behavior: one of [None, "warn", "error"]
       * calc_method: one of ["numpy", "numba", "fortran"]
       * dprst_flag: boolean if depression storage is included (true) or not.
       * input_dir: str or pathlib.path directory to search for input data. Use
@@ -243,15 +251,16 @@ class Control(Accessor):
             control_file: PRMS control file
             warn_unused_options: bool if warnings are to be issued for unused
                 options from the PRMS control file. Recommended and True by
-                default. See below for a list of used/available legacy options.
-
+                default. See Control for a list of used/available legacy
+                options. "Invalid" options will still be warned and can only be
+                silenced by trapping warnings.
+            keep_unused_options: Retain all key information in the control
+                file. "Invalid" options will still be warned and can only be
+                silenced by trapping warnings.
         Returns:
             An instance of a Control object.
         """
         control = ControlVariables.load(control_file)
-
-        if keep_unused_options and not warn_unused_options:
-            warn_unused_options = True
 
         if warn_unused_options:
             for vv in control.control.keys():
@@ -287,11 +296,15 @@ class Control(Accessor):
                 else:
                     opts[pws_option_key] = val
                 # some special cases
-                if pws_option_key in [
-                    "parameter_file",
-                    "netcdf_output_dir",
-                    "streamflow_module",
-                ]:
+                if (
+                    pws_option_key
+                    in [
+                        "parameter_file",
+                        "netcdf_output_dir",
+                        "streamflow_module",
+                    ]
+                    and len(val) == 1
+                ):
                     opts[pws_option_key] = val[0]
 
             # special cases, unmapped names
@@ -382,6 +395,19 @@ class Control(Accessor):
     def current_doy(self) -> int:
         """Get the current day of year in 1-366 (unless zero based)."""
         return datetime_doy(self._current_time)
+
+    @property
+    def current_jsol(self) -> int:
+        """The number of days since the last winter solstice.
+        Currently ASSUMES Norther Hemisphere.
+
+        This is based on GSFLOW 2.4.0:rc/prms/sm_utils_prms.f90:L470
+        julian_day function with argument "solar".
+
+        """
+        from ..utils.time_utils import datetime_jsol
+
+        return datetime_jsol(self.current_time)
 
     @property
     def current_dowy(self) -> int:
@@ -606,7 +632,7 @@ class Control(Accessor):
 
 
         Required key:value pairs:
-            * budget_type: None | "warn" | "error"
+            * imbalance_behavior: None | "warn" | "error"
             * calc_method: None | "numpy" | "numba" | "fortran" (depending on
               availability)
             * end_time: ISO8601 string for numpy datetime64, e.g.

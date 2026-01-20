@@ -13,14 +13,18 @@ from pywatershed.hydrology.starfit import StarfitFlowNodeMaker
 from pywatershed.parameters import Parameters, StarfitParameters
 
 # NB:
-#   Here we are comparing a daily offline starfit against an hourly
-#   StarfitNode. The reference output is the mean value from offline runs run
+#   Here we are comparing a daily offline starfit against an "hourly"
+#   StarfitNode that is computed with a 24 hour timestep, sort of faking the
+#   daily results. The reference output is the mean value from offline runs run
 #   from 1995-2001 in the file
 #   ../test_data/starfit/starfit_mean_output_1995-2001.nc
 #   We only advance the hourly StarfitNode one substepper day. It's
 #   resulting flow rates are identical but the change in storage is 1/24
 #   of the daily value, so we check this. We have to track previous storage
 #   to do this and get the delta storages.
+#   TODO: Test daily mode or delete the capability (probably the later since
+#   daily runs can be mimicked as noted above, however they require
+#   inflows to be pre-averaged over the day to the first subtimestep.)
 #   TODO: There is no comparison of output files at the moment.
 do_compare_output_files = True
 do_compare_in_memory = True
@@ -55,7 +59,7 @@ def parameters():
     #     (parameters_ds.start_time == np.datetime64("1995-01-01 00:00:00"))
     #     & (parameters_ds.end_time >= np.datetime64("2001-12-31 00:00:00"))
     # )
-    # asdf
+
     merge_list = []
     for ii in starfit_inds_test:
         merge_list += [parameters_ds.isel(nreservoirs=slice(ii, ii + 1))]
@@ -72,7 +76,7 @@ def control(parameters):
         end_time,
         np.timedelta64(24, "h"),
     )
-    control.options["budget_type"] = "error"
+    control.options["imbalance_behavior"] = "error"
     return control
 
 
@@ -126,6 +130,7 @@ def test_starfit_flow_node_compare_starfit(
         # calc_method=calc_method
         io_in_cfs=io_in_cfs,
         nhrs_substep=24,
+        compute_daily=False,
     )
 
     nodes = [
@@ -151,6 +156,8 @@ def test_starfit_flow_node_compare_starfit(
             node.advance()
             node.prepare_timestep()
             for ss in range(1):
+                # A single step with nhrus_substep to mimic the daily starfit
+                # test data. (Which do not have substep flow inputs.)
                 node.calculate_subtimestep(
                     ss, inflows_node.current[inode], zero
                 )

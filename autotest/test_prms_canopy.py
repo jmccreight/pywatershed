@@ -79,7 +79,7 @@ def test_compare_prms(
         discretization=discretization,
         parameters=parameters,
         **input_variables,
-        budget_type="error",
+        imbalance_behavior="error",
         calc_method=calc_method,
     )
 

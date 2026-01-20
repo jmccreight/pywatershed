@@ -66,33 +66,39 @@ class PRMSRunoff(ConservativeProcess):
             change from winter to summer
         dprst_flag: use depression storage or not? None uses value in control
             file, which otherwise defaults to True.
-        budget_type: one of ["defer", None, "warn", "error"] with "defer" being
-            the default and defering to control.options["budget_type"] when
-            available. When control.options["budget_type"] is not avaiable,
-            budget_type is set to "warn".
+        imbalance_behavior: one of ["defer", None, "warn", "error"]
+            with "defer" being the default and defering to
+            control.options["imbalance_behavior"] when available. When
+            control.options["imbalance_behavior"] is not avaiable,
+            imbalance_behavior is set to "warn".
         calc_method: one of ["numba", "numpy"]. None defaults to
             "numba".
         verbose: Print extra information or not?
-        restart_read: May be boolean or a Pathlib.Path. If False,
-          control.options will be examined for this key. If True, the working
-          directory is searched for restart files. If a Pathlib.Path, this
-          specifies an alternative directory to search for restart files.
-          Files searched for are of the pattern YYYY-mm-dd-varname.nc where the
-          date is the control.init_time. The timestamp on the file is the valid
-          time of the states in the file with the exception of instantaneous
-          variables from the hourly timesteps (e.g. outflow_ts in PRMSChannel,
-          which is valid at the 23rd hour of the timestampped day).
-        restart_write: As for restart_read but for writing. The directory in
-          either case will be attempted to be created if it does not exist.
-        restart_write_freq: The frequency of restart output as "y" for yearly,
-          "m" for monthly, "d" for daily, or "f" for final. "Final" means that
-          restart files are written with the states of control.end_time to
-          files timestampped the following day. Yearly and monthly restart
-          options write files with timestamps on every first day each year or
-          month during the run. If daily, restarts are written every day. If
-          False, control.options will be examined for this key. If
-          restart_write is not False and restart_write_freq is False, the
-          default of "f" is used.
+        restart_read:
+            May be boolean or a Pathlib.Path. If False, control.options
+            will be examined for this key. If True, the working
+            directory is searched for restart files. If a Pathlib.Path, this
+            specifies an alternative directory to search for restart files.
+            Files searched for are of the pattern YYYY-mm-dd-varname.nc where
+            the date is the control.init_time. The timestamp on the file is the
+            valid time of the states in the file with the exception of
+            processes with sub-daily timesteps. For example, the outflow_ts
+            variable of PRMSChannel is instantaneous and valid at the 23rd hour
+            of the timestampped day whereas its variable seg_outflow is the
+            daily averge value over the timestampped day.
+        restart_write:
+            As for restart_read but for writing. The directory in either
+            case will be attempted to be created if it does not exist.
+        restart_write_freq:
+            If False, then control.options is examined for this key. The
+            follwing values set the frequency of restart output with "y" for
+            yearly, "m" for monthly, "d" for daily, or "f" for final. "Final"
+            means that restart files are written with the states at
+            control.end_time to files timestampped with control.end_time.
+            Yearly and monthly restart options write files with timestamps on
+            the last day of each year or month during the run. If daily,
+            restarts are written every day. If restart_write is not False and
+            restart_write_freq is False, the default of "f" is used.
     """
 
     def __init__(
@@ -114,13 +120,15 @@ class PRMSRunoff(ConservativeProcess):
         through_rain: adaptable,
         hru_intcpevap: adaptable,
         intcp_changeover: adaptable,
-        dprst_flag: bool = None,
-        budget_type: Literal["defer", None, "warn", "error"] = "defer",
-        calc_method: Literal["numba", "numpy"] = None,
-        verbose: bool = None,
+        ag_soil_moist_prev: Union[adaptable, None] = None,
+        ag_soil_rechr_prev: Union[adaptable, None] = None,
+        dprst_flag: Union[bool, None] = None,
+        imbalance_behavior: Literal["defer", None, "warn", "error"] = "defer",
+        calc_method: Literal["numba", "numpy", None] = None,
+        verbose: Union[bool, None] = None,
         restart_read: Union[pl.Path, bool] = False,
         restart_write: Union[pl.Path, bool] = False,
-        restart_write_freq: Literal["y", "m", "d", None] = None,
+        restart_write_freq: Literal["y", "m", "d", "f", False] = False,
     ) -> None:
         self._dprst_flag = dprst_flag
         if self._dprst_flag is None:
@@ -186,7 +194,6 @@ class PRMSRunoff(ConservativeProcess):
             "hru_in_to_cf",
             "hru_percent_imperv",
             "imperv_stor_max",
-            "dprst_frac",
             "carea_max",
             "smidx_coef",
             "smidx_exp",
@@ -278,8 +285,6 @@ class PRMSRunoff(ConservativeProcess):
     def get_mass_budget_terms():
         return {
             "inputs": [
-                # "net_rain",
-                # "net_snow",
                 "through_rain",
                 "snowmelt",
                 "intcp_changeover",
@@ -910,11 +915,7 @@ class PRMSRunoff(ConservativeProcess):
         if hru_type == LAND or isglacier:
             hru_flag = 1
 
-        cascade_active = False
-        if cascade_active:
-            raise Exception("bad bad bad")
-        else:
-            avail_water = 0.0
+        avail_water = 0.0
 
         # compute runoff from canopy changeover water
         if intcp_changeover > 0.0:

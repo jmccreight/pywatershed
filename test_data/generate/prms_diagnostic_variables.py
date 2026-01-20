@@ -20,6 +20,8 @@ prev_vars_both = {
 previous_vars = prev_vars_both | {
     "dprst_stor_hru": pws.PRMSRunoff,
     "hru_impervstor": pws.PRMSRunoff,
+    "ag_soil_moist": pws.PRMSSoilzoneAg,
+    "ag_soil_rechr": pws.PRMSSoilzoneAg,
     "pref_flow_stor": pws.PRMSSoilzone,
     "slow_stor": pws.PRMSSoilzone,
     "soil_lower": pws.PRMSSoilzone,

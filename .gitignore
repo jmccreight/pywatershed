@@ -43,8 +43,11 @@ prms_src/prms5.3.0/bin
 *.out
 *.wbal
 wbal.msgs
-soltab_debug
+soltab_debug*
 output*/
+
+pywatershed/data/pywatershed_addtl_domains
+ucb_ag_spinup_2yr*/
 
 # emacs
 *~
@@ -74,7 +77,8 @@ examples/make_starfit_parameters
 pywatershed/data/pynhm_gis
 pywatershed/data/pywatershed_gis
 
-
+pyrightconfig.json
+.DS_Store
 
 # graphics
 *.png

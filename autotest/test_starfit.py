@@ -31,7 +31,7 @@ def test_regress(io_in_cfs, tmp_path):
         np.datetime64("2001-12-31 00:00:00"),
         np.timedelta64(24, "h"),
     )
-    control.options["budget_type"] = "error"
+    control.options["imbalance_behavior"] = "error"
 
     # # load csv files into dataframes
     # output_dir = domain["prms_output_dir"]

@@ -245,7 +245,7 @@ def test_prms_channel_obsin_compare_prms(
         parameters=params_flow_graph,
         inflows=inflows_graph,
         node_maker_dict=node_maker_dict,
-        budget_type="error",
+        imbalance_behavior="error",
         addtl_output_vars=["sink_source"],
     )
 

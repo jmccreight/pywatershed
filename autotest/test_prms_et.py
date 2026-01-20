@@ -40,7 +40,7 @@ class TestPRMSEt:
             control=control,
             discretization=None,
             parameters=params,
-            budget_type="strict",
+            imbalance_behavior="strict",
             **et_inputs,
         )
 

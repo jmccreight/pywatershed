@@ -37,7 +37,7 @@ dependencies:
   - pytest-env
   - pytest-order
   - pytest-xdist
-  - python<3.12,>=3.10
+  - python<3.13,>=3.11
   - pyyaml
   - pyvis
   - ruff
@@ -53,4 +53,4 @@ dependencies:
   - pip:
       - git+https://github.com/jararias/mpsplines.git
       - pyPRMS
-      - modflow-devtools[dfn] @ git+https://github.com/MODFLOW-ORG/modflow-devtools.git
+      - modflow-devtools[dfn]==1.7.0

@@ -2332,16 +2332,18 @@ palettes_by_cat = {
 
 def nhm_process_colors(model: Model = None):
     cb = ColorBrewer
-    palette = cb.get_palette("Accent")(8)  # the full NHM model processes
+    palette = cb.get_palette("Set3")(10)  # the full NHM model processes
     process_colors = {
-        "PRMSSolarGeometry": palette[3],
-        "PRMSAtmosphere": palette[2],
-        "PRMSCanopy": palette[0],
-        "PRMSSnow": palette[1],
-        "PRMSRunoff": palette[5],
-        "PRMSSoilzone": palette[6],
-        "PRMSGroundwater": palette[7],
+        "PRMSSolarGeometry": palette[1],
+        "PRMSAtmosphere": palette[0],
+        "PRMSCanopy": palette[6],
+        "PRMSSnow": palette[8],
+        "PRMSRunoff": palette[7],
+        "PRMSSoilzone": palette[5],
+        "PRMSGroundwater": palette[2],
         "PRMSChannel": palette[4],
+        "PRMSHydraulicGeometryWidthOnly": palette[9],
+        "PRMSStreamTemp": palette[3],
     }
     if not model:
         return process_colors

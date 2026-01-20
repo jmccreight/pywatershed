@@ -1,9 +1,9 @@
 # pywatershed
 
-[![ci-badge](https://github.com/ec-usgs/pywatershed/workflows/CI/badge.svg?branch=develop)](https://github.com/ec-usgs/pywatershed/actions?query=workflow%3ACI)
-[![codecov-badge](https://codecov.io/gh/ec-usgs/pywatershed/branch/main/graph/badge.svg)](https://codecov.io/gh/ec-usgs/pywatershed)
+[![ci-badge](https://github.com/doi-usgs/pywatershed/workflows/CI/badge.svg?branch=develop)](https://github.com/doi-usgs/pywatershed/actions?query=workflow%3ACI)
+[![codecov-badge](https://codecov.io/gh/doi-usgs/pywatershed/branch/main/graph/badge.svg)](https://codecov.io/gh/doi-usgs/pywatershed)
 [![Documentation Status](https://readthedocs.org/projects/pywatershed/badge/?version=latest)](https://pywatershed.readthedocs.io/en/latest/?badge=latest)
-[![asv](http://img.shields.io/badge/benchmarked%20by-asv-green.svg?style=flat)](https://github.com/ec-usgs/pywatershed)
+[![asv](http://img.shields.io/badge/benchmarked%20by-asv-green.svg?style=flat)](https://github.com/doi-usgs/pywatershed)
 [![Formatted with Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
 [![Available on pypi](https://img.shields.io/pypi/v/pywatershed.svg)](https://pypi.python.org/pypi/pywatershed)
@@ -49,7 +49,7 @@ For more information on the goals and status of pywatershed, please see the [pyw
 
 ## Installation
 
-`pywatershed` uses Python 3.10 or 3.11.
+`pywatershed` uses Python 3.11 or 3.12.
 
 The `pywatershed` package is [available on
 PyPI](https://pypi.org/project/pywatershed/) but installation of all
@@ -76,19 +76,19 @@ use `develop` instead.
 Without using `git` (directly), you may:
 
 ```
-curl -L -O https://raw.githubusercontent.com/EC-USGS/pywatershed/<branch>/environment_w_jupyter.yml
+curl -L -O https://raw.githubusercontent.com/DOI-USGS/pywatershed/<branch>/environment_w_jupyter.yml
 mamba env create -f environment_w_jupyter.yml
-conda activate pws
-pip install git+https://github.com/EC-USGS/pywatershed.git@<branch>
+mamba activate pws
+pip install git+https://github.com/DOI-USGS/pywatershed.git@<branch>
 ```
 
 Or to use `git` and to be able to develop:
 
 ```
-git clone https://github.com/EC-USGS/pywatershed.git
+git clone https://github.com/DOI-USGS/pywatershed.git
 cd pywatershed
 mamba env create -f environment_w_jupyter.yml
-activate pws
+mamba activate pws
 pip install -e .
 ```
 
@@ -108,7 +108,7 @@ _the best way to get started with pywatershed is to dive into the example
 notebooks_.
 
 For introductory example notebooks, look in the
-[`examples/`](https://github.com/EC-USGS/pywatershed/tree/main/examples)
+[`examples/`](https://github.com/DOI-USGS/pywatershed/tree/main/examples)
 directory in the repository. Numbered starting at 00, these are meant to be
 completed in order. Numbered starting at 00, these are meant to be completed
 in order. Notebook outputs are not saved in Github.
@@ -120,12 +120,12 @@ developers who may want to learn about running the software tests.
 
 ## Community engagement
 
-We value your feedback! Please use [discussions](https://github.com/EC-USGS/pywatershed/discussions)
-or [issues](https://github.com/EC-USGS/pywatershed/issues) on Github.
+We value your feedback! Please use [discussions](https://github.com/DOI-USGS/pywatershed/discussions)
+or [issues](https://github.com/DOI-USGS/pywatershed/issues) on Github.
 For more in-depth contributions, please start by reading over
 the pywatershed
-[DEVELOPER.md](https://github.com/EC-USGS/pywatershed/blob/develop/DEVELOPER.md) and
-[CONTRIBUTING.md](https://github.com/EC-USGS/pywatershed/blob/develop/CONTRIBUTING.md)
+[DEVELOPER.md](https://github.com/DOI-USGS/pywatershed/blob/develop/DEVELOPER.md) and
+[CONTRIBUTING.md](https://github.com/DOI-USGS/pywatershed/blob/develop/CONTRIBUTING.md)
 guidelines.
 
 Thank you for your interest.

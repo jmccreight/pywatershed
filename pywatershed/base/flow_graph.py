@@ -32,7 +32,7 @@ class FlowNode(Accessor):
     See :class:`FlowGraph` for related examples and discussion.
     """
 
-    def __init__(self, control: Control):
+    def __init__(self, control: Control) -> None:
         """Initialize the FlowNode.
 
         Args:
@@ -40,13 +40,13 @@ class FlowNode(Accessor):
         """
         raise Exception("This must be overridden")
 
-    def prepare_timestep(self):
+    def prepare_timestep(self) -> None:
         "Prepare the subtimestep for subtimestep calculations."
         raise Exception("This must be overridden")
 
     def calculate_subtimestep(
         self, isubstep: int, inflow_upstream: float, inflow_lateral: float
-    ):
+    ) -> None:
         """Calculate the subtimestep.
 
         Args:
@@ -59,11 +59,11 @@ class FlowNode(Accessor):
         """
         raise Exception("This must be overridden")
 
-    def advance(self):
+    def advance(self) -> None:
         "Advance this FlowNode to the next timestep."
         raise Exception("This must be overridden")
 
-    def finalize_timestep(self):
+    def finalize_timestep(self) -> None:
         "Finalize the current timestep at this FlowNode."
         raise Exception("This must be overridden")
 
@@ -103,7 +103,7 @@ class FlowNodeMaker(Accessor):
         self,
         discretization: Parameters = None,
         parameters: Parameters = None,
-    ):
+    ) -> None:
         """Intitalize the FlowNodeMaker.
 
         Args:
@@ -113,7 +113,7 @@ class FlowNodeMaker(Accessor):
         self.name = "FlowNodeMaker"
         return
 
-    def get_node(control: Control, index: int) -> FlowNode:
+    def get_node(self, control: Control, index: int) -> FlowNode:
         """Instantiate FlowNode at a given index.
 
         Args:
@@ -124,7 +124,7 @@ class FlowNodeMaker(Accessor):
         raise Exception("This must be overridden")
 
 
-def type_check(scalar: float):
+def type_check(scalar: float) -> None:
     assert isinstance(scalar, float)
     return None
 
@@ -179,7 +179,7 @@ class FlowGraph(ConservativeProcess):
     For users specifically interested in adding new nodes into the
     :class:`PRMSChannel` MuskingumMann routing solutions, there are helper
     functions available which greatly simplify the code. See the notebook
-    `examples/06_flow_graph_starfit.ipynb <https://github.com/EC-USGS/pywatershed/blob/develop/examples/06_flow_graph_starfit.ipynb>`__
+    `examples/06_flow_graph_starfit.ipynb <https://github.com/DOI-USGS/pywatershed/blob/develop/examples/06_flow_graph_starfit.ipynb>`__
     which highlights both helper functions
     :func:`prms_channel_flow_graph_to_model_dict`
     and :func:`prms_channel_flow_graph_postprocess`.
@@ -306,7 +306,7 @@ class FlowGraph(ConservativeProcess):
     ...     parameters=parameters_flow_graph,
     ...     inflows=inflows_graph,
     ...     node_maker_dict=node_maker_dict,
-    ...     budget_type="error",
+    ...     imbalance_behavior="error",
     ... )
     >>> # Save out the full timeseries of flows for all nodes
     >>> graph_seg_outflows = np.zeros([control.n_times, nnodes])
@@ -339,7 +339,7 @@ class FlowGraph(ConservativeProcess):
         node_maker_dict: dict,
         addtl_output_vars: list[str] = None,
         params_not_to_netcdf: list[str] = None,
-        budget_type: Literal["defer", None, "warn", "error"] = "defer",
+        imbalance_behavior: Literal["defer", None, "warn", "error"] = "defer",
         allow_disconnected_nodes: bool = False,
         type_check_nodes: bool = False,
         verbose: bool = None,
@@ -364,11 +364,11 @@ class FlowGraph(ConservativeProcess):
               for NetCDF output from FlowNodes. These variables do not have to
               be available in all FlowNodes but must be present in at least
               one.
-            budget_type: one of ["defer", None, "warn", "error"] with "defer"
-              being the default and defering to
-              control.options["budget_type"] when
-              available. When control.options["budget_type"] is not avaiable,
-              budget_type is set to "warn".
+            imbalance_behavior: one of ["defer", None, "warn", "error"]
+              with "defer" being the default and defering to
+              control.options["imbalance_behavior"] when available.
+              When control.options["imbalance_behavior"] is not
+              avaiable, imbalance_behavior is set to "warn".
             allow_disconnected_nodes: If False, an error is thrown when
               disconnected nodes are found in the graph. This happens often
               in PRMS, so allowing is a convenience but bad practive.
@@ -762,9 +762,9 @@ class FlowGraph(ConservativeProcess):
             self._outflow_mask, self.node_outflows, zero
         )
 
-        if self.budget is not None:
-            self.budget.advance()
-            self.budget.calculate()
+        if self.mass_budget is not None:
+            self.mass_budget.advance()
+            self.mass_budget.calculate()
 
         return
 
@@ -800,7 +800,7 @@ def inflow_exchange_factory(
             control: Control,
             discretization: Parameters,
             parameters: Parameters,
-            budget_type: Literal[None, "warn", "error"] = None,
+            imbalance_behavior: Literal[None, "warn", "error"] = None,
             verbose: bool = None,
             budget_basis="global",
             **kwargs,

@@ -1,7 +1,7 @@
 import inspect
 import os
 import pathlib as pl
-from typing import Literal, Union
+from typing import Iterable, Literal, Union
 from warnings import warn
 
 import numpy as np
@@ -93,21 +93,24 @@ class Process(Accessor):
         specifies an alternative directory to search for restart files.
         Files searched for are of the pattern YYYY-mm-dd-varname.nc where the
         date is the control.init_time. The timestamp on the file is the valid
-        time of the states in the file with the exception of instantaneous
-        variables from the hourly timesteps (e.g. outflow_ts in PRMSChannel,
-        which is valid at the 23rd hour of the timestampped day).
+        time of the states in the file with the exception of processes with
+        sub-daily timesteps. For example, the outflow_ts variable of
+        PRMSChannel is instantaneous and valid at the 23rd hour of the
+        timestampped day whereas its variable seg_outflow is the daily averge
+        value over the timestampped day.
     restart_write:
         As for restart_read but for writing. The directory in either
         case will be attempted to be created if it does not exist.
     restart_write_freq:
-        The frequency of restart output as "y" for yearly, "m"
+        If False, then control.options is examined for this key. The follwing
+        values set the frequency of restart output with "y" for yearly, "m"
         for monthly, "d" for daily, or "f" for final. "Final" means that
-        restart files are written with the states of control.end_time to files
-        timestampped the following day. Yearly and monthly restart options
-        write files with timestamps on every first day each year or month
-        during the run. If daily, restarts are written every day. If False,
-        control.options will be examined for this key. If restart_write is not
-        False and restart_write_freq is False, the default of "f" is used.
+        restart files are written with the states at control.end_time to files
+        timestampped with control.end_time. Yearly and monthly restart options
+        write files with timestamps on the last day of each year or month
+        during the run. If daily, restarts are written every day. If
+        restart_write is not False and restart_write_freq is False, the default
+        of "f" is used.
     """
 
     def __init__(
@@ -212,24 +215,7 @@ class Process(Accessor):
                 print(f"writing output for: {self.name}")
             self._output_netcdf()
 
-        if (
-            hasattr(self, "_restart_write")
-            and self._restart_write is not False
-            and self.control.itime_step >= 0
-        ):
-            if self._restart_write_strf_code == "f":
-                if self.control.itime_step == (self.control.n_times - 1):
-                    self._output_restart()
-            else:
-                current_count = int(
-                    self.control.current_time.astype("datetime64[D]")
-                    .item()
-                    .strftime(self._restart_write_strf_code)
-                )
-                if self._restart_write_strf_code != "%H":
-                    current_count -= 1
-                if current_count == 0:
-                    self._output_restart()
+        self._output_restart()
 
         return
 
@@ -593,6 +579,7 @@ class Process(Accessor):
         output_vars: list = None,
         extra_coords: dict = None,
         addtl_output_vars: list = None,
+        **kwargs,
     ) -> None:
         """Initialize NetCDF output.
 
@@ -602,7 +589,7 @@ class Process(Accessor):
             separate_files: boolean indicating if storage component output
                 variables should be written to a separate file for each
                 variable
-            output_vars: list of variable names to outuput.
+            output_vars: list of variable names to output.
 
         Returns:
             None
@@ -720,6 +707,33 @@ class Process(Accessor):
     def _output_restart(self) -> None:
         from xarray import DataArray
 
+        # preamble is logic for outputting restarts, or not.
+        if (
+            hasattr(self, "_restart_write")
+            and self._restart_write is not False
+            and self.control.itime_step >= 0
+        ):
+            if self._restart_write_strf_code == "f":
+                if self.control.itime_step != (self.control.n_times - 1):
+                    return
+            else:
+                next_count = int(
+                    # write restarts on the LAST day of the period, so
+                    # add a day to current time
+                    (self.control.current_time + np.timedelta64(24, "h"))
+                    .astype("datetime64[D]")
+                    .item()
+                    .strftime(self._restart_write_strf_code)
+                )
+                if self._restart_write_strf_code != "%H":
+                    # because hours are counted from zero but days are not
+                    next_count -= 1
+                if next_count != 0:
+                    return
+
+        else:
+            return
+
         cur_time = self.control.current_time
         time = np.atleast_1d(np.array(cur_time.astype("datetime64[ns]")))
 
@@ -780,6 +794,11 @@ class Process(Accessor):
             "separate_files": separate_files,
         }
 
+        self_vars = set(self.get_variables())
+
+        def is_not_str_iteratable(it: Iterable):
+            return isinstance(it, Iterable) and not isinstance(it, str)
+
         for vv in args.keys():
             arg_val = args[vv]
             opt_name = arg_opt_name_map[vv]
@@ -798,6 +817,23 @@ class Process(Accessor):
 
             elif arg_val is None:
                 args[vv] = opt_val
+
+            elif is_not_str_iteratable(opt_val) and (
+                (set(opt_val) & self_vars) == self_vars
+            ):
+                args[vv] = self_vars
+
+            elif (
+                is_not_str_iteratable(opt_val)
+                and len(set(opt_val) & self_vars) == 0
+            ):
+                args[vv] = None
+
+            elif (
+                is_not_str_iteratable(opt_val)
+                and is_not_str_iteratable(arg_val)
+            ) and (set(opt_val) & set(arg_val)) == set(arg_val):
+                args[vv] = arg_val
 
             elif opt_val is not None and arg_val is not None:
                 if opt_val == arg_val:

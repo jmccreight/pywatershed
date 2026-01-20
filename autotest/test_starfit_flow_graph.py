@@ -152,7 +152,7 @@ def test_starfit_flow_graph_postprocess(
     # i dont think so, so do it here.
     # cant really test answers per above note
     control.options["input_dir"] = input_dir
-    control.options["budget_type"] = "error"
+    control.options["imbalance_behavior"] = "error"
     control.options["verbosity"] = True
     # control.options["netcdf_output_dir"] = tmp_path  # TODO
     control.options["netcdf_output_var_names"] = [
@@ -167,9 +167,10 @@ def test_starfit_flow_graph_postprocess(
     # The starfit node flows to the third passthrough node, in index 3.
     # The first passthrough node flows to some random nhm_seg, not connected to
     # the other new nodes.
-    # The second passthrough flows to the starfit node in index 0.
+    # The second passthrough flows to the starfit node in index 0 (above
+    # starfit).
     # The last passthrough node flows to the seg above which the reservoir
-    # is placed.
+    # is placed (below starfit).
     new_nodes_flow_to_nhm_seg = [-3, 44409, 0, 44426]
 
     # the first in the list is for the disconnected node
@@ -190,7 +191,7 @@ def test_starfit_flow_graph_postprocess(
                 "starfit": StarfitFlowNodeMaker(
                     None,
                     big_sandy_parameters,
-                    budget_type="error",
+                    imbalance_behavior="error",
                     compute_daily=compute_daily,
                 ),
                 "pass_through": PassThroughFlowNodeMaker(),
@@ -291,7 +292,7 @@ def test_starfit_flow_graph_postprocess(
             )
 
     # this checks that the budget was actually active for the starfit node
-    assert flow_graph._nodes[-4].budget is not None
+    assert flow_graph._nodes[-4].mass_budget is not None
 
     flow_graph.finalize()
     for vv in control.options["netcdf_output_var_names"]:
@@ -340,7 +341,7 @@ def test_starfit_flow_graph_model_dict(
     # i dont think so, so do it here.
     # cant really test answers per above note
     control.options["input_dir"] = input_dir
-    control.options["budget_type"] = "error"
+    control.options["imbalance_behavior"] = "error"
     control.options["verbosity"] = True
     # control.options["netcdf_output_dir"] = tmp_path  # TODO
     control.options["netcdf_output_var_names"] = [
@@ -380,7 +381,7 @@ def test_starfit_flow_graph_model_dict(
         "starfit": StarfitFlowNodeMaker(
             None,
             big_sandy_parameters,
-            budget_type="error",
+            imbalance_behavior="error",
             compute_daily=compute_daily,
         ),
         "pass_through": PassThroughFlowNodeMaker(),
@@ -403,7 +404,7 @@ def test_starfit_flow_graph_model_dict(
         new_nodes_maker_indices=new_nodes_maker_indices,
         new_nodes_maker_ids=new_nodes_maker_ids,
         new_nodes_flow_to_nhm_seg=new_nodes_flow_to_nhm_seg,
-        graph_budget_type="error",  # move to error
+        graph_imbalance_behavior="error",
         addtl_output_vars=addtl_output_vars,
     )
     model = Model(model_dict)
@@ -489,7 +490,7 @@ def test_starfit_flow_graph_model_dict(
             )
 
     # this checks that the budget was actually active for the starfit node
-    assert flow_graph._nodes[-2].budget is not None
+    assert flow_graph._nodes[-2].mass_budget is not None
 
     flow_graph.finalize()
 

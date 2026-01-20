@@ -69,7 +69,7 @@ class SourceSinkFlowNode(FlowNode):
     #         ],
     #     }
 
-    def prepare_timestep(self):
+    def prepare_timestep(self) -> None:
         ymd = self.control.current_datetime.strftime("%Y-%m-%d")
         if ymd not in self._source_sink_data.index:
             if not self._missing_data_as_zero:
@@ -105,10 +105,10 @@ class SourceSinkFlowNode(FlowNode):
             # sink is not applied when inflow < min_flow
             outflow = inflow
             source_sink = zero
-            source_sink = zero
 
         elif (source_sink < zero) and (inflow >= min_flow):
-            if inflow + source_sink < min_flow:
+            if (inflow + source_sink) < min_flow:
+                # difference order is for negative sign convention for sink
                 source_sink = min_flow - inflow
                 outflow = min_flow
             else:
@@ -120,34 +120,34 @@ class SourceSinkFlowNode(FlowNode):
         self._sink_source = self._sink_source_sum / (isubstep + 1)
         return
 
-    def finalize_timestep(self):
+    def finalize_timestep(self) -> None:
         return
 
-    def advance(self):
-        # if self.budget is not None:
-        #     self.budget.advance()
-        #     self.budget.calculate()
+    def advance(self) -> None:
+        # if self.mass_budget is not None:
+        #     self.mass_budget.advance()
+        #     self.mass_budget.calculate()
 
         return
 
     @property
-    def outflow(self):
+    def outflow(self) -> np.float64:
         return self._seg_outflow
 
     @property
-    def outflow_substep(self):
+    def outflow_substep(self) -> np.float64:
         return self._seg_outflow
 
     @property
-    def storage_change(self):
-        return zero
+    def storage_change(self) -> np.float64:
+        return np.float64(zero)
 
     @property
-    def storage(self):
-        return nan
+    def storage(self) -> np.float64:
+        return np.float64(nan)
 
     @property
-    def sink_source(self):
+    def sink_source(self) -> np.float64:
         """Average sink and source through the last subtimestep
         Sink is negative, indicating that incoming flow is being discarded (if
         it were being stored, the storage change would be the opposite sign).
@@ -180,7 +180,8 @@ class SourceSinkFlowNodeMaker(FlowNodeMaker):
             nhm_seg of the upstream segment. However, the columns order MUST
             be collated with the input data vectors. The sign convention is:
             sources are positive and sinks are negative. That is, the sign is
-            from the perspective of the node.
+            from the perspective of the node. The units are cubic feet per
+            second.
           missing_data_as_zero: Bool option to treat missing times in the
             timeseries as having zero source/sink.
 
@@ -193,7 +194,18 @@ class SourceSinkFlowNodeMaker(FlowNodeMaker):
     def get_node(self, control: Control, index: int):
         flow_min = self._parameters.parameters["flow_min"][index]
         col_name = self._source_sink_df.columns[index]
-        data_ts = self._source_sink_df[col_name]
+        # pd.Series() for typing
+        data_ts = pd.Series(self._source_sink_df[col_name])
         return SourceSinkFlowNode(
             control, flow_min, data_ts, self._missing_data_as_zero
         )
+
+    @staticmethod
+    def get_dimensions() -> tuple:
+        """Get a tuple of dimension names for this SourceSinkFlowNodeMaker."""
+        return ("nreservoirs",)
+
+    @staticmethod
+    def get_parameters() -> tuple:
+        """Get a tuple of parameter names for SourceSinkFlowNodeMaker."""
+        return ("source_sink_storage_min",)
