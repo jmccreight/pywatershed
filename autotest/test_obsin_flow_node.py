@@ -78,7 +78,7 @@ def test_prms_channel_obsin_compare_prms(
     obsout_seg = control_parameters.parameters["obsout_segment"] - 1
     sf_data = PRMSStreamflowData(
         simulation["dir"] / "sf_data",
-        # metadata=pyprms_metadata  # future pyPRMS requirement
+        metadata=pyprms_metadata,  # future pyPRMS requirement
     ).data_by_variable("runoff")
     old_names = sf_data.columns.tolist()
     new_names = [cc.split("_")[1] for cc in sf_data.columns.tolist()]
