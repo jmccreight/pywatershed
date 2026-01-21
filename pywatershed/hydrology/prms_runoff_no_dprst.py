@@ -149,6 +149,7 @@ class PRMSRunoffNoDprst(PRMSRunoff):
             restart_read=restart_read,
             restart_write=restart_write,
             restart_write_freq=restart_write_freq,
+            intcp_changeover_in_net_rain=intcp_changeover_in_net_rain,
         )
 
         self.name = "PRMSRunoffNoDprst"

@@ -120,8 +120,6 @@ class PRMSRunoff(ConservativeProcess):
         through_rain: adaptable,
         hru_intcpevap: adaptable,
         intcp_changeover: adaptable,
-        ag_soil_moist_prev: Union[adaptable, None] = None,
-        ag_soil_rechr_prev: Union[adaptable, None] = None,
         dprst_flag: Union[bool, None] = None,
         intcp_changeover_in_net_rain: bool = False,
         imbalance_behavior: Literal["defer", None, "warn", "error"] = "defer",
@@ -148,6 +146,7 @@ class PRMSRunoff(ConservativeProcess):
 
         self._set_inputs(locals())
         self._set_options(locals())
+
         self._set_budget()
         self._init_calc_method()
 

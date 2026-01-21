@@ -244,29 +244,51 @@ def test_compare_prms(
 
     input_variables = {}
     for key in SoilzoneAg.get_inputs():
-        nc_path = output_dir / f"{key}.nc"
-        # TODO: this is hacky for accommodating dprst_flag, improve the design
-        # so people dont have to pass None for dead options.
-        if not nc_path.exists():
-            if key in ["AET_external"]:
+        if key == "AET_external":
+            aet_cbh_file = control.options.get("AET_cbh_file", [None])[0]
+            if aet_cbh_file is None:
                 nc_path = adapter_factory(
                     np.zeros(parameters.dimensions["nhru"]),
                     key,
                     control,
                 )
-            elif key in ["ag_frac"]:
-                # Check for dynamic parameter file first
-                dyn_ag_frac_file = simulation["dir"] / "dyn_ag_frac.param"
-                if dyn_ag_frac_file.exists():
-                    nc_path = dyn_ag_frac_file
-                else:
-                    nc_path = adapter_factory(
-                        parameters.parameters[key].copy(),
-                        key,
-                        control,
-                    )
             else:
+                # nc_path = output_dir.parent / "actet.nc"
+                # nc_path = adapter_factory(nc_path, "actet", control)
+                nc_path = output_dir / "AET_external.nc"
+
+        elif key == "ag_frac":
+            opts = control.options
+            ag_frac_dyn_file = opts.get("ag_frac_dynamic", [None])[0]
+            if ag_frac_dyn_file is None:
+                nc_path = adapter_factory(
+                    parameters.parameters[key].copy(),
+                    key,
+                    control,
+                )
+            else:
+                nc_path = output_dir.parent / ag_frac_dyn_file
+
+        else:
+            nc_path = output_dir / f"{key}.nc"
+            if not nc_path.exists():
                 nc_path = None
+
+        # if not nc_path.exists():
+        #     if key == "AET_external":
+        #         nc_path = adapter_factory(
+        #             np.zeros(parameters.dimensions["nhru"]),
+        #             key,
+        #             control,
+        #         )
+        #     elif key == "ag_frac":
+        #         nc_path = adapter_factory(
+        #             parameters.parameters[key].copy(),
+        #             key,
+        #             control,
+        #         )
+        #     else:
+        #         nc_path = None
 
         input_variables[key] = nc_path
 
