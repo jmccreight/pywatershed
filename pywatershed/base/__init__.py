@@ -3,6 +3,7 @@ from .adapter import Adapter
 from .budget import Budget
 from .conservative_process import ConservativeProcess
 from .control import Control
+from .custom_output import CustomOutput
 from .data_model import DatasetDict
 from .model import Model
 from .parameters import Parameters
@@ -15,6 +16,7 @@ __all__ = (
     "Budget",
     "ConservativeProcess",
     "Control",
+    "CustomOutput",
     "DatasetDict",
     "Model",
     "Parameters",
