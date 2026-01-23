@@ -12,14 +12,37 @@ from .model import Model
 
 # Implementing:
 # * monthly accumulations
-# * full-time data and stats on pois (eg median)
+# * full-time data and stats on pois (eg median, qvc, kendall lag 1,
+#   center volume date, 7-day low flow, 7-day high-flow )
 # * annual (or other periods) extremes (eg date of peak swe)
 
 # Future possibilities:
 # * fixed window stats on all data (e.g. monthly standard deviations)
 # * rolling window stats on all data
 
+# Include in documentation:
+# https://docs.xarray.dev/en/stable/user-guide/time-series.html#datetime-components
+
 spatial_dim_to_coord_name = {"nhru": "nhm_id", "nsegment": "nhm_seg"}
+
+
+def mean(da, dim=None, *, skipna=None, keep_attrs=None, **kwargs):
+    return da.mean(dim=dim, skipna=skipna, keep_attrs=keep_attrs, **kwargs)
+
+
+def std(da, dim=None, *, skipna=None, keep_attrs=None, **kwargs):
+    return da.std(dim=dim, skipna=skipna, keep_attrs=keep_attrs, **kwargs)
+
+
+def median(da, dim=None, *, skipna=None, keep_attrs=None, **kwargs):
+    return da.median(dim=dim, skipna=skipna, keep_attrs=keep_attrs, **kwargs)
+
+
+# TODO: need to differentiate between accumulated stats and full-time stats?
+full_time_stat_functions = {
+    "mean": mean,
+    "median": median,
+}
 
 
 class CustomOutput:
@@ -33,6 +56,8 @@ class CustomOutput:
         poi_nhm_seg: list | None = None,
         poi_gage_segment: list | None = None,
         poi_stats: list | None = None,
+        poi_stats_groupby: dict | None = None,
+        poi_stats_resample: dict | None = None,
         hru_sub_var_list: list | None = None,
         hru_sub_ids: list | None = None,
         hru_sub_stats: list | None = None,
@@ -55,6 +80,8 @@ class CustomOutput:
         self._poi_nhm_seg = poi_nhm_seg
         self._poi_gage_segment = poi_gage_segment
         self._poi_stats = poi_stats
+        self._poi_stats_groupby = poi_stats_groupby
+        self._poi_stats_resample = poi_stats_resample
 
         self._hru_sub_var_list = hru_sub_var_list
         self._hru_sub_ids = hru_sub_ids
@@ -63,12 +90,72 @@ class CustomOutput:
         self._current_time = self._control.init_time.copy()
         self._time_step = self._control.time_step.copy()
 
-        self._init_monthly_stats()
-        self._init_poi_sub_stats()
+        self._init_monthly()
+        self._init_poi_sub()
 
         return None
 
-    def _init_monthly_stats(self):
+    # ==== Properties =========================
+    @property
+    def time(self) -> np.ndarray | None:
+        """Time coordinate for full-time stats."""
+        return self._time
+
+    @property
+    def time_months(self) -> np.ndarray | None:
+        """Month coordinate for monthly accumulations."""
+        return self._time_months
+
+    @property
+    def n_days_per_month(self) -> np.ndarray | None:
+        """Number of days in a month in time_months for stats."""
+        if self._finalized:
+            return self._n_days_per_month
+        else:
+            return None
+
+    @property
+    def monthly_accumulations(self) -> dict | None:
+        """A dictionary of monthly accumulated xr.DataArrays."""
+        if self._finalized:
+            return self._monthly_arrays
+        else:
+            return None
+
+    @property
+    def poi_arrays(self) -> dict | None:
+        """A dictionary of poi data in xr.DataArrays."""
+        if self._finalized:
+            return self._poi_arrays
+        else:
+            return None
+
+    @property
+    def hru_sub_arrays(self) -> dict | None:
+        """A dictionary of hru subset data in xr.DataArrays."""
+        if self._finalized:
+            return self._hru_sub_arrays
+        else:
+            return None
+
+    @property
+    def poi_stats(self) -> dict | None:
+        """A dictionary of poi stats in xr.DataArrays."""
+        if self._finalized:
+            return self._poi_arrays
+        else:
+            return None
+
+    @property
+    def hru_sub_stats(self) -> dict | None:
+        """A dictionary of hru subset stats xr.DataArrays."""
+        if self._finalized:
+            return self._hru_sub_arrays
+        else:
+            return None
+
+    # ==== Momnthly accumulation section =====================
+    def _init_monthly(self):
         if self._monthly_accum_var_list is None:
             self._time_months = None
             self._n_days_per_month = None
@@ -134,28 +221,6 @@ class CustomOutput:
             # Can not really be put into month resolution.
             # self._monthly_arrays[vv].month.attrs["units"] = "M"
 
-    @property
-    def time(self) -> np.ndarray | None:
-        return self._time
-
-    @property
-    def time_months(self) -> np.ndarray | None:
-        return self._time_months
-
-    @property
-    def n_days_per_month(self) -> np.ndarray | None:
-        if self._finalized:
-            return self._n_days_per_month
-        else:
-            return None
-
-    @property
-    def monthly_accumulations(self) -> dict | None:
-        if self._finalized:
-            return self._monthly_arrays
-        else:
-            return None
-
     def _get_month_index(self) -> None:
         current_month = self._current_time.astype("datetime64[M]")
         self._current_month_index = np.where(
@@ -171,8 +236,14 @@ class CustomOutput:
                 proc_name
             ][vv]
 
-    def _init_poi_sub_stats(self) -> None:
+    # ==== POI + HRU SUB section =====================
+    def _init_poi_sub(self) -> None:
+        if not len(self._poi_var_list) and not len(self._hru_sub_var_list):
+            return
+
         self._solve_time()
+        self._solve_poi_stats()
+        # self._solve_hru_sub_stats()
         self._map_poi_vars_procs()
         # self._map_hru_sub_vars_procs()
         self._declare_poi_hru_sub_arrays()
@@ -184,6 +255,15 @@ class CustomOutput:
         self._time = pd.date_range(
             start=ctl.start_time, end=ctl.end_time, freq="D"
         ).values.astype("datetime64[D]")
+
+    def _solve_poi_stats(self):
+        self._poi_stat_funcs = {}
+        for ss in self._poi_stats:
+            if isinstance(ss, str):
+                self._poi_stat_funcs[ss] = full_time_stat_functions[ss]
+            else:
+                assert callable(ss)
+                self._poi_stat_funcs[ss.__name__] = ss
 
     def _map_poi_vars_procs(self):
         if self._poi_var_list is None:
@@ -299,20 +379,34 @@ class CustomOutput:
                     self._poi_inds
                 ]
 
-    @property
-    def poi_arrays(self) -> dict | None:
-        if self._finalized:
-            return self._poi_arrays
-        else:
-            return None
+    def _calculate_poi_stats(self):
+        self._poi_stats = {}
+        for vv in self._poi_arrays:
+            for ss_name, ss_func in self._poi_stat_funcs.items():
+                calc_full_time = True
 
-    @property
-    def hru_sub_arrays(self) -> dict | None:
-        if self._finalized:
-            return self._hru_sub_arrays
-        else:
-            return None
+                if ss_name in self._poi_stats_groupby.keys():
+                    group = self._poi_stats_groupby[ss_name]
+                    self._poi_stats[f"{vv}_{ss_name}_{group}"] = ss_func(
+                        self._poi_arrays[vv].groupby(f"time.{group}"),
+                        dim="time",
+                    )
+                    calc_full_time = False
 
+                if ss_name in self._poi_stats_resample.keys():
+                    resample = self._poi_stats_resample[ss_name]
+                    self._poi_stats[f"{vv}_{ss_name}_{resample}"] = ss_func(
+                        self._poi_arrays[vv].resample(time=resample),
+                        dim="time",
+                    )
+                    calc_full_time = False
+
+                if calc_full_time:
+                    self._poi_stats[f"{vv}_{ss_name}"] = ss_func(
+                        self._poi_arrays[vv], dim="time"
+                    )
+
+    # ==== General methods ================
     def calculate(self, warn: bool = True) -> None:
         # The control.advance() must happen before the this calculate() method.
         if self._control.current_time != self._current_time + self._time_step:
@@ -328,12 +422,14 @@ class CustomOutput:
 
     def finalize(self):
         self._finalized = True
+        self._calculate_poi_stats()
 
     def to_netcdf(self, output_dir: pl.Path):
         if not self._finalized:
             warn(
                 "Output can only be written once the Output object is finalized"
             )
+            return
 
         self._monthly_to_netcdf(self)
         # self._poi_to_netcdf(self)
