@@ -1,11 +1,14 @@
 import pathlib as pl
+from typing import TYPE_CHECKING
 
 import numpy as np
 import xarray as xr
 
 from . import meta
-from .control import Control
-from .model import Model
+
+if TYPE_CHECKING:
+    from .control import Control
+    from .model import Model
 
 # TODO: Extend monthly stats to timeseries arrays in PRMSSolarGeometry and
 #       PRMSAtmosphere.
@@ -14,11 +17,16 @@ from .model import Model
 # * Monthly accumulations and stats on these accumulations.
 # * Full-time data and stats on "pois" and "hru subsets" (eg median, qvc,
 #   kendall lag 1, center volume date, 7-day low flow, 7-day high-flow).
+# TODO:
 # * Annual (or other periods) extremes (eg date of peak swe)
 
+# TODO: show how to do numpy-based functions
+
 # Future possibilities:
-# * fixed window stats on all data (e.g. monthly standard deviations)
-# * rolling window stats on all data
+# * Fixed window stats on all spatial units (e.g. monthly standard deviations)
+# * Rolling window stats on all spatial units
+# * FlowGraph integration
+
 
 # Include in documentation:
 # https://docs.xarray.dev/en/stable/user-guide/time-series.html#datetime-components
@@ -48,8 +56,8 @@ full_time_stat_functions = {
 class CustomOutput:
     def __init__(
         self,
-        control: Control,
-        model: Model,
+        control: "Control",
+        model: "Model",
         monthly_accum_var_list: list | None = None,
         monthly_accum_stats: list | None = None,
         poi_var_list: list | None = None,
@@ -215,7 +223,7 @@ class CustomOutput:
                 dims=["month", spatial_dim_name],
                 coords={
                     "month": self._time_months,
-                    spatial_dim_name: spatial_coord,
+                    spatial_coord_name: ([spatial_dim_name], spatial_coord),
                 },
                 # reference_time=reference_time,
                 attrs=dict(
@@ -373,7 +381,10 @@ class CustomOutput:
                     dims=["time", spatial_dim_name],
                     coords={
                         "time": self._time,
-                        spatial_dim_name: spatial_coord,
+                        spatial_coord_name: (
+                            [spatial_dim_name],
+                            spatial_coord,
+                        ),
                     },
                     # reference_time=reference_time,
                     attrs=dict(

@@ -5,11 +5,14 @@ from typing import Union
 
 from tqdm.auto import tqdm
 
+from pywatershed.base.custom_output import CustomOutput
+
 from ..base.adapter import adapter_factory
 from ..base.control import Control
 from ..constants import fileish
 from ..parameters import Parameters, PrmsParameters
 from ..utils.path import path_rel_to_yaml
+from .custom_output import CustomOutput
 
 # This is a convenience
 process_order_nhm = [
@@ -677,10 +680,11 @@ class Model:
 
     def run(
         self,
-        netcdf_dir: fileish = None,
+        netcdf_dir: fileish | None = None,
         finalize: bool = True,
-        n_time_steps: int = None,
-        output_vars: list = None,
+        n_time_steps: int | None = None,
+        output_vars: list | None = None,
+        output: CustomOutput | None = None,
     ):
         """Run the model.
 
@@ -713,10 +717,14 @@ class Model:
             self.advance()
             self.calculate()
             self.output()
+            if output is not None:
+                output.calculate()
 
         if finalize:
             print("model.run(): finalizing")
             self.finalize()
+            if output is not None:
+                output.finalize()
 
         return
 
