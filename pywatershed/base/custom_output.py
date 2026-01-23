@@ -11,10 +11,10 @@ from .model import Model
 #       PRMSAtmosphere.
 
 # Implementing:
-# * monthly accumulations
-# * full-time data and stats on pois (eg median, qvc, kendall lag 1,
-#   center volume date, 7-day low flow, 7-day high-flow )
-# * annual (or other periods) extremes (eg date of peak swe)
+# * Monthly accumulations and stats on these accumulations.
+# * Full-time data and stats on "pois" and "hru subsets" (eg median, qvc,
+#   kendall lag 1, center volume date, 7-day low flow, 7-day high-flow).
+# * Annual (or other periods) extremes (eg date of peak swe)
 
 # Future possibilities:
 # * fixed window stats on all data (e.g. monthly standard deviations)
@@ -61,6 +61,8 @@ class CustomOutput:
         hru_sub_var_list: list | None = None,
         hru_sub_ids: list | None = None,
         hru_sub_stats: list | None = None,
+        hru_sub_stats_groupby: dict | None = None,
+        hru_sub_stats_resample: dict | None = None,
     ):
         self._control = control
         self._model = model
@@ -74,8 +76,10 @@ class CustomOutput:
             and poi_gage_segment is None
         ):
             raise ValueError(
-                "At least one of poi_nhm_seg or poi_gage_segment must be passed"
+                "At least one of poi_nhm_seg or poi_gage_segment must be "
+                "passed when poi variables are requested."
             )
+
         self._poi_var_list = poi_var_list
         self._poi_nhm_seg = poi_nhm_seg
         self._poi_gage_segment = poi_gage_segment
@@ -86,6 +90,8 @@ class CustomOutput:
         self._hru_sub_var_list = hru_sub_var_list
         self._hru_sub_ids = hru_sub_ids
         self._hru_sub_stats = hru_sub_stats
+        self._hru_sub_stats_groupby = hru_sub_stats_groupby
+        self._hru_sub_stats_resample = hru_sub_stats_resample
 
         self._current_time = self._control.init_time.copy()
         self._time_step = self._control.time_step.copy()
@@ -142,7 +148,7 @@ class CustomOutput:
     def poi_stats(self) -> dict | None:
         """A dictionary of poi stats in xr.DataArrays."""
         if self._finalized:
-            return self._poi_arrays
+            return self._poi_stats
         else:
             return None
 
@@ -150,7 +156,7 @@ class CustomOutput:
     def hru_sub_stats(self) -> dict | None:
         """A dictionary of hru subset stats xr.DataArrays."""
         if self._finalized:
-            return self._hru_sub_arrays
+            return self._hru_sub_stats
         else:
             return None
 
@@ -242,10 +248,10 @@ class CustomOutput:
             return
 
         self._solve_time()
-        self._solve_poi_stats()
-        # self._solve_hru_sub_stats()
+        self._solve_poi_stat_list()
+        self._solve_hru_sub_stat_list()
         self._map_poi_vars_procs()
-        # self._map_hru_sub_vars_procs()
+        self._map_hru_sub_vars_procs()
         self._declare_poi_hru_sub_arrays()
 
     def _solve_time(self):
@@ -256,14 +262,27 @@ class CustomOutput:
             start=ctl.start_time, end=ctl.end_time, freq="D"
         ).values.astype("datetime64[D]")
 
-    def _solve_poi_stats(self):
+    def _solve_poi_stat_list(self):
         self._poi_stat_funcs = {}
+        if self._poi_stats is None:
+            return
         for ss in self._poi_stats:
             if isinstance(ss, str):
                 self._poi_stat_funcs[ss] = full_time_stat_functions[ss]
             else:
                 assert callable(ss)
                 self._poi_stat_funcs[ss.__name__] = ss
+
+    def _solve_hru_sub_stat_list(self):
+        self._hru_sub_stat_funcs = {}
+        if self._hru_sub_stats is None:
+            return
+        for ss in self._hru_sub_stats:
+            if isinstance(ss, str):
+                self._hru_sub_stat_funcs[ss] = full_time_stat_functions[ss]
+            else:
+                assert callable(ss)
+                self._hru_sub_stat_funcs[ss.__name__] = ss
 
     def _map_poi_vars_procs(self):
         if self._poi_var_list is None:
@@ -316,18 +335,23 @@ class CustomOutput:
         self._poi_arrays = {}
         self._hru_sub_arrays = {}
 
-        poi_hru_sub_lists = [
-            [
-                self._poi_arrays,
-                self._poi_var_list,
-                self._poi_vars_procs,
-            ],
-            # [
-            #     self._hru_sub_arrays,
-            #     self._hru_sub_var_list,
-            #     self._hru_sub_vars_procs,
-            # ],
-        ]
+        poi_hru_sub_lists = []
+        if self._poi_var_list is not None:
+            poi_hru_sub_lists.append(
+                [
+                    self._poi_arrays,
+                    self._poi_var_list,
+                    self._poi_vars_procs,
+                ]
+            )
+        if self._hru_sub_var_list is not None:
+            poi_hru_sub_lists.append(
+                [
+                    self._hru_sub_arrays,
+                    self._hru_sub_var_list,
+                    self._hru_sub_vars_procs,
+                ]
+            )
 
         for arrays, var_list, vars_procs in poi_hru_sub_lists:
             for vv in var_list:
@@ -359,18 +383,24 @@ class CustomOutput:
                 )
 
     def _add_poi_hru_sub_data(self) -> None:
-        poi_hru_sub_lists = [
-            [
-                self._poi_arrays,
-                self._poi_var_list,
-                self._poi_vars_procs,
-            ],
-            # [
-            #     self._hru_sub_arrays,
-            #     self._hru_sub_var_list,
-            #     self._hru_sub_vars_procs,
-            # ],
-        ]
+        poi_hru_sub_lists = []
+        if self._poi_var_list is not None:
+            poi_hru_sub_lists.append(
+                [
+                    self._poi_arrays,
+                    self._poi_var_list,
+                    self._poi_vars_procs,
+                ]
+            )
+        if self._hru_sub_var_list is not None:
+            poi_hru_sub_lists.append(
+                [
+                    self._hru_sub_arrays,
+                    self._hru_sub_var_list,
+                    self._hru_sub_vars_procs,
+                ]
+            )
+
         time_ind = self._control.itime_step
         for arrays, var_list, vars_procs in poi_hru_sub_lists:
             for vv in var_list:
@@ -381,30 +411,70 @@ class CustomOutput:
 
     def _calculate_poi_stats(self):
         self._poi_stats = {}
-        for vv in self._poi_arrays:
-            for ss_name, ss_func in self._poi_stat_funcs.items():
-                calc_full_time = True
+        self._hru_sub_stats = {}
 
-                if ss_name in self._poi_stats_groupby.keys():
-                    group = self._poi_stats_groupby[ss_name]
-                    self._poi_stats[f"{vv}_{ss_name}_{group}"] = ss_func(
-                        self._poi_arrays[vv].groupby(f"time.{group}"),
-                        dim="time",
-                    )
-                    calc_full_time = False
+        poi_hru_sub_lists = []
+        if self._poi_var_list is not None:
+            poi_hru_sub_lists.append(
+                [
+                    self._poi_stats,
+                    self._poi_arrays,
+                    self._poi_stat_funcs,
+                    self._poi_vars_procs,
+                    self._poi_stats_groupby,
+                    self._poi_stats_resample,
+                ]
+            )
+        if self._hru_sub_var_list is not None:
+            poi_hru_sub_lists.append(
+                [
+                    self._hru_sub_stats,
+                    self._hru_sub_arrays,
+                    self._hru_sub_stat_funcs,
+                    self._hru_sub_vars_procs,
+                    self._hru_sub_stats_groupby,
+                    self._hru_sub_stats_resample,
+                ]
+            )
 
-                if ss_name in self._poi_stats_resample.keys():
-                    resample = self._poi_stats_resample[ss_name]
-                    self._poi_stats[f"{vv}_{ss_name}_{resample}"] = ss_func(
-                        self._poi_arrays[vv].resample(time=resample),
-                        dim="time",
-                    )
-                    calc_full_time = False
+        for (
+            stats,
+            arrays,
+            stat_funcs,
+            vars_procs,
+            stats_groupby,
+            stats_resample,
+        ) in poi_hru_sub_lists:
+            for vv in arrays:
+                for stat_name, stat_func in stat_funcs.items():
+                    calc_full_time = True
 
-                if calc_full_time:
-                    self._poi_stats[f"{vv}_{ss_name}"] = ss_func(
-                        self._poi_arrays[vv], dim="time"
-                    )
+                    if (
+                        stats_groupby is not None
+                        and stat_name in stats_groupby.keys()
+                    ):
+                        group = stats_groupby[stat_name]
+                        stats[f"{vv}_{stat_name}_{group}"] = stat_func(
+                            arrays[vv].groupby(f"time.{group}"),
+                            dim="time",
+                        )
+                        calc_full_time = False
+
+                    if (
+                        stats_resample is not None
+                        and stat_name in stats_resample.keys()
+                    ):
+                        resample = stats_resample[stat_name]
+                        stats[f"{vv}_{stat_name}_{resample}"] = stat_func(
+                            arrays[vv].resample(time=resample),
+                            dim="time",
+                        )
+                        calc_full_time = False
+
+                    if calc_full_time:
+                        stats[f"{vv}_{stat_name}"] = stat_func(
+                            arrays[vv], dim="time"
+                        )
 
     # ==== General methods ================
     def calculate(self, warn: bool = True) -> None:
@@ -431,5 +501,7 @@ class CustomOutput:
             )
             return
 
-        self._monthly_to_netcdf(self)
+        # self._monthly_to_netcdf(self)
         # self._poi_to_netcdf(self)
+
+        raise NotImplementedError("YET.")
