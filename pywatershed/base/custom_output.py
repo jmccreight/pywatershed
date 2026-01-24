@@ -1,4 +1,83 @@
+"""Custom output functionality for pywatershed models.
+
+This module provides flexible output collection and statistical analysis
+capabilities for pywatershed models. It supports:
+
+1. **Monthly accumulations**: Accumulate variable values over monthly periods
+   for all spatial units (HRUs or segments).
+
+2. **Point of Interest (POI) data**: Collect full time series data for specific
+   stream segments (e.g., at gage locations) and calculate various statistics
+   including temporal aggregations and resampling.
+
+3. **HRU subset data**: Collect full time series data for specific HRUs and
+   calculate statistics with flexible temporal grouping and resampling.
+
+The module uses xarray DataArrays for efficient handling of multi-dimensional
+time series data with proper coordinate systems and metadata.
+
+Example
+-------
+>>> import pywatershed as pws
+>>>
+>>> # Define a custom statistic function
+>>> def max_flow(da, dim=None, **kwargs):
+...     return da.max(dim=dim, **kwargs)
+...
+>>>
+>>> # Create custom output collector
+>>> output = pws.base.CustomOutput(
+...     control=control,
+...     model=model,
+...     monthly_accum_var_list=["sroff", "hru_actet"],
+...     poi_var_list=["seg_outflow"],
+...     poi_nhm_seg=poi_nhm_seg,
+...     poi_stats=["mean", "median", max_flow],
+...     poi_stats_resample={"median": "1MS", "max_flow": "5D"},
+...     hru_sub_var_list=["hru_actet", "pkwater_equiv"],
+...     hru_sub_ids=[nhm_id_list],
+...     hru_sub_stats=["mean", max_flow],
+...     hru_sub_stats_resample={"mean": "1MS", "max_flow": "1YS"},
+... )
+>>>
+>>> # Run model with custom output
+>>> model.run(finalize=True, output=output)
+>>>
+>>> # Access results
+>>> monthly_data = output.monthly_accumulations
+>>> poi_timeseries = output.poi_arrays
+>>> poi_statistics = output.poi_stats
+>>> hru_data = output.hru_sub_arrays
+>>> hru_statistics = output.hru_sub_stats
+
+Notes
+-----
+- All time series data and statistics are returned as xarray DataArrays with
+  proper coordinate systems and metadata.
+- Custom statistic functions can be provided as callables that accept a
+  DataArray as the first argument.
+- Temporal grouping (e.g., by month) and resampling (e.g., to monthly) can be
+  applied independently to different statistics.
+- The output object must be finalized before accessing calculated statistics.
+
+TODO
+----
+- Extend monthly stats to timeseries arrays in PRMSSolarGeometry and
+  PRMSAtmosphere
+- Annual (or other periods) extremes (e.g., date of peak SWE)
+- Show how to do numpy-based functions
+- Fixed window stats on all spatial units (e.g., monthly standard deviations)
+- Rolling window stats on all spatial units
+- FlowGraph integration
+
+See Also
+--------
+xarray time series documentation:
+https://docs.xarray.dev/en/stable/user-guide/time-series.html#datetime-components
+"""
+
 import pathlib as pl
+import warnings
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -10,39 +89,78 @@ if TYPE_CHECKING:
     from .control import Control
     from .model import Model
 
-# TODO: Extend monthly stats to timeseries arrays in PRMSSolarGeometry and
-#       PRMSAtmosphere.
-
-# Implementing:
-# * Monthly accumulations and stats on these accumulations.
-# * Full-time data and stats on "pois" and "hru subsets" (eg median, qvc,
-#   kendall lag 1, center volume date, 7-day low flow, 7-day high-flow).
-# TODO:
-# * Annual (or other periods) extremes (eg date of peak swe)
-
-# TODO: show how to do numpy-based functions
-
-# Future possibilities:
-# * Fixed window stats on all spatial units (e.g. monthly standard deviations)
-# * Rolling window stats on all spatial units
-# * FlowGraph integration
-
-
-# Include in documentation:
-# https://docs.xarray.dev/en/stable/user-guide/time-series.html#datetime-components
-
 spatial_dim_to_coord_name = {"nhru": "nhm_id", "nsegment": "nhm_seg"}
 
 
 def mean(da, dim=None, *, skipna=None, keep_attrs=None, **kwargs):
+    """Calculate mean along specified dimension.
+
+    Parameters
+    ----------
+    da : xr.DataArray
+        Input data array
+    dim : str, optional
+        Dimension(s) over which to calculate mean
+    skipna : bool, optional
+        Whether to skip NaN values
+    keep_attrs : bool, optional
+        Whether to preserve attributes
+    **kwargs
+        Additional keyword arguments passed to xarray mean
+
+    Returns
+    -------
+    xr.DataArray
+        Mean values
+    """
     return da.mean(dim=dim, skipna=skipna, keep_attrs=keep_attrs, **kwargs)
 
 
 def std(da, dim=None, *, skipna=None, keep_attrs=None, **kwargs):
+    """Calculate standard deviation along specified dimension.
+
+    Parameters
+    ----------
+    da : xr.DataArray
+        Input data array
+    dim : str, optional
+        Dimension(s) over which to calculate standard deviation
+    skipna : bool, optional
+        Whether to skip NaN values
+    keep_attrs : bool, optional
+        Whether to preserve attributes
+    **kwargs
+        Additional keyword arguments passed to xarray std
+
+    Returns
+    -------
+    xr.DataArray
+        Standard deviation values
+    """
     return da.std(dim=dim, skipna=skipna, keep_attrs=keep_attrs, **kwargs)
 
 
 def median(da, dim=None, *, skipna=None, keep_attrs=None, **kwargs):
+    """Calculate median along specified dimension.
+
+    Parameters
+    ----------
+    da : xr.DataArray
+        Input data array
+    dim : str, optional
+        Dimension(s) over which to calculate median
+    skipna : bool, optional
+        Whether to skip NaN values
+    keep_attrs : bool, optional
+        Whether to preserve attributes
+    **kwargs
+        Additional keyword arguments passed to xarray median
+
+    Returns
+    -------
+    xr.DataArray
+        Median values
+    """
     return da.median(dim=dim, skipna=skipna, keep_attrs=keep_attrs, **kwargs)
 
 
@@ -50,10 +168,130 @@ def median(da, dim=None, *, skipna=None, keep_attrs=None, **kwargs):
 full_time_stat_functions = {
     "mean": mean,
     "median": median,
+    "std": std,
 }
 
 
 class CustomOutput:
+    """Flexible output collection and statistical analysis for models.
+
+    This class provides three main types of output collection:
+
+    1. **Monthly accumulations**: Variables are accumulated over each calendar
+       month for all spatial units (HRUs or segments).
+
+    2. **Point of Interest (POI) data**: Full time series data is collected
+       for specific stream segments (typically at gage locations) with
+       optional statistical aggregations using groupby and resample operations.
+
+    3. **HRU subset data**: Full time series data is collected for specific
+       HRUs with optional statistical aggregations.
+
+    The output object is used during model execution and must be finalized
+    before accessing calculated statistics. All data is returned as xarray
+    DataArrays with proper coordinates and metadata.
+
+    Parameters
+    ----------
+    control : Control
+        Model control object containing timing information
+    model : Model
+        The pywatershed model instance
+    monthly_accum_var_list : list of str, optional
+        List of variable names to accumulate monthly for all spatial units
+    monthly_accum_stats : list, optional
+        Statistics to calculate on monthly accumulations (not yet implemented)
+    poi_var_list : list of str, optional
+        List of variable names to collect at points of interest (POIs)
+    poi_nhm_seg : list of int, optional
+        NHM segment IDs for POIs (portable across domains)
+    poi_gage_segment : list of int, optional
+        0-based segment indices for POIs (domain-specific)
+    poi_stats : list of str or callable, optional
+        Statistics to calculate on POI time series. Can be strings referencing
+        built-in functions ("mean", "median", "std") or custom callables
+    poi_stats_groupby : dict, optional
+        Mapping of statistic names to temporal grouping
+        (e.g., {"median": "month"})
+    poi_stats_resample : dict, optional
+        Mapping of statistic names to resampling frequencies
+        (e.g., {"median": "1MS", "max": "5D"})
+    hru_sub_var_list : list of str, optional
+        List of variable names to collect for HRU subsets
+    hru_sub_ids : list of int, optional
+        List of HRU IDs (nhm_id values) to include in subset
+    hru_sub_stats : list of str or callable, optional
+        Statistics to calculate on HRU subset time series
+    hru_sub_stats_groupby : dict, optional
+        Mapping of statistic names to temporal grouping for HRU subsets
+    hru_sub_stats_resample : dict, optional
+        Mapping of statistic names to resampling frequencies for HRU subsets
+
+    Raises
+    ------
+    ValueError
+        If poi_var_list is provided without poi_nhm_seg or poi_gage_segment
+
+    Attributes
+    ----------
+    time : np.ndarray
+        Daily time coordinate for full time series (POI and HRU subset data)
+    time_months : np.ndarray
+        Monthly time coordinate for monthly accumulations
+    n_days_per_month : np.ndarray
+        Number of days in each month (useful for converting accumulations to
+        means)
+    monthly_accumulations : dict of xr.DataArray
+        Monthly accumulated values for each variable (available after
+        finalization)
+    poi_arrays : dict of xr.DataArray
+        Full time series for POI variables (available after finalization)
+    hru_sub_arrays : dict of xr.DataArray
+        Full time series for HRU subset variables (available after
+        finalization)
+    poi_stats : dict of xr.DataArray
+        Calculated statistics for POI variables (available after finalization)
+    hru_sub_stats : dict of xr.DataArray
+        Calculated statistics for HRU subset variables (available after
+        finalization)
+
+    Examples
+    --------
+    >>> import pywatershed as pws
+    >>>
+    >>> # Create output with monthly accumulations and POI statistics
+    >>> output = pws.base.CustomOutput(
+    ...     control=control,
+    ...     model=nhm_model,
+    ...     monthly_accum_var_list=["sroff", "hru_actet", "seg_outflow"],
+    ...     poi_var_list=["seg_outflow"],
+    ...     poi_nhm_seg=poi_nhm_seg,
+    ...     poi_stats=["mean", "median"],
+    ...     poi_stats_groupby={"median": "month"},
+    ...     poi_stats_resample={"mean": "1MS"},
+    ... )
+    >>>
+    >>> # Run model (calculate method is called automatically each timestep)
+    >>> nhm_model.run(finalize=True, output=output)
+    >>>
+    >>> # Access monthly accumulations
+    >>> monthly_sroff = output.monthly_accumulations["sroff"]
+    >>>
+    >>> # Access POI statistics
+    >>> monthly_mean_flow = output.poi_stats["seg_outflow_mean_1MS"]
+    >>> monthly_median_by_month = output.poi_stats["seg_outflow_median_month"]
+
+    Notes
+    -----
+    - The calculate() method is called automatically during model.run() at
+      each timestep to accumulate data
+    - The finalize() method is called automatically when
+      model.run(finalize=True) to compute statistics
+    - Custom statistic functions must accept a DataArray as first argument and
+      should support dim, skipna, and keep_attrs parameters
+    - Statistics naming convention: {variable}_{statistic}_{temporal_operation}
+    """
+
     def __init__(
         self,
         control: "Control",
@@ -72,6 +310,11 @@ class CustomOutput:
         hru_sub_stats_groupby: dict | None = None,
         hru_sub_stats_resample: dict | None = None,
     ):
+        """Initialize CustomOutput instance.
+
+        Sets up data structures for collecting monthly accumulations, POI
+        data, and HRU subset data according to the specified configuration.
+        """
         self._control = control
         self._model = model
 
@@ -112,17 +355,38 @@ class CustomOutput:
     # ==== Properties =========================
     @property
     def time(self) -> np.ndarray | None:
-        """Time coordinate for full-time stats."""
+        """Time coordinate for full-time stats.
+
+        Returns
+        -------
+        np.ndarray or None
+            Daily time coordinate array spanning the simulation period, or None
+            if POI/HRU subset collection is not configured
+        """
         return self._time
 
     @property
     def time_months(self) -> np.ndarray | None:
-        """Month coordinate for monthly accumulations."""
+        """Month coordinate for monthly accumulations.
+
+        Returns
+        -------
+        np.ndarray or None
+            Monthly time coordinate array spanning the simulation period, or
+            None if monthly accumulation is not configured
+        """
         return self._time_months
 
     @property
     def n_days_per_month(self) -> np.ndarray | None:
-        """Number of days in a month in time_months for stats."""
+        """Number of days in each month for stats.
+
+        Returns
+        -------
+        np.ndarray or None
+            Array of day counts per month, useful for converting accumulations
+            to means. Only available after finalization.
+        """
         if self._finalized:
             return self._n_days_per_month
         else:
@@ -130,7 +394,14 @@ class CustomOutput:
 
     @property
     def monthly_accumulations(self) -> dict | None:
-        """A dictionary of monthly accumulated xr.DataArrays."""
+        """Dictionary of monthly accumulated xr.DataArrays.
+
+        Returns
+        -------
+        dict of xr.DataArray or None
+            Monthly accumulated values for each variable. Only available after
+            finalization.
+        """
         if self._finalized:
             return self._monthly_arrays
         else:
@@ -138,7 +409,14 @@ class CustomOutput:
 
     @property
     def poi_arrays(self) -> dict | None:
-        """A dictionary of poi data in xr.DataArrays."""
+        """Dictionary of POI data in xr.DataArrays.
+
+        Returns
+        -------
+        dict of xr.DataArray or None
+            Full time series data for each POI variable. Only available after
+            finalization.
+        """
         if self._finalized:
             return self._poi_arrays
         else:
@@ -146,7 +424,14 @@ class CustomOutput:
 
     @property
     def hru_sub_arrays(self) -> dict | None:
-        """A dictionary of hru subset data in xr.DataArrays."""
+        """Dictionary of HRU subset data in xr.DataArrays.
+
+        Returns
+        -------
+        dict of xr.DataArray or None
+            Full time series data for each HRU subset variable. Only available
+            after finalization.
+        """
         if self._finalized:
             return self._hru_sub_arrays
         else:
@@ -154,7 +439,14 @@ class CustomOutput:
 
     @property
     def poi_stats(self) -> dict | None:
-        """A dictionary of poi stats in xr.DataArrays."""
+        """Dictionary of POI stats in xr.DataArrays.
+
+        Returns
+        -------
+        dict of xr.DataArray or None
+            Calculated statistics for POI variables. Only available after
+            finalization.
+        """
         if self._finalized:
             return self._poi_stats
         else:
@@ -162,14 +454,26 @@ class CustomOutput:
 
     @property
     def hru_sub_stats(self) -> dict | None:
-        """A dictionary of hru subset stats xr.DataArrays."""
+        """Dictionary of HRU subset stats in xr.DataArrays.
+
+        Returns
+        -------
+        dict of xr.DataArray or None
+            Calculated statistics for HRU subset variables. Only available
+            after finalization.
+        """
         if self._finalized:
             return self._hru_sub_stats
         else:
             return None
 
-    # ==== Momnthly accumulation section =====================
+    # ==== Monthly accumulation section =====================
     def _init_monthly(self):
+        """Initialize monthly accumulation data structures.
+
+        Creates time coordinates, maps variables to processes, and declares
+        storage arrays for monthly accumulations if configured.
+        """
         if self._monthly_accum_var_list is None:
             self._time_months = None
             self._n_days_per_month = None
@@ -182,6 +486,12 @@ class CustomOutput:
         return None
 
     def _solve_monthly_time(self):
+        """Create monthly time coordinate and initialize day counter.
+
+        Generates a monthly time coordinate array spanning the model
+        simulation period and initializes an array to track the number of
+        days in each month.
+        """
         import pandas as pd
 
         ctl = self._control
@@ -191,6 +501,16 @@ class CustomOutput:
         self._n_days_per_month = self._time_months.copy().astype("int32") * 0
 
     def _map_monthly_vars_procs(self) -> None:
+        """Map monthly accumulation variables to their source processes.
+
+        Searches through model processes to find which process provides each
+        monthly accumulation variable.
+
+        Raises
+        ------
+        ValueError
+            If any requested variable is not found in model processes
+        """
         self._monthly_vars_procs = {}
         for vv in self._monthly_accum_var_list:
             for pp in self._model.processes.keys():
@@ -207,6 +527,12 @@ class CustomOutput:
             )
 
     def _declare_monthly_arrays(self):
+        """Declare and initialize xarray DataArrays for monthly accumulations.
+
+        Creates zero-initialized arrays with proper dimensions
+        (month x spatial_unit), coordinates, and metadata for each monthly
+        accumulation variable.
+        """
         self._monthly_arrays = {}
         for vv in self._monthly_accum_var_list:
             proc_name = self._monthly_vars_procs[vv]
@@ -236,12 +562,22 @@ class CustomOutput:
             # self._monthly_arrays[vv].month.attrs["units"] = "M"
 
     def _get_month_index(self) -> None:
+        """Determine the current month index for accumulation.
+
+        Finds which month index in the monthly time coordinate corresponds
+        to the current simulation time.
+        """
         current_month = self._current_time.astype("datetime64[M]")
         self._current_month_index = np.where(
             self._time_months == current_month
         )[0][0]
 
     def _accumulate_monthly_values(self) -> None:
+        """Accumulate current timestep values into monthly arrays.
+
+        Adds current timestep values to the appropriate monthly accumulation
+        arrays and increments the day counter for the current month.
+        """
         mon_ind = self._current_month_index
         self._n_days_per_month[mon_ind] += 1
         for vv in self._monthly_accum_var_list:
@@ -252,6 +588,12 @@ class CustomOutput:
 
     # ==== POI + HRU SUB section =====================
     def _init_poi_sub(self) -> None:
+        """Initialize POI and HRU subset data structures.
+
+        Creates time coordinates, resolves statistics, maps variables to
+        processes, and declares storage arrays for POI and HRU subset data
+        if configured.
+        """
         if not len(self._poi_var_list) and not len(self._hru_sub_var_list):
             return
 
@@ -263,6 +605,11 @@ class CustomOutput:
         self._declare_poi_hru_sub_arrays()
 
     def _solve_time(self):
+        """Create daily time coordinate for full time series data.
+
+        Generates a daily time coordinate array spanning the entire model
+        simulation period for POI and HRU subset data collection.
+        """
         import pandas as pd
 
         ctl = self._control
@@ -271,6 +618,11 @@ class CustomOutput:
         ).values.astype("datetime64[D]")
 
     def _solve_poi_stat_list(self):
+        """Resolve POI statistics list to callable functions.
+
+        Converts string statistic names to their corresponding function
+        references and stores custom callable functions with their names.
+        """
         self._poi_stat_funcs = {}
         if self._poi_stats is None:
             return
@@ -282,6 +634,11 @@ class CustomOutput:
                 self._poi_stat_funcs[ss.__name__] = ss
 
     def _solve_hru_sub_stat_list(self):
+        """Resolve HRU subset statistics list to callable functions.
+
+        Converts string statistic names to their corresponding function
+        references and stores custom callable functions with their names.
+        """
         self._hru_sub_stat_funcs = {}
         if self._hru_sub_stats is None:
             return
@@ -293,6 +650,12 @@ class CustomOutput:
                 self._hru_sub_stat_funcs[ss.__name__] = ss
 
     def _map_poi_vars_procs(self):
+        """Map POI variables to processes and resolve POI indices.
+
+        Searches through model processes to find which provides each POI
+        variable, verifies variables have nsegment dimension, and calculates
+        array indices corresponding to the requested POI segments.
+        """
         if self._poi_var_list is None:
             return
         self._poi_vars_procs = {}
@@ -319,6 +682,12 @@ class CustomOutput:
             self._poi_inds = self._poi_gage_segment
 
     def _map_hru_sub_vars_procs(self):
+        """Map HRU subset variables to processes and resolve HRU indices.
+
+        Searches through model processes to find which provides each HRU
+        subset variable, verifies variables have nhru dimension, and
+        calculates array indices corresponding to the requested HRU IDs.
+        """
         if self._hru_sub_var_list is None:
             return
         self._hru_sub_vars_procs = {}
@@ -340,6 +709,12 @@ class CustomOutput:
         )
 
     def _declare_poi_hru_sub_arrays(self):
+        """Declare and initialize xarray DataArrays for POI and HRU subset.
+
+        Creates NaN-initialized arrays with proper dimensions
+        (time x spatial_unit), coordinates, and metadata for each POI and
+        HRU subset variable.
+        """
         self._poi_arrays = {}
         self._hru_sub_arrays = {}
 
@@ -394,6 +769,12 @@ class CustomOutput:
                 )
 
     def _add_poi_hru_sub_data(self) -> None:
+        """Add current timestep data to POI and HRU subset arrays.
+
+        Extracts current values from model processes for the specified POI
+        segments and HRU subset locations and stores them in the appropriate
+        time index of the output arrays.
+        """
         poi_hru_sub_lists = []
         if self._poi_var_list is not None:
             poi_hru_sub_lists.append(
@@ -421,6 +802,13 @@ class CustomOutput:
                 ]
 
     def _calculate_poi_stats(self):
+        """Calculate all requested statistics for POI and HRU subset data.
+
+        Applies statistic functions to the collected time series data, with
+        optional temporal grouping (e.g., by month) and resampling (e.g., to
+        monthly or other frequencies). Statistics are stored with descriptive
+        names following the pattern: {variable}_{statistic}_{temporal_op}.
+        """
         self._poi_stats = {}
         self._hru_sub_stats = {}
 
@@ -489,6 +877,26 @@ class CustomOutput:
 
     # ==== General methods ================
     def calculate(self, warn: bool = True) -> None:
+        """Collect data for the current timestep.
+
+        This method is called automatically during model execution to accumulate
+        monthly values and collect POI/HRU subset data at each timestep.
+
+        Parameters
+        ----------
+        warn : bool, default True
+            Whether to warn about timing issues (currently unused)
+
+        Raises
+        ------
+        ValueError
+            If the control time does not match expected timestep progression
+
+        Notes
+        -----
+        The control.advance() must be called before this calculate() method.
+        This is handled automatically during model.run().
+        """
         # The control.advance() must happen before the this calculate() method.
         if self._control.current_time != self._current_time + self._time_step:
             raise ValueError(
@@ -502,12 +910,40 @@ class CustomOutput:
         self._add_poi_hru_sub_data()
 
     def finalize(self):
+        """Finalize output collection and calculate all statistics.
+
+        This method marks the output as finalized and triggers calculation of
+        all requested statistics. After finalization, the properties
+        monthly_accumulations, poi_arrays, hru_sub_arrays, poi_stats, and
+        hru_sub_stats become accessible.
+
+        Notes
+        -----
+        This method is typically called automatically by model.run(finalize=True)
+        and should not need to be called directly by users.
+        """
         self._finalized = True
         self._calculate_poi_stats()
 
     def to_netcdf(self, output_dir: pl.Path):
+        """Write output data to netCDF files.
+
+        Parameters
+        ----------
+        output_dir : pathlib.Path
+            Directory where netCDF files should be written
+
+        Raises
+        ------
+        NotImplementedError
+            This functionality is not yet available
+
+        Notes
+        -----
+        Output can only be written once the Output object is finalized.
+        """
         if not self._finalized:
-            warn(
+            warnings.warn(
                 "Output can only be written once the Output object is finalized"
             )
             return
