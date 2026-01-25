@@ -78,7 +78,7 @@ https://docs.xarray.dev/en/stable/user-guide/time-series.html#datetime-component
 
 import pathlib as pl
 import warnings
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
 import numpy as np
 import xarray as xr
@@ -199,8 +199,6 @@ class CustomOutput:
         The pywatershed model instance
     monthly_accum_var_list : list of str, optional
         List of variable names to accumulate monthly for all spatial units
-    monthly_accum_stats : list, optional
-        Statistics to calculate on monthly accumulations (not yet implemented)
     poi_var_list : list of str, optional
         List of variable names to collect at points of interest (POIs)
     poi_nhm_seg : list of int, optional
@@ -297,16 +295,15 @@ class CustomOutput:
         control: "Control",
         model: "Model",
         monthly_accum_var_list: list | None = None,
-        monthly_accum_stats: list | None = None,
         poi_var_list: list | None = None,
         poi_nhm_seg: list | None = None,
         poi_gage_segment: list | None = None,
-        poi_stats: list | None = None,
+        poi_stats: list[str | Callable] | None = None,
         poi_stats_groupby: dict | None = None,
         poi_stats_resample: dict | None = None,
         hru_sub_var_list: list | None = None,
         hru_sub_ids: list | None = None,
-        hru_sub_stats: list | None = None,
+        hru_sub_stats: list[str | Callable] | None = None,
         hru_sub_stats_groupby: dict | None = None,
         hru_sub_stats_resample: dict | None = None,
     ):
@@ -315,11 +312,11 @@ class CustomOutput:
         Sets up data structures for collecting monthly accumulations, POI
         data, and HRU subset data according to the specified configuration.
         """
+        self._finalized = False
         self._control = control
         self._model = model
 
         self._monthly_accum_var_list = monthly_accum_var_list
-        self._monthly_accum_stats = monthly_accum_stats
 
         if (
             poi_var_list is not None
@@ -393,7 +390,7 @@ class CustomOutput:
             return None
 
     @property
-    def monthly_accumulations(self) -> dict | None:
+    def monthly_accumulations(self) -> dict[str, xr.DataArray] | None:
         """Dictionary of monthly accumulated xr.DataArrays.
 
         Returns
@@ -408,7 +405,7 @@ class CustomOutput:
             return None
 
     @property
-    def poi_arrays(self) -> dict | None:
+    def poi_arrays(self) -> dict[str, xr.DataArray] | None:
         """Dictionary of POI data in xr.DataArrays.
 
         Returns
@@ -423,7 +420,7 @@ class CustomOutput:
             return None
 
     @property
-    def hru_sub_arrays(self) -> dict | None:
+    def hru_sub_arrays(self) -> dict[str, xr.DataArray] | None:
         """Dictionary of HRU subset data in xr.DataArrays.
 
         Returns
@@ -438,7 +435,7 @@ class CustomOutput:
             return None
 
     @property
-    def poi_stats(self) -> dict | None:
+    def poi_stats(self) -> dict[str, xr.DataArray] | None:
         """Dictionary of POI stats in xr.DataArrays.
 
         Returns
@@ -453,7 +450,7 @@ class CustomOutput:
             return None
 
     @property
-    def hru_sub_stats(self) -> dict | None:
+    def hru_sub_stats(self) -> dict[str, xr.DataArray] | None:
         """Dictionary of HRU subset stats in xr.DataArrays.
 
         Returns
@@ -482,8 +479,6 @@ class CustomOutput:
         self._solve_monthly_time()
         self._map_monthly_vars_procs()
         self._declare_monthly_arrays()
-
-        return None
 
     def _solve_monthly_time(self):
         """Create monthly time coordinate and initialize day counter.
@@ -594,8 +589,8 @@ class CustomOutput:
         processes, and declares storage arrays for POI and HRU subset data
         if configured.
         """
-        if not len(self._poi_var_list) and not len(self._hru_sub_var_list):
-            return
+        if not self._poi_var_list and not self._hru_sub_var_list:
+            return None
 
         self._solve_time()
         self._solve_poi_stat_list()
@@ -630,7 +625,10 @@ class CustomOutput:
             if isinstance(ss, str):
                 self._poi_stat_funcs[ss] = full_time_stat_functions[ss]
             else:
-                assert callable(ss)
+                if not callable(ss):
+                    raise ValueError(
+                        "poi_stats must contain strings or functions."
+                    )
                 self._poi_stat_funcs[ss.__name__] = ss
 
     def _solve_hru_sub_stat_list(self):
@@ -646,7 +644,10 @@ class CustomOutput:
             if isinstance(ss, str):
                 self._hru_sub_stat_funcs[ss] = full_time_stat_functions[ss]
             else:
-                assert callable(ss)
+                if not callable(ss):
+                    raise ValueError(
+                        "hru_sub_stats must contain strings or functions."
+                    )
                 self._hru_sub_stat_funcs[ss.__name__] = ss
 
     def _map_poi_vars_procs(self):
@@ -667,7 +668,14 @@ class CustomOutput:
                     self._poi_vars_procs[vv] = pp
                     # check the dimensions are nsegment
                     vv_dims = meta.find_variables(vv)[vv]["dims"][0]
-                    assert vv_dims == "nsegment"
+                    if vv_dims != "nsegment":
+                        raise ValueError(
+                            f"Variable '{vv}' does not have dimension "
+                            "'nsegment'."
+                        )
+
+        if "pp" not in locals().keys():
+            return
 
         if self._poi_nhm_seg is not None:
             self._poi_inds = np.where(
@@ -699,7 +707,11 @@ class CustomOutput:
                     self._hru_sub_vars_procs[vv] = pp
                     # check the dimensions are nsegment
                     vv_dims = meta.find_variables(vv)[vv]["dims"][0]
-                    assert vv_dims == "nhru"
+                    if vv_dims != "nhru":
+                        raise ValueError(
+                            f"Variable '{vv}' does not have dimension "
+                            "'nsegment'."
+                        )
 
         self._hru_sub_inds = np.where(
             np.isin(
@@ -725,6 +737,7 @@ class CustomOutput:
                     self._poi_arrays,
                     self._poi_var_list,
                     self._poi_vars_procs,
+                    self._poi_inds,
                 ]
             )
         if self._hru_sub_var_list is not None:
@@ -733,22 +746,21 @@ class CustomOutput:
                     self._hru_sub_arrays,
                     self._hru_sub_var_list,
                     self._hru_sub_vars_procs,
+                    self._hru_sub_inds,
                 ]
             )
 
-        for arrays, var_list, vars_procs in poi_hru_sub_lists:
+        for arrays, var_list, vars_procs, inds in poi_hru_sub_lists:
             for vv in var_list:
                 proc_name = vars_procs[vv]
                 proc = self._model.processes[proc_name]
                 var_meta = meta.find_variables(vv)[vv]
-                spatial_dim_len = proc[vv][self._poi_inds].shape[0]
+                spatial_dim_len = proc[vv][inds].shape[0]
                 spatial_dim_name = var_meta["dims"][0]
                 spatial_coord_name = spatial_dim_to_coord_name[
                     spatial_dim_name
                 ]
-                spatial_coord = proc._params.coords[spatial_coord_name][
-                    self._poi_inds
-                ]
+                spatial_coord = proc._params.coords[spatial_coord_name][inds]
                 new_shape = (len(self._time), spatial_dim_len)
                 arrays[vv] = xr.DataArray(
                     # zeros required for accumulations
@@ -782,6 +794,7 @@ class CustomOutput:
                     self._poi_arrays,
                     self._poi_var_list,
                     self._poi_vars_procs,
+                    self._poi_inds,
                 ]
             )
         if self._hru_sub_var_list is not None:
@@ -790,15 +803,16 @@ class CustomOutput:
                     self._hru_sub_arrays,
                     self._hru_sub_var_list,
                     self._hru_sub_vars_procs,
+                    self._hru_sub_inds,
                 ]
             )
 
         time_ind = self._control.itime_step
-        for arrays, var_list, vars_procs in poi_hru_sub_lists:
+        for arrays, var_list, vars_procs, inds in poi_hru_sub_lists:
             for vv in var_list:
                 proc_name = vars_procs[vv]
                 arrays[vv][time_ind, :] = self._model.processes[proc_name][vv][
-                    self._poi_inds
+                    inds
                 ]
 
     def _calculate_poi_stats(self):
@@ -876,16 +890,11 @@ class CustomOutput:
                         )
 
     # ==== General methods ================
-    def calculate(self, warn: bool = True) -> None:
+    def calculate(self) -> None:
         """Collect data for the current timestep.
 
         This method is called automatically during model execution to accumulate
         monthly values and collect POI/HRU subset data at each timestep.
-
-        Parameters
-        ----------
-        warn : bool, default True
-            Whether to warn about timing issues (currently unused)
 
         Raises
         ------
