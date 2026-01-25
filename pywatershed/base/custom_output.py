@@ -201,10 +201,12 @@ class CustomOutput:
         List of variable names to accumulate monthly for all spatial units
     poi_var_list : list of str, optional
         List of variable names to collect at points of interest (POIs)
-    poi_nhm_seg : list of int, optional
+    poi_nhm_seg : list of int, optional if poi_gage_segment is supplied
         NHM segment IDs for POIs (portable across domains)
-    poi_gage_segment : list of int, optional
-        0-based segment indices for POIs (domain-specific)
+    poi_gage_segment : list of int, optional if poi_nhm_seg is supplied
+        This is the name of the PRMS parameter which is 1-based, please
+        subtract 1 before passing here as a 0-based segment index for POIs
+        (domain-specific)
     poi_stats : list of str or callable, optional
         Statistics to calculate on POI time series. Can be strings referencing
         built-in functions ("mean", "median", "std") or custom callables
@@ -236,9 +238,9 @@ class CustomOutput:
         Daily time coordinate for full time series (POI and HRU subset data)
     time_months : np.ndarray
         Monthly time coordinate for monthly accumulations
-    n_days_per_month : np.ndarray
-        Number of days in each month (useful for converting accumulations to
-        means)
+    n_days_per_month : xr.DataArray
+        DataArray of day counts per month with month dimension (useful for
+        converting accumulations to means)
     monthly_accumulations : dict of xr.DataArray
         Monthly accumulated values for each variable (available after
         finalization)
@@ -375,14 +377,14 @@ class CustomOutput:
         return self._time_months
 
     @property
-    def n_days_per_month(self) -> np.ndarray | None:
+    def n_days_per_month(self) -> xr.DataArray | None:
         """Number of days in each month for stats.
 
         Returns
         -------
-        np.ndarray or None
-            Array of day counts per month, useful for converting accumulations
-            to means. Only available after finalization.
+        xr.DataArray or None
+            DataArray of day counts per month with month dimension, useful for
+            converting accumulations to means. Only available after finalization.
         """
         if self._finalized:
             return self._n_days_per_month
@@ -493,7 +495,15 @@ class CustomOutput:
         self._time_months = pd.date_range(
             start=ctl.start_time, end=ctl.end_time, freq="MS"
         ).values.astype("datetime64[M]")
-        self._n_days_per_month = self._time_months.copy().astype("int32") * 0
+        self._n_days_per_month = xr.DataArray(
+            data=np.zeros(len(self._time_months), dtype="int32"),
+            dims=["month"],
+            coords={"month": self._time_months},
+            attrs=dict(
+                description="Number of days in each month",
+                units="days",
+            ),
+        )
 
     def _map_monthly_vars_procs(self) -> None:
         """Map monthly accumulation variables to their source processes.
@@ -573,8 +583,12 @@ class CustomOutput:
         Adds current timestep values to the appropriate monthly accumulation
         arrays and increments the day counter for the current month.
         """
+        if not self._monthly_accum_var_list:
+            return
+
+        self._get_month_index()
         mon_ind = self._current_month_index
-        self._n_days_per_month[mon_ind] += 1
+        self._n_days_per_month.values[mon_ind] += 1
         for vv in self._monthly_accum_var_list:
             proc_name = self._monthly_vars_procs[vv]
             self._monthly_arrays[vv][mon_ind, :] += self._model.processes[
@@ -914,7 +928,6 @@ class CustomOutput:
         else:
             self._current_time = self._control.current_time.copy()
 
-        self._get_month_index()
         self._accumulate_monthly_values()
         self._add_poi_hru_sub_data()
 
