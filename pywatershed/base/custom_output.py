@@ -731,6 +731,9 @@ class CustomOutput:
         if configured.
         """
         if not self._poi_var_list and not self._hru_sub_var_list:
+            # Initialize empty lists so other methods don't error
+            self._poi_hru_sub_data_list = []
+            self._poi_hru_sub_stats_list = []
             return None
 
         self._solve_time()
@@ -738,6 +741,12 @@ class CustomOutput:
         self._solve_hru_sub_stat_list()
         self._map_poi_vars_procs()
         self._map_hru_sub_vars_procs()
+        # Initialize empty dicts first
+        self._poi_arrays = {}
+        self._hru_sub_arrays = {}
+        # Build iteration lists (references the empty dicts)
+        self._build_poi_hru_sub_iteration_lists()
+        # Now populate the arrays
         self._declare_poi_hru_sub_arrays()
 
     def _solve_time(self):
@@ -861,37 +870,71 @@ class CustomOutput:
             )
         )
 
+    def _build_poi_hru_sub_iteration_lists(self):
+        """Build and cache iteration lists for POI and HRU subset processing.
+
+        These lists are built once and cached to avoid rebuilding them every
+        timestep. Different methods need different subsets of the data.
+        """
+        # For _add_poi_hru_sub_data (called every timestep)
+        self._poi_hru_sub_data_list = []
+        if self._poi_var_list is not None:
+            self._poi_hru_sub_data_list.append(
+                (
+                    self._poi_arrays,
+                    self._poi_var_list,
+                    self._poi_vars_procs,
+                    self._poi_inds,
+                )
+            )
+        if self._hru_sub_var_list is not None:
+            self._poi_hru_sub_data_list.append(
+                (
+                    self._hru_sub_arrays,
+                    self._hru_sub_var_list,
+                    self._hru_sub_vars_procs,
+                    self._hru_sub_inds,
+                )
+            )
+
+        # For _calculate_poi_stats (called once at finalization)
+        # Don't cache the stats dicts themselves, they're created fresh
+        self._poi_hru_sub_stats_list = []
+        if self._poi_var_list is not None:
+            self._poi_hru_sub_stats_list.append(
+                (
+                    "poi",  # marker to identify which stats dict to use
+                    self._poi_arrays,
+                    self._poi_stat_funcs,
+                    self._poi_vars_procs,
+                    self._poi_stats_groupby,
+                    self._poi_stats_resample,
+                )
+            )
+        if self._hru_sub_var_list is not None:
+            self._poi_hru_sub_stats_list.append(
+                (
+                    "hru_sub",  # marker to identify which stats dict to use
+                    self._hru_sub_arrays,
+                    self._hru_sub_stat_funcs,
+                    self._hru_sub_vars_procs,
+                    self._hru_sub_stats_groupby,
+                    self._hru_sub_stats_resample,
+                )
+            )
+
     def _declare_poi_hru_sub_arrays(self):
         """Declare and initialize xarray DataArrays for POI and HRU subset.
 
         Creates NaN-initialized arrays with proper dimensions
         (time x spatial_unit), coordinates, and metadata for each POI and
         HRU subset variable.
+
+        Note: self._poi_arrays and self._hru_sub_arrays are already initialized
+        as empty dicts in _init_poi_sub before this method is called.
         """
-        self._poi_arrays = {}
-        self._hru_sub_arrays = {}
-
-        poi_hru_sub_lists = []
-        if self._poi_var_list is not None:
-            poi_hru_sub_lists.append(
-                [
-                    self._poi_arrays,
-                    self._poi_var_list,
-                    self._poi_vars_procs,
-                    self._poi_inds,
-                ]
-            )
-        if self._hru_sub_var_list is not None:
-            poi_hru_sub_lists.append(
-                [
-                    self._hru_sub_arrays,
-                    self._hru_sub_var_list,
-                    self._hru_sub_vars_procs,
-                    self._hru_sub_inds,
-                ]
-            )
-
-        for arrays, var_list, vars_procs, inds in poi_hru_sub_lists:
+        # Use cached iteration list instead of rebuilding
+        for arrays, var_list, vars_procs, inds in self._poi_hru_sub_data_list:
             for vv in var_list:
                 proc_name = vars_procs[vv]
                 proc = self._model.processes[proc_name]
@@ -904,8 +947,7 @@ class CustomOutput:
                 spatial_coord = proc._params.coords[spatial_coord_name][inds]
                 new_shape = (len(self._time), spatial_dim_len)
                 arrays[vv] = xr.DataArray(
-                    # zeros required for accumulations
-                    data=np.zeros(new_shape, dtype=var_meta["type"]) * np.nan,
+                    data=np.full(new_shape, np.nan, dtype=var_meta["type"]),
                     dims=["time", spatial_dim_name],
                     coords={
                         "time": self._time,
@@ -928,28 +970,11 @@ class CustomOutput:
         segments and HRU subset locations and stores them in the appropriate
         time index of the output arrays.
         """
-        poi_hru_sub_lists = []
-        if self._poi_var_list is not None:
-            poi_hru_sub_lists.append(
-                [
-                    self._poi_arrays,
-                    self._poi_var_list,
-                    self._poi_vars_procs,
-                    self._poi_inds,
-                ]
-            )
-        if self._hru_sub_var_list is not None:
-            poi_hru_sub_lists.append(
-                [
-                    self._hru_sub_arrays,
-                    self._hru_sub_var_list,
-                    self._hru_sub_vars_procs,
-                    self._hru_sub_inds,
-                ]
-            )
+        if not self._poi_hru_sub_data_list:
+            return
 
         time_ind = self._control.itime_step
-        for arrays, var_list, vars_procs, inds in poi_hru_sub_lists:
+        for arrays, var_list, vars_procs, inds in self._poi_hru_sub_data_list:
             for vv in var_list:
                 proc_name = vars_procs[vv]
                 arrays[vv][time_ind, :] = self._model.processes[proc_name][vv][
@@ -967,38 +992,18 @@ class CustomOutput:
         self._poi_stats = {}
         self._hru_sub_stats = {}
 
-        poi_hru_sub_lists = []
-        if self._poi_var_list is not None:
-            poi_hru_sub_lists.append(
-                [
-                    self._poi_stats,
-                    self._poi_arrays,
-                    self._poi_stat_funcs,
-                    self._poi_vars_procs,
-                    self._poi_stats_groupby,
-                    self._poi_stats_resample,
-                ]
-            )
-        if self._hru_sub_var_list is not None:
-            poi_hru_sub_lists.append(
-                [
-                    self._hru_sub_stats,
-                    self._hru_sub_arrays,
-                    self._hru_sub_stat_funcs,
-                    self._hru_sub_vars_procs,
-                    self._hru_sub_stats_groupby,
-                    self._hru_sub_stats_resample,
-                ]
-            )
-
         for (
-            stats,
+            stats_type,
             arrays,
             stat_funcs,
             vars_procs,
             stats_groupby,
             stats_resample,
-        ) in poi_hru_sub_lists:
+        ) in self._poi_hru_sub_stats_list:
+            # Get the appropriate stats dict
+            stats = (
+                self._poi_stats if stats_type == "poi" else self._hru_sub_stats
+            )
             for vv in arrays:
                 for stat_name, stat_func in stat_funcs.items():
                     calc_full_time = True
