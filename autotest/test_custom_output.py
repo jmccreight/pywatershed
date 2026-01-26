@@ -223,12 +223,29 @@ def test_custom_output_poi_data(
         == output.poi_arrays["seg_outflow"][-1, :]
     ).all()
 
-    # Check POI statistics
+    # Check POI statistics (using helper to verify naming convention)
     assert output.poi_stats is not None
-    assert "seg_outflow_mean" in output.poi_stats
-    assert "seg_outflow_median_month" in output.poi_stats
-    assert "seg_outflow_median_1MS" in output.poi_stats
-    assert "seg_outflow_max_stat_5D" in output.poi_stats
+    mean_key = pws.base.CustomOutput.get_statistic_name("seg_outflow", "mean")
+    assert mean_key in output.poi_stats
+    assert mean_key == "seg_outflow_mean"
+
+    median_month_key = pws.base.CustomOutput.get_statistic_name(
+        "seg_outflow", "median", "month"
+    )
+    assert median_month_key in output.poi_stats
+    assert median_month_key == "seg_outflow_median_month"
+
+    median_1ms_key = pws.base.CustomOutput.get_statistic_name(
+        "seg_outflow", "median", "1MS"
+    )
+    assert median_1ms_key in output.poi_stats
+    assert median_1ms_key == "seg_outflow_median_1MS"
+
+    max_5d_key = pws.base.CustomOutput.get_statistic_name(
+        "seg_outflow", "max_stat", "5D"
+    )
+    assert max_5d_key in output.poi_stats
+    assert max_5d_key == "seg_outflow_max_stat_5D"
 
     # Check dimensions
     poi_array = output.poi_arrays["seg_outflow"]
@@ -347,12 +364,29 @@ def test_custom_output_hru_subset(
     assert "hru_actet" in output.hru_sub_arrays
     assert "pkwater_equiv" in output.hru_sub_arrays
 
-    # Check HRU subset statistics
+    # Check HRU subset statistics (using helper to verify naming convention)
     assert output.hru_sub_stats is not None
-    assert "hru_actet_mean_1MS" in output.hru_sub_stats
-    assert "hru_actet_max_stat_1YS" in output.hru_sub_stats
-    assert "pkwater_equiv_mean_1MS" in output.hru_sub_stats
-    assert "pkwater_equiv_max_stat_1YS" in output.hru_sub_stats
+    actet_mean_key = pws.base.CustomOutput.get_statistic_name(
+        "hru_actet", "mean", "1MS"
+    )
+    assert actet_mean_key in output.hru_sub_stats
+    assert actet_mean_key == "hru_actet_mean_1MS"
+
+    actet_max_key = pws.base.CustomOutput.get_statistic_name(
+        "hru_actet", "max_stat", "1YS"
+    )
+    assert actet_max_key in output.hru_sub_stats
+    assert actet_max_key == "hru_actet_max_stat_1YS"
+
+    pkwater_mean_key = pws.base.CustomOutput.get_statistic_name(
+        "pkwater_equiv", "mean", "1MS"
+    )
+    assert pkwater_mean_key in output.hru_sub_stats
+
+    pkwater_max_key = pws.base.CustomOutput.get_statistic_name(
+        "pkwater_equiv", "max_stat", "1YS"
+    )
+    assert pkwater_max_key in output.hru_sub_stats
 
     # Validate against netcdf output by post-processing
     for var_name in var_list:
@@ -557,7 +591,91 @@ def test_custom_output_string_stats(
 
     model.run(finalize=True, output=output)
 
-    # Verify all built-in stats were calculated
-    assert "seg_outflow_mean" in output.poi_stats
-    assert "seg_outflow_median" in output.poi_stats
-    assert "seg_outflow_std" in output.poi_stats
+    # Verify all built-in stats were calculated (using helper)
+    mean_key = pws.base.CustomOutput.get_statistic_name("seg_outflow", "mean")
+    assert mean_key in output.poi_stats
+
+    median_key = pws.base.CustomOutput.get_statistic_name(
+        "seg_outflow", "median"
+    )
+    assert median_key in output.poi_stats
+
+    std_key = pws.base.CustomOutput.get_statistic_name("seg_outflow", "std")
+    assert std_key in output.poi_stats
+
+
+def test_custom_output_validation_invalid_groupby_key(
+    simulation, control, parameters, nhm_processes, poi_info
+):
+    """Test that invalid groupby keys are caught early."""
+    model = pws.Model(
+        nhm_processes,
+        control=control,
+        parameters=parameters,
+    )
+
+    # Should raise ValueError for invalid groupby key
+    with pytest.raises(
+        ValueError, match="poi_stats_groupby contains keys.*not in poi_stats"
+    ):
+        output = pws.base.CustomOutput(
+            control=control,
+            model=model,
+            poi_var_list=["seg_outflow"],
+            poi_nhm_seg=poi_info["poi_nhm_seg"],
+            poi_stats=["mean", "median"],
+            poi_stats_groupby={"invalid_stat": "month"},  # Invalid!
+        )
+
+
+def test_custom_output_validation_invalid_resample_key(
+    simulation, control, parameters, nhm_processes, poi_info
+):
+    """Test that invalid resample keys are caught early."""
+    model = pws.Model(
+        nhm_processes,
+        control=control,
+        parameters=parameters,
+    )
+
+    # Should raise ValueError for invalid resample key
+    with pytest.raises(
+        ValueError, match="poi_stats_resample contains keys.*not in poi_stats"
+    ):
+        output = pws.base.CustomOutput(
+            control=control,
+            model=model,
+            poi_var_list=["seg_outflow"],
+            poi_nhm_seg=poi_info["poi_nhm_seg"],
+            poi_stats=["mean"],
+            poi_stats_resample={"median": "1MS"},  # median not in poi_stats!
+        )
+
+
+def test_custom_output_property_warning_before_finalization(
+    simulation, control, parameters, nhm_processes, poi_info
+):
+    """Test that accessing properties before finalization issues warnings."""
+    model = pws.Model(
+        nhm_processes,
+        control=control,
+        parameters=parameters,
+    )
+
+    output = pws.base.CustomOutput(
+        control=control,
+        model=model,
+        monthly_accum_var_list=["sroff"],
+        poi_var_list=["seg_outflow"],
+        poi_nhm_seg=poi_info["poi_nhm_seg"],
+        poi_stats=["mean"],
+    )
+
+    # Access properties before finalization should warn
+    with pytest.warns(UserWarning, match="only available after finalization"):
+        result = output.monthly_accumulations
+        assert result is None
+
+    with pytest.warns(UserWarning, match="only available after finalization"):
+        result = output.poi_stats
+        assert result is None

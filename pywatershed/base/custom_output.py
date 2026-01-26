@@ -349,6 +349,9 @@ class CustomOutput:
         self._init_monthly()
         self._init_poi_sub()
 
+        # Validate configuration
+        self._validate_stat_configs()
+
         return None
 
     # ==== Properties =========================
@@ -389,6 +392,10 @@ class CustomOutput:
         if self._finalized:
             return self._n_days_per_month
         else:
+            warnings.warn(
+                "n_days_per_month is only available after finalization. "
+                "Call output.finalize() or model.run(finalize=True)."
+            )
             return None
 
     @property
@@ -404,6 +411,10 @@ class CustomOutput:
         if self._finalized:
             return self._monthly_arrays
         else:
+            warnings.warn(
+                "monthly_accumulations is only available after finalization. "
+                "Call output.finalize() or model.run(finalize=True)."
+            )
             return None
 
     @property
@@ -419,6 +430,10 @@ class CustomOutput:
         if self._finalized:
             return self._poi_arrays
         else:
+            warnings.warn(
+                "poi_arrays is only available after finalization. "
+                "Call output.finalize() or model.run(finalize=True)."
+            )
             return None
 
     @property
@@ -434,6 +449,10 @@ class CustomOutput:
         if self._finalized:
             return self._hru_sub_arrays
         else:
+            warnings.warn(
+                "hru_sub_arrays is only available after finalization. "
+                "Call output.finalize() or model.run(finalize=True)."
+            )
             return None
 
     @property
@@ -449,6 +468,10 @@ class CustomOutput:
         if self._finalized:
             return self._poi_stats
         else:
+            warnings.warn(
+                "poi_stats is only available after finalization. "
+                "Call output.finalize() or model.run(finalize=True)."
+            )
             return None
 
     @property
@@ -464,7 +487,111 @@ class CustomOutput:
         if self._finalized:
             return self._hru_sub_stats
         else:
+            warnings.warn(
+                "hru_sub_stats is only available after finalization. "
+                "Call output.finalize() or model.run(finalize=True)."
+            )
             return None
+
+    # ==== Validation methods =====================
+    def _validate_stat_configs(self):
+        """Validate that resample/groupby dict keys match statistic names.
+
+        This catches configuration errors early rather than at runtime.
+        """
+        # Validate POI stats configuration
+        if self._poi_stats is not None:
+            stat_names = set()
+            for ss in self._poi_stats:
+                if isinstance(ss, str):
+                    stat_names.add(ss)
+                else:
+                    stat_names.add(ss.__name__)
+
+            if self._poi_stats_groupby is not None:
+                invalid_keys = set(self._poi_stats_groupby.keys()) - stat_names
+                if invalid_keys:
+                    raise ValueError(
+                        f"poi_stats_groupby contains keys {invalid_keys} "
+                        f"that are not in poi_stats {stat_names}"
+                    )
+
+            if self._poi_stats_resample is not None:
+                invalid_keys = (
+                    set(self._poi_stats_resample.keys()) - stat_names
+                )
+                if invalid_keys:
+                    raise ValueError(
+                        f"poi_stats_resample contains keys {invalid_keys} "
+                        f"that are not in poi_stats {stat_names}"
+                    )
+
+        # Validate HRU subset stats configuration
+        if self._hru_sub_stats is not None:
+            stat_names = set()
+            for ss in self._hru_sub_stats:
+                if isinstance(ss, str):
+                    stat_names.add(ss)
+                else:
+                    stat_names.add(ss.__name__)
+
+            if self._hru_sub_stats_groupby is not None:
+                invalid_keys = (
+                    set(self._hru_sub_stats_groupby.keys()) - stat_names
+                )
+                if invalid_keys:
+                    raise ValueError(
+                        f"hru_sub_stats_groupby contains keys {invalid_keys} "
+                        f"that are not in hru_sub_stats {stat_names}"
+                    )
+
+            if self._hru_sub_stats_resample is not None:
+                invalid_keys = (
+                    set(self._hru_sub_stats_resample.keys()) - stat_names
+                )
+                if invalid_keys:
+                    raise ValueError(
+                        f"hru_sub_stats_resample contains keys {invalid_keys} "
+                        f"that are not in hru_sub_stats {stat_names}"
+                    )
+
+    @staticmethod
+    def get_statistic_name(
+        variable: str, statistic: str, temporal_op: str | None = None
+    ) -> str:
+        """Construct a statistic name following the naming convention.
+
+        The naming convention is: {variable}_{statistic}_{temporal_op}
+        where temporal_op is optional for full-time statistics.
+
+        Parameters
+        ----------
+        variable : str
+            Variable name (e.g., "seg_outflow")
+        statistic : str
+            Statistic name (e.g., "mean", "median")
+        temporal_op : str, optional
+            Temporal operation like "month", "1MS", "5D" for grouped or
+            resampled statistics
+
+        Returns
+        -------
+        str
+            The constructed statistic name
+
+        Examples
+        --------
+        >>> CustomOutput.get_statistic_name("seg_outflow", "mean")
+        'seg_outflow_mean'
+        >>> CustomOutput.get_statistic_name("seg_outflow", "median", "month")
+        'seg_outflow_median_month'
+        >>> CustomOutput.get_statistic_name("seg_outflow", "max", "5D")
+        'seg_outflow_max_5D'
+        """
+        if temporal_op is None:
+            return f"{variable}_{statistic}"
+        else:
+            return f"{variable}_{statistic}_{temporal_op}"
 
     # ==== Monthly accumulation section =====================
     def _init_monthly(self):
@@ -881,7 +1008,10 @@ class CustomOutput:
                         and stat_name in stats_groupby.keys()
                     ):
                         group = stats_groupby[stat_name]
-                        stats[f"{vv}_{stat_name}_{group}"] = stat_func(
+                        stat_key = self.get_statistic_name(
+                            vv, stat_name, group
+                        )
+                        stats[stat_key] = stat_func(
                             arrays[vv].groupby(f"time.{group}"),
                             dim="time",
                         )
@@ -892,16 +1022,18 @@ class CustomOutput:
                         and stat_name in stats_resample.keys()
                     ):
                         resample = stats_resample[stat_name]
-                        stats[f"{vv}_{stat_name}_{resample}"] = stat_func(
+                        stat_key = self.get_statistic_name(
+                            vv, stat_name, resample
+                        )
+                        stats[stat_key] = stat_func(
                             arrays[vv].resample(time=resample),
                             dim="time",
                         )
                         calc_full_time = False
 
                     if calc_full_time:
-                        stats[f"{vv}_{stat_name}"] = stat_func(
-                            arrays[vv], dim="time"
-                        )
+                        stat_key = self.get_statistic_name(vv, stat_name)
+                        stats[stat_key] = stat_func(arrays[vv], dim="time")
 
     # ==== General methods ================
     def calculate(self) -> None:
