@@ -84,6 +84,7 @@ from typing import TYPE_CHECKING, Callable
 import numpy as np
 import xarray as xr
 
+from ..analysis import time_stats
 from . import meta
 from .flow_graph import FlowGraph
 
@@ -96,409 +97,17 @@ spatial_dim_to_coord_name = {
     "nsegment": "nhm_seg",
     "nnodes": "node_coord",
 }
-# Season strings for annual statistics
-# Calendar year: January through December
-cal_year_season_str = "JFMAMJJASOND"
-# Water year: October through September
-water_year_season_str = "ONDJFMAMJJAS"
 
-
-def mean(
-    da: xr.DataArray,
-    dim: str | None = None,
-    *,
-    skipna: bool | None = None,
-    keep_attrs: bool | None = None,
-    **kwargs,
-) -> xr.DataArray:
-    """Calculate mean along specified dimension.
-
-    Parameters
-    ----------
-    da : xr.DataArray
-        Input data array
-    dim : str, optional
-        Dimension(s) over which to calculate mean
-    skipna : bool, optional
-        Whether to skip NaN values
-    keep_attrs : bool, optional
-        Whether to preserve attributes
-    **kwargs
-        Additional keyword arguments passed to xarray mean
-
-    Returns
-    -------
-    xr.DataArray
-        Mean values
-    """
-    return da.mean(dim=dim, skipna=skipna, keep_attrs=keep_attrs, **kwargs)
-
-
-def std(
-    da: xr.DataArray,
-    dim: str | None = None,
-    *,
-    skipna: bool | None = None,
-    keep_attrs: bool | None = None,
-    **kwargs,
-) -> xr.DataArray:
-    """Calculate standard deviation along specified dimension.
-
-    Parameters
-    ----------
-    da : xr.DataArray
-        Input data array
-    dim : str, optional
-        Dimension(s) over which to calculate standard deviation
-    skipna : bool, optional
-        Whether to skip NaN values
-    keep_attrs : bool, optional
-        Whether to preserve attributes
-    **kwargs
-        Additional keyword arguments passed to xarray std
-
-    Returns
-    -------
-    xr.DataArray
-        Standard deviation values
-    """
-    return da.std(dim=dim, skipna=skipna, keep_attrs=keep_attrs, **kwargs)
-
-
-def median(
-    da: xr.DataArray,
-    dim: str | None = None,
-    *,
-    skipna: bool | None = None,
-    keep_attrs: bool | None = None,
-    **kwargs,
-) -> xr.DataArray:
-    """Calculate median along specified dimension.
-
-    Parameters
-    ----------
-    da : xr.DataArray
-        Input data array
-    dim : str, optional
-        Dimension(s) over which to calculate median
-    skipna : bool, optional
-        Whether to skip NaN values
-    keep_attrs : bool, optional
-        Whether to preserve attributes
-    **kwargs
-        Additional keyword arguments passed to xarray median
-
-    Returns
-    -------
-    xr.DataArray
-        Median values
-    """
-    return da.median(dim=dim, skipna=skipna, keep_attrs=keep_attrs, **kwargs)
-
-
-def seasonal_min_max(
-    da: xr.DataArray,
-    seasons: str | list = water_year_season_str,
-    stat_name: str = "max",
-) -> xr.DataArray:
-    """Calculate seasonal extremes with dates of occurrence.
-
-    Finds min/max over custom seasons and returns both values
-    and dates when extremes occurred.
-
-    Parameters
-    ----------
-    da : xr.DataArray
-        Input data array with time dimension
-    seasons : str or list, default "ONDJFMAMJJAS"
-        Season string(s) defining period(s). Default: water year (Oct-Sep).
-        Use "JFMAMJJASOND" for calendar year (Jan-Dec).
-        Can be a list for multiple seasons.
-    stat_name : str, default "max"
-        Statistic to calculate: "max" or "min"
-
-    Returns
-    -------
-    xr.DataArray
-        Seasonal extreme values with time coordinate replaced by dates
-        when extremes occurred
-
-    Examples
-    --------
-    >>> # Water year maximum
-    >>> seasonal_max = seasonal_min_max(flow_data, stat_name="max")
-    >>> # Calendar year minimum
-    >>> seasonal_min = seasonal_min_max(
-    ...     flow_data, seasons="JFMAMJJASOND", stat_name="min"
-    ... )
-    """
-    if not isinstance(seasons, list):
-        seasons = [seasons]
-    if stat_name == "max":
-        stat = da.resample(time=xr.groupers.SeasonResampler(seasons)).max(
-            dim="time", skipna=True
-        )
-        stat_dates = da.resample(
-            time=xr.groupers.SeasonResampler(seasons)
-        ).map(lambda x: x.idxmax(dim="time", skipna=True))
-    elif stat_name == "min":
-        stat = da.resample(time=xr.groupers.SeasonResampler(seasons)).min(
-            dim="time", skipna=True
-        )
-        stat_dates = da.resample(
-            time=xr.groupers.SeasonResampler(seasons)
-        ).map(lambda x: x.idxmin(dim="time", skipna=True))
-    else:
-        raise ValueError(f"Stat '{stat_name}' not available.")
-    # <
-    stat["time"] = stat_dates
-    return stat
-
-
-def rolling_mean_seasonal_min_max(
-    da: xr.DataArray,
-    time_window: int = 7,
-    min_periods: int | None = None,
-    center: bool = True,
-    seasons: str | list = water_year_season_str,
-    stat_name: str = "max",
-) -> xr.DataArray:
-    """Calculate seasonal extremes of rolling mean.
-
-    Computes rolling mean, then finds seasonal min/max. Used for hydrological
-    statistics like 7-day low/high flows.
-
-    Parameters
-    ----------
-    da : xr.DataArray
-        Input data array with time dimension
-    time_window : int, default 7
-        Size of the rolling window in time steps (typically days)
-    min_periods : int, optional
-        Minimum number of observations required to have a value
-    center : bool, default True
-        Whether to center the rolling window
-    seasons : str or list, default "ONDJFMAMJJAS"
-        Season string(s) defining period(s). Default: water year.
-        Can be a list for multiple seasons.
-    stat_name : str, default "max"
-        Statistic to calculate: "max" or "min"
-
-    Returns
-    -------
-    xr.DataArray
-        Seasonal extreme values of the rolling mean with dates
-
-    See Also
-    --------
-    seven_day_mean_calendar_year_max : Calendar year 7-day high flows
-    seven_day_mean_water_year_min : Water year 7-day low flows
-    """
-    if not isinstance(seasons, list):
-        seasons = [seasons]
-    roll_mean = da.rolling(
-        time=time_window, min_periods=min_periods, center=center
-    ).mean()
-    stat = seasonal_min_max(roll_mean, seasons=seasons, stat_name=stat_name)
-    return stat
-
-
-def seven_day_mean_calendar_year_max(
-    da: xr.DataArray,
-    time_window: int = 7,
-    min_periods: int | None = None,
-    center: bool = True,
-) -> xr.DataArray:
-    """Calendar year 7-day high flow statistic.
-
-    Computes highest 7-day average for each calendar year (Jan-Dec).
-    Common for characterizing annual high flow conditions.
-
-    Parameters
-    ----------
-    da : xr.DataArray
-        Input data array with time dimension (typically daily streamflow)
-    time_window : int, default 7
-        Size of the rolling window in days
-    min_periods : int, optional
-        Minimum number of observations required to have a value
-    center : bool, default True
-        Whether to center the rolling window
-
-    Returns
-    -------
-    xr.DataArray
-        Annual maximum 7-day mean values with dates when they occurred
-
-    Examples
-    --------
-    >>> # Calculate 7-day high flows for each calendar year
-    >>> high_flows = seven_day_mean_calendar_year_max(streamflow_data)
-    """
-    return rolling_mean_seasonal_min_max(
-        da,
-        time_window=time_window,
-        min_periods=min_periods,
-        center=center,
-        seasons=cal_year_season_str,
-        stat_name="max",
-    )
-
-
-def seven_day_mean_water_year_max(
-    da: xr.DataArray,
-    time_window: int = 7,
-    min_periods: int | None = None,
-    center: bool = True,
-) -> xr.DataArray:
-    """Water year 7-day high flow statistic.
-
-    Computes highest 7-day average for each water year (Oct-Sep).
-    Common in hydrological analysis and ecological flow assessments.
-
-    Parameters
-    ----------
-    da : xr.DataArray
-        Input data array with time dimension (typically daily streamflow)
-    time_window : int, default 7
-        Size of the rolling window in days
-    min_periods : int, optional
-        Minimum number of observations required to have a value
-    center : bool, default True
-        Whether to center the rolling window
-
-    Returns
-    -------
-    xr.DataArray
-        Water year maximum 7-day mean values with dates when they occurred
-
-    Notes
-    -----
-    Water year runs from October 1 through September 30, which better
-    captures the hydrologic cycle in snow-dominated watersheds.
-
-    Examples
-    --------
-    >>> # Calculate 7-day high flows for each water year
-    >>> high_flows = seven_day_mean_water_year_max(streamflow_data)
-    """
-    return rolling_mean_seasonal_min_max(
-        da,
-        time_window=time_window,
-        min_periods=min_periods,
-        center=center,
-        seasons=water_year_season_str,
-        stat_name="max",
-    )
-
-
-def seven_day_mean_calendar_year_min(
-    da: xr.DataArray,
-    time_window: int = 7,
-    min_periods: int | None = None,
-    center: bool = True,
-) -> xr.DataArray:
-    """Calendar year 7-day low flow statistic.
-
-    Computes lowest 7-day average for each calendar year (Jan-Dec).
-    Related to "7Q10" statistic used for water quality standards.
-
-    Parameters
-    ----------
-    da : xr.DataArray
-        Input data array with time dimension (typically daily streamflow)
-    time_window : int, default 7
-        Size of the rolling window in days
-    min_periods : int, optional
-        Minimum number of observations required to have a value
-    center : bool, default True
-        Whether to center the rolling window
-
-    Returns
-    -------
-    xr.DataArray
-        Annual minimum 7-day mean values with dates when they occurred
-
-    Notes
-    -----
-    The 7-day low flow is an important metric for water quality regulations
-    and ecological flow requirements. The "7Q10" statistic (10-year, 7-day
-    low flow) is commonly used as a design flow for wastewater discharge
-    permits.
-
-    Examples
-    --------
-    >>> # Calculate 7-day low flows for each calendar year
-    >>> low_flows = seven_day_mean_calendar_year_min(streamflow_data)
-    """
-    return rolling_mean_seasonal_min_max(
-        da,
-        time_window=time_window,
-        min_periods=min_periods,
-        center=center,
-        seasons=cal_year_season_str,
-        stat_name="min",
-    )
-
-
-def seven_day_mean_water_year_min(
-    da: xr.DataArray,
-    time_window: int = 7,
-    min_periods: int | None = None,
-    center: bool = True,
-) -> xr.DataArray:
-    """Water year 7-day low flow statistic.
-
-    Computes lowest 7-day average for each water year (Oct-Sep).
-    Used for low flow analysis and drought assessment.
-
-    Parameters
-    ----------
-    da : xr.DataArray
-        Input data array with time dimension (typically daily streamflow)
-    time_window : int, default 7
-        Size of the rolling window in days
-    min_periods : int, optional
-        Minimum number of observations required to have a value
-    center : bool, default True
-        Whether to center the rolling window
-
-    Returns
-    -------
-    xr.DataArray
-        Water year minimum 7-day mean values with dates when they occurred
-
-    Notes
-    -----
-    Water year runs from October 1 through September 30. Using water year
-    for low flow analysis is common in regions where summer low flows are
-    the critical period for aquatic ecosystems.
-
-    Examples
-    --------
-    >>> # Calculate 7-day low flows for each water year
-    >>> low_flows = seven_day_mean_water_year_min(streamflow_data)
-    """
-    return rolling_mean_seasonal_min_max(
-        da,
-        time_window=time_window,
-        min_periods=min_periods,
-        center=center,
-        seasons=water_year_season_str,
-        stat_name="min",
-    )
-
-
-# TODO: need to differentiate between accumulated stats and full-time stats?
-full_time_stat_functions = {
-    "mean": mean,
-    "median": median,
-    "std": std,
-    "seven_day_mean_calendar_year_max": seven_day_mean_calendar_year_max,
-    "seven_day_mean_water_year_max": seven_day_mean_water_year_max,
-    "seven_day_mean_calendar_year_min": seven_day_mean_calendar_year_min,
-    "seven_day_mean_water_year_min": seven_day_mean_water_year_min,
-}
+# Re-export statistical functions from time_stats for convenience
+mean = time_stats.mean
+std = time_stats.std
+median = time_stats.median
+seasonal_min_max = time_stats.seasonal_min_max
+rolling_mean_seasonal_min_max = time_stats.rolling_mean_seasonal_min_max
+seven_day_mean_calendar_year_max = time_stats.seven_day_mean_calendar_year_max
+seven_day_mean_water_year_max = time_stats.seven_day_mean_water_year_max
+seven_day_mean_calendar_year_min = time_stats.seven_day_mean_calendar_year_min
+seven_day_mean_water_year_min = time_stats.seven_day_mean_water_year_min
 
 
 class CustomOutput:
@@ -622,14 +231,10 @@ class CustomOutput:
         poi_var_list: list | None = None,
         poi_nhm_seg: list | None = None,
         poi_gage_segment: list | None = None,
-        poi_stats: list[str | Callable] | None = None,
-        poi_stats_groupby: dict | None = None,
-        poi_stats_resample: dict | None = None,
+        poi_stats: dict[Callable, list[str]] | None = None,
         hru_sub_var_list: list | None = None,
         hru_sub_ids: list | None = None,
-        hru_sub_stats: list[str | Callable] | None = None,
-        hru_sub_stats_groupby: dict | None = None,
-        hru_sub_stats_resample: dict | None = None,
+        hru_sub_stats: dict[Callable, list[str]] | None = None,
     ):
         """Initialize CustomOutput and set up data collection structures."""
         self._finalized = False
@@ -652,23 +257,16 @@ class CustomOutput:
         self._poi_nhm_seg = poi_nhm_seg
         self._poi_gage_segment = poi_gage_segment
         self._poi_stats = poi_stats
-        self._poi_stats_groupby = poi_stats_groupby
-        self._poi_stats_resample = poi_stats_resample
 
         self._hru_sub_var_list = hru_sub_var_list
         self._hru_sub_ids = hru_sub_ids
         self._hru_sub_stats = hru_sub_stats
-        self._hru_sub_stats_groupby = hru_sub_stats_groupby
-        self._hru_sub_stats_resample = hru_sub_stats_resample
 
         self._current_time = self._control.init_time.copy()
         self._time_step = self._control.time_step.copy()
 
         self._init_monthly()
         self._init_poi_sub()
-
-        # Validate configuration
-        self._validate_stat_configs()
 
         return None
 
@@ -784,7 +382,7 @@ class CustomOutput:
             finalization.
         """
         if self._finalized:
-            return self._poi_stats
+            return self._poi_stats_results
         else:
             warnings.warn(
                 "poi_stats is only available after finalization. "
@@ -803,7 +401,7 @@ class CustomOutput:
             after finalization.
         """
         if self._finalized:
-            return self._hru_sub_stats
+            return self._hru_sub_stats_results
         else:
             warnings.warn(
                 "hru_sub_stats is only available after finalization. "
@@ -812,104 +410,6 @@ class CustomOutput:
             return None
 
     # ==== Validation methods =====================
-    def _validate_stat_configs(self) -> None:
-        """Validate that resample/groupby dict keys match statistic names.
-
-        This catches configuration errors early rather than at runtime.
-        """
-        # Validate POI stats configuration
-        if self._poi_stats is not None:
-            stat_names = set()
-            for ss in self._poi_stats:
-                if isinstance(ss, str):
-                    stat_names.add(ss)
-                else:
-                    stat_names.add(ss.__name__)
-
-            if self._poi_stats_groupby is not None:
-                invalid_keys = set(self._poi_stats_groupby.keys()) - stat_names
-                if invalid_keys:
-                    raise ValueError(
-                        f"poi_stats_groupby contains keys {invalid_keys} "
-                        f"that are not in poi_stats {stat_names}"
-                    )
-
-            if self._poi_stats_resample is not None:
-                invalid_keys = (
-                    set(self._poi_stats_resample.keys()) - stat_names
-                )
-                if invalid_keys:
-                    raise ValueError(
-                        f"poi_stats_resample contains keys {invalid_keys} "
-                        f"that are not in poi_stats {stat_names}"
-                    )
-
-        # Validate HRU subset stats configuration
-        if self._hru_sub_stats is not None:
-            stat_names = set()
-            for ss in self._hru_sub_stats:
-                if isinstance(ss, str):
-                    stat_names.add(ss)
-                else:
-                    stat_names.add(ss.__name__)
-
-            if self._hru_sub_stats_groupby is not None:
-                invalid_keys = (
-                    set(self._hru_sub_stats_groupby.keys()) - stat_names
-                )
-                if invalid_keys:
-                    raise ValueError(
-                        f"hru_sub_stats_groupby contains keys {invalid_keys} "
-                        f"that are not in hru_sub_stats {stat_names}"
-                    )
-
-            if self._hru_sub_stats_resample is not None:
-                invalid_keys = (
-                    set(self._hru_sub_stats_resample.keys()) - stat_names
-                )
-                if invalid_keys:
-                    raise ValueError(
-                        f"hru_sub_stats_resample contains keys {invalid_keys} "
-                        f"that are not in hru_sub_stats {stat_names}"
-                    )
-
-    @staticmethod
-    def get_statistic_name(
-        variable: str, statistic: str, temporal_op: str | None = None
-    ) -> str:
-        """Construct a statistic name following the naming convention.
-
-        The naming convention is: {variable}_{statistic}_{temporal_op}
-        where temporal_op is optional for full-time statistics.
-
-        Parameters
-        ----------
-        variable : str
-            Variable name (e.g., "seg_outflow")
-        statistic : str
-            Statistic name (e.g., "mean", "median")
-        temporal_op : str, optional
-            Temporal operation like "month", "1MS", "5D" for grouped or
-            resampled statistics
-
-        Returns
-        -------
-        str
-            The constructed statistic name
-
-        Examples
-        --------
-        >>> CustomOutput.get_statistic_name("seg_outflow", "mean")
-        'seg_outflow_mean'
-        >>> CustomOutput.get_statistic_name("seg_outflow", "median", "month")
-        'seg_outflow_median_month'
-        >>> CustomOutput.get_statistic_name("seg_outflow", "max", "5D")
-        'seg_outflow_max_5D'
-        """
-        if temporal_op is None:
-            return f"{variable}_{statistic}"
-        else:
-            return f"{variable}_{statistic}_{temporal_op}"
 
     # ==== Monthly accumulation section =====================
     def _init_monthly(self) -> None:
@@ -1067,34 +567,26 @@ class CustomOutput:
         ).values.astype("datetime64[D]")
 
     def _solve_poi_stat_list(self) -> None:
-        """Resolve POI statistics to callable functions."""
-        self._poi_stat_funcs = {}
+        """Build POI statistics dict from function: var_list mapping."""
+        self._poi_stat_func_vars = {}
         if self._poi_stats is None:
             return
-        for ss in self._poi_stats:
-            if isinstance(ss, str):
-                self._poi_stat_funcs[ss] = full_time_stat_functions[ss]
-            else:
-                if not callable(ss):
-                    raise ValueError(
-                        "poi_stats must contain strings or functions."
-                    )
-                self._poi_stat_funcs[ss.__name__] = ss
+        for func, var_list in self._poi_stats.items():
+            if not callable(func):
+                raise ValueError("poi_stats keys must be callable functions.")
+            self._poi_stat_func_vars[func] = var_list
 
     def _solve_hru_sub_stat_list(self) -> None:
-        """Resolve HRU subset statistics to callable functions."""
-        self._hru_sub_stat_funcs = {}
+        """Build HRU subset statistics dict from function: var_list mapping."""
+        self._hru_sub_stat_func_vars = {}
         if self._hru_sub_stats is None:
             return
-        for ss in self._hru_sub_stats:
-            if isinstance(ss, str):
-                self._hru_sub_stat_funcs[ss] = full_time_stat_functions[ss]
-            else:
-                if not callable(ss):
-                    raise ValueError(
-                        "hru_sub_stats must contain strings or functions."
-                    )
-                self._hru_sub_stat_funcs[ss.__name__] = ss
+        for func, var_list in self._hru_sub_stats.items():
+            if not callable(func):
+                raise ValueError(
+                    "hru_sub_stats keys must be callable functions."
+                )
+            self._hru_sub_stat_func_vars[func] = var_list
 
     def _map_poi_vars_procs(self) -> None:
         """Map POI variables to processes and resolve indices."""
@@ -1184,28 +676,21 @@ class CustomOutput:
             )
 
         # For _calculate_poi_hru_sub_stats (called once at finalization)
-        # Don't cache the stats dicts themselves, they're created fresh
         self._poi_hru_sub_stats_list = []
-        if self._poi_var_list is not None:
+        if self._poi_stats is not None:
             self._poi_hru_sub_stats_list.append(
                 (
                     "poi",  # marker to identify which stats dict to use
                     self._poi_arrays,
-                    self._poi_stat_funcs,
-                    self._poi_vars_procs,
-                    self._poi_stats_groupby,
-                    self._poi_stats_resample,
+                    self._poi_stat_func_vars,
                 )
             )
-        if self._hru_sub_var_list is not None:
+        if self._hru_sub_stats is not None:
             self._poi_hru_sub_stats_list.append(
                 (
                     "hru_sub",  # marker to identify which stats dict to use
                     self._hru_sub_arrays,
-                    self._hru_sub_stat_funcs,
-                    self._hru_sub_vars_procs,
-                    self._hru_sub_stats_groupby,
-                    self._hru_sub_stats_resample,
+                    self._hru_sub_stat_func_vars,
                 )
             )
 
@@ -1268,58 +753,48 @@ class CustomOutput:
     def _calculate_poi_hru_sub_stats(self) -> None:
         """Calculate statistics for POI and HRU subset data.
 
-        Statistics naming: {variable}_{statistic}_{temporal_op}
+        Statistics stored hierarchically: stats[variable][function_name]
+        Each DataArray is named and has attrs: variable, statistic, period_of_record
         """
-        self._poi_stats = {}
-        self._hru_sub_stats = {}
+        self._poi_stats_results = {}
+        self._hru_sub_stats_results = {}
 
-        for (
-            stats_type,
-            arrays,
-            stat_funcs,
-            vars_procs,
-            stats_groupby,
-            stats_resample,
-        ) in self._poi_hru_sub_stats_list:
+        for stats_type, arrays, stat_func_vars in self._poi_hru_sub_stats_list:
             # Get the appropriate stats dict
             stats = (
-                self._poi_stats if stats_type == "poi" else self._hru_sub_stats
+                self._poi_stats_results
+                if stats_type == "poi"
+                else self._hru_sub_stats_results
             )
-            for vv in arrays:
-                for stat_name, stat_func in stat_funcs.items():
-                    calc_full_time = True
 
-                    if (
-                        stats_groupby is not None
-                        and stat_name in stats_groupby.keys()
-                    ):
-                        group = stats_groupby[stat_name]
-                        stat_key = self.get_statistic_name(
-                            vv, stat_name, group
-                        )
-                        stats[stat_key] = stat_func(
-                            arrays[vv].groupby(f"time.{group}"),
-                            dim="time",
-                        )
-                        calc_full_time = False
+            for func, var_list in stat_func_vars.items():
+                func_name = func.__name__
+                for vv in var_list:
+                    if vv not in arrays:
+                        continue
+                    # Create nested dict structure: stats[var][stat_name]
+                    if vv not in stats:
+                        stats[vv] = {}
 
-                    if (
-                        stats_resample is not None
-                        and stat_name in stats_resample.keys()
-                    ):
-                        resample = stats_resample[stat_name]
-                        stat_key = self.get_statistic_name(
-                            vv, stat_name, resample
-                        )
-                        stats[stat_key] = stat_func(
-                            arrays[vv].resample(time=resample),
-                            dim="time",
-                        )
-                        calc_full_time = False
+                    # Calculate the statistic
+                    result = func(arrays[vv])
 
-                    if calc_full_time:
-                        stat_key = self.get_statistic_name(vv, stat_name)
-                        stats[stat_key] = stat_func(arrays[vv], dim="time")
+                    # Set the name to the variable name
+                    result.name = vv
+
+                    # Add metadata attributes
+                    result.attrs["variable"] = vv
+                    result.attrs["statistic"] = func_name
+
+                    # Add period of record from original time series
+                    time_coord = arrays[vv].coords["time"]
+                    period_start = str(time_coord.values[0])
+                    period_end = str(time_coord.values[-1])
+                    result.attrs["period_of_record"] = (
+                        f"{period_start} to {period_end}"
+                    )
+
+                    stats[vv][func_name] = result
 
     # ==== General methods ================
     def calculate(self) -> None:

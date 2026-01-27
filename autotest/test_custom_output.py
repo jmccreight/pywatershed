@@ -9,6 +9,13 @@ from pywatershed import (
     PassThroughFlowNodeMaker,
     prms_channel_flow_graph_to_model_dict,
 )
+from pywatershed.analysis.time_stats import (
+    max_5day,
+    max_yearly,
+    mean_monthly,
+    median_by_month,
+    median_monthly,
+)
 from pywatershed.base.control import Control
 from pywatershed.base.model import Model
 from pywatershed.parameters import Parameters, PrmsParameters
@@ -84,13 +91,6 @@ def poi_info(parameters):
             zip(poi_nhm_seg.tolist(), parameters.parameters["poi_gage_id"])
         ),
     }
-
-
-def max_stat(
-    da: xr.DataArray, dim=None, *, skipna=None, keep_attrs=None, **kwargs
-):
-    """Custom max statistic function for testing."""
-    return da.max(dim=dim, skipna=skipna, keep_attrs=keep_attrs, **kwargs)
 
 
 def test_custom_output_monthly_accumulations(
@@ -201,15 +201,21 @@ def test_custom_output_poi_data(
         parameters=parameters,
     )
 
+    def mean_stat(da: xr.DataArray):
+        return da.mean(dim="time")
+
     output = pws.base.CustomOutput(
         control=control,
         model=model,
         poi_var_list=var_list,
         poi_nhm_seg=poi_info["poi_nhm_seg"],
         poi_gage_segment=poi_info["poi_gage_segment"] - 1,
-        poi_stats=["mean", "median", max_stat],
-        poi_stats_groupby={"median": "month"},
-        poi_stats_resample={"median": "1MS", "max_stat": "5D"},
+        poi_stats={
+            mean_stat: var_list,
+            median_by_month: var_list,
+            median_monthly: var_list,
+            max_5day: var_list,
+        },
     )
 
     model.run(finalize=True, output=output)
@@ -227,29 +233,21 @@ def test_custom_output_poi_data(
         == output.poi_arrays["seg_outflow"][-1, :]
     ).all()
 
-    # Check POI statistics (using helper to verify naming convention)
+    # Check POI statistics (hierarchical structure)
     assert output.poi_stats is not None
-    mean_key = pws.base.CustomOutput.get_statistic_name("seg_outflow", "mean")
-    assert mean_key in output.poi_stats
-    assert mean_key == "seg_outflow_mean"
+    assert "seg_outflow" in output.poi_stats
+    assert "mean_stat" in output.poi_stats["seg_outflow"]
+    assert "median_by_month" in output.poi_stats["seg_outflow"]
+    assert "median_monthly" in output.poi_stats["seg_outflow"]
+    assert "max_5day" in output.poi_stats["seg_outflow"]
 
-    median_month_key = pws.base.CustomOutput.get_statistic_name(
-        "seg_outflow", "median", "month"
-    )
-    assert median_month_key in output.poi_stats
-    assert median_month_key == "seg_outflow_median_month"
-
-    median_1ms_key = pws.base.CustomOutput.get_statistic_name(
-        "seg_outflow", "median", "1MS"
-    )
-    assert median_1ms_key in output.poi_stats
-    assert median_1ms_key == "seg_outflow_median_1MS"
-
-    max_5d_key = pws.base.CustomOutput.get_statistic_name(
-        "seg_outflow", "max_stat", "5D"
-    )
-    assert max_5d_key in output.poi_stats
-    assert max_5d_key == "seg_outflow_max_stat_5D"
+    # Check DataArray metadata (name and attrs)
+    mean_stat_da = output.poi_stats["seg_outflow"]["mean_stat"]
+    assert mean_stat_da.name == "seg_outflow"
+    assert mean_stat_da.attrs["variable"] == "seg_outflow"
+    assert mean_stat_da.attrs["statistic"] == "mean_stat"
+    assert "period_of_record" in mean_stat_da.attrs
+    assert " to " in mean_stat_da.attrs["period_of_record"]
 
     # Check dimensions
     poi_array = output.poi_arrays["seg_outflow"]
@@ -283,7 +281,7 @@ def test_custom_output_poi_data(
         mean_nc = poi_data_nc.mean(dim="time")
         np.testing.assert_allclose(
             mean_nc.values,
-            output.poi_stats[f"{var_name}_mean"].values,
+            output.poi_stats[var_name]["mean_stat"].values,
             rtol=1e-10,
             atol=1e-10,
             err_msg=f"{var_name}: mean statistic doesn't match",
@@ -295,10 +293,10 @@ def test_custom_output_poi_data(
         )
         np.testing.assert_allclose(
             median_by_month_nc.values,
-            output.poi_stats[f"{var_name}_median_month"].values,
+            output.poi_stats[var_name]["median_by_month"].values,
             rtol=1e-10,
             atol=1e-10,
-            err_msg=f"{var_name}: median_month statistic doesn't match",
+            err_msg=f"{var_name}: median_by_month statistic doesn't match",
         )
 
         # Median resampled to monthly
@@ -307,20 +305,20 @@ def test_custom_output_poi_data(
         )
         np.testing.assert_allclose(
             median_resample_nc.values,
-            output.poi_stats[f"{var_name}_median_1MS"].values,
+            output.poi_stats[var_name]["median_monthly"].values,
             rtol=1e-10,
             atol=1e-10,
-            err_msg=f"{var_name}: median_1MS statistic doesn't match",
+            err_msg=f"{var_name}: median_monthly statistic doesn't match",
         )
 
         # Max resampled to 5 day periods
         max_resample_nc = poi_data_nc.resample(time="5D").max(dim="time")
         np.testing.assert_allclose(
             max_resample_nc.values,
-            output.poi_stats[f"{var_name}_max_stat_5D"].values,
+            output.poi_stats[var_name]["max_5day"].values,
             rtol=1e-10,
             atol=1e-10,
-            err_msg=f"{var_name}: max_stat_5D statistic doesn't match",
+            err_msg=f"{var_name}: max_5day statistic doesn't match",
         )
 
         ds.close()
@@ -357,8 +355,10 @@ def test_custom_output_hru_subset(
         model=model,
         hru_sub_var_list=var_list,
         hru_sub_ids=[hru_id],
-        hru_sub_stats=["mean", max_stat],
-        hru_sub_stats_resample={"mean": "1MS", "max_stat": "1YS"},
+        hru_sub_stats={
+            mean_monthly: var_list,
+            max_yearly: var_list,
+        },
     )
 
     model.run(finalize=True, output=output)
@@ -368,29 +368,23 @@ def test_custom_output_hru_subset(
     assert "hru_actet" in output.hru_sub_arrays
     assert "pkwater_equiv" in output.hru_sub_arrays
 
-    # Check HRU subset statistics (using helper to verify naming convention)
+    # Check HRU subset statistics (hierarchical structure)
     assert output.hru_sub_stats is not None
-    actet_mean_key = pws.base.CustomOutput.get_statistic_name(
-        "hru_actet", "mean", "1MS"
-    )
-    assert actet_mean_key in output.hru_sub_stats
-    assert actet_mean_key == "hru_actet_mean_1MS"
+    assert "hru_actet" in output.hru_sub_stats
+    assert "mean_monthly" in output.hru_sub_stats["hru_actet"]
+    assert "max_yearly" in output.hru_sub_stats["hru_actet"]
 
-    actet_max_key = pws.base.CustomOutput.get_statistic_name(
-        "hru_actet", "max_stat", "1YS"
-    )
-    assert actet_max_key in output.hru_sub_stats
-    assert actet_max_key == "hru_actet_max_stat_1YS"
+    assert "pkwater_equiv" in output.hru_sub_stats
+    assert "mean_monthly" in output.hru_sub_stats["pkwater_equiv"]
+    assert "max_yearly" in output.hru_sub_stats["pkwater_equiv"]
 
-    pkwater_mean_key = pws.base.CustomOutput.get_statistic_name(
-        "pkwater_equiv", "mean", "1MS"
-    )
-    assert pkwater_mean_key in output.hru_sub_stats
-
-    pkwater_max_key = pws.base.CustomOutput.get_statistic_name(
-        "pkwater_equiv", "max_stat", "1YS"
-    )
-    assert pkwater_max_key in output.hru_sub_stats
+    # Check DataArray metadata (name and attrs)
+    actet_mean_da = output.hru_sub_stats["hru_actet"]["mean_monthly"]
+    assert actet_mean_da.name == "hru_actet"
+    assert actet_mean_da.attrs["variable"] == "hru_actet"
+    assert actet_mean_da.attrs["statistic"] == "mean_monthly"
+    assert "period_of_record" in actet_mean_da.attrs
+    assert " to " in actet_mean_da.attrs["period_of_record"]
 
     # Validate against netcdf output by post-processing
     for var_name in var_list:
@@ -417,20 +411,20 @@ def test_custom_output_hru_subset(
         mean_resample_nc = hru_data_nc.resample(time="1MS").mean(dim="time")
         np.testing.assert_allclose(
             mean_resample_nc.values,
-            output.hru_sub_stats[f"{var_name}_mean_1MS"].values.squeeze(),
+            output.hru_sub_stats[var_name]["mean_monthly"].values.squeeze(),
             rtol=1e-10,
             atol=1e-10,
-            err_msg=f"{var_name}: mean_1MS statistic doesn't match",
+            err_msg=f"{var_name}: mean_monthly statistic doesn't match",
         )
 
         # Max resampled to yearly
         max_resample_nc = hru_data_nc.resample(time="1YS").max(dim="time")
         np.testing.assert_allclose(
             max_resample_nc.values,
-            output.hru_sub_stats[f"{var_name}_max_stat_1YS"].values.squeeze(),
+            output.hru_sub_stats[var_name]["max_yearly"].values.squeeze(),
             rtol=1e-10,
             atol=1e-10,
-            err_msg=f"{var_name}: max_stat_1YS statistic doesn't match",
+            err_msg=f"{var_name}: max_yearly statistic doesn't match",
         )
 
         ds.close()
@@ -459,6 +453,9 @@ def test_custom_output_combined(
 
     hru_id = parameters.parameters["nhm_id"][0].tolist()
 
+    def mean(da: xr.DataArray):
+        return da.mean(dim="time")
+
     output = pws.base.CustomOutput(
         control=control,
         model=model,
@@ -466,13 +463,18 @@ def test_custom_output_combined(
         poi_var_list=["seg_outflow"],
         poi_nhm_seg=poi_info["poi_nhm_seg"],
         poi_gage_segment=poi_info["poi_gage_segment"] - 1,
-        poi_stats=["mean", "median", max_stat],
-        poi_stats_groupby={"median": "month"},
-        poi_stats_resample={"median": "1MS", "max_stat": "5D"},
+        poi_stats={
+            mean: ["seg_outflow"],
+            median_by_month: ["seg_outflow"],
+            median_monthly: ["seg_outflow"],
+            max_5day: ["seg_outflow"],
+        },
         hru_sub_var_list=["hru_actet", "pkwater_equiv"],
         hru_sub_ids=[hru_id],
-        hru_sub_stats=["mean", max_stat],
-        hru_sub_stats_resample={"mean": "1MS", "max_stat": "1YS"},
+        hru_sub_stats={
+            mean_monthly: ["hru_actet", "pkwater_equiv"],
+            max_yearly: ["hru_actet", "pkwater_equiv"],
+        },
     )
 
     model.run(finalize=True, output=output)
@@ -510,7 +512,7 @@ def test_custom_output_combined(
     mean_nc = poi_data_nc.mean(dim="time")
     np.testing.assert_allclose(
         mean_nc.values,
-        output.poi_stats["seg_outflow_mean"].values,
+        output.poi_stats["seg_outflow"]["mean"].values,
         rtol=1e-10,
         atol=1e-10,
     )
@@ -523,7 +525,7 @@ def test_custom_output_combined(
     mean_resample_nc = hru_data_nc.resample(time="1MS").mean(dim="time")
     np.testing.assert_allclose(
         mean_resample_nc.values,
-        output.hru_sub_stats["hru_actet_mean_1MS"].values.squeeze(),
+        output.hru_sub_stats["hru_actet"]["mean_monthly"].values.squeeze(),
         rtol=1e-10,
         atol=1e-10,
     )
@@ -540,13 +542,16 @@ def test_custom_output_properties_before_finalization(
         parameters=parameters,
     )
 
+    def mean(da: xr.DataArray):
+        return da.mean(dim="time")
+
     output = pws.base.CustomOutput(
         control=control,
         model=model,
         monthly_accum_var_list=["sroff"],
         poi_var_list=["seg_outflow"],
         poi_nhm_seg=poi_info["poi_nhm_seg"],
-        poi_stats=["mean"],
+        poi_stats={mean: ["seg_outflow"]},
     )
 
     # Properties should return None before finalization
@@ -578,7 +583,9 @@ def test_custom_output_poi_requires_segments(
 def test_custom_output_string_stats(
     simulation, control, parameters, nhm_processes, poi_info
 ):
-    """Test that built-in string statistics work correctly."""
+    """Test that built-in statistics functions work correctly."""
+    from pywatershed.analysis.time_stats import mean, median, std
+
     model = pws.Model(
         nhm_processes,
         control=control,
@@ -590,69 +597,61 @@ def test_custom_output_string_stats(
         model=model,
         poi_var_list=["seg_outflow"],
         poi_nhm_seg=poi_info["poi_nhm_seg"],
-        poi_stats=["mean", "median", "std"],  # All built-in string stats
+        poi_stats={
+            mean: ["seg_outflow"],
+            median: ["seg_outflow"],
+            std: ["seg_outflow"],
+        },
     )
 
     model.run(finalize=True, output=output)
 
-    # Verify all built-in stats were calculated (using helper)
-    mean_key = pws.base.CustomOutput.get_statistic_name("seg_outflow", "mean")
-    assert mean_key in output.poi_stats
-
-    median_key = pws.base.CustomOutput.get_statistic_name(
-        "seg_outflow", "median"
-    )
-    assert median_key in output.poi_stats
-
-    std_key = pws.base.CustomOutput.get_statistic_name("seg_outflow", "std")
-    assert std_key in output.poi_stats
+    # Verify all built-in stats were calculated (hierarchical structure)
+    assert "seg_outflow" in output.poi_stats
+    assert "mean" in output.poi_stats["seg_outflow"]
+    assert "median" in output.poi_stats["seg_outflow"]
+    assert "std" in output.poi_stats["seg_outflow"]
 
 
-def test_custom_output_validation_invalid_groupby_key(
+def test_custom_output_validation_invalid_poi_stats(
     simulation, control, parameters, nhm_processes, poi_info
 ):
-    """Test that invalid groupby keys are caught early."""
+    """Test validation that poi_stats functions must be callable."""
     model = pws.Model(
         nhm_processes,
         control=control,
         parameters=parameters,
     )
 
-    # Should raise ValueError for invalid groupby key
-    with pytest.raises(
-        ValueError, match="poi_stats_groupby contains keys.*not in poi_stats"
-    ):
+    with pytest.raises(ValueError, match="poi_stats keys must be callable"):
         output = pws.base.CustomOutput(
             control=control,
             model=model,
             poi_var_list=["seg_outflow"],
             poi_nhm_seg=poi_info["poi_nhm_seg"],
-            poi_stats=["mean", "median"],
-            poi_stats_groupby={"invalid_stat": "month"},  # Invalid!
+            poi_stats={"not_a_function": ["seg_outflow"]},
         )
 
 
-def test_custom_output_validation_invalid_resample_key(
+def test_custom_output_validation_invalid_hru_sub_stats(
     simulation, control, parameters, nhm_processes, poi_info
 ):
-    """Test that invalid resample keys are caught early."""
+    """Test validation that hru_sub_stats functions must be callable."""
     model = pws.Model(
         nhm_processes,
         control=control,
         parameters=parameters,
     )
 
-    # Should raise ValueError for invalid resample key
     with pytest.raises(
-        ValueError, match="poi_stats_resample contains keys.*not in poi_stats"
+        ValueError, match="hru_sub_stats keys must be callable"
     ):
         output = pws.base.CustomOutput(
             control=control,
             model=model,
-            poi_var_list=["seg_outflow"],
-            poi_nhm_seg=poi_info["poi_nhm_seg"],
-            poi_stats=["mean"],
-            poi_stats_resample={"median": "1MS"},  # median not in poi_stats!
+            hru_sub_var_list=["hru_actet"],
+            hru_sub_ids=[1],
+            hru_sub_stats={"not_a_function": ["hru_actet"]},
         )
 
 
@@ -666,13 +665,16 @@ def test_custom_output_property_warning_before_finalization(
         parameters=parameters,
     )
 
+    def mean_stat(da: xr.DataArray):
+        return da.mean(dim="time")
+
     output = pws.base.CustomOutput(
         control=control,
         model=model,
         monthly_accum_var_list=["sroff"],
         poi_var_list=["seg_outflow"],
         poi_nhm_seg=poi_info["poi_nhm_seg"],
-        poi_stats=["mean"],
+        poi_stats={mean_stat: ["seg_outflow"]},
     )
 
     # Access properties before finalization should warn
@@ -784,7 +786,9 @@ def test_custom_output_with_flow_graph(
     # Create CustomOutput with FlowGraph variables
     monthly_accum_var_list = ["node_outflows", "outflow_substep"]
     poi_var_list = ["node_outflows", "outflow_substep"]
-    poi_stat_list = ["mean"]
+
+    def mean(da: xr.DataArray):
+        return da.mean(dim="time")
 
     output = pws.base.CustomOutput(
         control=control,
@@ -792,7 +796,7 @@ def test_custom_output_with_flow_graph(
         monthly_accum_var_list=monthly_accum_var_list,
         poi_var_list=poi_var_list,
         poi_gage_segment=poi_indices,
-        poi_stats=poi_stat_list,
+        poi_stats={mean: poi_var_list},
     )
 
     # Run model
@@ -811,8 +815,8 @@ def test_custom_output_with_flow_graph(
 
     assert output.poi_stats is not None
     for vv in poi_var_list:
-        mean_key = pws.base.CustomOutput.get_statistic_name(vv, "mean")
-        assert mean_key in output.poi_stats
+        assert vv in output.poi_stats
+        assert "mean" in output.poi_stats[vv].keys()
 
     # Validate against netcdf output
     # Check monthly accumulation
