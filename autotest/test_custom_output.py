@@ -13,7 +13,7 @@ from pywatershed.base.control import Control
 from pywatershed.base.model import Model
 from pywatershed.parameters import Parameters, PrmsParameters
 
-# Test only the nhm configuration
+# Test only drb_2yr domain with nhm configuration
 test_sim_names = ["drb_2yr:nhm"]
 
 
@@ -688,10 +688,11 @@ def test_custom_output_property_warning_before_finalization(
 def test_custom_output_with_flow_graph(
     simulation, control, parameters, poi_info, tmp_path
 ):
-    """Test CustomOutput with FlowGraph replacing PRMSChannel.
+    """Test CustomOutput with FlowGraph instead of PRMSChannel.
 
-    This tests that CustomOutput can correctly extract variables from
-    FlowGraph nodes, which have different variable names than PRMSChannel.
+    Verifies CustomOutput correctly handles FlowGraph variables (e.g.,
+    node_outflows vs seg_outflow) and dimensions (nnode vs nsegment).
+    Tests monthly accumulations, POI data collection, and statistics.
     """
     tmp_path = pl.Path(tmp_path)
     domain_dir = simulation["dir"]

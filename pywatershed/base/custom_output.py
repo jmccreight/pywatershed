@@ -1,20 +1,25 @@
 """Custom output functionality for pywatershed models.
 
-This module provides flexible output collection and statistical analysis
-capabilities for pywatershed models. It supports:
+This module provides flexible output collection and statistical analysis for
+pywatershed models, including support for both PRMS processes and FlowGraph.
 
+Output Types
+------------
 1. **Monthly accumulations**: Accumulate variable values over monthly periods
-   for all spatial units (HRUs or segments).
+   for all spatial units (HRUs, segments, or nodes).
 
-2. **Point of Interest (POI) data**: Collect full time series data for specific
-   stream segments (e.g., at gage locations) and calculate various statistics
-   including temporal aggregations and resampling.
+2. **Point of Interest (POI) data**: Collect full time series at specific
+   locations (e.g., gage stations) with optional statistical aggregations.
 
-3. **HRU subset data**: Collect full time series data for specific HRUs and
-   calculate statistics with flexible temporal grouping and resampling.
+3. **HRU subset data**: Collect full time series for specific HRUs with
+   optional statistical aggregations.
 
-The module uses xarray DataArrays for efficient handling of multi-dimensional
-time series data with proper coordinate systems and metadata.
+Built-in Statistics
+-------------------
+Basic: mean, median, std
+Hydrological: seven_day_mean_calendar_year_max, seven_day_mean_water_year_min, etc.
+
+All data uses xarray DataArrays with proper coordinate systems and metadata.
 
 Example
 -------
@@ -62,13 +67,9 @@ Notes
 
 TODO
 ----
-- Extend monthly stats to timeseries arrays in PRMSSolarGeometry and
-  PRMSAtmosphere
-- Annual (or other periods) extremes (e.g., date of peak SWE)
-- Show how to do numpy-based functions
-- Fixed window stats on all spatial units (e.g., monthly standard deviations)
-- Rolling window stats on all spatial units
-- FlowGraph integration
+- Monthly stats for PRMSSolarGeometry and PRMSAtmosphere timeseries
+- Additional annual extremes (e.g., date of peak SWE)
+- Fixed/rolling window stats on all spatial units
 
 See Also
 --------
@@ -95,11 +96,21 @@ spatial_dim_to_coord_name = {
     "nsegment": "nhm_seg",
     "nnodes": "node_coord",
 }
+# Season strings for annual statistics
+# Calendar year: January through December
 cal_year_season_str = "JFMAMJJASOND"
+# Water year: October through September
 water_year_season_str = "ONDJFMAMJJAS"
 
 
-def mean(da, dim=None, *, skipna=None, keep_attrs=None, **kwargs):
+def mean(
+    da: xr.DataArray,
+    dim: str | None = None,
+    *,
+    skipna: bool | None = None,
+    keep_attrs: bool | None = None,
+    **kwargs,
+) -> xr.DataArray:
     """Calculate mean along specified dimension.
 
     Parameters
@@ -123,7 +134,14 @@ def mean(da, dim=None, *, skipna=None, keep_attrs=None, **kwargs):
     return da.mean(dim=dim, skipna=skipna, keep_attrs=keep_attrs, **kwargs)
 
 
-def std(da, dim=None, *, skipna=None, keep_attrs=None, **kwargs):
+def std(
+    da: xr.DataArray,
+    dim: str | None = None,
+    *,
+    skipna: bool | None = None,
+    keep_attrs: bool | None = None,
+    **kwargs,
+) -> xr.DataArray:
     """Calculate standard deviation along specified dimension.
 
     Parameters
@@ -147,7 +165,14 @@ def std(da, dim=None, *, skipna=None, keep_attrs=None, **kwargs):
     return da.std(dim=dim, skipna=skipna, keep_attrs=keep_attrs, **kwargs)
 
 
-def median(da, dim=None, *, skipna=None, keep_attrs=None, **kwargs):
+def median(
+    da: xr.DataArray,
+    dim: str | None = None,
+    *,
+    skipna: bool | None = None,
+    keep_attrs: bool | None = None,
+    **kwargs,
+) -> xr.DataArray:
     """Calculate median along specified dimension.
 
     Parameters
@@ -171,103 +196,295 @@ def median(da, dim=None, *, skipna=None, keep_attrs=None, **kwargs):
     return da.median(dim=dim, skipna=skipna, keep_attrs=keep_attrs, **kwargs)
 
 
-def annual_min_max(da, season=water_year_season_str, stat_name="max"):
+def seasonal_min_max(
+    da: xr.DataArray,
+    seasons: str | list = water_year_season_str,
+    stat_name: str = "max",
+) -> xr.DataArray:
+    """Calculate seasonal extremes with dates of occurrence.
+
+    Finds min/max over custom seasons and returns both values
+    and dates when extremes occurred.
+
+    Parameters
+    ----------
+    da : xr.DataArray
+        Input data array with time dimension
+    seasons : str or list, default "ONDJFMAMJJAS"
+        Season string(s) defining period(s). Default: water year (Oct-Sep).
+        Use "JFMAMJJASOND" for calendar year (Jan-Dec).
+        Can be a list for multiple seasons.
+    stat_name : str, default "max"
+        Statistic to calculate: "max" or "min"
+
+    Returns
+    -------
+    xr.DataArray
+        Seasonal extreme values with time coordinate replaced by dates
+        when extremes occurred
+
+    Examples
+    --------
+    >>> # Water year maximum
+    >>> seasonal_max = seasonal_min_max(flow_data, stat_name="max")
+    >>> # Calendar year minimum
+    >>> seasonal_min = seasonal_min_max(
+    ...     flow_data, seasons="JFMAMJJASOND", stat_name="min"
+    ... )
+    """
+    if not isinstance(seasons, list):
+        seasons = [seasons]
     if stat_name == "max":
-        stat = da.resample(time=xr.groupers.SeasonResampler([season])).max(
+        stat = da.resample(time=xr.groupers.SeasonResampler(seasons)).max(
             dim="time", skipna=True
         )
         stat_dates = da.resample(
-            time=xr.groupers.SeasonResampler([season])
+            time=xr.groupers.SeasonResampler(seasons)
         ).map(lambda x: x.idxmax(dim="time", skipna=True))
     elif stat_name == "min":
-        stat = da.resample(time=xr.groupers.SeasonResampler([season])).min(
+        stat = da.resample(time=xr.groupers.SeasonResampler(seasons)).min(
             dim="time", skipna=True
         )
         stat_dates = da.resample(
-            time=xr.groupers.SeasonResampler([season])
+            time=xr.groupers.SeasonResampler(seasons)
         ).map(lambda x: x.idxmin(dim="time", skipna=True))
     else:
-        raise ValueError("Stat '{stat_name}' not available.")
+        raise ValueError(f"Stat '{stat_name}' not available.")
     # <
     stat["time"] = stat_dates
     return stat
 
 
-def rolling_mean_annual_min_max(
-    da,
-    time_window=7,
-    min_periods=None,
-    center=True,
-    season=water_year_season_str,
-    stat_name="max",
-):
+def rolling_mean_seasonal_min_max(
+    da: xr.DataArray,
+    time_window: int = 7,
+    min_periods: int | None = None,
+    center: bool = True,
+    seasons: str | list = water_year_season_str,
+    stat_name: str = "max",
+) -> xr.DataArray:
+    """Calculate seasonal extremes of rolling mean.
+
+    Computes rolling mean, then finds seasonal min/max. Used for hydrological
+    statistics like 7-day low/high flows.
+
+    Parameters
+    ----------
+    da : xr.DataArray
+        Input data array with time dimension
+    time_window : int, default 7
+        Size of the rolling window in time steps (typically days)
+    min_periods : int, optional
+        Minimum number of observations required to have a value
+    center : bool, default True
+        Whether to center the rolling window
+    seasons : str or list, default "ONDJFMAMJJAS"
+        Season string(s) defining period(s). Default: water year.
+        Can be a list for multiple seasons.
+    stat_name : str, default "max"
+        Statistic to calculate: "max" or "min"
+
+    Returns
+    -------
+    xr.DataArray
+        Seasonal extreme values of the rolling mean with dates
+
+    See Also
+    --------
+    seven_day_mean_calendar_year_max : Calendar year 7-day high flows
+    seven_day_mean_water_year_min : Water year 7-day low flows
+    """
+    if not isinstance(seasons, list):
+        seasons = [seasons]
     roll_mean = da.rolling(
         time=time_window, min_periods=min_periods, center=center
     ).mean()
-    stat = annual_min_max(roll_mean, season=season, stat_name=stat_name)
+    stat = seasonal_min_max(roll_mean, seasons=seasons, stat_name=stat_name)
     return stat
 
 
 def seven_day_mean_calendar_year_max(
-    da,
-    time_window=7,
-    min_periods=None,
-    center=True,
-):
-    return rolling_mean_annual_min_max(
+    da: xr.DataArray,
+    time_window: int = 7,
+    min_periods: int | None = None,
+    center: bool = True,
+) -> xr.DataArray:
+    """Calendar year 7-day high flow statistic.
+
+    Computes highest 7-day average for each calendar year (Jan-Dec).
+    Common for characterizing annual high flow conditions.
+
+    Parameters
+    ----------
+    da : xr.DataArray
+        Input data array with time dimension (typically daily streamflow)
+    time_window : int, default 7
+        Size of the rolling window in days
+    min_periods : int, optional
+        Minimum number of observations required to have a value
+    center : bool, default True
+        Whether to center the rolling window
+
+    Returns
+    -------
+    xr.DataArray
+        Annual maximum 7-day mean values with dates when they occurred
+
+    Examples
+    --------
+    >>> # Calculate 7-day high flows for each calendar year
+    >>> high_flows = seven_day_mean_calendar_year_max(streamflow_data)
+    """
+    return rolling_mean_seasonal_min_max(
         da,
         time_window=time_window,
         min_periods=min_periods,
         center=center,
-        season=cal_year_season_str,
+        seasons=cal_year_season_str,
         stat_name="max",
     )
 
 
 def seven_day_mean_water_year_max(
-    da,
-    time_window=7,
-    min_periods=None,
-    center=True,
-):
-    return rolling_mean_annual_min_max(
+    da: xr.DataArray,
+    time_window: int = 7,
+    min_periods: int | None = None,
+    center: bool = True,
+) -> xr.DataArray:
+    """Water year 7-day high flow statistic.
+
+    Computes highest 7-day average for each water year (Oct-Sep).
+    Common in hydrological analysis and ecological flow assessments.
+
+    Parameters
+    ----------
+    da : xr.DataArray
+        Input data array with time dimension (typically daily streamflow)
+    time_window : int, default 7
+        Size of the rolling window in days
+    min_periods : int, optional
+        Minimum number of observations required to have a value
+    center : bool, default True
+        Whether to center the rolling window
+
+    Returns
+    -------
+    xr.DataArray
+        Water year maximum 7-day mean values with dates when they occurred
+
+    Notes
+    -----
+    Water year runs from October 1 through September 30, which better
+    captures the hydrologic cycle in snow-dominated watersheds.
+
+    Examples
+    --------
+    >>> # Calculate 7-day high flows for each water year
+    >>> high_flows = seven_day_mean_water_year_max(streamflow_data)
+    """
+    return rolling_mean_seasonal_min_max(
         da,
         time_window=time_window,
         min_periods=min_periods,
         center=center,
-        season=water_year_season_str,
+        seasons=water_year_season_str,
         stat_name="max",
     )
 
 
 def seven_day_mean_calendar_year_min(
-    da,
-    time_window=7,
-    min_periods=None,
-    center=True,
-):
-    return rolling_mean_annual_min_max(
+    da: xr.DataArray,
+    time_window: int = 7,
+    min_periods: int | None = None,
+    center: bool = True,
+) -> xr.DataArray:
+    """Calendar year 7-day low flow statistic.
+
+    Computes lowest 7-day average for each calendar year (Jan-Dec).
+    Related to "7Q10" statistic used for water quality standards.
+
+    Parameters
+    ----------
+    da : xr.DataArray
+        Input data array with time dimension (typically daily streamflow)
+    time_window : int, default 7
+        Size of the rolling window in days
+    min_periods : int, optional
+        Minimum number of observations required to have a value
+    center : bool, default True
+        Whether to center the rolling window
+
+    Returns
+    -------
+    xr.DataArray
+        Annual minimum 7-day mean values with dates when they occurred
+
+    Notes
+    -----
+    The 7-day low flow is an important metric for water quality regulations
+    and ecological flow requirements. The "7Q10" statistic (10-year, 7-day
+    low flow) is commonly used as a design flow for wastewater discharge
+    permits.
+
+    Examples
+    --------
+    >>> # Calculate 7-day low flows for each calendar year
+    >>> low_flows = seven_day_mean_calendar_year_min(streamflow_data)
+    """
+    return rolling_mean_seasonal_min_max(
         da,
         time_window=time_window,
         min_periods=min_periods,
         center=center,
-        season=cal_year_season_str,
+        seasons=cal_year_season_str,
         stat_name="min",
     )
 
 
 def seven_day_mean_water_year_min(
-    da,
-    time_window=7,
-    min_periods=None,
-    center=True,
-):
-    return rolling_mean_annual_min_max(
+    da: xr.DataArray,
+    time_window: int = 7,
+    min_periods: int | None = None,
+    center: bool = True,
+) -> xr.DataArray:
+    """Water year 7-day low flow statistic.
+
+    Computes lowest 7-day average for each water year (Oct-Sep).
+    Used for low flow analysis and drought assessment.
+
+    Parameters
+    ----------
+    da : xr.DataArray
+        Input data array with time dimension (typically daily streamflow)
+    time_window : int, default 7
+        Size of the rolling window in days
+    min_periods : int, optional
+        Minimum number of observations required to have a value
+    center : bool, default True
+        Whether to center the rolling window
+
+    Returns
+    -------
+    xr.DataArray
+        Water year minimum 7-day mean values with dates when they occurred
+
+    Notes
+    -----
+    Water year runs from October 1 through September 30. Using water year
+    for low flow analysis is common in regions where summer low flows are
+    the critical period for aquatic ecosystems.
+
+    Examples
+    --------
+    >>> # Calculate 7-day low flows for each water year
+    >>> low_flows = seven_day_mean_water_year_min(streamflow_data)
+    """
+    return rolling_mean_seasonal_min_max(
         da,
         time_window=time_window,
         min_periods=min_periods,
         center=center,
-        season=water_year_season_str,
+        seasons=water_year_season_str,
         stat_name="min",
     )
 
@@ -287,21 +504,14 @@ full_time_stat_functions = {
 class CustomOutput:
     """Flexible output collection and statistical analysis for models.
 
-    This class provides three main types of output collection:
+    Collects data during model execution and computes statistics after
+    finalization. Supports PRMS processes and FlowGraph. All data returned
+    as xarray DataArrays.
 
-    1. **Monthly accumulations**: Variables are accumulated over each calendar
-       month for all spatial units (HRUs or segments).
-
-    2. **Point of Interest (POI) data**: Full time series data is collected
-       for specific stream segments (typically at gage locations) with
-       optional statistical aggregations using groupby and resample operations.
-
-    3. **HRU subset data**: Full time series data is collected for specific
-       HRUs with optional statistical aggregations.
-
-    The output object is used during model execution and must be finalized
-    before accessing calculated statistics. All data is returned as xarray
-    DataArrays with proper coordinates and metadata.
+    Output Types:
+    - Monthly accumulations for all spatial units
+    - POI (Point of Interest) time series and statistics
+    - HRU subset time series and statistics
 
     Parameters
     ----------
@@ -421,11 +631,7 @@ class CustomOutput:
         hru_sub_stats_groupby: dict | None = None,
         hru_sub_stats_resample: dict | None = None,
     ):
-        """Initialize CustomOutput instance.
-
-        Sets up data structures for collecting monthly accumulations, POI
-        data, and HRU subset data according to the specified configuration.
-        """
+        """Initialize CustomOutput and set up data collection structures."""
         self._finalized = False
         self._control = control
         self._model = model
@@ -606,7 +812,7 @@ class CustomOutput:
             return None
 
     # ==== Validation methods =====================
-    def _validate_stat_configs(self):
+    def _validate_stat_configs(self) -> None:
         """Validate that resample/groupby dict keys match statistic names.
 
         This catches configuration errors early rather than at runtime.
@@ -706,12 +912,8 @@ class CustomOutput:
             return f"{variable}_{statistic}_{temporal_op}"
 
     # ==== Monthly accumulation section =====================
-    def _init_monthly(self):
-        """Initialize monthly accumulation data structures.
-
-        Creates time coordinates, maps variables to processes, and declares
-        storage arrays for monthly accumulations if configured.
-        """
+    def _init_monthly(self) -> None:
+        """Initialize monthly accumulation data structures."""
         if self._monthly_accum_var_list is None:
             self._time_months = None
             self._n_days_per_month = None
@@ -721,13 +923,8 @@ class CustomOutput:
         self._map_monthly_vars_procs()
         self._declare_monthly_arrays()
 
-    def _solve_monthly_time(self):
-        """Create monthly time coordinate and initialize day counter.
-
-        Generates a monthly time coordinate array spanning the model
-        simulation period and initializes an array to track the number of
-        days in each month.
-        """
+    def _solve_monthly_time(self) -> None:
+        """Create monthly time coordinate and initialize day counter."""
         import pandas as pd
 
         ctl = self._control
@@ -745,10 +942,7 @@ class CustomOutput:
         )
 
     def _map_monthly_vars_procs(self) -> None:
-        """Map monthly accumulation variables to their source processes.
-
-        Searches through model processes to find which process provides each
-        monthly accumulation variable.
+        """Map monthly variables to their source processes.
 
         Raises
         ------
@@ -779,12 +973,7 @@ class CustomOutput:
             )
 
     def _declare_monthly_arrays(self):
-        """Declare and initialize xarray DataArrays for monthly accumulations.
-
-        Creates zero-initialized arrays with proper dimensions
-        (month x spatial_unit), coordinates, and metadata for each monthly
-        accumulation variable.
-        """
+        """Declare xarray DataArrays for monthly accumulations."""
         self._monthly_arrays = {}
         for vv in self._monthly_accum_var_list:
             proc_name = self._monthly_vars_procs[vv]
@@ -824,23 +1013,16 @@ class CustomOutput:
             # Can not really be put into month resolution.
             # self._monthly_arrays[vv].month.attrs["units"] = "M"
 
-    def _get_month_index(self) -> None:
-        """Determine the current month index for accumulation.
-
-        Finds which month index in the monthly time coordinate corresponds
-        to the current simulation time.
-        """
+    def _get_month_index(self) -> int:
+        """Determine current month index for accumulation."""
         current_month = self._current_time.astype("datetime64[M]")
         self._current_month_index = np.where(
             self._time_months == current_month
         )[0][0]
+        return self._current_month_index
 
     def _accumulate_monthly_values(self) -> None:
-        """Accumulate current timestep values into monthly arrays.
-
-        Adds current timestep values to the appropriate monthly accumulation
-        arrays and increments the day counter for the current month.
-        """
+        """Accumulate current timestep values into monthly arrays."""
         if not self._monthly_accum_var_list:
             return
 
@@ -855,12 +1037,7 @@ class CustomOutput:
 
     # ==== POI + HRU SUB section =====================
     def _init_poi_sub(self) -> None:
-        """Initialize POI and HRU subset data structures.
-
-        Creates time coordinates, resolves statistics, maps variables to
-        processes, and declares storage arrays for POI and HRU subset data
-        if configured.
-        """
+        """Initialize POI and HRU subset data structures."""
         if not self._poi_var_list and not self._hru_sub_var_list:
             # Initialize empty lists so other methods don't error
             self._poi_hru_sub_data_list = []
@@ -880,12 +1057,8 @@ class CustomOutput:
         # Now populate the arrays
         self._declare_poi_hru_sub_arrays()
 
-    def _solve_time(self):
-        """Create daily time coordinate for full time series data.
-
-        Generates a daily time coordinate array spanning the entire model
-        simulation period for POI and HRU subset data collection.
-        """
+    def _solve_time(self) -> None:
+        """Create daily time coordinate for full time series data."""
         import pandas as pd
 
         ctl = self._control
@@ -893,12 +1066,8 @@ class CustomOutput:
             start=ctl.start_time, end=ctl.end_time, freq="D"
         ).values.astype("datetime64[D]")
 
-    def _solve_poi_stat_list(self):
-        """Resolve POI statistics list to callable functions.
-
-        Converts string statistic names to their corresponding function
-        references and stores custom callable functions with their names.
-        """
+    def _solve_poi_stat_list(self) -> None:
+        """Resolve POI statistics to callable functions."""
         self._poi_stat_funcs = {}
         if self._poi_stats is None:
             return
@@ -912,12 +1081,8 @@ class CustomOutput:
                     )
                 self._poi_stat_funcs[ss.__name__] = ss
 
-    def _solve_hru_sub_stat_list(self):
-        """Resolve HRU subset statistics list to callable functions.
-
-        Converts string statistic names to their corresponding function
-        references and stores custom callable functions with their names.
-        """
+    def _solve_hru_sub_stat_list(self) -> None:
+        """Resolve HRU subset statistics to callable functions."""
         self._hru_sub_stat_funcs = {}
         if self._hru_sub_stats is None:
             return
@@ -931,13 +1096,8 @@ class CustomOutput:
                     )
                 self._hru_sub_stat_funcs[ss.__name__] = ss
 
-    def _map_poi_vars_procs(self):
-        """Map POI variables to processes and resolve POI indices.
-
-        Searches through model processes to find which provides each POI
-        variable, verifies variables have nsegment dimension, and calculates
-        array indices corresponding to the requested POI segments.
-        """
+    def _map_poi_vars_procs(self) -> None:
+        """Map POI variables to processes and resolve indices."""
         if self._poi_var_list is None:
             return
         self._poi_vars_procs = {}
@@ -974,13 +1134,8 @@ class CustomOutput:
         else:
             self._poi_inds = self._poi_gage_segment
 
-    def _map_hru_sub_vars_procs(self):
-        """Map HRU subset variables to processes and resolve HRU indices.
-
-        Searches through model processes to find which provides each HRU
-        subset variable, verifies variables have nhru dimension, and
-        calculates array indices corresponding to the requested HRU IDs.
-        """
+    def _map_hru_sub_vars_procs(self) -> None:
+        """Map HRU subset variables to processes and resolve indices."""
         if self._hru_sub_var_list is None:
             return
         self._hru_sub_vars_procs = {}
@@ -1005,12 +1160,8 @@ class CustomOutput:
             )
         )
 
-    def _build_poi_hru_sub_iteration_lists(self):
-        """Build and cache iteration lists for POI and HRU subset processing.
-
-        These lists are built once and cached to avoid rebuilding them every
-        timestep. Different methods need different subsets of the data.
-        """
+    def _build_poi_hru_sub_iteration_lists(self) -> None:
+        """Build and cache iteration lists to avoid rebuilding each timestep."""
         # For _add_poi_hru_sub_data (called every timestep)
         self._poi_hru_sub_data_list = []
         if self._poi_var_list is not None:
@@ -1058,16 +1209,8 @@ class CustomOutput:
                 )
             )
 
-    def _declare_poi_hru_sub_arrays(self):
-        """Declare and initialize xarray DataArrays for POI and HRU subset.
-
-        Creates NaN-initialized arrays with proper dimensions
-        (time x spatial_unit), coordinates, and metadata for each POI and
-        HRU subset variable.
-
-        Note: self._poi_arrays and self._hru_sub_arrays are already initialized
-        as empty dicts in _init_poi_sub before this method is called.
-        """
+    def _declare_poi_hru_sub_arrays(self) -> None:
+        """Declare xarray DataArrays for POI and HRU subset variables."""
         # Use cached iteration list instead of rebuilding
         for arrays, var_list, vars_procs, inds in self._poi_hru_sub_data_list:
             for vv in var_list:
@@ -1110,12 +1253,7 @@ class CustomOutput:
                 )
 
     def _add_poi_hru_sub_data(self) -> None:
-        """Add current timestep data to POI and HRU subset arrays.
-
-        Extracts current values from model processes for the specified POI
-        segments and HRU subset locations and stores them in the appropriate
-        time index of the output arrays.
-        """
+        """Add current timestep data to POI and HRU subset arrays."""
         if not self._poi_hru_sub_data_list:
             return
 
@@ -1127,13 +1265,10 @@ class CustomOutput:
                     inds
                 ]
 
-    def _calculate_poi_hru_sub_stats(self):
-        """Calculate all requested statistics for POI and HRU subset data.
+    def _calculate_poi_hru_sub_stats(self) -> None:
+        """Calculate statistics for POI and HRU subset data.
 
-        Applies statistic functions to the collected time series data, with
-        optional temporal grouping (e.g., by month) and resampling (e.g., to
-        monthly or other frequencies). Statistics are stored with descriptive
-        names following the pattern: {variable}_{statistic}_{temporal_op}.
+        Statistics naming: {variable}_{statistic}_{temporal_op}
         """
         self._poi_stats = {}
         self._hru_sub_stats = {}
@@ -1188,20 +1323,14 @@ class CustomOutput:
 
     # ==== General methods ================
     def calculate(self) -> None:
-        """Collect data for the current timestep.
+        """Collect data for current timestep.
 
-        This method is called automatically during model execution to accumulate
-        monthly values and collect POI/HRU subset data at each timestep.
+        Called automatically by model.run() after control.advance().
 
         Raises
         ------
         ValueError
-            If the control time does not match expected timestep progression
-
-        Notes
-        -----
-        The control.advance() must be called before this calculate() method.
-        This is handled automatically during model.run().
+            If control time does not match expected timestep progression
         """
         # The control.advance() must happen before the this calculate() method.
         if self._control.current_time != self._current_time + self._time_step:
@@ -1214,38 +1343,27 @@ class CustomOutput:
         self._accumulate_monthly_values()
         self._add_poi_hru_sub_data()
 
-    def finalize(self):
-        """Finalize output collection and calculate all statistics.
+    def finalize(self) -> None:
+        """Finalize output and calculate statistics.
 
-        This method marks the output as finalized and triggers calculation of
-        all requested statistics. After finalization, the properties
-        monthly_accumulations, poi_arrays, hru_sub_arrays, poi_stats, and
-        hru_sub_stats become accessible.
-
-        Notes
-        -----
-        This method is typically called automatically by model.run(finalize=True)
-        and should not need to be called directly by users.
+        Called automatically by model.run(finalize=True). After finalization,
+        all output properties become accessible.
         """
         self._finalized = True
         self._calculate_poi_hru_sub_stats()
 
-    def to_netcdf(self, output_dir: pl.Path):
-        """Write output data to netCDF files.
+    def to_netcdf(self, output_dir: pl.Path) -> None:
+        """Write output to netCDF files.
 
         Parameters
         ----------
         output_dir : pathlib.Path
-            Directory where netCDF files should be written
+            Output directory
 
         Raises
         ------
         NotImplementedError
-            This functionality is not yet available
-
-        Notes
-        -----
-        Output can only be written once the Output object is finalized.
+            Not yet implemented
         """
         if not self._finalized:
             warnings.warn(
