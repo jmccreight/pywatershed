@@ -17,7 +17,8 @@ Output Types
 Built-in Statistics
 -------------------
 Basic: mean, median, std
-Hydrological: seven_day_mean_calendar_year_max, seven_day_mean_water_year_min, etc.
+Hydrological: seven_day_mean_calendar_year_max, seven_day_mean_water_year_min,
+etc.
 
 All data uses xarray DataArrays with proper coordinate systems and metadata.
 

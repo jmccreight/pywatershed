@@ -433,7 +433,7 @@ def test_custom_output_hru_subset(
 def test_custom_output_combined(
     simulation, control, parameters, nhm_processes, poi_info, tmp_path
 ):
-    """Test all CustomOutput features together (comprehensive notebook test)."""
+    """Test all CustomOutput features together (comprehensive test)."""
     tmp_path = pl.Path(tmp_path)
 
     # All variables to track
@@ -573,7 +573,7 @@ def test_custom_output_poi_requires_segments(
 
     # Should raise ValueError if poi_var_list provided without segments
     with pytest.raises(ValueError, match="poi_nhm_seg or poi_gage_segment"):
-        output = pws.base.CustomOutput(
+        output = pws.base.CustomOutput(  # noqa:F841
             control=control,
             model=model,
             poi_var_list=["seg_outflow"],
@@ -624,7 +624,7 @@ def test_custom_output_validation_invalid_poi_stats(
     )
 
     with pytest.raises(ValueError, match="poi_stats keys must be callable"):
-        output = pws.base.CustomOutput(
+        output = pws.base.CustomOutput(  # noqa:F841
             control=control,
             model=model,
             poi_var_list=["seg_outflow"],
@@ -646,7 +646,7 @@ def test_custom_output_validation_invalid_hru_sub_stats(
     with pytest.raises(
         ValueError, match="hru_sub_stats keys must be callable"
     ):
-        output = pws.base.CustomOutput(
+        output = pws.base.CustomOutput(  # noqa:F841
             control=control,
             model=model,
             hru_sub_var_list=["hru_actet"],
@@ -700,12 +700,7 @@ def test_custom_output_with_flow_graph(
     domain_dir = simulation["dir"]
     input_dir = simulation["output_dir"]
 
-    # this test requires pws style invokation
-    params_file_channel = domain_dir / "parameters_PRMSChannel.nc"
-    params_channel = pws.parameters.PrmsParameters.from_netcdf(
-        params_file_channel
-    )
-
+    # this test requires pws style invokation with params and dis
     dis_file = domain_dir / "parameters_dis_hru.nc"
     dis_hru = pws.Parameters.from_netcdf(dis_file, encoding=False)
 

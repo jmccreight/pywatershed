@@ -5,8 +5,6 @@ from typing import Union
 
 from tqdm.auto import tqdm
 
-from pywatershed.base.custom_output import CustomOutput
-
 from ..base.adapter import adapter_factory
 from ..base.control import Control
 from ..constants import fileish
