@@ -1,16 +1,18 @@
 import pathlib as pl
 from copy import deepcopy
 from datetime import datetime
-from typing import Union
+from typing import TYPE_CHECKING, Union
 
 from tqdm.auto import tqdm
+
+if TYPE_CHECKING:
+    from .output import Output
 
 from ..base.adapter import adapter_factory
 from ..base.control import Control
 from ..constants import fileish
 from ..parameters import Parameters, PrmsParameters
 from ..utils.path import path_rel_to_yaml
-from .custom_output import CustomOutput
 
 # This is a convenience
 process_order_nhm = [
@@ -682,7 +684,7 @@ class Model:
         finalize: bool = True,
         n_time_steps: int | None = None,
         output_vars: list | None = None,
-        output: CustomOutput | None = None,
+        output: "Output | None" = None,
     ):
         """Run the model.
 

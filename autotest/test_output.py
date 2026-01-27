@@ -26,12 +26,11 @@ test_sim_names = ["drb_2yr:nhm"]
 
 @pytest.fixture(scope="function")
 def control(simulation):
-    """Load and configure control object for testing."""
+    """Control object for drb_2yr domain."""
     sim_name = simulation["name"]
     if sim_name not in test_sim_names:
         pytest.skip(
-            "The configuration is not tested by test_custom_output: "
-            f"{sim_name}"
+            f"The configuration is not tested by test_output: {sim_name}"
         )
 
     control = Control.load_prms(
@@ -53,14 +52,14 @@ def control(simulation):
 
 @pytest.fixture(scope="function")
 def parameters(simulation):
-    """Load parameters for testing."""
+    """PRMS parameters."""
     param_file = simulation["dir"] / "myparam.param"
     return PrmsParameters.load(param_file)
 
 
 @pytest.fixture(scope="function")
 def nhm_processes():
-    """Return the list of NHM processes for testing."""
+    """NHM process list."""
     return [
         pws.PRMSSolarGeometry,
         pws.PRMSAtmosphere,
@@ -75,7 +74,7 @@ def nhm_processes():
 
 @pytest.fixture(scope="function")
 def poi_info(parameters):
-    """Calculate POI information from parameters."""
+    """POI information with nhm_seg IDs and crosswalks."""
     nhm_seg = parameters.parameters["nhm_seg"]
     poi_gage_segment = parameters.parameters["poi_gage_segment"]
     poi_nhm_seg = nhm_seg[poi_gage_segment - 1]  # fortran indexing
@@ -93,10 +92,10 @@ def poi_info(parameters):
     }
 
 
-def test_custom_output_monthly_accumulations(
+def test_output_monthly_accumulations(
     simulation, control, parameters, nhm_processes, tmp_path
 ):
-    """Test monthly accumulations functionality."""
+    """Test monthly accumulations."""
     tmp_path = pl.Path(tmp_path)
 
     # Variables to track
@@ -114,7 +113,7 @@ def test_custom_output_monthly_accumulations(
         parameters=parameters,
     )
 
-    output = pws.base.CustomOutput(
+    output = pws.base.Output(
         control=control,
         model=model,
         monthly_accum_var_list=var_list,
@@ -156,7 +155,7 @@ def test_custom_output_monthly_accumulations(
         # Calculate monthly means from netcdf
         monthly_mean_nc = ds[var_name].resample(time="1MS").mean()
 
-        # Calculate monthly means from CustomOutput accumulations
+        # Calculate monthly means from Output accumulations
         # This division now works because n_days_per_month is a DataArray
         # with proper month dimension
         custom_monthly_mean = (
@@ -180,10 +179,10 @@ def test_custom_output_monthly_accumulations(
         ds.close()
 
 
-def test_custom_output_poi_data(
+def test_output_poi_data(
     simulation, control, parameters, nhm_processes, poi_info, tmp_path
 ):
-    """Test POI data collection and statistics."""
+    """Test POI collection and hierarchical statistics."""
     tmp_path = pl.Path(tmp_path)
 
     # Variables to track
@@ -204,7 +203,7 @@ def test_custom_output_poi_data(
     def mean_stat(da: xr.DataArray):
         return da.mean(dim="time")
 
-    output = pws.base.CustomOutput(
+    output = pws.base.Output(
         control=control,
         model=model,
         poi_var_list=var_list,
@@ -324,10 +323,10 @@ def test_custom_output_poi_data(
         ds.close()
 
 
-def test_custom_output_hru_subset(
+def test_output_hoi_subset(
     simulation, control, parameters, nhm_processes, tmp_path
 ):
-    """Test HRU subset data collection and statistics."""
+    """Test HOI collection and hierarchical statistics."""
     tmp_path = pl.Path(tmp_path)
 
     # Variables to track
@@ -350,12 +349,12 @@ def test_custom_output_hru_subset(
     # Find the index of this HRU
     hru_index = np.where(parameters.parameters["nhm_id"] == hru_id)[0][0]
 
-    output = pws.base.CustomOutput(
+    output = pws.base.Output(
         control=control,
         model=model,
-        hru_sub_var_list=var_list,
-        hru_sub_ids=[hru_id],
-        hru_sub_stats={
+        hoi_var_list=var_list,
+        hoi_ids=[hru_id],
+        hoi_stats={
             mean_monthly: var_list,
             max_yearly: var_list,
         },
@@ -364,22 +363,22 @@ def test_custom_output_hru_subset(
     model.run(finalize=True, output=output)
 
     # Check that HRU subset arrays were created
-    assert output.hru_sub_arrays is not None
-    assert "hru_actet" in output.hru_sub_arrays
-    assert "pkwater_equiv" in output.hru_sub_arrays
+    assert output.hoi_arrays is not None
+    assert "hru_actet" in output.hoi_arrays
+    assert "pkwater_equiv" in output.hoi_arrays
 
     # Check HRU subset statistics (hierarchical structure)
-    assert output.hru_sub_stats is not None
-    assert "hru_actet" in output.hru_sub_stats
-    assert "mean_monthly" in output.hru_sub_stats["hru_actet"]
-    assert "max_yearly" in output.hru_sub_stats["hru_actet"]
+    assert output.hoi_stats is not None
+    assert "hru_actet" in output.hoi_stats
+    assert "mean_monthly" in output.hoi_stats["hru_actet"]
+    assert "max_yearly" in output.hoi_stats["hru_actet"]
 
-    assert "pkwater_equiv" in output.hru_sub_stats
-    assert "mean_monthly" in output.hru_sub_stats["pkwater_equiv"]
-    assert "max_yearly" in output.hru_sub_stats["pkwater_equiv"]
+    assert "pkwater_equiv" in output.hoi_stats
+    assert "mean_monthly" in output.hoi_stats["pkwater_equiv"]
+    assert "max_yearly" in output.hoi_stats["pkwater_equiv"]
 
     # Check DataArray metadata (name and attrs)
-    actet_mean_da = output.hru_sub_stats["hru_actet"]["mean_monthly"]
+    actet_mean_da = output.hoi_stats["hru_actet"]["mean_monthly"]
     assert actet_mean_da.name == "hru_actet"
     assert actet_mean_da.attrs["variable"] == "hru_actet"
     assert actet_mean_da.attrs["statistic"] == "mean_monthly"
@@ -400,7 +399,7 @@ def test_custom_output_hru_subset(
         # Check that full time series matches
         np.testing.assert_allclose(
             hru_data_nc.values,
-            output.hru_sub_arrays[var_name].values.squeeze(),
+            output.hoi_arrays[var_name].values.squeeze(),
             rtol=1e-10,
             atol=1e-10,
             err_msg=f"{var_name}: HRU subset arrays don't match netcdf",
@@ -411,7 +410,7 @@ def test_custom_output_hru_subset(
         mean_resample_nc = hru_data_nc.resample(time="1MS").mean(dim="time")
         np.testing.assert_allclose(
             mean_resample_nc.values,
-            output.hru_sub_stats[var_name]["mean_monthly"].values.squeeze(),
+            output.hoi_stats[var_name]["mean_monthly"].values.squeeze(),
             rtol=1e-10,
             atol=1e-10,
             err_msg=f"{var_name}: mean_monthly statistic doesn't match",
@@ -421,7 +420,7 @@ def test_custom_output_hru_subset(
         max_resample_nc = hru_data_nc.resample(time="1YS").max(dim="time")
         np.testing.assert_allclose(
             max_resample_nc.values,
-            output.hru_sub_stats[var_name]["max_yearly"].values.squeeze(),
+            output.hoi_stats[var_name]["max_yearly"].values.squeeze(),
             rtol=1e-10,
             atol=1e-10,
             err_msg=f"{var_name}: max_yearly statistic doesn't match",
@@ -430,10 +429,10 @@ def test_custom_output_hru_subset(
         ds.close()
 
 
-def test_custom_output_combined(
+def test_output_combined(
     simulation, control, parameters, nhm_processes, poi_info, tmp_path
 ):
-    """Test all CustomOutput features together (comprehensive test)."""
+    """Test combined monthly/POI/HOI output."""
     tmp_path = pl.Path(tmp_path)
 
     # All variables to track
@@ -456,7 +455,7 @@ def test_custom_output_combined(
     def mean(da: xr.DataArray):
         return da.mean(dim="time")
 
-    output = pws.base.CustomOutput(
+    output = pws.base.Output(
         control=control,
         model=model,
         monthly_accum_var_list=["sroff", "hru_actet", "seg_outflow"],
@@ -469,9 +468,9 @@ def test_custom_output_combined(
             median_monthly: ["seg_outflow"],
             max_5day: ["seg_outflow"],
         },
-        hru_sub_var_list=["hru_actet", "pkwater_equiv"],
-        hru_sub_ids=[hru_id],
-        hru_sub_stats={
+        hoi_var_list=["hru_actet", "pkwater_equiv"],
+        hoi_ids=[hru_id],
+        hoi_stats={
             mean_monthly: ["hru_actet", "pkwater_equiv"],
             max_yearly: ["hru_actet", "pkwater_equiv"],
         },
@@ -483,8 +482,8 @@ def test_custom_output_combined(
     assert output.monthly_accumulations is not None
     assert output.poi_arrays is not None
     assert output.poi_stats is not None
-    assert output.hru_sub_arrays is not None
-    assert output.hru_sub_stats is not None
+    assert output.hoi_arrays is not None
+    assert output.hoi_stats is not None
 
     # Check time coordinates
     assert output.time is not None
@@ -525,17 +524,17 @@ def test_custom_output_combined(
     mean_resample_nc = hru_data_nc.resample(time="1MS").mean(dim="time")
     np.testing.assert_allclose(
         mean_resample_nc.values,
-        output.hru_sub_stats["hru_actet"]["mean_monthly"].values.squeeze(),
+        output.hoi_stats["hru_actet"]["mean_monthly"].values.squeeze(),
         rtol=1e-10,
         atol=1e-10,
     )
     ds_actet.close()
 
 
-def test_custom_output_properties_before_finalization(
+def test_output_properties_before_finalization(
     simulation, control, parameters, nhm_processes, poi_info
 ):
-    """Test that properties return None before finalization."""
+    """Test properties return None before finalization."""
     model = pws.Model(
         nhm_processes,
         control=control,
@@ -545,7 +544,7 @@ def test_custom_output_properties_before_finalization(
     def mean(da: xr.DataArray):
         return da.mean(dim="time")
 
-    output = pws.base.CustomOutput(
+    output = pws.base.Output(
         control=control,
         model=model,
         monthly_accum_var_list=["sroff"],
@@ -561,10 +560,10 @@ def test_custom_output_properties_before_finalization(
     assert output.n_days_per_month is None
 
 
-def test_custom_output_poi_requires_segments(
+def test_output_poi_requires_segments(
     simulation, control, parameters, nhm_processes
 ):
-    """Test that POI variables require segment specification."""
+    """Test POI requires poi_nhm_seg or poi_gage_segment."""
     model = pws.Model(
         nhm_processes,
         control=control,
@@ -573,17 +572,17 @@ def test_custom_output_poi_requires_segments(
 
     # Should raise ValueError if poi_var_list provided without segments
     with pytest.raises(ValueError, match="poi_nhm_seg or poi_gage_segment"):
-        output = pws.base.CustomOutput(  # noqa:F841
+        output = pws.base.Output(  # noqa:F841
             control=control,
             model=model,
             poi_var_list=["seg_outflow"],
         )
 
 
-def test_custom_output_string_stats(
+def test_output_string_stats(
     simulation, control, parameters, nhm_processes, poi_info
 ):
-    """Test that built-in statistics functions work correctly."""
+    """Test built-in statistics from time_stats module."""
     from pywatershed.analysis.time_stats import mean, median, std
 
     model = pws.Model(
@@ -592,7 +591,7 @@ def test_custom_output_string_stats(
         parameters=parameters,
     )
 
-    output = pws.base.CustomOutput(
+    output = pws.base.Output(
         control=control,
         model=model,
         poi_var_list=["seg_outflow"],
@@ -613,10 +612,10 @@ def test_custom_output_string_stats(
     assert "std" in output.poi_stats["seg_outflow"]
 
 
-def test_custom_output_validation_invalid_poi_stats(
+def test_output_validation_invalid_poi_stats(
     simulation, control, parameters, nhm_processes, poi_info
 ):
-    """Test validation that poi_stats functions must be callable."""
+    """Test poi_stats validation: keys must be callable."""
     model = pws.Model(
         nhm_processes,
         control=control,
@@ -624,7 +623,7 @@ def test_custom_output_validation_invalid_poi_stats(
     )
 
     with pytest.raises(ValueError, match="poi_stats keys must be callable"):
-        output = pws.base.CustomOutput(  # noqa:F841
+        output = pws.base.Output(  # noqa:F841
             control=control,
             model=model,
             poi_var_list=["seg_outflow"],
@@ -633,32 +632,30 @@ def test_custom_output_validation_invalid_poi_stats(
         )
 
 
-def test_custom_output_validation_invalid_hru_sub_stats(
+def test_output_validation_invalid_hoi_stats(
     simulation, control, parameters, nhm_processes, poi_info
 ):
-    """Test validation that hru_sub_stats functions must be callable."""
+    """Test hoi_stats validation: keys must be callable."""
     model = pws.Model(
         nhm_processes,
         control=control,
         parameters=parameters,
     )
 
-    with pytest.raises(
-        ValueError, match="hru_sub_stats keys must be callable"
-    ):
-        output = pws.base.CustomOutput(  # noqa:F841
+    with pytest.raises(ValueError, match="hoi_stats keys must be callable"):
+        output = pws.base.Output(  # noqa:F841
             control=control,
             model=model,
-            hru_sub_var_list=["hru_actet"],
-            hru_sub_ids=[1],
-            hru_sub_stats={"not_a_function": ["hru_actet"]},
+            hoi_var_list=["hru_actet"],
+            hoi_ids=[1],
+            hoi_stats={"not_a_function": ["hru_actet"]},
         )
 
 
-def test_custom_output_property_warning_before_finalization(
+def test_output_property_warning_before_finalization(
     simulation, control, parameters, nhm_processes, poi_info
 ):
-    """Test that accessing properties before finalization issues warnings."""
+    """Test property access warns before finalization."""
     model = pws.Model(
         nhm_processes,
         control=control,
@@ -668,7 +665,7 @@ def test_custom_output_property_warning_before_finalization(
     def mean_stat(da: xr.DataArray):
         return da.mean(dim="time")
 
-    output = pws.base.CustomOutput(
+    output = pws.base.Output(
         control=control,
         model=model,
         monthly_accum_var_list=["sroff"],
@@ -687,15 +684,10 @@ def test_custom_output_property_warning_before_finalization(
         assert result is None
 
 
-def test_custom_output_with_flow_graph(
+def test_output_with_flow_graph(
     simulation, control, parameters, poi_info, tmp_path
 ):
-    """Test CustomOutput with FlowGraph instead of PRMSChannel.
-
-    Verifies CustomOutput correctly handles FlowGraph variables (e.g.,
-    node_outflows vs seg_outflow) and dimensions (nnode vs nsegment).
-    Tests monthly accumulations, POI data collection, and statistics.
-    """
+    """Test Output with FlowGraph variables (node_outflows, etc.)."""
     tmp_path = pl.Path(tmp_path)
     domain_dir = simulation["dir"]
     input_dir = simulation["output_dir"]
@@ -778,14 +770,14 @@ def test_custom_output_with_flow_graph(
     # Get POI indices (only original segments, not new nodes)
     poi_indices = poi_info["poi_gage_segment"] - 1  # 0-based
 
-    # Create CustomOutput with FlowGraph variables
+    # Create Output with FlowGraph variables
     monthly_accum_var_list = ["node_outflows", "outflow_substep"]
     poi_var_list = ["node_outflows", "outflow_substep"]
 
     def mean(da: xr.DataArray):
         return da.mean(dim="time")
 
-    output = pws.base.CustomOutput(
+    output = pws.base.Output(
         control=control,
         model=model,
         monthly_accum_var_list=monthly_accum_var_list,
@@ -797,7 +789,7 @@ def test_custom_output_with_flow_graph(
     # Run model
     model.run(finalize=True, output=output)
 
-    # Verify CustomOutput collected data from FlowGraph
+    # Verify Output collected data from FlowGraph
     assert output.monthly_accumulations is not None
     for vv in monthly_accum_var_list:
         assert vv in output.monthly_accumulations

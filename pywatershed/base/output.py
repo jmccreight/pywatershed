@@ -1,81 +1,43 @@
-"""Custom output functionality for pywatershed models.
+"""Output collection and statistical analysis for pywatershed models.
 
-This module provides flexible output collection and statistical analysis for
-pywatershed models, including support for both PRMS processes and FlowGraph.
+Supports PRMS processes and FlowGraph. Collects three types of output:
 
-Output Types
-------------
-1. **Monthly accumulations**: Accumulate variable values over monthly periods
-   for all spatial units (HRUs, segments, or nodes).
-
-2. **Point of Interest (POI) data**: Collect full time series at specific
-   locations (e.g., gage stations) with optional statistical aggregations.
-
-3. **HRU subset data**: Collect full time series for specific HRUs with
-   optional statistical aggregations.
-
-Built-in Statistics
--------------------
-Basic: mean, median, std
-Hydrological: seven_day_mean_calendar_year_max, seven_day_mean_water_year_min,
-etc.
-
-All data uses xarray DataArrays with proper coordinate systems and metadata.
+1. Monthly accumulations - All spatial units (HRUs, segments, nodes)
+2. POI (Points of Interest) - Time series and stats at specific segments/gages
+3. HOI (HRUs of Interest) - Time series and stats for specific HRUs
 
 Example
 -------
 >>> import pywatershed as pws
+>>> from pywatershed.analysis.time_stats import mean
 >>>
->>> # Define a custom statistic function
->>> def max_flow(da, dim=None, **kwargs):
-...     return da.max(dim=dim, **kwargs)
+>>> def max_flow(da):
+...     return da.max(dim="time")
 ...
 >>>
->>> # Create custom output collector
->>> output = pws.base.CustomOutput(
+>>> output = pws.base.Output(
 ...     control=control,
 ...     model=model,
 ...     monthly_accum_var_list=["sroff", "hru_actet"],
 ...     poi_var_list=["seg_outflow"],
 ...     poi_nhm_seg=poi_nhm_seg,
-...     poi_stats=["mean", "median", max_flow],
-...     poi_stats_resample={"median": "1MS", "max_flow": "5D"},
-...     hru_sub_var_list=["hru_actet", "pkwater_equiv"],
-...     hru_sub_ids=[nhm_id_list],
-...     hru_sub_stats=["mean", max_flow],
-...     hru_sub_stats_resample={"mean": "1MS", "max_flow": "1YS"},
+...     poi_stats={mean: ["seg_outflow"], max_flow: ["seg_outflow"]},
+...     hoi_var_list=["hru_actet"],
+...     hoi_ids=[1, 2, 3],
+...     hoi_stats={mean: ["hru_actet"]},
 ... )
->>>
->>> # Run model with custom output
 >>> model.run(finalize=True, output=output)
 >>>
->>> # Access results
->>> monthly_data = output.monthly_accumulations
->>> poi_timeseries = output.poi_arrays
->>> poi_statistics = output.poi_stats
->>> hru_data = output.hru_sub_arrays
->>> hru_statistics = output.hru_sub_stats
+>>> # Access hierarchically: output.poi_stats[variable][statistic]
+>>> output.poi_stats["seg_outflow"]["mean"]
+>>> output.hoi_stats["hru_actet"]["mean"]
 
 Notes
 -----
-- All time series data and statistics are returned as xarray DataArrays with
-  proper coordinate systems and metadata.
-- Custom statistic functions can be provided as callables that accept a
-  DataArray as the first argument.
-- Temporal grouping (e.g., by month) and resampling (e.g., to monthly) can be
-  applied independently to different statistics.
-- The output object must be finalized before accessing calculated statistics.
-
-TODO
-----
-- Monthly stats for PRMSSolarGeometry and PRMSAtmosphere timeseries
-- Additional annual extremes (e.g., date of peak SWE)
-- Fixed/rolling window stats on all spatial units
-
-See Also
---------
-xarray time series documentation:
-https://docs.xarray.dev/en/stable/user-guide/time-series.html#datetime-components
+- Statistics use dict[function: var_list] pattern
+- Results stored hierarchically: output.poi_stats[variable][statistic]
+- Each result has metadata: variable, statistic, period_of_record
+- Must finalize before accessing statistics
 """
 
 import pathlib as pl
@@ -85,7 +47,6 @@ from typing import TYPE_CHECKING, Callable
 import numpy as np
 import xarray as xr
 
-from ..analysis import time_stats
 from . import meta
 from .flow_graph import FlowGraph
 
@@ -99,129 +60,78 @@ spatial_dim_to_coord_name = {
     "nnodes": "node_coord",
 }
 
-# Re-export statistical functions from time_stats for convenience
-mean = time_stats.mean
-std = time_stats.std
-median = time_stats.median
-seasonal_min_max = time_stats.seasonal_min_max
-rolling_mean_seasonal_min_max = time_stats.rolling_mean_seasonal_min_max
-seven_day_mean_calendar_year_max = time_stats.seven_day_mean_calendar_year_max
-seven_day_mean_water_year_max = time_stats.seven_day_mean_water_year_max
-seven_day_mean_calendar_year_min = time_stats.seven_day_mean_calendar_year_min
-seven_day_mean_water_year_min = time_stats.seven_day_mean_water_year_min
 
+class Output:
+    """Output collection and statistical analysis for models.
 
-class CustomOutput:
-    """Flexible output collection and statistical analysis for models.
-
-    Collects data during model execution and computes statistics after
-    finalization. Supports PRMS processes and FlowGraph. All data returned
-    as xarray DataArrays.
-
-    Output Types:
-    - Monthly accumulations for all spatial units
-    - POI (Point of Interest) time series and statistics
-    - HRU subset time series and statistics
+    Collects data during execution, computes statistics after finalization.
+    Supports PRMS processes and FlowGraph.
 
     Parameters
     ----------
     control : Control
-        Model control object containing timing information
+        Model control with timing information
     model : Model
-        The pywatershed model instance
-    monthly_accum_var_list : list of str, optional
-        List of variable names to accumulate monthly for all spatial units
-    poi_var_list : list of str, optional
-        List of variable names to collect at points of interest (POIs)
-    poi_nhm_seg : list of int, optional if poi_gage_segment is supplied
+        Pywatershed model instance
+    monthly_accum_var_list : list[str], optional
+        Variables to accumulate monthly (all spatial units)
+    poi_var_list : list[str], optional
+        Variables to collect at points of interest
+    poi_nhm_seg : list[int], optional
         NHM segment IDs for POIs (portable across domains)
-    poi_gage_segment : list of int, optional if poi_nhm_seg is supplied
-        This is the name of the PRMS parameter which is 1-based, please
-        subtract 1 before passing here as a 0-based segment index for POIs
-        (domain-specific)
-    poi_stats : list of str or callable, optional
-        Statistics to calculate on POI time series. Can be strings referencing
-        built-in functions ("mean", "median", "std") or custom callables
-    poi_stats_groupby : dict, optional
-        Mapping of statistic names to temporal grouping
-        (e.g., {"median": "month"})
-    poi_stats_resample : dict, optional
-        Mapping of statistic names to resampling frequencies
-        (e.g., {"median": "1MS", "max": "5D"})
-    hru_sub_var_list : list of str, optional
-        List of variable names to collect for HRU subsets
-    hru_sub_ids : list of int, optional
-        List of HRU IDs (nhm_id values) to include in subset
-    hru_sub_stats : list of str or callable, optional
-        Statistics to calculate on HRU subset time series
-    hru_sub_stats_groupby : dict, optional
-        Mapping of statistic names to temporal grouping for HRU subsets
-    hru_sub_stats_resample : dict, optional
-        Mapping of statistic names to resampling frequencies for HRU subsets
-
-    Raises
-    ------
-    ValueError
-        If poi_var_list is provided without poi_nhm_seg or poi_gage_segment
+    poi_gage_segment : list[int], optional
+        0-based segment indices for POIs (domain-specific)
+    poi_stats : dict[Callable, list[str]], optional
+        Statistics for POIs: {function: [var1, var2, ...]}
+    hoi_var_list : list[str], optional
+        Variables to collect for HRUs of interest
+    hoi_ids : list[int], optional
+        HRU IDs (nhm_id values) to include
+    hoi_stats : dict[Callable, list[str]], optional
+        Statistics for HOIs: {function: [var1, var2, ...]}
 
     Attributes
     ----------
     time : np.ndarray
-        Daily time coordinate for full time series (POI and HRU subset data)
+        Daily time coordinate
     time_months : np.ndarray
-        Monthly time coordinate for monthly accumulations
+        Monthly time coordinate
     n_days_per_month : xr.DataArray
-        DataArray of day counts per month with month dimension (useful for
-        converting accumulations to means)
-    monthly_accumulations : dict of xr.DataArray
-        Monthly accumulated values for each variable (available after
-        finalization)
-    poi_arrays : dict of xr.DataArray
-        Full time series for POI variables (available after finalization)
-    hru_sub_arrays : dict of xr.DataArray
-        Full time series for HRU subset variables (available after
-        finalization)
-    poi_stats : dict of xr.DataArray
-        Calculated statistics for POI variables (available after finalization)
-    hru_sub_stats : dict of xr.DataArray
-        Calculated statistics for HRU subset variables (available after
-        finalization)
+        Days per month (for converting accumulations to means)
+    monthly_accumulations : dict[str, xr.DataArray]
+        Monthly values, available after finalization
+    poi_arrays : dict[str, xr.DataArray]
+        POI time series, available after finalization
+    hoi_arrays : dict[str, xr.DataArray]
+        HOI time series, available after finalization
+    poi_stats : dict[str, dict[str, xr.DataArray]]
+        POI statistics: poi_stats[variable][statistic]
+    hoi_stats : dict[str, dict[str, xr.DataArray]]
+        HOI statistics: hoi_stats[variable][statistic]
 
     Examples
     --------
-    >>> import pywatershed as pws
+    >>> from pywatershed.analysis.time_stats import mean
+    >>> def max_flow(da):
+    ...     return da.max(dim="time")
+    ...
     >>>
-    >>> # Create output with monthly accumulations and POI statistics
-    >>> output = pws.base.CustomOutput(
+    >>> output = pws.base.Output(
     ...     control=control,
-    ...     model=nhm_model,
-    ...     monthly_accum_var_list=["sroff", "hru_actet", "seg_outflow"],
+    ...     model=model,
+    ...     monthly_accum_var_list=["sroff", "hru_actet"],
     ...     poi_var_list=["seg_outflow"],
-    ...     poi_nhm_seg=poi_nhm_seg,
-    ...     poi_stats=["mean", "median"],
-    ...     poi_stats_groupby={"median": "month"},
-    ...     poi_stats_resample={"mean": "1MS"},
+    ...     poi_nhm_seg=[12345, 67890],
+    ...     poi_stats={mean: ["seg_outflow"], max_flow: ["seg_outflow"]},
+    ...     hoi_var_list=["hru_actet"],
+    ...     hoi_ids=[1, 2, 3],
+    ...     hoi_stats={mean: ["hru_actet"]},
     ... )
+    >>> model.run(finalize=True, output=output)
     >>>
-    >>> # Run model (calculate method is called automatically each timestep)
-    >>> nhm_model.run(finalize=True, output=output)
-    >>>
-    >>> # Access monthly accumulations
-    >>> monthly_sroff = output.monthly_accumulations["sroff"]
-    >>>
-    >>> # Access POI statistics
-    >>> monthly_mean_flow = output.poi_stats["seg_outflow_mean_1MS"]
-    >>> monthly_median_by_month = output.poi_stats["seg_outflow_median_month"]
-
-    Notes
-    -----
-    - The calculate() method is called automatically during model.run() at
-      each timestep to accumulate data
-    - The finalize() method is called automatically when
-      model.run(finalize=True) to compute statistics
-    - Custom statistic functions must accept a DataArray as first argument and
-      should support dim, skipna, and keep_attrs parameters
-    - Statistics naming convention: {variable}_{statistic}_{temporal_operation}
+    >>> # Access hierarchically
+    >>> output.poi_stats["seg_outflow"]["mean"]
+    >>> output.hoi_stats["hru_actet"]["mean"]
     """
 
     def __init__(
@@ -233,11 +143,11 @@ class CustomOutput:
         poi_nhm_seg: list | None = None,
         poi_gage_segment: list | None = None,
         poi_stats: dict[Callable, list[str]] | None = None,
-        hru_sub_var_list: list | None = None,
-        hru_sub_ids: list | None = None,
-        hru_sub_stats: dict[Callable, list[str]] | None = None,
+        hoi_var_list: list | None = None,
+        hoi_ids: list | None = None,
+        hoi_stats: dict[Callable, list[str]] | None = None,
     ):
-        """Initialize CustomOutput and set up data collection structures."""
+        """Initialize Output and set up data collection."""
         self._finalized = False
         self._control = control
         self._model = model
@@ -259,9 +169,9 @@ class CustomOutput:
         self._poi_gage_segment = poi_gage_segment
         self._poi_stats = poi_stats
 
-        self._hru_sub_var_list = hru_sub_var_list
-        self._hru_sub_ids = hru_sub_ids
-        self._hru_sub_stats = hru_sub_stats
+        self._hoi_var_list = hoi_var_list
+        self._hoi_ids = hoi_ids
+        self._hoi_stats = hoi_stats
 
         self._current_time = self._control.init_time.copy()
         self._time_step = self._control.time_step.copy()
@@ -274,26 +184,12 @@ class CustomOutput:
     # ==== Properties =========================
     @property
     def time(self) -> np.ndarray | None:
-        """Time coordinate for full-time stats.
-
-        Returns
-        -------
-        np.ndarray or None
-            Daily time coordinate array spanning the simulation period, or None
-            if POI/HRU subset collection is not configured
-        """
+        """Daily time coordinate for POI/HOI data."""
         return self._time
 
     @property
     def time_months(self) -> np.ndarray | None:
-        """Month coordinate for monthly accumulations.
-
-        Returns
-        -------
-        np.ndarray or None
-            Monthly time coordinate array spanning the simulation period, or
-            None if monthly accumulation is not configured
-        """
+        """Monthly time coordinate for accumulations."""
         return self._time_months
 
     @property
@@ -317,14 +213,7 @@ class CustomOutput:
 
     @property
     def monthly_accumulations(self) -> dict[str, xr.DataArray] | None:
-        """Dictionary of monthly accumulated xr.DataArrays.
-
-        Returns
-        -------
-        dict of xr.DataArray or None
-            Monthly accumulated values for each variable. Only available after
-            finalization.
-        """
+        """Monthly accumulations (available after finalization)."""
         if self._finalized:
             return self._monthly_arrays
         else:
@@ -336,14 +225,7 @@ class CustomOutput:
 
     @property
     def poi_arrays(self) -> dict[str, xr.DataArray] | None:
-        """Dictionary of POI data in xr.DataArrays.
-
-        Returns
-        -------
-        dict of xr.DataArray or None
-            Full time series data for each POI variable. Only available after
-            finalization.
-        """
+        """POI time series (available after finalization)."""
         if self._finalized:
             return self._poi_arrays
         else:
@@ -354,34 +236,20 @@ class CustomOutput:
             return None
 
     @property
-    def hru_sub_arrays(self) -> dict[str, xr.DataArray] | None:
-        """Dictionary of HRU subset data in xr.DataArrays.
-
-        Returns
-        -------
-        dict of xr.DataArray or None
-            Full time series data for each HRU subset variable. Only available
-            after finalization.
-        """
+    def hoi_arrays(self) -> dict[str, xr.DataArray] | None:
+        """HOI time series (available after finalization)."""
         if self._finalized:
-            return self._hru_sub_arrays
+            return self._hoi_arrays
         else:
             warnings.warn(
-                "hru_sub_arrays is only available after finalization. "
+                "hoi_arrays is only available after finalization. "
                 "Call output.finalize() or model.run(finalize=True)."
             )
             return None
 
     @property
-    def poi_stats(self) -> dict[str, xr.DataArray] | None:
-        """Dictionary of POI stats in xr.DataArrays.
-
-        Returns
-        -------
-        dict of xr.DataArray or None
-            Calculated statistics for POI variables. Only available after
-            finalization.
-        """
+    def poi_stats(self) -> dict[str, dict[str, xr.DataArray]] | None:
+        """POI statistics: poi_stats[variable][statistic] (after finalization)."""
         if self._finalized:
             return self._poi_stats_results
         else:
@@ -392,20 +260,13 @@ class CustomOutput:
             return None
 
     @property
-    def hru_sub_stats(self) -> dict[str, xr.DataArray] | None:
-        """Dictionary of HRU subset stats in xr.DataArrays.
-
-        Returns
-        -------
-        dict of xr.DataArray or None
-            Calculated statistics for HRU subset variables. Only available
-            after finalization.
-        """
+    def hoi_stats(self) -> dict[str, dict[str, xr.DataArray]] | None:
+        """HOI statistics: hoi_stats[variable][statistic] (after finalization)."""
         if self._finalized:
-            return self._hru_sub_stats_results
+            return self._hoi_stats_results
         else:
             warnings.warn(
-                "hru_sub_stats is only available after finalization. "
+                "hoi_stats is only available after finalization. "
                 "Call output.finalize() or model.run(finalize=True)."
             )
             return None
@@ -539,24 +400,24 @@ class CustomOutput:
     # ==== POI + HRU SUB section =====================
     def _init_poi_sub(self) -> None:
         """Initialize POI and HRU subset data structures."""
-        if not self._poi_var_list and not self._hru_sub_var_list:
+        if not self._poi_var_list and not self._hoi_var_list:
             # Initialize empty lists so other methods don't error
-            self._poi_hru_sub_data_list = []
-            self._poi_hru_sub_stats_list = []
+            self._poi_hoi_data_list = []
+            self._poi_hoi_stats_list = []
             return None
 
         self._solve_time()
         self._solve_poi_stat_list()
-        self._solve_hru_sub_stat_list()
+        self._solve_hoi_stat_list()
         self._map_poi_vars_procs()
-        self._map_hru_sub_vars_procs()
+        self._map_hoi_vars_procs()
         # Initialize empty dicts first
         self._poi_arrays = {}
-        self._hru_sub_arrays = {}
+        self._hoi_arrays = {}
         # Build iteration lists (references the empty dicts)
-        self._build_poi_hru_sub_iteration_lists()
+        self._build_poi_hoi_iteration_lists()
         # Now populate the arrays
-        self._declare_poi_hru_sub_arrays()
+        self._declare_poi_hoi_arrays()
 
     def _solve_time(self) -> None:
         """Create daily time coordinate for full time series data."""
@@ -577,17 +438,15 @@ class CustomOutput:
                 raise ValueError("poi_stats keys must be callable functions.")
             self._poi_stat_func_vars[func] = var_list
 
-    def _solve_hru_sub_stat_list(self) -> None:
+    def _solve_hoi_stat_list(self) -> None:
         """Build HRU subset statistics dict from function: var_list mapping."""
-        self._hru_sub_stat_func_vars = {}
-        if self._hru_sub_stats is None:
+        self._hoi_stat_func_vars = {}
+        if self._hoi_stats is None:
             return
-        for func, var_list in self._hru_sub_stats.items():
+        for func, var_list in self._hoi_stats.items():
             if not callable(func):
-                raise ValueError(
-                    "hru_sub_stats keys must be callable functions."
-                )
-            self._hru_sub_stat_func_vars[func] = var_list
+                raise ValueError("hoi_stats keys must be callable functions.")
+            self._hoi_stat_func_vars[func] = var_list
 
     def _map_poi_vars_procs(self) -> None:
         """Map POI variables to processes and resolve indices."""
@@ -627,17 +486,17 @@ class CustomOutput:
         else:
             self._poi_inds = self._poi_gage_segment
 
-    def _map_hru_sub_vars_procs(self) -> None:
+    def _map_hoi_vars_procs(self) -> None:
         """Map HRU subset variables to processes and resolve indices."""
-        if self._hru_sub_var_list is None:
+        if self._hoi_var_list is None:
             return
-        self._hru_sub_vars_procs = {}
-        self._hru_sub_indices = None
-        for vv in self._hru_sub_var_list:
+        self._hoi_vars_procs = {}
+        self._hoi_indices = None
+        for vv in self._hoi_var_list:
             for pp in self._model.processes.keys():
                 proc_vars = self._model.processes[pp].get_variables()
                 if vv in proc_vars:
-                    self._hru_sub_vars_procs[vv] = pp
+                    self._hoi_vars_procs[vv] = pp
                     # check the dimensions are nsegment
                     vv_dims = meta.find_variables(vv)[vv]["dims"][0]
                     if vv_dims != "nhru":
@@ -646,19 +505,19 @@ class CustomOutput:
                             "'nsegment'."
                         )
 
-        self._hru_sub_inds = np.where(
+        self._hoi_inds = np.where(
             np.isin(
                 self._model.processes[pp]._params.parameters["nhm_id"],
-                self._hru_sub_ids,
+                self._hoi_ids,
             )
         )
 
-    def _build_poi_hru_sub_iteration_lists(self) -> None:
+    def _build_poi_hoi_iteration_lists(self) -> None:
         """Build and cache iteration lists to avoid rebuilding each timestep."""
-        # For _add_poi_hru_sub_data (called every timestep)
-        self._poi_hru_sub_data_list = []
+        # For _add_poi_hoi_data (called every timestep)
+        self._poi_hoi_data_list = []
         if self._poi_var_list is not None:
-            self._poi_hru_sub_data_list.append(
+            self._poi_hoi_data_list.append(
                 (
                     self._poi_arrays,
                     self._poi_var_list,
@@ -666,39 +525,39 @@ class CustomOutput:
                     self._poi_inds,
                 )
             )
-        if self._hru_sub_var_list is not None:
-            self._poi_hru_sub_data_list.append(
+        if self._hoi_var_list is not None:
+            self._poi_hoi_data_list.append(
                 (
-                    self._hru_sub_arrays,
-                    self._hru_sub_var_list,
-                    self._hru_sub_vars_procs,
-                    self._hru_sub_inds,
+                    self._hoi_arrays,
+                    self._hoi_var_list,
+                    self._hoi_vars_procs,
+                    self._hoi_inds,
                 )
             )
 
-        # For _calculate_poi_hru_sub_stats (called once at finalization)
-        self._poi_hru_sub_stats_list = []
+        # For _calculate_poi_hoi_stats (called once at finalization)
+        self._poi_hoi_stats_list = []
         if self._poi_stats is not None:
-            self._poi_hru_sub_stats_list.append(
+            self._poi_hoi_stats_list.append(
                 (
                     "poi",  # marker to identify which stats dict to use
                     self._poi_arrays,
                     self._poi_stat_func_vars,
                 )
             )
-        if self._hru_sub_stats is not None:
-            self._poi_hru_sub_stats_list.append(
+        if self._hoi_stats is not None:
+            self._poi_hoi_stats_list.append(
                 (
-                    "hru_sub",  # marker to identify which stats dict to use
-                    self._hru_sub_arrays,
-                    self._hru_sub_stat_func_vars,
+                    "hoi",  # marker to identify which stats dict to use
+                    self._hoi_arrays,
+                    self._hoi_stat_func_vars,
                 )
             )
 
-    def _declare_poi_hru_sub_arrays(self) -> None:
+    def _declare_poi_hoi_arrays(self) -> None:
         """Declare xarray DataArrays for POI and HRU subset variables."""
         # Use cached iteration list instead of rebuilding
-        for arrays, var_list, vars_procs, inds in self._poi_hru_sub_data_list:
+        for arrays, var_list, vars_procs, inds in self._poi_hoi_data_list:
             for vv in var_list:
                 proc_name = vars_procs[vv]
                 proc = self._model.processes[proc_name]
@@ -738,34 +597,30 @@ class CustomOutput:
                     ),
                 )
 
-    def _add_poi_hru_sub_data(self) -> None:
+    def _add_poi_hoi_data(self) -> None:
         """Add current timestep data to POI and HRU subset arrays."""
-        if not self._poi_hru_sub_data_list:
+        if not self._poi_hoi_data_list:
             return
 
         time_ind = self._control.itime_step
-        for arrays, var_list, vars_procs, inds in self._poi_hru_sub_data_list:
+        for arrays, var_list, vars_procs, inds in self._poi_hoi_data_list:
             for vv in var_list:
                 proc_name = vars_procs[vv]
                 arrays[vv][time_ind, :] = self._model.processes[proc_name][vv][
                     inds
                 ]
 
-    def _calculate_poi_hru_sub_stats(self) -> None:
-        """Calculate statistics for POI and HRU subset data.
-
-        Statistics stored hierarchically: stats[variable][function_name]
-        Each DataArray is named and has attrs: variable, statistic, period_of_record
-        """
+    def _calculate_poi_hoi_stats(self) -> None:
+        """Calculate POI/HOI statistics, store as stats[var][func_name]."""
         self._poi_stats_results = {}
-        self._hru_sub_stats_results = {}
+        self._hoi_stats_results = {}
 
-        for stats_type, arrays, stat_func_vars in self._poi_hru_sub_stats_list:
+        for stats_type, arrays, stat_func_vars in self._poi_hoi_stats_list:
             # Get the appropriate stats dict
             stats = (
                 self._poi_stats_results
                 if stats_type == "poi"
-                else self._hru_sub_stats_results
+                else self._hoi_stats_results
             )
 
             for func, var_list in stat_func_vars.items():
@@ -799,15 +654,7 @@ class CustomOutput:
 
     # ==== General methods ================
     def calculate(self) -> None:
-        """Collect data for current timestep.
-
-        Called automatically by model.run() after control.advance().
-
-        Raises
-        ------
-        ValueError
-            If control time does not match expected timestep progression
-        """
+        """Collect data for current timestep (called by model.run())."""
         # The control.advance() must happen before the this calculate() method.
         if self._control.current_time != self._current_time + self._time_step:
             raise ValueError(
@@ -817,30 +664,15 @@ class CustomOutput:
             self._current_time = self._control.current_time.copy()
 
         self._accumulate_monthly_values()
-        self._add_poi_hru_sub_data()
+        self._add_poi_hoi_data()
 
     def finalize(self) -> None:
-        """Finalize output and calculate statistics.
-
-        Called automatically by model.run(finalize=True). After finalization,
-        all output properties become accessible.
-        """
+        """Finalize and calculate statistics (called by model.run())."""
         self._finalized = True
-        self._calculate_poi_hru_sub_stats()
+        self._calculate_poi_hoi_stats()
 
     def to_netcdf(self, output_dir: pl.Path) -> None:
-        """Write output to netCDF files.
-
-        Parameters
-        ----------
-        output_dir : pathlib.Path
-            Output directory
-
-        Raises
-        ------
-        NotImplementedError
-            Not yet implemented
-        """
+        """Write output to netCDF files (not yet implemented)."""
         if not self._finalized:
             warnings.warn(
                 "Output can only be written once the Output object is finalized"
