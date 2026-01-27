@@ -84,12 +84,19 @@ import numpy as np
 import xarray as xr
 
 from . import meta
+from .flow_graph import FlowGraph
 
 if TYPE_CHECKING:
     from .control import Control
     from .model import Model
 
-spatial_dim_to_coord_name = {"nhru": "nhm_id", "nsegment": "nhm_seg"}
+spatial_dim_to_coord_name = {
+    "nhru": "nhm_id",
+    "nsegment": "nhm_seg",
+    "nnodes": "node_coord",
+}
+cal_year_season_str = "JFMAMJJASOND"
+water_year_season_str = "ONDJFMAMJJAS"
 
 
 def mean(da, dim=None, *, skipna=None, keep_attrs=None, **kwargs):
@@ -164,11 +171,116 @@ def median(da, dim=None, *, skipna=None, keep_attrs=None, **kwargs):
     return da.median(dim=dim, skipna=skipna, keep_attrs=keep_attrs, **kwargs)
 
 
+def annual_min_max(da, season=water_year_season_str, stat_name="max"):
+    if stat_name == "max":
+        stat = da.resample(time=xr.groupers.SeasonResampler([season])).max(
+            dim="time", skipna=True
+        )
+        stat_dates = da.resample(
+            time=xr.groupers.SeasonResampler([season])
+        ).map(lambda x: x.idxmax(dim="time", skipna=True))
+    elif stat_name == "min":
+        stat = da.resample(time=xr.groupers.SeasonResampler([season])).min(
+            dim="time", skipna=True
+        )
+        stat_dates = da.resample(
+            time=xr.groupers.SeasonResampler([season])
+        ).map(lambda x: x.idxmin(dim="time", skipna=True))
+    else:
+        raise ValueError("Stat '{stat_name}' not available.")
+    # <
+    stat["time"] = stat_dates
+    return stat
+
+
+def rolling_mean_annual_min_max(
+    da,
+    time_window=7,
+    min_periods=None,
+    center=True,
+    season=water_year_season_str,
+    stat_name="max",
+):
+    roll_mean = da.rolling(
+        time=time_window, min_periods=min_periods, center=center
+    ).mean()
+    stat = annual_min_max(roll_mean, season=season, stat_name=stat_name)
+    return stat
+
+
+def seven_day_mean_calendar_year_max(
+    da,
+    time_window=7,
+    min_periods=None,
+    center=True,
+):
+    return rolling_mean_annual_min_max(
+        da,
+        time_window=time_window,
+        min_periods=min_periods,
+        center=center,
+        season=cal_year_season_str,
+        stat_name="max",
+    )
+
+
+def seven_day_mean_water_year_max(
+    da,
+    time_window=7,
+    min_periods=None,
+    center=True,
+):
+    return rolling_mean_annual_min_max(
+        da,
+        time_window=time_window,
+        min_periods=min_periods,
+        center=center,
+        season=water_year_season_str,
+        stat_name="max",
+    )
+
+
+def seven_day_mean_calendar_year_min(
+    da,
+    time_window=7,
+    min_periods=None,
+    center=True,
+):
+    return rolling_mean_annual_min_max(
+        da,
+        time_window=time_window,
+        min_periods=min_periods,
+        center=center,
+        season=cal_year_season_str,
+        stat_name="min",
+    )
+
+
+def seven_day_mean_water_year_min(
+    da,
+    time_window=7,
+    min_periods=None,
+    center=True,
+):
+    return rolling_mean_annual_min_max(
+        da,
+        time_window=time_window,
+        min_periods=min_periods,
+        center=center,
+        season=water_year_season_str,
+        stat_name="min",
+    )
+
+
 # TODO: need to differentiate between accumulated stats and full-time stats?
 full_time_stat_functions = {
     "mean": mean,
     "median": median,
     "std": std,
+    "seven_day_mean_calendar_year_max": seven_day_mean_calendar_year_max,
+    "seven_day_mean_water_year_max": seven_day_mean_water_year_max,
+    "seven_day_mean_calendar_year_min": seven_day_mean_calendar_year_min,
+    "seven_day_mean_water_year_min": seven_day_mean_water_year_min,
 }
 
 
@@ -649,6 +761,14 @@ class CustomOutput:
                 proc_vars = self._model.processes[pp].get_variables()
                 if vv in proc_vars:
                     self._monthly_vars_procs[vv] = pp
+                elif (
+                    isinstance(
+                        proc := self._model.processes[pp],
+                        FlowGraph,
+                    )
+                    and vv in proc["_addtl_output_vars"]
+                ):
+                    self._monthly_vars_procs[vv] = pp
 
         if not set(self._monthly_vars_procs.keys()) == set(
             self._monthly_accum_var_list
@@ -669,7 +789,18 @@ class CustomOutput:
         for vv in self._monthly_accum_var_list:
             proc_name = self._monthly_vars_procs[vv]
             proc = self._model.processes[proc_name]
-            var_meta = meta.find_variables(vv)[vv]
+            var_meta = meta.find_variables(vv)
+            if (
+                not var_meta
+                and hasattr(proc, "_addtl_output_vars")
+                and vv in proc._addtl_output_vars
+            ):
+                var_meta = proc.meta[vv]
+                var_meta["desc"] = vv
+                var_meta["units"] = "unknown"
+            else:
+                var_meta = var_meta[vv]
+            # <
             spatial_dim_len = proc[vv].shape[0]
             spatial_dim_name = var_meta["dims"][0]
             spatial_coord_name = spatial_dim_to_coord_name[spatial_dim_name]
@@ -813,15 +944,19 @@ class CustomOutput:
         self._poi_indices = None
         for vv in self._poi_var_list:
             for pp in self._model.processes.keys():
-                proc_vars = self._model.processes[pp].get_variables()
+                proc = self._model.processes[pp]
+                proc_vars = proc.get_variables()
+                if hasattr(proc, "_addtl_output_vars"):
+                    proc_vars += proc._addtl_output_vars
                 if vv in proc_vars:
                     self._poi_vars_procs[vv] = pp
                     # check the dimensions are nsegment
-                    vv_dims = meta.find_variables(vv)[vv]["dims"][0]
-                    if vv_dims != "nsegment":
+                    vv_dims = proc.meta[vv]["dims"][0]
+                    # vv_dims = meta.find_variables(vv)[vv]["dims"][0]
+                    if vv_dims != "nsegment" and vv_dims != "nnodes":
                         raise ValueError(
                             f"Variable '{vv}' does not have dimension "
-                            "'nsegment'."
+                            "'nsegment' nor 'nnodes'."
                         )
 
         if "pp" not in locals().keys():
@@ -897,7 +1032,7 @@ class CustomOutput:
                 )
             )
 
-        # For _calculate_poi_stats (called once at finalization)
+        # For _calculate_poi_hru_sub_stats (called once at finalization)
         # Don't cache the stats dicts themselves, they're created fresh
         self._poi_hru_sub_stats_list = []
         if self._poi_var_list is not None:
@@ -938,7 +1073,18 @@ class CustomOutput:
             for vv in var_list:
                 proc_name = vars_procs[vv]
                 proc = self._model.processes[proc_name]
-                var_meta = meta.find_variables(vv)[vv]
+                var_meta = meta.find_variables(vv)
+                if (
+                    not var_meta
+                    and hasattr(proc, "_addtl_output_vars")
+                    and vv in proc._addtl_output_vars
+                ):
+                    var_meta = proc.meta[vv]
+                    var_meta["desc"] = vv
+                    var_meta["units"] = "unknown"
+                else:
+                    var_meta = var_meta[vv]
+                # <
                 spatial_dim_len = proc[vv][inds].shape[0]
                 spatial_dim_name = var_meta["dims"][0]
                 spatial_coord_name = spatial_dim_to_coord_name[
@@ -981,7 +1127,7 @@ class CustomOutput:
                     inds
                 ]
 
-    def _calculate_poi_stats(self):
+    def _calculate_poi_hru_sub_stats(self):
         """Calculate all requested statistics for POI and HRU subset data.
 
         Applies statistic functions to the collected time series data, with
@@ -1082,7 +1228,7 @@ class CustomOutput:
         and should not need to be called directly by users.
         """
         self._finalized = True
-        self._calculate_poi_stats()
+        self._calculate_poi_hru_sub_stats()
 
     def to_netcdf(self, output_dir: pl.Path):
         """Write output data to netCDF files.

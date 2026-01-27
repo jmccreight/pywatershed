@@ -5,22 +5,26 @@ import pytest
 import xarray as xr
 
 import pywatershed as pws
+from pywatershed import (
+    PassThroughFlowNodeMaker,
+    prms_channel_flow_graph_to_model_dict,
+)
 from pywatershed.base.control import Control
-from pywatershed.parameters import PrmsParameters
+from pywatershed.base.model import Model
+from pywatershed.parameters import Parameters, PrmsParameters
 
 # Test only the nhm configuration
-test_configs = ["nhm"]
+test_sim_names = ["drb_2yr:nhm"]
 
 
 @pytest.fixture(scope="function")
 def control(simulation):
     """Load and configure control object for testing."""
     sim_name = simulation["name"]
-    config_name = sim_name.split(":")[1]
-    if config_name not in test_configs:
+    if sim_name not in test_sim_names:
         pytest.skip(
             "The configuration is not tested by test_custom_output: "
-            "{config_name}"
+            f"{sim_name}"
         )
 
     control = Control.load_prms(
@@ -679,3 +683,168 @@ def test_custom_output_property_warning_before_finalization(
     with pytest.warns(UserWarning, match="only available after finalization"):
         result = output.poi_stats
         assert result is None
+
+
+def test_custom_output_with_flow_graph(
+    simulation, control, parameters, poi_info, tmp_path
+):
+    """Test CustomOutput with FlowGraph replacing PRMSChannel.
+
+    This tests that CustomOutput can correctly extract variables from
+    FlowGraph nodes, which have different variable names than PRMSChannel.
+    """
+    tmp_path = pl.Path(tmp_path)
+    domain_dir = simulation["dir"]
+    input_dir = simulation["output_dir"]
+
+    # this test requires pws style invokation
+    params_file_channel = domain_dir / "parameters_PRMSChannel.nc"
+    params_channel = pws.parameters.PrmsParameters.from_netcdf(
+        params_file_channel
+    )
+
+    dis_file = domain_dir / "parameters_dis_hru.nc"
+    dis_hru = pws.Parameters.from_netcdf(dis_file, encoding=False)
+
+    dis_both_file = domain_dir / "parameters_dis_both.nc"
+    dis_both = pws.Parameters.from_netcdf(dis_both_file, encoding=False)
+
+    # Setup control for FlowGraph
+    control.options = control.options | {
+        "input_dir": input_dir,
+        "budget_type": "warn",
+        "calc_method": "numba",
+    }
+
+    # Variables to track - FlowGraph equivalents
+    flow_graph_vars = ["node_outflows", "node_upstream_inflows"]
+
+    # Setup netcdf output for comparison
+    output_dir = tmp_path / "output"
+    output_dir.mkdir()
+    control.options["netcdf_output_dir"] = output_dir
+    control.options["netcdf_output_var_names"] = flow_graph_vars
+
+    # Build model with FlowGraph instead of PRMSChannel
+    nhm_processes = [
+        pws.PRMSRunoff,
+        pws.PRMSSoilzone,
+        pws.PRMSGroundwater,
+    ]
+
+    model_dict = {
+        "control": control,
+        "dis_both": dis_hru,
+        "dis_hru": dis_both,
+        "model_order": [],
+    }
+
+    # Add PRMS processes
+    for proc in nhm_processes:
+        proc_name = proc.__name__
+        proc_rename = "prms_" + proc_name[4:].lower()
+        model_dict["model_order"] += [proc_rename]
+        model_dict[proc_rename] = {}
+        proc_dict = model_dict[proc_rename]
+        proc_dict["class"] = proc
+        proc_param_file = domain_dir / f"parameters_{proc_name}.nc"
+        proc_dict["parameters"] = Parameters.from_netcdf(proc_param_file)
+        proc_dict["dis"] = "dis_hru"
+
+    # Add FlowGraph with some pass-through nodes
+    nsegs = len(parameters.parameters["nhm_seg"])
+    rando = ((0, int(nsegs / 2), -1),)
+    random_seg_ids = parameters.parameters["nhm_seg"][rando]
+    n_new_nodes = len(random_seg_ids)
+
+    check_names = ["pass"] * n_new_nodes
+    check_indices = list(range(n_new_nodes))
+    check_ids = list(range(n_new_nodes))
+
+    model_dict = prms_channel_flow_graph_to_model_dict(
+        model_dict=model_dict,
+        prms_channel_dis=parameters,
+        prms_channel_dis_name="dis_both",
+        prms_channel_params=parameters,
+        new_nodes_maker_dict={"pass": PassThroughFlowNodeMaker()},
+        new_nodes_maker_names=check_names,
+        new_nodes_maker_indices=check_indices,
+        new_nodes_maker_ids=check_ids,
+        new_nodes_flow_to_nhm_seg=random_seg_ids,
+        graph_budget_type="warn",
+        addtl_output_vars=["outflow_substep"],
+    )
+
+    model = Model(model_dict)
+
+    # Get POI indices (only original segments, not new nodes)
+    poi_indices = poi_info["poi_gage_segment"] - 1  # 0-based
+
+    # Create CustomOutput with FlowGraph variables
+    monthly_accum_var_list = ["node_outflows", "outflow_substep"]
+    poi_var_list = ["node_outflows", "outflow_substep"]
+    poi_stat_list = ["mean"]
+
+    output = pws.base.CustomOutput(
+        control=control,
+        model=model,
+        monthly_accum_var_list=monthly_accum_var_list,
+        poi_var_list=poi_var_list,
+        poi_gage_segment=poi_indices,
+        poi_stats=poi_stat_list,
+    )
+
+    # Run model
+    model.run(finalize=True, output=output)
+
+    # Verify CustomOutput collected data from FlowGraph
+    assert output.monthly_accumulations is not None
+    for vv in monthly_accum_var_list:
+        assert vv in output.monthly_accumulations
+        assert isinstance(output.monthly_accumulations[vv], xr.DataArray)
+
+    assert output.poi_arrays is not None
+    for vv in poi_var_list:
+        assert vv in output.poi_arrays
+        assert isinstance(output.poi_arrays[vv], xr.DataArray)
+
+    assert output.poi_stats is not None
+    for vv in poi_var_list:
+        mean_key = pws.base.CustomOutput.get_statistic_name(vv, "mean")
+        assert mean_key in output.poi_stats
+
+    # Validate against netcdf output
+    # Check monthly accumulation
+    for vv in monthly_accum_var_list:
+        nc_file = output_dir / f"{vv}.nc"
+        assert nc_file.exists(), "NetCDF file not found: {nc_file}"
+        ds = xr.load_dataarray(nc_file)
+        # test n_days_per_month
+        monthly_nc = ds.resample(time="1MS").mean()
+        custom_monthly = (
+            output.monthly_accumulations[vv] / output.n_days_per_month
+        )
+        assert "month" in custom_monthly.dims
+        assert custom_monthly.shape[0] == len(output.time_months)
+        np.testing.assert_allclose(
+            monthly_nc.values,
+            custom_monthly.values,
+            rtol=1e-10,
+            atol=1e-10,
+            err_msg="FlowGraph mean statistic doesn't match",
+        )
+
+    for vv in poi_var_list:
+        nc_file = output_dir / f"{vv}.nc"
+        assert nc_file.exists(), "NetCDF file not found: {nc_file}"
+        ds = xr.load_dataarray(nc_file)
+        poi_data_nc = ds.isel(node_coord=poi_indices)
+
+        # Check that POI arrays match
+        np.testing.assert_allclose(
+            poi_data_nc.values,
+            output.poi_arrays[vv].values,
+            rtol=1e-10,
+            atol=1e-10,
+            err_msg="FlowGraph POI arrays don't match netcdf",
+        )
