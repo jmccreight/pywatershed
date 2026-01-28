@@ -8,6 +8,7 @@ from .base.budget import Budget
 from .base.control import Control
 from .base.flow_graph import FlowGraph, FlowNode, FlowNodeMaker
 from .base.model import Model
+from .base.output import Output
 from .base.parameters import Parameters
 from .base.process import Process
 from .base.timeseries import TimeseriesArray
@@ -81,6 +82,7 @@ __all__ = (
     "PassThroughFlowNodeMaker",
     "StarfitFlowNode",
     "StarfitFlowNodeMaker",
+    "Output",
     "PRMSCanopy",
     "PRMSChannel",
     "PRMSEt",

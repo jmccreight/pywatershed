@@ -31,7 +31,7 @@ of spatially distributed hydrologic process representations including evaporatio
 transpiration, runoff, infiltration, interflow, snowpack, soil moisture, conceptual
 groundwater storage, and channel flow. These process representations simulate hydrologic
 response and water budgets given inputs of spatially distributed weather variables and
-land use change at temporal scales ranging from days to centuries. 
+land use change at temporal scales ranging from days to centuries.
 
 Pywatershed enhances PRMS with a new software design that is object-oriented and highly
 flexible, allowing users to easily run "sub-models", replace process representations, and
@@ -52,7 +52,7 @@ via its
 (Hughes et al., 2022).
 We are working towards a two-way, tight coupling with MF6 to reproduce GSFLOW. Our goal is
 support integrated hydrologic process modeling of surface water and groundwater in a
-sustainable manner that allows individual software components to evolve independently. 
+sustainable manner that allows individual software components to evolve independently.
 
 
 ==========================
@@ -69,7 +69,7 @@ for version 1.0.0.
 Version: 2.0.0 (2024-12-16)
 ===================================
 With pywatershed version 2.0.0, we introduce the :class:`FlowGraph` capabilities that allow
-users to combine different kinds flow solutions in arbitrary order on a "flow graph". 
+users to combine different kinds flow solutions in arbitrary order on a "flow graph".
 
 Version 2.0.0 introduces several important PRMS capabilities beyond those included in
 the `National Hydrolgical Model <https://pubs.usgs.gov/publication/tm6B9>`__ (NHM, Regan et al.,
@@ -134,9 +134,9 @@ References
    :caption: Home
 
    self
-	     
 
-  
+
+
 .. toctree::
    :hidden:
    :caption: API Reference
@@ -150,6 +150,7 @@ References
     Hydrology <api/hydrology>
     FlowGraph <api/flow_graph>
     Model <api/generated/pywatershed.Model.rst>
+    Output <api/generated/pywatershed.Output.rst>
     Base Classes <api/base>
     Utilities <api/utils>
 
