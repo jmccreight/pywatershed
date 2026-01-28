@@ -879,6 +879,7 @@ def test_output_with_flow_graph(
     check_names = ["pass"] * n_new_nodes
     check_indices = list(range(n_new_nodes))
     check_ids = list(range(n_new_nodes))
+    prms_channel_node_maker_name = "PRMS-CHANNEL"
 
     model_dict = prms_channel_flow_graph_to_model_dict(
         model_dict=model_dict,
@@ -892,6 +893,7 @@ def test_output_with_flow_graph(
         new_nodes_flow_to_nhm_seg=random_seg_ids,
         graph_budget_type="warn",
         addtl_output_vars=["outflow_substep"],
+        prms_channel_node_maker_name=prms_channel_node_maker_name,
     )
 
     model = Model(model_dict)
@@ -901,7 +903,7 @@ def test_output_with_flow_graph(
     noi_ids = {
         "node_outflows": list(
             zip(
-                ["prms_channel"] * len(poi_info["poi_ids"]),
+                [prms_channel_node_maker_name] * len(poi_info["poi_ids"]),
                 poi_info["poi_ids"],
             )
         ),
