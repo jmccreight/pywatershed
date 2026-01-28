@@ -73,16 +73,15 @@ def nhm_processes():
 
 
 @pytest.fixture(scope="function")
-def noi_info(parameters):
-    """NOI information with nhm_seg IDs and crosswalks (from POI parameters)."""
+def poi_info(parameters):
+    """POI information with nhm_seg IDs and crosswalks (from POI parameters)."""
     nhm_seg = parameters.parameters["nhm_seg"]
     poi_gage_segment = parameters.parameters["poi_gage_segment"]
     poi_nhm_seg = nhm_seg[poi_gage_segment - 1]  # fortran indexing
 
     return {
         "nhm_seg": nhm_seg,
-        "noi_gage_segment": poi_gage_segment,
-        "noi_nhm_seg": poi_nhm_seg,
+        "poi_ids": poi_nhm_seg,
         "poi_id_nhm_seg": dict(
             zip(parameters.parameters["poi_gage_id"], poi_nhm_seg.tolist())
         ),
@@ -180,7 +179,7 @@ def test_output_monthly_accumulations(
 
 
 def test_output_noi_data(
-    simulation, control, parameters, nhm_processes, noi_info, tmp_path
+    simulation, control, parameters, nhm_processes, poi_info, tmp_path
 ):
     """Test NOI collection and hierarchical statistics."""
     tmp_path = pl.Path(tmp_path)
@@ -207,8 +206,7 @@ def test_output_noi_data(
         control=control,
         model=model,
         noi_var_list=var_list,
-        noi_nhm_seg=noi_info["noi_nhm_seg"],
-        noi_gage_segment=noi_info["noi_gage_segment"] - 1,
+        noi_ids=poi_info["poi_ids"],
         noi_stats={
             mean_stat: var_list,
             median_by_month: var_list,
@@ -225,10 +223,15 @@ def test_output_noi_data(
 
     # Verify that the last timestep matches the model state
     # (from notebook assertion)
+    # Get 0-based indices for checking model state
+    noi_indices = np.where(
+        np.isin(
+            parameters.parameters["nhm_seg"],
+            poi_info["poi_ids"],
+        )
+    )[0]
     assert (
-        model.processes["PRMSChannel"]["seg_outflow"][
-            noi_info["noi_gage_segment"] - 1
-        ]
+        model.processes["PRMSChannel"]["seg_outflow"][noi_indices]
         == output.noi_arrays["seg_outflow"][-1, :]
     ).all()
 
@@ -262,8 +265,13 @@ def test_output_noi_data(
         # Load netcdf data
         ds = xr.open_dataset(nc_file)
 
-        # Extract NOI data from full netcdf output
-        noi_indices = noi_info["noi_gage_segment"] - 1
+        # Extract NOI data from full netcdf output (by nhm_seg ID)
+        noi_indices = np.where(
+            np.isin(
+                parameters.parameters["nhm_seg"],
+                poi_info["poi_ids"],
+            )
+        )[0]
         noi_data_nc = ds[var_name].isel(nhm_seg=noi_indices)
 
         # Check that full time series matches
@@ -430,7 +438,7 @@ def test_output_hoi_subset(
 
 
 def test_output_combined(
-    simulation, control, parameters, nhm_processes, noi_info, tmp_path
+    simulation, control, parameters, nhm_processes, poi_info, tmp_path
 ):
     """Test combined monthly/NOI/HOI output."""
     tmp_path = pl.Path(tmp_path)
@@ -460,8 +468,7 @@ def test_output_combined(
         model=model,
         monthly_accum_var_list=["sroff", "hru_actet", "seg_outflow"],
         noi_var_list=["seg_outflow"],
-        noi_nhm_seg=noi_info["noi_nhm_seg"],
-        noi_gage_segment=noi_info["noi_gage_segment"] - 1,
+        noi_ids=poi_info["poi_ids"],
         noi_stats={
             mean: ["seg_outflow"],
             median_by_month: ["seg_outflow"],
@@ -506,7 +513,12 @@ def test_output_combined(
 
     # NOI check
     ds_seg = xr.open_dataset(output_dir / "seg_outflow.nc")
-    noi_indices = noi_info["noi_gage_segment"] - 1
+    noi_indices = np.where(
+        np.isin(
+            parameters.parameters["nhm_seg"],
+            poi_info["poi_ids"],
+        )
+    )[0]
     noi_data_nc = ds_seg["seg_outflow"].isel(nhm_seg=noi_indices)
     mean_nc = noi_data_nc.mean(dim="time")
     np.testing.assert_allclose(
@@ -532,7 +544,7 @@ def test_output_combined(
 
 
 def test_output_properties_before_finalization(
-    simulation, control, parameters, nhm_processes, noi_info
+    simulation, control, parameters, nhm_processes, poi_info
 ):
     """Test properties return None before finalization."""
     model = pws.Model(
@@ -549,7 +561,7 @@ def test_output_properties_before_finalization(
         model=model,
         monthly_accum_var_list=["sroff"],
         noi_var_list=["seg_outflow"],
-        noi_nhm_seg=noi_info["noi_nhm_seg"],
+        noi_ids=poi_info["poi_ids"],
         noi_stats={mean: ["seg_outflow"]},
     )
 
@@ -563,15 +575,15 @@ def test_output_properties_before_finalization(
 def test_output_noi_requires_segments(
     simulation, control, parameters, nhm_processes
 ):
-    """Test NOI requires noi_nhm_seg or noi_gage_segment."""
+    """Test NOI requires noi_ids."""
     model = pws.Model(
         nhm_processes,
         control=control,
         parameters=parameters,
     )
 
-    # Should raise ValueError if noi_var_list provided without segments
-    with pytest.raises(ValueError, match="noi_nhm_seg or noi_gage_segment"):
+    # Should raise ValueError if noi_var_list provided without IDs
+    with pytest.raises(ValueError, match="noi_ids must be passed"):
         output = pws.base.Output(  # noqa:F841
             control=control,
             model=model,
@@ -580,7 +592,7 @@ def test_output_noi_requires_segments(
 
 
 def test_output_string_stats(
-    simulation, control, parameters, nhm_processes, noi_info
+    simulation, control, parameters, nhm_processes, poi_info
 ):
     """Test built-in statistics from time_stats module."""
     from pywatershed.analysis.time_stats import mean, median, std
@@ -595,7 +607,7 @@ def test_output_string_stats(
         control=control,
         model=model,
         noi_var_list=["seg_outflow"],
-        noi_nhm_seg=noi_info["noi_nhm_seg"],
+        noi_ids=poi_info["poi_ids"],
         noi_stats={
             mean: ["seg_outflow"],
             median: ["seg_outflow"],
@@ -613,7 +625,7 @@ def test_output_string_stats(
 
 
 def test_output_validation_invalid_noi_stats(
-    simulation, control, parameters, nhm_processes, noi_info
+    simulation, control, parameters, nhm_processes, poi_info
 ):
     """Test noi_stats validation: keys must be callable."""
     model = pws.Model(
@@ -627,13 +639,13 @@ def test_output_validation_invalid_noi_stats(
             control=control,
             model=model,
             noi_var_list=["seg_outflow"],
-            noi_nhm_seg=noi_info["noi_nhm_seg"],
+            noi_ids=poi_info["poi_ids"],
             noi_stats={"not_a_function": ["seg_outflow"]},
         )
 
 
 def test_output_validation_invalid_hoi_stats(
-    simulation, control, parameters, nhm_processes, noi_info
+    simulation, control, parameters, nhm_processes, poi_info
 ):
     """Test hoi_stats validation: keys must be callable."""
     model = pws.Model(
@@ -653,7 +665,7 @@ def test_output_validation_invalid_hoi_stats(
 
 
 def test_output_property_warning_before_finalization(
-    simulation, control, parameters, nhm_processes, noi_info
+    simulation, control, parameters, nhm_processes, poi_info
 ):
     """Test property access warns before finalization."""
     model = pws.Model(
@@ -670,7 +682,7 @@ def test_output_property_warning_before_finalization(
         model=model,
         monthly_accum_var_list=["sroff"],
         noi_var_list=["seg_outflow"],
-        noi_nhm_seg=noi_info["noi_nhm_seg"],
+        noi_ids=poi_info["poi_ids"],
         noi_stats={mean_stat: ["seg_outflow"]},
     )
 
@@ -685,7 +697,7 @@ def test_output_property_warning_before_finalization(
 
 
 def test_output_dict_mode_per_variable_ids(
-    simulation, control, parameters, nhm_processes, noi_info, tmp_path
+    simulation, control, parameters, nhm_processes, poi_info, tmp_path
 ):
     """Test dict mode with per-variable IDs for NOI and HOI."""
     tmp_path = pl.Path(tmp_path)
@@ -705,10 +717,10 @@ def test_output_dict_mode_per_variable_ids(
     output_kwargs = {
         "control": control,
         "model": model,
-        "noi_nhm_seg": {
-            "seg_outflow": noi_info["noi_nhm_seg"][:2].tolist(),
-            "seg_upstream_inflow": noi_info["noi_nhm_seg"][1:3].tolist(),
-            "seg_lateral_inflow": noi_info["noi_nhm_seg"][
+        "noi_ids": {
+            "seg_outflow": poi_info["poi_ids"][:2].tolist(),
+            "seg_upstream_inflow": poi_info["poi_ids"][1:3].tolist(),
+            "seg_lateral_inflow": poi_info["poi_ids"][
                 2:4
             ].tolist(),  # No stats
         },
@@ -765,15 +777,15 @@ def test_output_dict_mode_per_variable_ids(
     # NOI coordinates
     np.testing.assert_array_equal(
         output.noi_arrays["seg_outflow"].coords["nhm_seg"].values,
-        noi_info["noi_nhm_seg"][:2],
+        poi_info["poi_ids"][:2],
     )
     np.testing.assert_array_equal(
         output.noi_arrays["seg_upstream_inflow"].coords["nhm_seg"].values,
-        noi_info["noi_nhm_seg"][1:3],
+        poi_info["poi_ids"][1:3],
     )
     np.testing.assert_array_equal(
         output.noi_arrays["seg_lateral_inflow"].coords["nhm_seg"].values,
-        noi_info["noi_nhm_seg"][2:4],
+        poi_info["poi_ids"][2:4],
     )
 
     # HOI coordinates
@@ -793,7 +805,7 @@ def test_output_dict_mode_per_variable_ids(
     # Verify stat coordinates also match (stats inherit from arrays)
     np.testing.assert_array_equal(
         output.noi_stats["seg_outflow"]["mean_stat"].coords["nhm_seg"].values,
-        noi_info["noi_nhm_seg"][:2],
+        poi_info["poi_ids"][:2],
     )
     np.testing.assert_array_equal(
         output.hoi_stats["hru_actet"]["mean_stat"].coords["nhm_id"].values,
@@ -802,7 +814,7 @@ def test_output_dict_mode_per_variable_ids(
 
 
 def test_output_with_flow_graph(
-    simulation, control, parameters, noi_info, tmp_path
+    simulation, control, parameters, poi_info, tmp_path
 ):
     """Test Output with FlowGraph variables (node_outflows, etc.)."""
     tmp_path = pl.Path(tmp_path)
@@ -884,12 +896,17 @@ def test_output_with_flow_graph(
 
     model = Model(model_dict)
 
-    # Get NOI indices (only original segments, not new nodes)
-    noi_indices = noi_info["noi_gage_segment"] - 1  # 0-based
-
     # Create Output with FlowGraph variables
     monthly_accum_var_list = ["node_outflows", "outflow_substep"]
-    noi_var_list = ["node_outflows", "outflow_substep"]
+    noi_ids = {
+        "node_outflows": list(
+            zip(
+                ["prms_channel"] * len(poi_info["poi_ids"]),
+                poi_info["poi_ids"],
+            )
+        ),
+        "outflow_substep": list(zip(["pass"] * len(check_ids), check_ids)),
+    }
 
     def mean(da: xr.DataArray):
         return da.mean(dim="time")
@@ -898,9 +915,8 @@ def test_output_with_flow_graph(
         control=control,
         model=model,
         monthly_accum_var_list=monthly_accum_var_list,
-        noi_var_list=noi_var_list,
-        noi_gage_segment=noi_indices,
-        noi_stats={mean: noi_var_list},
+        noi_ids=noi_ids,
+        noi_stats={mean: list(noi_ids.keys())},
     )
 
     # Run model
@@ -913,12 +929,12 @@ def test_output_with_flow_graph(
         assert isinstance(output.monthly_accumulations[vv], xr.DataArray)
 
     assert output.noi_arrays is not None
-    for vv in noi_var_list:
+    for vv in noi_ids.keys():
         assert vv in output.noi_arrays
         assert isinstance(output.noi_arrays[vv], xr.DataArray)
 
     assert output.noi_stats is not None
-    for vv in noi_var_list:
+    for vv in noi_ids.keys():
         assert vv in output.noi_stats
         assert "mean" in output.noi_stats[vv].keys()
 
@@ -943,11 +959,11 @@ def test_output_with_flow_graph(
             err_msg="FlowGraph mean statistic doesn't match",
         )
 
-    for vv in noi_var_list:
+    for vv, ids in noi_ids.items():
         nc_file = output_dir / f"{vv}.nc"
         assert nc_file.exists(), "NetCDF file not found: {nc_file}"
         ds = xr.load_dataarray(nc_file)
-        noi_data_nc = ds.isel(node_coord=noi_indices)
+        noi_data_nc = ds.sel(node_coord=output.noi_arrays[vv].node_coord)
 
         # Check that NOI arrays match
         np.testing.assert_allclose(

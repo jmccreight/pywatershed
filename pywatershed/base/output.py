@@ -33,7 +33,7 @@ Example
 ...     model=model,
 ...     monthly_accum_var_list=["sroff", "hru_actet"],
 ...     noi_var_list=["seg_outflow"],
-...     noi_nhm_seg=[12345, 67890],
+...     noi_ids=[12345, 67890],
 ...     noi_stats={mean: ["seg_outflow"], max_flow: ["seg_outflow"]},
 ...     hoi_var_list=["hru_actet"],
 ...     hoi_ids=[1, 2, 3],
@@ -90,14 +90,19 @@ class Output:
     monthly_accum_var_list : list[str], optional
         Variables to accumulate monthly (all spatial units)
     noi_var_list : list[str], optional
-        Variables to collect at nodes of interest. Required if noi_nhm_seg or
-        noi_gage_segment is a list. Must NOT be provided if dict (use dict keys).
-    noi_nhm_seg : list[int] or dict[str, list[int]], optional
-        NHM segment IDs for NOIs. Two modes:
+        Variables to collect at nodes of interest. Required if noi_ids is a list.
+        Must NOT be provided if dict (use dict keys).
+    noi_ids : list[int] or dict[str, list[int]] or list[tuple] or dict[str, list[tuple]], optional
+        Node IDs for NOIs. Supports two ID types and two modes:
+
+        ID types:
+        - Simple IDs: Integer nhm_seg values (e.g., [12345, 67890])
+        - FlowGraph tuples: (node_maker_name, node_maker_id) for FlowGraph nodes
+          (e.g., [("prms_channel", 12345), ("starfit", 0)])
+
+        Modes:
         - List mode: Same IDs for all vars (requires noi_var_list)
         - Dict mode: {var_name: [ids]} per-variable IDs (don't provide noi_var_list)
-    noi_gage_segment : list[int] or dict[str, list[int]], optional
-        0-based segment indices for NOIs. Same modes as noi_nhm_seg.
     noi_stats : dict[Callable, list[str]], optional
         Statistics for NOIs: {function: [var1, var2, ...]}
     hoi_var_list : list[str], optional
@@ -141,7 +146,7 @@ class Output:
     ...     control=control,
     ...     model=model,
     ...     noi_var_list=["seg_outflow"],  # Required with list mode
-    ...     noi_nhm_seg=[12345, 67890],
+    ...     noi_ids=[12345, 67890],
     ...     noi_stats={mean: ["seg_outflow"]},
     ...     hoi_var_list=["hru_actet"],  # Required with list mode
     ...     hoi_ids=[1, 2, 3],
@@ -152,7 +157,7 @@ class Output:
     >>> output = pws.base.Output(
     ...     control=control,
     ...     model=model,
-    ...     noi_nhm_seg={  # Dict keys define variables
+    ...     noi_ids={  # Dict keys define variables
     ...         "seg_outflow": [12345, 67890],
     ...         "seg_upstream_inflow": [12345],
     ...     },
@@ -162,6 +167,17 @@ class Output:
     ...         "pkwater_equiv": [3, 4, 5],
     ...     },
     ...     hoi_stats={mean: ["hru_actet"]},
+    ... )
+    >>>
+    >>> # FlowGraph mode: tuple IDs for nodes
+    >>> output = pws.base.Output(
+    ...     control=control,
+    ...     model=flowgraph_model,
+    ...     noi_ids={
+    ...         "node_outflows": [("prms_channel", 12345), ("starfit", 0)],
+    ...         "node_storages": [("starfit", 0)],
+    ...     },
+    ...     noi_stats={mean: ["node_outflows"]},
     ... )
     >>> model.run(finalize=True, output=output)
     >>>
@@ -176,8 +192,7 @@ class Output:
         model: "Model",
         monthly_accum_var_list: list | None = None,
         noi_var_list: list | None = None,
-        noi_nhm_seg: list | dict | None = None,
-        noi_gage_segment: list | dict | None = None,
+        noi_ids: list | dict | None = None,
         noi_stats: dict[Callable, list[str]] | None = None,
         hoi_var_list: list | None = None,
         hoi_ids: list | dict | None = None,
@@ -191,8 +206,8 @@ class Output:
         self._monthly_accum_var_list = monthly_accum_var_list
 
         # Process NOI IDs (can be list or dict)
-        self._noi_var_list, self._noi_nhm_seg, self._noi_gage_segment = (
-            self._process_noi_ids(noi_var_list, noi_nhm_seg, noi_gage_segment)
+        self._noi_var_list, self._noi_ids = self._process_noi_ids(
+            noi_var_list, noi_ids
         )
         self._noi_stats = noi_stats
 
@@ -212,49 +227,36 @@ class Output:
 
     # ==== ID Processing Methods =========================
     def _process_noi_ids(
-        self, var_list, nhm_seg, gage_segment
-    ) -> tuple[list | None, list | dict | None, list | dict | None]:
+        self, var_list, ids
+    ) -> tuple[list | None, list | dict | None]:
         """Process NOI IDs - handle list or dict for per-variable IDs.
 
         Two modes:
         - List mode: var_list required, same IDs for all variables
         - Dict mode: dict keys define variables, var_list must be None
         """
-        if var_list is None and nhm_seg is None and gage_segment is None:
-            return None, None, None
+        if var_list is None and ids is None:
+            return None, None
 
-        if nhm_seg is None and gage_segment is None:
+        if ids is None:
             raise ValueError(
-                "At least one of noi_nhm_seg or noi_gage_segment must be "
-                "passed when noi variables are requested."
+                "noi_ids must be passed when noi variables are requested."
             )
 
-        # Handle dict mode for nhm_seg
-        if isinstance(nhm_seg, dict):
+        # Handle dict mode
+        if isinstance(ids, dict):
             if var_list is not None:
                 raise ValueError(
-                    "noi_var_list should not be provided when noi_nhm_seg is a dict. "
+                    "noi_var_list should not be provided when noi_ids is a dict. "
                     "Use dict keys to specify variables."
                 )
-            var_list = list(nhm_seg.keys())
-            return var_list, nhm_seg, gage_segment
-
-        # Handle dict mode for gage_segment
-        if isinstance(gage_segment, dict):
-            if var_list is not None:
-                raise ValueError(
-                    "noi_var_list should not be provided when noi_gage_segment is a dict. "
-                    "Use dict keys to specify variables."
-                )
-            var_list = list(gage_segment.keys())
-            return var_list, nhm_seg, gage_segment
+            var_list = list(ids.keys())
+            return var_list, ids
 
         # List mode - existing behavior
         if var_list is None:
-            raise ValueError(
-                "noi_var_list required when noi_nhm_seg or noi_gage_segment is a list"
-            )
-        return var_list, nhm_seg, gage_segment
+            raise ValueError("noi_var_list required when noi_ids is a list")
+        return var_list, ids
 
     def _process_hoi_ids(
         self, var_list, ids
@@ -550,6 +552,62 @@ class Output:
                 raise ValueError("hoi_stats keys must be callable functions.")
             self._hoi_stat_func_vars[func] = var_list
 
+    @staticmethod
+    def _solve_flowgraph_inds(tup_list, params, check=True):
+        """Resolve FlowGraph node indices from (node_maker_name, node_maker_id) tuples.
+
+        For FlowGraph nodes, IDs are specified as 2-tuples:
+        (node_maker_name, node_maker_id) rather than simple integer IDs.
+
+        Parameters
+        ----------
+        tup_list : list of tuple
+            List of (node_maker_name, node_maker_id) tuples
+        params : dict
+            Process parameters containing node_maker_name and node_maker_id arrays
+        check : bool, optional
+            Whether to validate results (default True)
+
+        Returns
+        -------
+        list of int
+            Indices matching the requested tuples
+        """
+        flowgraph_inds = []
+        for tup in tup_list:
+            matches = np.where(
+                (params["node_maker_name"] == tup[0])
+                & (params["node_maker_id"] == tup[1])
+            )[0]
+            if len(matches) == 0:
+                raise ValueError(
+                    f"FlowGraph node not found: "
+                    f"node_maker_name='{tup[0]}', node_maker_id={tup[1]}"
+                )
+            flowgraph_inds += matches.tolist()
+
+        if check:
+            # Validate: check that found indices match requested tuples
+            found_names = params["node_maker_name"][flowgraph_inds].tolist()
+            expected_names = [tt for tt, _ in tup_list]
+            if found_names != expected_names:
+                raise ValueError(
+                    f"FlowGraph index resolution failed: "
+                    f"node_maker_name mismatch. Expected {expected_names}, "
+                    f"got {found_names}"
+                )
+
+            found_ids = params["node_maker_id"][flowgraph_inds].tolist()
+            expected_ids = [tt for _, tt in tup_list]
+            if found_ids != expected_ids:
+                raise ValueError(
+                    f"FlowGraph index resolution failed: "
+                    f"node_maker_id mismatch. Expected {expected_ids}, "
+                    f"got {found_ids}"
+                )
+
+        return flowgraph_inds
+
     def _map_noi_vars_procs(self) -> None:
         """Map NOI variables to processes and resolve indices."""
         if self._noi_var_list is None:
@@ -576,38 +634,45 @@ class Output:
             return
 
         # Handle dict mode (per-variable IDs) or list mode (same IDs for all)
-        if isinstance(self._noi_nhm_seg, dict):
+        # IDs can be simple integers (nhm_seg) or tuples for FlowGraph nodes
+        if isinstance(self._noi_ids, dict):
             # Dict mode: per-variable IDs
             self._noi_inds = {}
             for vv in self._noi_var_list:
                 proc_name = self._noi_vars_procs[vv]
-                self._noi_inds[vv] = np.where(
-                    np.isin(
-                        self._model.processes[proc_name]._params.parameters[
-                            "nhm_seg"
-                        ],
-                        self._noi_nhm_seg[vv],
+                proc = self._model.processes[proc_name]
+                if not isinstance(self._noi_ids[vv][0], tuple):
+                    self._noi_inds[vv] = np.where(
+                        np.isin(
+                            proc._params.parameters["nhm_seg"],
+                            self._noi_ids[vv],
+                        )
+                    )[0]
+                else:
+                    tup_list = self._noi_ids[vv]
+                    self._noi_inds[vv] = self._solve_flowgraph_inds(
+                        tup_list, proc._params.parameters
                     )
-                )[0]
-        elif isinstance(self._noi_gage_segment, dict):
-            # Dict mode: per-variable indices
-            self._noi_inds = self._noi_gage_segment
+
         else:
             # List mode: same IDs for all variables
             proc_name = list(self._noi_vars_procs.values())[0]
-            if self._noi_nhm_seg is not None:
+            proc = self._model.processes[proc_name]
+            if not isinstance(self._noi_ids, tuple):
+                proc_coord = spatial_dim_to_coord_name[
+                    list(proc._params.dims.keys())[0]
+                ]
                 self._noi_inds = np.where(
                     np.isin(
-                        self._model.processes[proc_name]._params.parameters[
-                            "nhm_seg"
-                        ],
-                        self._noi_nhm_seg,
+                        proc._params.parameters["nhm_seg"],
+                        self._noi_ids,
                     )
                 )[0]
-                if self._noi_gage_segment is not None:
-                    assert (self._noi_inds == self._noi_gage_segment).all()
             else:
-                self._noi_inds = self._noi_gage_segment
+                tup_list = self._noi_ids
+                self._noi_inds = self._solve_flowgraph_inds(
+                    tup_list, proc._params.parameters
+                )
 
     def _map_hoi_vars_procs(self) -> None:
         """Map HRU subset variables to processes and resolve indices."""
