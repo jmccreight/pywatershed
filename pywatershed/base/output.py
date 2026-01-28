@@ -3,8 +3,21 @@
 Supports PRMS processes and FlowGraph. Collects three types of output:
 
 1. Monthly accumulations - All spatial units (HRUs, segments, nodes)
-2. POI (Points of Interest) - Time series and stats at specific segments/gages
+2. NOI (Nodes of Interest) - Time series and stats at specific network nodes
 3. HOI (HRUs of Interest) - Time series and stats for specific HRUs
+
+Nomenclature
+------------
+This module adopts NOI (Nodes of Interest) and HOI (HRUs of Interest) to
+denote subsets of the model's spatial discretization, distinguishing them
+from NOI (Points of Interest) used in PRMS to denote real-world locations
+like gage stations. While NOIs represent physical monitoring locations,
+NOIs and HOIs represent subsets of the model grid for focused output
+collection and analysis.
+
+- NOI: Nodes (river segments in PRMSChannel, segments + features in FlowGraph)
+- HOI: HRUs (Hydrologic Response Units)
+- NOI: Real-world monitoring locations (PRMS parameter noi_gage_segment)
 
 Example
 -------
@@ -19,24 +32,25 @@ Example
 ...     control=control,
 ...     model=model,
 ...     monthly_accum_var_list=["sroff", "hru_actet"],
-...     poi_var_list=["seg_outflow"],
-...     poi_nhm_seg=poi_nhm_seg,
-...     poi_stats={mean: ["seg_outflow"], max_flow: ["seg_outflow"]},
+...     noi_var_list=["seg_outflow"],
+...     noi_nhm_seg=[12345, 67890],
+...     noi_stats={mean: ["seg_outflow"], max_flow: ["seg_outflow"]},
 ...     hoi_var_list=["hru_actet"],
 ...     hoi_ids=[1, 2, 3],
 ...     hoi_stats={mean: ["hru_actet"]},
 ... )
 >>> model.run(finalize=True, output=output)
 >>>
->>> # Access hierarchically: output.poi_stats[variable][statistic]
->>> output.poi_stats["seg_outflow"]["mean"]
+>>> # Access hierarchically
+>>> output.noi_stats["seg_outflow"]["mean"]
 >>> output.hoi_stats["hru_actet"]["mean"]
 
 Notes
 -----
 - Statistics use dict[function: var_list] pattern
-- Results stored hierarchically: output.poi_stats[variable][statistic]
+- Results stored hierarchically: output.noi_stats[variable][statistic]
 - Each result has metadata: variable, statistic, period_of_record
+- IDs can be list (same for all vars) or dict (per-variable)
 - Must finalize before accessing statistics
 """
 
@@ -75,18 +89,24 @@ class Output:
         Pywatershed model instance
     monthly_accum_var_list : list[str], optional
         Variables to accumulate monthly (all spatial units)
-    poi_var_list : list[str], optional
-        Variables to collect at points of interest
-    poi_nhm_seg : list[int], optional
-        NHM segment IDs for POIs (portable across domains)
-    poi_gage_segment : list[int], optional
-        0-based segment indices for POIs (domain-specific)
-    poi_stats : dict[Callable, list[str]], optional
-        Statistics for POIs: {function: [var1, var2, ...]}
+    noi_var_list : list[str], optional
+        Variables to collect at nodes of interest. Required if noi_nhm_seg or
+        noi_gage_segment is a list. Must NOT be provided if dict (use dict keys).
+    noi_nhm_seg : list[int] or dict[str, list[int]], optional
+        NHM segment IDs for NOIs. Two modes:
+        - List mode: Same IDs for all vars (requires noi_var_list)
+        - Dict mode: {var_name: [ids]} per-variable IDs (don't provide noi_var_list)
+    noi_gage_segment : list[int] or dict[str, list[int]], optional
+        0-based segment indices for NOIs. Same modes as noi_nhm_seg.
+    noi_stats : dict[Callable, list[str]], optional
+        Statistics for NOIs: {function: [var1, var2, ...]}
     hoi_var_list : list[str], optional
-        Variables to collect for HRUs of interest
-    hoi_ids : list[int], optional
-        HRU IDs (nhm_id values) to include
+        Variables to collect for HRUs of interest. Required if hoi_ids is a list.
+        Must NOT be provided if hoi_ids is dict (use dict keys).
+    hoi_ids : list[int] or dict[str, list[int]], optional
+        HRU IDs (nhm_id values). Two modes:
+        - List mode: Same IDs for all vars (requires hoi_var_list)
+        - Dict mode: {var_name: [ids]} per-variable IDs (don't provide hoi_var_list)
     hoi_stats : dict[Callable, list[str]], optional
         Statistics for HOIs: {function: [var1, var2, ...]}
 
@@ -100,12 +120,12 @@ class Output:
         Days per month (for converting accumulations to means)
     monthly_accumulations : dict[str, xr.DataArray]
         Monthly values, available after finalization
-    poi_arrays : dict[str, xr.DataArray]
-        POI time series, available after finalization
+    noi_arrays : dict[str, xr.DataArray]
+        NOI time series, available after finalization
     hoi_arrays : dict[str, xr.DataArray]
         HOI time series, available after finalization
-    poi_stats : dict[str, dict[str, xr.DataArray]]
-        POI statistics: poi_stats[variable][statistic]
+    noi_stats : dict[str, dict[str, xr.DataArray]]
+        NOI statistics: noi_stats[variable][statistic]
     hoi_stats : dict[str, dict[str, xr.DataArray]]
         HOI statistics: hoi_stats[variable][statistic]
 
@@ -116,21 +136,37 @@ class Output:
     ...     return da.max(dim="time")
     ...
     >>>
+    >>> # List mode: same IDs for all variables
     >>> output = pws.base.Output(
     ...     control=control,
     ...     model=model,
-    ...     monthly_accum_var_list=["sroff", "hru_actet"],
-    ...     poi_var_list=["seg_outflow"],
-    ...     poi_nhm_seg=[12345, 67890],
-    ...     poi_stats={mean: ["seg_outflow"], max_flow: ["seg_outflow"]},
-    ...     hoi_var_list=["hru_actet"],
+    ...     noi_var_list=["seg_outflow"],  # Required with list mode
+    ...     noi_nhm_seg=[12345, 67890],
+    ...     noi_stats={mean: ["seg_outflow"]},
+    ...     hoi_var_list=["hru_actet"],  # Required with list mode
     ...     hoi_ids=[1, 2, 3],
+    ...     hoi_stats={mean: ["hru_actet"]},
+    ... )
+    >>>
+    >>> # Dict mode: per-variable IDs
+    >>> output = pws.base.Output(
+    ...     control=control,
+    ...     model=model,
+    ...     noi_nhm_seg={  # Dict keys define variables
+    ...         "seg_outflow": [12345, 67890],
+    ...         "seg_upstream_inflow": [12345],
+    ...     },
+    ...     noi_stats={mean: ["seg_outflow"]},  # Not all vars need stats
+    ...     hoi_ids={  # Dict keys define variables
+    ...         "hru_actet": [1, 2],
+    ...         "pkwater_equiv": [3, 4, 5],
+    ...     },
     ...     hoi_stats={mean: ["hru_actet"]},
     ... )
     >>> model.run(finalize=True, output=output)
     >>>
     >>> # Access hierarchically
-    >>> output.poi_stats["seg_outflow"]["mean"]
+    >>> output.noi_stats["seg_outflow"]["mean"]
     >>> output.hoi_stats["hru_actet"]["mean"]
     """
 
@@ -139,12 +175,12 @@ class Output:
         control: "Control",
         model: "Model",
         monthly_accum_var_list: list | None = None,
-        poi_var_list: list | None = None,
-        poi_nhm_seg: list | None = None,
-        poi_gage_segment: list | None = None,
-        poi_stats: dict[Callable, list[str]] | None = None,
+        noi_var_list: list | None = None,
+        noi_nhm_seg: list | dict | None = None,
+        noi_gage_segment: list | dict | None = None,
+        noi_stats: dict[Callable, list[str]] | None = None,
         hoi_var_list: list | None = None,
-        hoi_ids: list | None = None,
+        hoi_ids: list | dict | None = None,
         hoi_stats: dict[Callable, list[str]] | None = None,
     ):
         """Initialize Output and set up data collection."""
@@ -154,37 +190,103 @@ class Output:
 
         self._monthly_accum_var_list = monthly_accum_var_list
 
-        if (
-            poi_var_list is not None
-            and poi_nhm_seg is None
-            and poi_gage_segment is None
-        ):
-            raise ValueError(
-                "At least one of poi_nhm_seg or poi_gage_segment must be "
-                "passed when poi variables are requested."
-            )
+        # Process NOI IDs (can be list or dict)
+        self._noi_var_list, self._noi_nhm_seg, self._noi_gage_segment = (
+            self._process_noi_ids(noi_var_list, noi_nhm_seg, noi_gage_segment)
+        )
+        self._noi_stats = noi_stats
 
-        self._poi_var_list = poi_var_list
-        self._poi_nhm_seg = poi_nhm_seg
-        self._poi_gage_segment = poi_gage_segment
-        self._poi_stats = poi_stats
-
-        self._hoi_var_list = hoi_var_list
-        self._hoi_ids = hoi_ids
+        # Process HOI IDs (can be list or dict)
+        self._hoi_var_list, self._hoi_ids = self._process_hoi_ids(
+            hoi_var_list, hoi_ids
+        )
         self._hoi_stats = hoi_stats
 
         self._current_time = self._control.init_time.copy()
         self._time_step = self._control.time_step.copy()
 
         self._init_monthly()
-        self._init_poi_sub()
+        self._init_noi_sub()
 
         return None
+
+    # ==== ID Processing Methods =========================
+    def _process_noi_ids(
+        self, var_list, nhm_seg, gage_segment
+    ) -> tuple[list | None, list | dict | None, list | dict | None]:
+        """Process NOI IDs - handle list or dict for per-variable IDs.
+
+        Two modes:
+        - List mode: var_list required, same IDs for all variables
+        - Dict mode: dict keys define variables, var_list must be None
+        """
+        if var_list is None and nhm_seg is None and gage_segment is None:
+            return None, None, None
+
+        if nhm_seg is None and gage_segment is None:
+            raise ValueError(
+                "At least one of noi_nhm_seg or noi_gage_segment must be "
+                "passed when noi variables are requested."
+            )
+
+        # Handle dict mode for nhm_seg
+        if isinstance(nhm_seg, dict):
+            if var_list is not None:
+                raise ValueError(
+                    "noi_var_list should not be provided when noi_nhm_seg is a dict. "
+                    "Use dict keys to specify variables."
+                )
+            var_list = list(nhm_seg.keys())
+            return var_list, nhm_seg, gage_segment
+
+        # Handle dict mode for gage_segment
+        if isinstance(gage_segment, dict):
+            if var_list is not None:
+                raise ValueError(
+                    "noi_var_list should not be provided when noi_gage_segment is a dict. "
+                    "Use dict keys to specify variables."
+                )
+            var_list = list(gage_segment.keys())
+            return var_list, nhm_seg, gage_segment
+
+        # List mode - existing behavior
+        if var_list is None:
+            raise ValueError(
+                "noi_var_list required when noi_nhm_seg or noi_gage_segment is a list"
+            )
+        return var_list, nhm_seg, gage_segment
+
+    def _process_hoi_ids(
+        self, var_list, ids
+    ) -> tuple[list | None, list | dict | None]:
+        """Process HOI IDs - handle list or dict for per-variable IDs.
+
+        Two modes:
+        - List mode: var_list required, same IDs for all variables
+        - Dict mode: dict keys define variables, var_list must be None
+        """
+        if var_list is None and ids is None:
+            return None, None
+
+        # Handle dict mode
+        if isinstance(ids, dict):
+            if var_list is not None:
+                raise ValueError(
+                    "hoi_var_list should not be provided when hoi_ids is a dict. "
+                    "Use dict keys to specify variables."
+                )
+            var_list = list(ids.keys())
+            return var_list, ids
+
+        # List mode - existing behavior
+        if ids is not None and var_list is None:
+            raise ValueError("hoi_var_list required when hoi_ids is a list")
+        return var_list, ids
 
     # ==== Properties =========================
     @property
     def time(self) -> np.ndarray | None:
-        """Daily time coordinate for POI/HOI data."""
+        """Daily time coordinate for NOI/HOI data."""
         return self._time
 
     @property
@@ -224,13 +326,13 @@ class Output:
             return None
 
     @property
-    def poi_arrays(self) -> dict[str, xr.DataArray] | None:
-        """POI time series (available after finalization)."""
+    def noi_arrays(self) -> dict[str, xr.DataArray] | None:
+        """NOI time series (available after finalization)."""
         if self._finalized:
-            return self._poi_arrays
+            return self._noi_arrays
         else:
             warnings.warn(
-                "poi_arrays is only available after finalization. "
+                "noi_arrays is only available after finalization. "
                 "Call output.finalize() or model.run(finalize=True)."
             )
             return None
@@ -248,13 +350,13 @@ class Output:
             return None
 
     @property
-    def poi_stats(self) -> dict[str, dict[str, xr.DataArray]] | None:
-        """POI statistics: poi_stats[variable][statistic] (after finalization)."""
+    def noi_stats(self) -> dict[str, dict[str, xr.DataArray]] | None:
+        """NOI statistics: noi_stats[variable][statistic] (after finalization)."""
         if self._finalized:
-            return self._poi_stats_results
+            return self._noi_stats_results
         else:
             warnings.warn(
-                "poi_stats is only available after finalization. "
+                "noi_stats is only available after finalization. "
                 "Call output.finalize() or model.run(finalize=True)."
             )
             return None
@@ -397,27 +499,27 @@ class Output:
                 proc_name
             ][vv]
 
-    # ==== POI + HRU SUB section =====================
-    def _init_poi_sub(self) -> None:
-        """Initialize POI and HRU subset data structures."""
-        if not self._poi_var_list and not self._hoi_var_list:
+    # ==== NOI + HRU SUB section =====================
+    def _init_noi_sub(self) -> None:
+        """Initialize NOI and HRU subset data structures."""
+        if not self._noi_var_list and not self._hoi_var_list:
             # Initialize empty lists so other methods don't error
-            self._poi_hoi_data_list = []
-            self._poi_hoi_stats_list = []
+            self._noi_hoi_data_list = []
+            self._noi_hoi_stats_list = []
             return None
 
         self._solve_time()
-        self._solve_poi_stat_list()
+        self._solve_noi_stat_list()
         self._solve_hoi_stat_list()
-        self._map_poi_vars_procs()
+        self._map_noi_vars_procs()
         self._map_hoi_vars_procs()
         # Initialize empty dicts first
-        self._poi_arrays = {}
+        self._noi_arrays = {}
         self._hoi_arrays = {}
         # Build iteration lists (references the empty dicts)
-        self._build_poi_hoi_iteration_lists()
+        self._build_noi_hoi_iteration_lists()
         # Now populate the arrays
-        self._declare_poi_hoi_arrays()
+        self._declare_noi_hoi_arrays()
 
     def _solve_time(self) -> None:
         """Create daily time coordinate for full time series data."""
@@ -428,15 +530,15 @@ class Output:
             start=ctl.start_time, end=ctl.end_time, freq="D"
         ).values.astype("datetime64[D]")
 
-    def _solve_poi_stat_list(self) -> None:
-        """Build POI statistics dict from function: var_list mapping."""
-        self._poi_stat_func_vars = {}
-        if self._poi_stats is None:
+    def _solve_noi_stat_list(self) -> None:
+        """Build NOI statistics dict from function: var_list mapping."""
+        self._noi_stat_func_vars = {}
+        if self._noi_stats is None:
             return
-        for func, var_list in self._poi_stats.items():
+        for func, var_list in self._noi_stats.items():
             if not callable(func):
-                raise ValueError("poi_stats keys must be callable functions.")
-            self._poi_stat_func_vars[func] = var_list
+                raise ValueError("noi_stats keys must be callable functions.")
+            self._noi_stat_func_vars[func] = var_list
 
     def _solve_hoi_stat_list(self) -> None:
         """Build HRU subset statistics dict from function: var_list mapping."""
@@ -448,85 +550,127 @@ class Output:
                 raise ValueError("hoi_stats keys must be callable functions.")
             self._hoi_stat_func_vars[func] = var_list
 
-    def _map_poi_vars_procs(self) -> None:
-        """Map POI variables to processes and resolve indices."""
-        if self._poi_var_list is None:
+    def _map_noi_vars_procs(self) -> None:
+        """Map NOI variables to processes and resolve indices."""
+        if self._noi_var_list is None:
             return
-        self._poi_vars_procs = {}
-        self._poi_indices = None
-        for vv in self._poi_var_list:
+        self._noi_vars_procs = {}
+
+        # Map variables to processes
+        for vv in self._noi_var_list:
             for pp in self._model.processes.keys():
                 proc = self._model.processes[pp]
                 proc_vars = proc.get_variables()
                 if hasattr(proc, "_addtl_output_vars"):
                     proc_vars += proc._addtl_output_vars
                 if vv in proc_vars:
-                    self._poi_vars_procs[vv] = pp
-                    # check the dimensions are nsegment
+                    self._noi_vars_procs[vv] = pp
                     vv_dims = proc.meta[vv]["dims"][0]
-                    # vv_dims = meta.find_variables(vv)[vv]["dims"][0]
                     if vv_dims != "nsegment" and vv_dims != "nnodes":
                         raise ValueError(
                             f"Variable '{vv}' does not have dimension "
                             "'nsegment' nor 'nnodes'."
                         )
 
-        if "pp" not in locals().keys():
+        if not self._noi_vars_procs:
             return
 
-        if self._poi_nhm_seg is not None:
-            self._poi_inds = np.where(
-                np.isin(
-                    self._model.processes[pp]._params.parameters["nhm_seg"],
-                    self._poi_nhm_seg,
-                )
-            )
-            if self._poi_gage_segment is not None:
-                assert (self._poi_inds == self._poi_gage_segment).all()
+        # Handle dict mode (per-variable IDs) or list mode (same IDs for all)
+        if isinstance(self._noi_nhm_seg, dict):
+            # Dict mode: per-variable IDs
+            self._noi_inds = {}
+            for vv in self._noi_var_list:
+                proc_name = self._noi_vars_procs[vv]
+                self._noi_inds[vv] = np.where(
+                    np.isin(
+                        self._model.processes[proc_name]._params.parameters[
+                            "nhm_seg"
+                        ],
+                        self._noi_nhm_seg[vv],
+                    )
+                )[0]
+        elif isinstance(self._noi_gage_segment, dict):
+            # Dict mode: per-variable indices
+            self._noi_inds = self._noi_gage_segment
         else:
-            self._poi_inds = self._poi_gage_segment
+            # List mode: same IDs for all variables
+            proc_name = list(self._noi_vars_procs.values())[0]
+            if self._noi_nhm_seg is not None:
+                self._noi_inds = np.where(
+                    np.isin(
+                        self._model.processes[proc_name]._params.parameters[
+                            "nhm_seg"
+                        ],
+                        self._noi_nhm_seg,
+                    )
+                )[0]
+                if self._noi_gage_segment is not None:
+                    assert (self._noi_inds == self._noi_gage_segment).all()
+            else:
+                self._noi_inds = self._noi_gage_segment
 
     def _map_hoi_vars_procs(self) -> None:
         """Map HRU subset variables to processes and resolve indices."""
         if self._hoi_var_list is None:
             return
         self._hoi_vars_procs = {}
-        self._hoi_indices = None
+
+        # Map variables to processes
         for vv in self._hoi_var_list:
             for pp in self._model.processes.keys():
                 proc_vars = self._model.processes[pp].get_variables()
                 if vv in proc_vars:
                     self._hoi_vars_procs[vv] = pp
-                    # check the dimensions are nsegment
                     vv_dims = meta.find_variables(vv)[vv]["dims"][0]
                     if vv_dims != "nhru":
                         raise ValueError(
-                            f"Variable '{vv}' does not have dimension "
-                            "'nsegment'."
+                            f"Variable '{vv}' does not have dimension 'nhru'."
                         )
 
-        self._hoi_inds = np.where(
-            np.isin(
-                self._model.processes[pp]._params.parameters["nhm_id"],
-                self._hoi_ids,
-            )
-        )
+        if not self._hoi_vars_procs:
+            return
 
-    def _build_poi_hoi_iteration_lists(self) -> None:
+        # Handle dict mode (per-variable IDs) or list mode (same IDs for all)
+        if isinstance(self._hoi_ids, dict):
+            # Dict mode: per-variable IDs
+            self._hoi_inds = {}
+            for vv in self._hoi_var_list:
+                proc_name = self._hoi_vars_procs[vv]
+                self._hoi_inds[vv] = np.where(
+                    np.isin(
+                        self._model.processes[proc_name]._params.parameters[
+                            "nhm_id"
+                        ],
+                        self._hoi_ids[vv],
+                    )
+                )[0]
+        else:
+            # List mode: same IDs for all variables
+            proc_name = list(self._hoi_vars_procs.values())[0]
+            self._hoi_inds = np.where(
+                np.isin(
+                    self._model.processes[proc_name]._params.parameters[
+                        "nhm_id"
+                    ],
+                    self._hoi_ids,
+                )
+            )[0]
+
+    def _build_noi_hoi_iteration_lists(self) -> None:
         """Build and cache iteration lists to avoid rebuilding each timestep."""
-        # For _add_poi_hoi_data (called every timestep)
-        self._poi_hoi_data_list = []
-        if self._poi_var_list is not None:
-            self._poi_hoi_data_list.append(
+        # For _add_noi_hoi_data (called every timestep)
+        self._noi_hoi_data_list = []
+        if self._noi_var_list is not None:
+            self._noi_hoi_data_list.append(
                 (
-                    self._poi_arrays,
-                    self._poi_var_list,
-                    self._poi_vars_procs,
-                    self._poi_inds,
+                    self._noi_arrays,
+                    self._noi_var_list,
+                    self._noi_vars_procs,
+                    self._noi_inds,
                 )
             )
         if self._hoi_var_list is not None:
-            self._poi_hoi_data_list.append(
+            self._noi_hoi_data_list.append(
                 (
                     self._hoi_arrays,
                     self._hoi_var_list,
@@ -535,18 +679,18 @@ class Output:
                 )
             )
 
-        # For _calculate_poi_hoi_stats (called once at finalization)
-        self._poi_hoi_stats_list = []
-        if self._poi_stats is not None:
-            self._poi_hoi_stats_list.append(
+        # For _calculate_noi_hoi_stats (called once at finalization)
+        self._noi_hoi_stats_list = []
+        if self._noi_stats is not None:
+            self._noi_hoi_stats_list.append(
                 (
-                    "poi",  # marker to identify which stats dict to use
-                    self._poi_arrays,
-                    self._poi_stat_func_vars,
+                    "noi",  # marker to identify which stats dict to use
+                    self._noi_arrays,
+                    self._noi_stat_func_vars,
                 )
             )
         if self._hoi_stats is not None:
-            self._poi_hoi_stats_list.append(
+            self._noi_hoi_stats_list.append(
                 (
                     "hoi",  # marker to identify which stats dict to use
                     self._hoi_arrays,
@@ -554,10 +698,10 @@ class Output:
                 )
             )
 
-    def _declare_poi_hoi_arrays(self) -> None:
-        """Declare xarray DataArrays for POI and HRU subset variables."""
+    def _declare_noi_hoi_arrays(self) -> None:
+        """Declare xarray DataArrays for NOI and HRU subset variables."""
         # Use cached iteration list instead of rebuilding
-        for arrays, var_list, vars_procs, inds in self._poi_hoi_data_list:
+        for arrays, var_list, vars_procs, inds in self._noi_hoi_data_list:
             for vv in var_list:
                 proc_name = vars_procs[vv]
                 proc = self._model.processes[proc_name]
@@ -572,13 +716,18 @@ class Output:
                     var_meta["units"] = "unknown"
                 else:
                     var_meta = var_meta[vv]
-                # <
-                spatial_dim_len = proc[vv][inds].shape[0]
+
+                # Handle dict mode (per-variable indices) or list mode
+                var_inds = inds[vv] if isinstance(inds, dict) else inds
+
+                spatial_dim_len = proc[vv][var_inds].shape[0]
                 spatial_dim_name = var_meta["dims"][0]
                 spatial_coord_name = spatial_dim_to_coord_name[
                     spatial_dim_name
                 ]
-                spatial_coord = proc._params.coords[spatial_coord_name][inds]
+                spatial_coord = proc._params.coords[spatial_coord_name][
+                    var_inds
+                ]
                 new_shape = (len(self._time), spatial_dim_len)
                 arrays[vv] = xr.DataArray(
                     data=np.full(new_shape, np.nan, dtype=var_meta["type"]),
@@ -590,36 +739,37 @@ class Output:
                             spatial_coord,
                         ),
                     },
-                    # reference_time=reference_time,
                     attrs=dict(
                         description=var_meta["desc"],
                         units=var_meta["units"],
                     ),
                 )
 
-    def _add_poi_hoi_data(self) -> None:
-        """Add current timestep data to POI and HRU subset arrays."""
-        if not self._poi_hoi_data_list:
+    def _add_noi_hoi_data(self) -> None:
+        """Add current timestep data to NOI and HRU subset arrays."""
+        if not self._noi_hoi_data_list:
             return
 
         time_ind = self._control.itime_step
-        for arrays, var_list, vars_procs, inds in self._poi_hoi_data_list:
+        for arrays, var_list, vars_procs, inds in self._noi_hoi_data_list:
             for vv in var_list:
                 proc_name = vars_procs[vv]
+                # Handle dict mode (per-variable indices) or list mode
+                var_inds = inds[vv] if isinstance(inds, dict) else inds
                 arrays[vv][time_ind, :] = self._model.processes[proc_name][vv][
-                    inds
+                    var_inds
                 ]
 
-    def _calculate_poi_hoi_stats(self) -> None:
-        """Calculate POI/HOI statistics, store as stats[var][func_name]."""
-        self._poi_stats_results = {}
+    def _calculate_noi_hoi_stats(self) -> None:
+        """Calculate NOI/HOI statistics, store as stats[var][func_name]."""
+        self._noi_stats_results = {}
         self._hoi_stats_results = {}
 
-        for stats_type, arrays, stat_func_vars in self._poi_hoi_stats_list:
+        for stats_type, arrays, stat_func_vars in self._noi_hoi_stats_list:
             # Get the appropriate stats dict
             stats = (
-                self._poi_stats_results
-                if stats_type == "poi"
+                self._noi_stats_results
+                if stats_type == "noi"
                 else self._hoi_stats_results
             )
 
@@ -664,12 +814,12 @@ class Output:
             self._current_time = self._control.current_time.copy()
 
         self._accumulate_monthly_values()
-        self._add_poi_hoi_data()
+        self._add_noi_hoi_data()
 
     def finalize(self) -> None:
         """Finalize and calculate statistics (called by model.run())."""
         self._finalized = True
-        self._calculate_poi_hoi_stats()
+        self._calculate_noi_hoi_stats()
 
     def to_netcdf(self, output_dir: pl.Path) -> None:
         """Write output to netCDF files (not yet implemented)."""
@@ -680,6 +830,6 @@ class Output:
             return
 
         # self._monthly_to_netcdf(self)
-        # self._poi_to_netcdf(self)
+        # self._noi_to_netcdf(self)
 
         raise NotImplementedError("YET.")
