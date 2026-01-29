@@ -425,6 +425,7 @@ class Output:
                 description="Number of days in each month",
                 units="days",
             ),
+            name="days per month",
         )
 
     def _map_monthly_vars_procs(self) -> None:
@@ -495,6 +496,7 @@ class Output:
                     units=var_meta["units"],
                     resolution="Monthly",
                 ),
+                name=f"{vv} monthly accumulation",
             )
             # Can not really be put into month resolution.
             # self._monthly_arrays[vv].month.attrs["units"] = "M"
@@ -839,6 +841,7 @@ class Output:
                         description=var_meta["desc"],
                         units=var_meta["units"],
                     ),
+                    name=vv,
                 )
 
     def _add_noi_hoi_data(self) -> None:

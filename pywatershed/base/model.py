@@ -1,15 +1,13 @@
 import pathlib as pl
 from copy import deepcopy
 from datetime import datetime
-from typing import TYPE_CHECKING, Union
+from typing import Union
 
 from tqdm.auto import tqdm
 
-if TYPE_CHECKING:
-    from .output import Output
-
 from ..base.adapter import adapter_factory
 from ..base.control import Control
+from ..base.output import Output
 from ..constants import fileish
 from ..parameters import Parameters, PrmsParameters
 from ..utils.path import path_rel_to_yaml
@@ -731,6 +729,11 @@ class Model:
             n_time_steps: the number of timesteps to run
             output_vars: the vars to output to the netcdf_dir
         """
+        if self._output_obj is not None:
+            if output_obj is not None:
+                raise ValueError("Output previously defined on self")
+            output_obj = self._output_obj
+
         if netcdf_dir or (
             not self._netcdf_initialized
             and self._default_nc_out_dir is not None
