@@ -78,16 +78,15 @@ def poi_info(parameters):
     nhm_seg = parameters.parameters["nhm_seg"]
     poi_gage_segment = parameters.parameters["poi_gage_segment"]
     poi_nhm_seg = nhm_seg[poi_gage_segment - 1]  # fortran indexing
-
     return {
-        "nhm_seg": nhm_seg,
+        # "nhm_seg": nhm_seg,
         "poi_ids": poi_nhm_seg,
-        "poi_id_nhm_seg": dict(
-            zip(parameters.parameters["poi_gage_id"], poi_nhm_seg.tolist())
-        ),
-        "poi_nhm_seg_id": dict(
-            zip(poi_nhm_seg.tolist(), parameters.parameters["poi_gage_id"])
-        ),
+        # "poi_id_nhm_seg": dict(
+        #     zip(parameters.parameters["poi_gage_id"], poi_nhm_seg.tolist())
+        # ),
+        # "poi_nhm_seg_id": dict(
+        #     zip(poi_nhm_seg.tolist(), parameters.parameters["poi_gage_id"])
+        # ),
     }
 
 
@@ -116,6 +115,7 @@ def test_output_monthly_accumulations(
         control=control,
         model=model,
         monthly_accum_var_list=var_list,
+        netcdf_output_action="allow",
     )
 
     model.run(finalize=True, output=output)
@@ -143,7 +143,8 @@ def test_output_monthly_accumulations(
         assert "month" in data_array.dims
         assert len(data_array.coords["month"]) == len(output.time_months)
 
-    # Validate against netcdf output by post-processing
+    # Validate against netcdf output by post-processing the mean
+    # and comparing to accumulations/n_days_per_month
     for var_name in var_list:
         nc_file = output_dir / f"{var_name}.nc"
         assert nc_file.exists(), f"NetCDF file {nc_file} not created"
@@ -213,6 +214,7 @@ def test_output_noi_data(
             median_monthly: var_list,
             max_5day: var_list,
         },
+        netcdf_output_action="allow",
     )
 
     model.run(finalize=True, output=output)
@@ -366,6 +368,7 @@ def test_output_hoi_subset(
             mean_monthly: var_list,
             max_yearly: var_list,
         },
+        netcdf_output_action="allow",
     )
 
     model.run(finalize=True, output=output)
@@ -481,6 +484,7 @@ def test_output_combined(
             mean_monthly: ["hru_actet", "pkwater_equiv"],
             max_yearly: ["hru_actet", "pkwater_equiv"],
         },
+        netcdf_output_action="allow",
     )
 
     model.run(finalize=True, output=output)
@@ -563,6 +567,7 @@ def test_output_properties_before_finalization(
         noi_var_list=["seg_outflow"],
         noi_ids=poi_info["poi_ids"],
         noi_stats={mean: ["seg_outflow"]},
+        netcdf_output_action="allow",
     )
 
     # Properties should return None before finalization
@@ -588,6 +593,7 @@ def test_output_noi_requires_segments(
             control=control,
             model=model,
             noi_var_list=["seg_outflow"],
+            netcdf_output_action="allow",
         )
 
 
@@ -613,6 +619,7 @@ def test_output_string_stats(
             median: ["seg_outflow"],
             std: ["seg_outflow"],
         },
+        netcdf_output_action="allow",
     )
 
     model.run(finalize=True, output=output)
@@ -641,6 +648,7 @@ def test_output_validation_invalid_noi_stats(
             noi_var_list=["seg_outflow"],
             noi_ids=poi_info["poi_ids"],
             noi_stats={"not_a_function": ["seg_outflow"]},
+            netcdf_output_action="allow",
         )
 
 
@@ -661,6 +669,7 @@ def test_output_validation_invalid_hoi_stats(
             hoi_var_list=["hru_actet"],
             hoi_ids=[1],
             hoi_stats={"not_a_function": ["hru_actet"]},
+            netcdf_output_action="allow",
         )
 
 
@@ -684,6 +693,7 @@ def test_output_property_warning_before_finalization(
         noi_var_list=["seg_outflow"],
         noi_ids=poi_info["poi_ids"],
         noi_stats={mean_stat: ["seg_outflow"]},
+        netcdf_output_action="allow",
     )
 
     # Access properties before finalization should warn
@@ -736,6 +746,7 @@ def test_output_dict_mode_per_variable_ids(
             ],  # No stats
         },
         "hoi_stats": {mean_stat: ["hru_actet", "pkwater_equiv"]},
+        "netcdf_output_action": "allow",
     }
 
     # from pprint import pprint
@@ -919,6 +930,7 @@ def test_output_with_flow_graph(
         monthly_accum_var_list=monthly_accum_var_list,
         noi_ids=noi_ids,
         noi_stats={mean: list(noi_ids.keys())},
+        netcdf_output_action="allow",
     )
 
     # Run model

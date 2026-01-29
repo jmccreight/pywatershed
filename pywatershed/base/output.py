@@ -56,7 +56,7 @@ Notes
 
 import pathlib as pl
 import warnings
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Callable, Literal
 
 import numpy as np
 import xarray as xr
@@ -197,10 +197,15 @@ class Output:
         hoi_var_list: list | None = None,
         hoi_ids: list | dict | None = None,
         hoi_stats: dict[Callable, list[str]] | None = None,
+        netcdf_output_action: Literal["allow", "warn", "error"] = "error",
     ):
         """Initialize Output and set up data collection."""
-        self._finalized = False
+
         self._control = control
+        self._netcdf_output_action = netcdf_output_action
+        self._take_netcdf_output_action()
+
+        self._finalized = False
         self._model = model
 
         self._monthly_accum_var_list = monthly_accum_var_list
@@ -224,6 +229,21 @@ class Output:
         self._init_noi_sub()
 
         return None
+
+    def _take_netcdf_output_action(self):
+        if (
+            "netcdf_output_dir" in self._control.options.keys()
+            and self._netcdf_output_action != "allow"
+        ):
+            msg = (
+                "control.options['netcdf_output_dir'] is defined in "
+                "addition to Output object being intitalized with argument "
+                f"{self._netcdf_output_action=}."
+            )
+            if self._netcdf_output_action == "warn":
+                warnings.warn(msg, UserWarning)
+            else:
+                raise ValueError(msg)
 
     # ==== ID Processing Methods =========================
     def _process_noi_ids(
@@ -793,17 +813,28 @@ class Output:
                 spatial_coord = proc._params.coords[spatial_coord_name][
                     var_inds
                 ]
+                coords = {
+                    "time": self._time,
+                    spatial_coord_name: (
+                        [spatial_dim_name],
+                        spatial_coord,
+                    ),
+                }
+                if spatial_coord_name == "node_coord":
+                    coords["node_maker_name"] = (
+                        [spatial_dim_name],
+                        proc._params.parameters["node_maker_name"][var_inds],
+                    )
+                    coords["node_maker_id"] = (
+                        [spatial_dim_name],
+                        proc._params.parameters["node_maker_id"][var_inds],
+                    )
+                # <
                 new_shape = (len(self._time), spatial_dim_len)
                 arrays[vv] = xr.DataArray(
                     data=np.full(new_shape, np.nan, dtype=var_meta["type"]),
                     dims=["time", spatial_dim_name],
-                    coords={
-                        "time": self._time,
-                        spatial_coord_name: (
-                            [spatial_dim_name],
-                            spatial_coord,
-                        ),
-                    },
+                    coords=(coords),
                     attrs=dict(
                         description=var_meta["desc"],
                         units=var_meta["units"],
