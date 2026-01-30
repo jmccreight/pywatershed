@@ -26,7 +26,7 @@ from pywatershed.parameters import Parameters
 
 
 class PRMSChannelFlowNode(FlowNode):
-    """A FlowNode for the Muskingum-Mann method of PRMSChannel
+    r"""A FlowNode for the Muskingum-Mann method of PRMSChannel
 
     This is a :class:`FlowNode` implementation of :class:`PRMSChannel` where
     the solution is the so-called Muskingum-Mann method.
@@ -157,7 +157,7 @@ class PRMSChannelFlowNode(FlowNode):
 
 
 class PRMSChannelFlowNodeMaker(FlowNodeMaker):
-    """A FlowNodeMaker for PRMSChannelFlowNodes.
+    r"""A FlowNodeMaker for PRMSChannelFlowNodes.
 
     See :class:`PRMSChannelFlowNode` for additional details and the required
     parameters.
@@ -635,7 +635,7 @@ def prms_channel_flow_graph_postprocess(
     prms_channel_node_maker_name: str = "prms_channel",
     type_check_nodes: bool = False,
 ) -> FlowGraph:
-    """Add nodes to a PRMSChannel-based FlowGraph to run from known inputs.
+    r"""Add nodes to a PRMSChannel-based FlowGraph to run from known inputs.
 
     This function helps construct a :class:`FlowGraph` starting from existing
     data for a :class:`PRMSChannel` simulation. The resulting FlowGraph is
@@ -760,7 +760,7 @@ def prms_channel_flow_graph_to_model_dict(
     allow_disconnected_nodes: bool = False,
     prms_channel_node_maker_name: str = "prms_channel",
 ) -> dict:
-    """Add nodes to a PRMSChannel-based FlowGraph within a Model's model_dict.
+    r"""Add nodes to a PRMSChannel-based FlowGraph within a Model's model_dict.
 
     This function helps construct a :class:`FlowGraph` starting from existing
     data for a :class:`PRMSChannel` simulation. The resulting FlowGraph is

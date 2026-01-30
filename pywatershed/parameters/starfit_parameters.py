@@ -85,18 +85,22 @@ class StarfitParameters(Parameters):
     Parameters
     ----------
     parameter_dict : dict
-        parameters dictionary: either structure
-          * param: value
-          * process: {param: value ... }
+        Parameters dictionary with either structure:
+
+        * param: value
+        * process: {param: value ... }
+
         where the later is a parameter dictionary grouped by process.
         The keys for process should be either the class itself, class.name, or
         type(class.__name__).
     parameter_dimensions_dict : dict
-        parameters dimensions dictionary with a structure mirring the parameter
+        Parameters dimensions dictionary with a structure mirroring the parameter
         dict as described above but with shape tuples in place of parameter
         value data.
 
-    Returns:
+    Returns
+    -------
+    StarfitParameters
         StarfitParameters object
 
     """  # noqa: E501
@@ -193,19 +197,24 @@ class StarfitParameters(Parameters):
         initial_storage supplied should match the units of flow input to
         Starfit.
 
-        Args:
-        grand_file: a path to an existing dbf or shp file. If the file does not
+        Parameters
+        ----------
+        grand_file : Union[pl.Path, str]
+            A path to an existing dbf or shp file. If the file does not
             exist, an error will be thrown and you must download it manually
             at https://ln.sync.com/dl/bd47eb6b0/anhxaikr-62pmrgtq-k44xf84f-pyz4atkm/view/de
-        istarf_file: a path to an existing file. If file does not exist or is
-            None then the file will be dowladed to files_directory. You can
+        istarf_file : Union[pl.Path, str], optional
+            A path to an existing file. If file does not exist or is
+            None then the file will be downloaded to files_directory. You can
             download the file yourself here
             https://ln.sync.com/dl/bd47eb6b0/anhxaikr-62pmrgtq-k44xf84f-pyz4atkm/view/default/447819520013
-        files_directory: A local directory where to download the file.
-        grand_ids: a subset of grand_ids to keep.
+        files_directory : Union[pl.Path, str], optional
+            A local directory where to download the file. Default is current directory.
+        grand_ids : list, optional
+            A subset of grand_ids to keep.
 
-        Examples:
-        ---------
+        Examples
+        --------
 
         Read the full ISTART-CONUS dataset, identify the "big sandy" reservoir
         by name to get its grand_id, then subset the parameters to this

@@ -15,7 +15,7 @@ What's New
 .. _whats-new.2.0.2:
 
 v2.0.2 (14 March 2025)
----------------------
+--------------------------
 
 New Features
 ~~~~~~~~~~~~~~~~
@@ -26,7 +26,7 @@ built and interfaced using f2py as it was not popular and had only maybe very sl
 .. _whats-new.2.0.1:
 
 v2.0.1 (19 December 2024)
----------------------
+-----------------------------
 
 New Features
 ~~~~~~~~~~~~~~~~
@@ -36,7 +36,7 @@ Corrected disclaimer on top-level README.md. Other minor fixes not to code base 
 .. _whats-new.2.0.0:
 
 v2.0.0 (16 December 2024)
----------------------
+-----------------------------
 
 New Features
 ~~~~~~~~~~~~~~~~

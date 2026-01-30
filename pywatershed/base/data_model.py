@@ -310,12 +310,18 @@ class DatasetDict(Accessor):
     @classmethod
     def from_dict(cls, dict_in, copy=False):
         """Return this class from a passed dictionary.
-        Args:
-            dict_in: a dictionary from which to create an instance of this
-                class
-            copy: boolean if the passed dictionary should be deep copied
-        Returns:
-            A object of this class.
+
+        Parameters
+        ----------
+        dict_in : dict
+            A dictionary from which to create an instance of this class
+        copy : bool, optional
+            If True, the passed dictionary will be deep copied. Default is False.
+
+        Returns
+        -------
+        DatasetDict
+            An object of this class.
         """
         if copy:
             return cls(**deepcopy(dict_in))

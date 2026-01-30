@@ -14,9 +14,9 @@ FlowGraph base classes and subclasses. See :class:`FlowGraph` for an overview of
    FlowNode
    FlowNodeMaker
    PassThroughFlowNode
-   PassThroughNodeMaker
+   PassThroughFlowNodeMaker
    ObsInFlowNode
-   ObsInNodeMaker
+   ObsInFlowNodeMaker
    StarfitFlowNode
    StarfitFlowNodeMaker
    PRMSChannelFlowNode
@@ -25,5 +25,4 @@ FlowGraph base classes and subclasses. See :class:`FlowGraph` for an overview of
    prms_channel_flow_graph_postprocess
    prms_segment_lateral_inflow_components_to_netcdf
    HruSegmentFlowAdapter
-   HruSegmentFlowExchange
-   
+   HruNodeFlowExchange

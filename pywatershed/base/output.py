@@ -93,14 +93,16 @@ class Output:
         Variables to collect at nodes of interest. Required if noi_ids is a list.
         Must NOT be provided if dict (use dict keys).
     noi_ids : list[int] or dict[str, list[int]] or list[tuple] or dict[str, list[tuple]], optional
-        Node IDs for NOIs. Supports two ID types and two modes:
+        Node IDs for NOIs. Supports two ID types and two modes.
 
         ID types:
+
         - Simple IDs: Integer nhm_seg values (e.g., [12345, 67890])
         - FlowGraph tuples: (node_maker_name, node_maker_id) for FlowGraph nodes
           (e.g., [("prms_channel", 12345), ("starfit", 0)])
 
         Modes:
+
         - List mode: Same IDs for all vars (requires noi_var_list)
         - Dict mode: {var_name: [ids]} per-variable IDs (don't provide noi_var_list)
     noi_stats : dict[Callable, list[str]], optional
@@ -110,6 +112,7 @@ class Output:
         Must NOT be provided if hoi_ids is dict (use dict keys).
     hoi_ids : list[int] or dict[str, list[int]], optional
         HRU IDs (nhm_id values). Two modes:
+
         - List mode: Same IDs for all vars (requires hoi_var_list)
         - Dict mode: {var_name: [ids]} per-variable IDs (don't provide hoi_var_list)
     hoi_stats : dict[Callable, list[str]], optional
