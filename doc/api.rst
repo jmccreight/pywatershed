@@ -24,4 +24,6 @@ API Summary
 
 .. include:: api/base.rst
 
+.. include:: api/analysis.rst
+
 .. include:: api/utils.rst
