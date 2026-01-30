@@ -265,6 +265,7 @@ jobs:
           --ignore=test_netcdf_subset.py
           --ignore=test_nhm_restart.py
           --ignore=test_obsin_flow_node.py
+          --ignore=test_output.py
           --ignore=test_pass_through_flow_graph.py
           --ignore=test_prms_atmosphere_transp_frost.py
           --ignore=test_prms_channel.py
@@ -314,6 +315,7 @@ jobs:
           --ignore=test_domain_subset.py
           --ignore=test_mmr_to_mf6_dfw.py
           --ignore=test_obsin_flow_node.py
+          --ignore=test_output.py
           --ignore=test_pass_through_flow_graph.py
           --ignore=test_prms_atmosphere_transp_frost.py
           --ignore=test_prms_channel_flow_graph.py
@@ -476,6 +478,7 @@ jobs:
           --junitxml=pytest_ucb_2yr_nhm.xml
           --ignore=test_netcdf_subset.py
           --ignore=test_obsin_flow_node.py
+          --ignore=test_output.py
           --ignore=test_pass_through_flow_graph.py
           --ignore=test_prms_atmosphere_transp_frost.py
           --ignore=test_mmr_to_mf6_dfw.py

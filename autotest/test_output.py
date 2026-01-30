@@ -38,7 +38,7 @@ def control(simulation):
     )
     control.edit_end_time(np.datetime64("1979-07-01T00:00:00"))
     control.options["verbosity"] = 10
-    control.options["budget_type"] = "warn"
+    control.options["imbalance_behavior"] = "warn"
     control.options["calc_method"] = "numba"
     control.options["input_dir"] = simulation["dir"]
 
@@ -842,7 +842,7 @@ def test_output_with_flow_graph(
     # Setup control for FlowGraph
     control.options = control.options | {
         "input_dir": input_dir,
-        "budget_type": "warn",
+        "imbalance_behavior": "warn",
         "calc_method": "numba",
     }
 
@@ -902,7 +902,7 @@ def test_output_with_flow_graph(
         new_nodes_maker_indices=check_indices,
         new_nodes_maker_ids=check_ids,
         new_nodes_flow_to_nhm_seg=random_seg_ids,
-        graph_budget_type="warn",
+        graph_imbalance_behavior="warn",
         addtl_output_vars=["outflow_substep"],
         prms_channel_node_maker_name=prms_channel_node_maker_name,
     )
