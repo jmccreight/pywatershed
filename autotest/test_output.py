@@ -118,7 +118,7 @@ def test_output_monthly_accumulations(
         netcdf_output_action="allow",
     )
 
-    model.run(finalize=True, output=output)
+    model.run(finalize=True, output_obj=output)
 
     # Check that monthly accumulations were created
     assert output.monthly_accumulations is not None
@@ -217,7 +217,7 @@ def test_output_noi_data(
         netcdf_output_action="allow",
     )
 
-    model.run(finalize=True, output=output)
+    model.run(finalize=True, output_obj=output)
 
     # Check that NOI arrays were created
     assert output.noi_arrays is not None
@@ -371,7 +371,7 @@ def test_output_hoi_subset(
         netcdf_output_action="allow",
     )
 
-    model.run(finalize=True, output=output)
+    model.run(finalize=True, output_obj=output)
 
     # Check that HRU subset arrays were created
     assert output.hoi_arrays is not None
@@ -487,7 +487,7 @@ def test_output_combined(
         netcdf_output_action="allow",
     )
 
-    model.run(finalize=True, output=output)
+    model.run(finalize=True, output_obj=output)
 
     # Verify all outputs are available
     assert output.monthly_accumulations is not None
@@ -622,7 +622,7 @@ def test_output_string_stats(
         netcdf_output_action="allow",
     )
 
-    model.run(finalize=True, output=output)
+    model.run(finalize=True, output_obj=output)
 
     # Verify all built-in stats were calculated (hierarchical structure)
     assert "seg_outflow" in output.noi_stats
@@ -755,7 +755,7 @@ def test_output_dict_mode_per_variable_ids(
 
     output = pws.base.Output(**output_kwargs)
 
-    model.run(finalize=True, output=output)
+    model.run(finalize=True, output_obj=output)
 
     # Check NOI arrays have correct shapes (per-variable segments)
     assert output.noi_arrays["seg_outflow"].shape[1] == 2
@@ -934,7 +934,7 @@ def test_output_with_flow_graph(
     )
 
     # Run model
-    model.run(finalize=True, output=output)
+    model.run(finalize=True, output_obj=output)
 
     # Verify Output collected data from FlowGraph
     assert output.monthly_accumulations is not None
@@ -986,4 +986,105 @@ def test_output_with_flow_graph(
             rtol=1e-10,
             atol=1e-10,
             err_msg="FlowGraph NOI arrays don't match netcdf",
+        )
+
+
+def test_output_obj_kwargs_dict_basic(
+    simulation, control, parameters, nhm_processes, poi_info, tmp_path
+):
+    """Test basic usage of output_obj_kwargs_dict in Model.__init__."""
+    tmp_path = pl.Path(tmp_path)
+
+    # Variables to track
+    mon_var_list = ["sroff", "hru_actet"]
+    noi_ids = poi_info["poi_ids"]
+
+    def mean_stat(da: xr.DataArray):
+        return da.mean(dim="time")
+
+    # Create Model with output_obj_kwargs_dict instead of separate Output
+    model = pws.Model(
+        nhm_processes,
+        control=control,
+        parameters=parameters,
+        output_obj_kwargs_dict={
+            "monthly_accum_var_list": mon_var_list,
+            "noi_ids": {"seg_outflow": noi_ids},
+            "noi_stats": {mean_stat: ["seg_outflow"]},
+        },
+    )
+
+    # Verify output_obj was created and is accessible
+    assert model.output_obj is not None
+    assert isinstance(model.output_obj, pws.base.Output)
+
+    # Verify the Output was configured with the provided kwargs
+    assert model.output_obj._monthly_accum_var_list == mon_var_list
+
+    # TODO these are inconsistently stored but they are private
+    # assert model.output_obj._noi_var_list == noi_var_list
+    # assert (
+    #     model.output_obj._noi_ids["seg_outflow"] == poi_info["poi_ids"]
+    # ).all()
+
+    # Run the model with the auto-created output object
+    model.run(finalize=True)
+
+    assert model.output_obj.monthly_accumulations is not None
+    assert "sroff" in model.output_obj.monthly_accumulations
+    assert "hru_actet" in model.output_obj.monthly_accumulations
+    assert model.output_obj.noi_arrays is not None
+    assert "seg_outflow" in model.output_obj.noi_arrays
+    assert model.output_obj.noi_stats is not None
+    assert "seg_outflow" in model.output_obj.noi_stats
+    assert "mean_stat" in model.output_obj.noi_stats["seg_outflow"]
+
+
+def test_output_obj_kwargs_dict_wrong_control_raises(
+    simulation, control, parameters, nhm_processes, tmp_path
+):
+    """Test that passing wrong control in output_obj_kwargs_dict raises ValueError."""
+    tmp_path = pl.Path(tmp_path)
+
+    # Create a different control object
+    wrong_control = Control.load_prms(
+        simulation["control_file"], warn_unused_options=False
+    )
+    wrong_control.edit_end_time(np.datetime64("1979-06-01T00:00:00"))
+
+    # Attempt to create Model with wrong control should raise ValueError
+    with pytest.raises(ValueError, match="inappropriate.*control"):
+        model = pws.Model(
+            nhm_processes,
+            control=control,
+            parameters=parameters,
+            output_obj_kwargs_dict={
+                "control": wrong_control,  # Wrong control!
+                "monthly_accum_var_list": ["sroff"],
+            },
+        )
+
+
+def test_output_obj_kwargs_dict_wrong_model_raises(
+    simulation, control, parameters, nhm_processes, tmp_path
+):
+    """Test that passing a model in output_obj_kwargs_dict raises ValueError."""
+    tmp_path = pl.Path(tmp_path)
+
+    # Create a dummy model object
+    class DummyModel:
+        pass
+
+    wrong_model = DummyModel()
+
+    # Attempt to create Model with wrong model should raise ValueError
+    with pytest.raises(ValueError, match="inappropriate.*model"):
+        model = pws.Model(
+            nhm_processes,
+            control=control,
+            parameters=parameters,
+            output_obj_kwargs_dict={
+                "model": wrong_model,  # Wrong model!
+                "monthly_accum_var_list": ["sroff"],
+            },
         )

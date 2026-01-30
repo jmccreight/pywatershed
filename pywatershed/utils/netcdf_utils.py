@@ -542,8 +542,8 @@ class NetCdfWrite(Accessor):
                     # I dont understand the particulars here, may need more
                     # work
                     if "U" in type_str:
-                        char_array = stringtochar(x_data.astype("S"))
-                    else:
+                        #     char_array = stringtochar(x_data.astype("S"))
+                        # else:
                         char_array = stringtochar(x_data)
 
                     char_dim_len = char_array.shape[1]
