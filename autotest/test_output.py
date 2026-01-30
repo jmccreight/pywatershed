@@ -74,7 +74,7 @@ def nhm_processes():
 
 @pytest.fixture(scope="function")
 def poi_info(parameters):
-    """POI information with nhm_seg IDs and crosswalks (from POI parameters)."""
+    """POI information with nhm_seg IDs and crosswalks (from POI params)."""
     nhm_seg = parameters.parameters["nhm_seg"]
     poi_gage_segment = parameters.parameters["poi_gage_segment"]
     poi_nhm_seg = nhm_seg[poi_gage_segment - 1]  # fortran indexing
@@ -723,7 +723,7 @@ def test_output_dict_mode_per_variable_ids(
         return da.mean(dim="time")
 
     # Dict mode: different segments/HRUs for different variables
-    # Include variables without stats to test they appear in arrays but not stats
+    # Include variables without stats to test arrays but not stats
     output_kwargs = {
         "control": control,
         "model": model,
@@ -1043,7 +1043,7 @@ def test_output_obj_kwargs_dict_basic(
 def test_output_obj_kwargs_dict_wrong_control_raises(
     simulation, control, parameters, nhm_processes, tmp_path
 ):
-    """Test that passing wrong control in output_obj_kwargs_dict raises ValueError."""
+    """Test wrong control in output_obj_kwargs_dict raises ValueError."""
     tmp_path = pl.Path(tmp_path)
 
     # Create a different control object
@@ -1054,7 +1054,7 @@ def test_output_obj_kwargs_dict_wrong_control_raises(
 
     # Attempt to create Model with wrong control should raise ValueError
     with pytest.raises(ValueError, match="inappropriate.*control"):
-        model = pws.Model(
+        pws.Model(
             nhm_processes,
             control=control,
             parameters=parameters,
@@ -1068,7 +1068,7 @@ def test_output_obj_kwargs_dict_wrong_control_raises(
 def test_output_obj_kwargs_dict_wrong_model_raises(
     simulation, control, parameters, nhm_processes, tmp_path
 ):
-    """Test that passing a model in output_obj_kwargs_dict raises ValueError."""
+    """Test passing a model in output_obj_kwargs_dict raises ValueError."""
     tmp_path = pl.Path(tmp_path)
 
     # Create a dummy model object
@@ -1079,7 +1079,7 @@ def test_output_obj_kwargs_dict_wrong_model_raises(
 
     # Attempt to create Model with wrong model should raise ValueError
     with pytest.raises(ValueError, match="inappropriate.*model"):
-        model = pws.Model(
+        pws.Model(
             nhm_processes,
             control=control,
             parameters=parameters,

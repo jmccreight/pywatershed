@@ -316,7 +316,8 @@ class DatasetDict(Accessor):
         dict_in : dict
             A dictionary from which to create an instance of this class
         copy : bool, optional
-            If True, the passed dictionary will be deep copied. Default is False.
+            If True, the passed dictionary will be deep copied. Default is
+            False.
 
         Returns
         -------

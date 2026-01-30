@@ -90,31 +90,37 @@ class Output:
     monthly_accum_var_list : list[str], optional
         Variables to accumulate monthly (all spatial units)
     noi_var_list : list[str], optional
-        Variables to collect at nodes of interest. Required if noi_ids is a list.
+        Variables to collect at nodes of interest. Required if noi_ids is
+        a list.
         Must NOT be provided if dict (use dict keys).
-    noi_ids : list[int] or dict[str, list[int]] or list[tuple] or dict[str, list[tuple]], optional
+    noi_ids : list[int] or dict[str, list[int]] or list[tuple] or \
+        dict[str, list[tuple]], optional
         Node IDs for NOIs. Supports two ID types and two modes.
 
         ID types:
 
         - Simple IDs: Integer nhm_seg values (e.g., [12345, 67890])
-        - FlowGraph tuples: (node_maker_name, node_maker_id) for FlowGraph nodes
+        - FlowGraph tuples: (node_maker_name, node_maker_id) for FlowGraph
+          nodes
           (e.g., [("prms_channel", 12345), ("starfit", 0)])
 
         Modes:
 
         - List mode: Same IDs for all vars (requires noi_var_list)
-        - Dict mode: {var_name: [ids]} per-variable IDs (don't provide noi_var_list)
+        - Dict mode: {var_name: [ids]} per-variable IDs (don't provide
+          noi_var_list)
     noi_stats : dict[Callable, list[str]], optional
         Statistics for NOIs: {function: [var1, var2, ...]}
     hoi_var_list : list[str], optional
-        Variables to collect for HRUs of interest. Required if hoi_ids is a list.
+        Variables to collect for HRUs of interest. Required if hoi_ids is
+        a list.
         Must NOT be provided if hoi_ids is dict (use dict keys).
     hoi_ids : list[int] or dict[str, list[int]], optional
         HRU IDs (nhm_id values). Two modes:
 
         - List mode: Same IDs for all vars (requires hoi_var_list)
-        - Dict mode: {var_name: [ids]} per-variable IDs (don't provide hoi_var_list)
+        - Dict mode: {var_name: [ids]} per-variable IDs (don't provide
+          hoi_var_list)
     hoi_stats : dict[Callable, list[str]], optional
         Statistics for HOIs: {function: [var1, var2, ...]}
 
@@ -270,8 +276,8 @@ class Output:
         if isinstance(ids, dict):
             if var_list is not None:
                 raise ValueError(
-                    "noi_var_list should not be provided when noi_ids is a dict. "
-                    "Use dict keys to specify variables."
+                    "noi_var_list should not be provided when noi_ids is a "
+                    "dict. Use dict keys to specify variables."
                 )
             var_list = list(ids.keys())
             return var_list, ids
@@ -297,8 +303,8 @@ class Output:
         if isinstance(ids, dict):
             if var_list is not None:
                 raise ValueError(
-                    "hoi_var_list should not be provided when hoi_ids is a dict. "
-                    "Use dict keys to specify variables."
+                    "hoi_var_list should not be provided when hoi_ids is a "
+                    "dict. Use dict keys to specify variables."
                 )
             var_list = list(ids.keys())
             return var_list, ids
@@ -327,7 +333,8 @@ class Output:
         -------
         xr.DataArray or None
             DataArray of day counts per month with month dimension, useful for
-            converting accumulations to means. Only available after finalization.
+            converting accumulations to means. Only available after
+            finalization.
         """
         if self._finalized:
             return self._n_days_per_month
@@ -376,7 +383,8 @@ class Output:
 
     @property
     def noi_stats(self) -> dict[str, dict[str, xr.DataArray]] | None:
-        """NOI statistics: noi_stats[variable][statistic] (after finalization)."""
+        """NOI statistics: noi_stats[variable][statistic] (after
+        finalization)."""
         if self._finalized:
             return self._noi_stats_results
         else:
@@ -388,7 +396,8 @@ class Output:
 
     @property
     def hoi_stats(self) -> dict[str, dict[str, xr.DataArray]] | None:
-        """HOI statistics: hoi_stats[variable][statistic] (after finalization)."""
+        """HOI statistics: hoi_stats[variable][statistic] (after
+        finalization)."""
         if self._finalized:
             return self._hoi_stats_results
         else:
@@ -579,7 +588,8 @@ class Output:
 
     @staticmethod
     def _solve_flowgraph_inds(tup_list, params, check=True):
-        """Resolve FlowGraph node indices from (node_maker_name, node_maker_id) tuples.
+        """Resolve FlowGraph node indices from (node_maker_name,
+        node_maker_id) tuples.
 
         For FlowGraph nodes, IDs are specified as 2-tuples:
         (node_maker_name, node_maker_id) rather than simple integer IDs.
@@ -589,7 +599,8 @@ class Output:
         tup_list : list of tuple
             List of (node_maker_name, node_maker_id) tuples
         params : dict
-            Process parameters containing node_maker_name and node_maker_id arrays
+            Process parameters containing node_maker_name and node_maker_id
+            arrays
         check : bool, optional
             Whether to validate results (default True)
 
@@ -684,9 +695,9 @@ class Output:
             proc_name = list(self._noi_vars_procs.values())[0]
             proc = self._model.processes[proc_name]
             if not isinstance(self._noi_ids, tuple):
-                proc_coord = spatial_dim_to_coord_name[
-                    list(proc._params.dims.keys())[0]
-                ]
+                # proc_coord = spatial_dim_to_coord_name[
+                #     list(proc._params.dims.keys())[0]
+                # ]
                 self._noi_inds = np.where(
                     np.isin(
                         proc._params.parameters["nhm_seg"],
@@ -747,7 +758,8 @@ class Output:
             )[0]
 
     def _build_noi_hoi_iteration_lists(self) -> None:
-        """Build and cache iteration lists to avoid rebuilding each timestep."""
+        """Build and cache iteration lists to avoid rebuilding each
+        timestep."""
         # For _add_noi_hoi_data (called every timestep)
         self._noi_hoi_data_list = []
         if self._noi_var_list is not None:
@@ -927,7 +939,8 @@ class Output:
         """Write output to netCDF files (not yet implemented)."""
         if not self._finalized:
             warnings.warn(
-                "Output can only be written once the Output object is finalized"
+                "Output can only be written once the Output object is "
+                "finalized"
             )
             return
 
