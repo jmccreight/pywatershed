@@ -86,7 +86,7 @@ def test_et_can_runoff(simulation, control, params, tmp_path):
         control=control,
         discretization=None,
         parameters=params,
-        budget_type="error",
+        imbalance_behavior="error",
         **et_inputs,
     )
 
@@ -104,7 +104,7 @@ def test_et_can_runoff(simulation, control, params, tmp_path):
         control=control,
         discretization=None,
         parameters=params,
-        budget_type="error",
+        imbalance_behavior="error",
         **canopy_inputs,
     )
 
@@ -134,7 +134,7 @@ def test_et_can_runoff(simulation, control, params, tmp_path):
         discretization=None,
         parameters=params,
         **runoff_inputs,
-        budget_type=None,
+        imbalance_behavior=None,
     )
 
     # ---------------------------------

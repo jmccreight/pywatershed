@@ -15,10 +15,9 @@ dependencies:
   - geopandas
   - geoviews
   - git
-  - holoviews
+  - holoviews<=1.20.0
   - hvplot
   - ipython
-  - modflow-devtools
   - netCDF4
   - networkx
   - numpy>=2.0.0
@@ -33,8 +32,9 @@ dependencies:
   - pytest-env
   - pytest-order
   - pytest-xdist
-  - python<3.12,>=3.10
+  - python<3.13,>=3.11
   - pyyaml
+  - pyvis
   - ruff
   - shapely
   - sphinx<9.0
@@ -48,3 +48,4 @@ dependencies:
   - pip:
       - git+https://github.com/jararias/mpsplines.git
       - pyPRMS
+      - modflow-devtools[dfn]==1.7.0

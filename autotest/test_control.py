@@ -56,6 +56,8 @@ def test_control_simple(control_simple):
     assert control_simple.itime_step == -1
     prev_time = control_simple.current_time
     n_times = control_simple.n_times
+    assert control_simple.current_jsol == 12
+    assert control_simple.current_epiweek == 1
     assert n_times == 4
 
     for ii in range(n_times):
@@ -85,6 +87,7 @@ def test_control_simple(control_simple):
         assert dowy == (control_simple.current_dowy - 1)
 
         prev_time = control_simple.current_time
+        assert control_simple.current_jsol == 12 + ii + 1
 
     with pytest.raises(ValueError):
         control_simple.advance()
@@ -209,3 +212,17 @@ def test_yaml_roundtrip(simulation, tmp_path):
     ctl.to_yaml(yml_file)
     ctl_2 = Control.from_yaml(yml_file)
     np.testing.assert_equal(ctl.to_dict(), ctl_2.to_dict())
+
+
+def test_edit_times(simulation):
+    ctl = Control.load_prms(
+        simulation["control_file"], warn_unused_options=False
+    )
+    new_init_time = np.datetime64("2020-01-01T00:00:00")
+    new_start_time = np.datetime64("2021-01-01T00:00:00")
+    new_end_time = np.datetime64("2022-01-01T00:00:00")
+    ctl.edit_end_time(new_end_time)
+    ctl.edit_init_start_times(new_init_time, new_start_time)
+    assert ctl.init_time == new_init_time
+    assert ctl.start_time == new_start_time
+    assert ctl.end_time == new_end_time

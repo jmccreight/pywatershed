@@ -72,6 +72,8 @@ def meta_netcdf_type(meta_item: dict) -> str:
     type_str = meta_type(meta_item)
     if type_str == "int32":
         netcdf_type_str = "i4"
+    elif type_str == "int64":
+        netcdf_type_str = "i8"
     elif type_str == "bool":
         netcdf_type_str = "i4"
     elif type_str == "float32":
@@ -95,7 +97,9 @@ def meta_numpy_type(meta_item: dict) -> str:
     """
     type_str = meta_type(meta_item)
     if type_str == "int32":
-        numpy_type_str = int
+        numpy_type_str = np.int32
+    elif type_str == "int64":
+        numpy_type_str = np.int64
     elif type_str == "bool":
         numpy_type_str = bool
     elif type_str == "float32":

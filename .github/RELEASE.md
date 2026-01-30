@@ -1,9 +1,9 @@
 # Release guide This document describes release procedures, conventions, and
+
 utilities for `pywatershed`.
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
-**Contents**
 
 - [Conventions](#conventions)
 - [Releasing `pywatershed`](#releasing-pywatershed)
@@ -15,8 +15,8 @@ utilities for `pywatershed`.
 ## Conventions
 
 - Releases follow the [git
-  flow](https://nvie.com/posts/a-successful-git-branching-model/).  - Release
-  numbers follow [semantic version](https://semver.org/) conventions.  - Minor
+  flow](https://nvie.com/posts/a-successful-git-branching-model/). - Release
+  numbers follow [semantic version](https://semver.org/) conventions. - Minor
   and major releases branch from `develop`. Patches branch from `main`.
 
 ## Releasing `pywatershed`
@@ -40,7 +40,7 @@ To release a new version:
    releasing.
 
 1. On your local machine, create a release branch from `develop` or a patch
-   branch from `main`.  The branch's name must follow format
+   branch from `main`. The branch's name must follow format
    `v{major}.{minor}.{patch}` ([semantic version](https://semver.org/) number
    with a leading 'v'). For instance, for a minor release, if this repo is an
    `upstream` remote and one's local `develop` is up to date with upstream
@@ -57,15 +57,15 @@ To release a new version:
 
 1. Push the branch to this repo. For instance, if this repo is an `upstream`
    remote: `git push -u upstream vx.y.z`. This starts a job to:
-    - Check out the release branch and update version number in `version.txt` and
-      `pywatershed/version.py` to match the version in the branch name.
-    - Build and check the Python package.
-    - Upload the package as an artifact.
-    - Draft a PR against `main` with the updated version files.
+   - Check out the release branch and update version number in `version.txt` and
+     `pywatershed/version.py` to match the version in the branch name.
+   - Build and check the Python package.
+   - Upload the package as an artifact.
+   - Draft a PR against `main` with the updated version files.
 
 1. On all platforms, pull the release from upstream and perform ASV performance
-   benchmarks against previous release , e.g., ```asv run --verbose
-   -show-stderr HASHFILE:pws_refs_for_asv.txt``` after editing the file to
+   benchmarks against previous release , e.g., `asv run --verbose
+-show-stderr HASHFILE:pws_refs_for_asv.txt` after editing the file to
    contain the previous and current release. Collect performance results from
    various machines into a single report and use `asv publish` to generate
    the static webpages to be included with the release as artifacts in that
@@ -73,13 +73,13 @@ To release a new version:
 
 1. Inspect the package. If it looks good, merge the PR to `main`.
 
-   **Note**: it is critical to *merge* the PR to `main`, not squash as is
+   **Note**: it is critical to _merge_ the PR to `main`, not squash as is
    conventional for development PRs. Squashing causes `develop` and `main` to
    diverge. Merging to `main` preserves commit history and ensures `develop`
    and `main` don't diverge.
 
    Merging the PR to `main` will trigger another job to draft a [GitHub
-   release](https://github.com/EC-USGS/pywatershed/releases). The release is
+   release](https://github.com/DOI-USGS/pywatershed/releases). The release is
    not yet publicly visible at this point.
 
 1. Inspect the GitHub release. If needed, make any manual edits to the release
@@ -103,7 +103,7 @@ To release a new version:
    are to your liking, add them to the gh-pages branch in the `asv/vM-m-p`
    directory.
 
-1. In the case of a minor or major release,  (a patch would be applied to both
+1. In the case of a minor or major release, (a patch would be applied to both
    main and develop?) a couple of manual steps:
    - Check out `main` as a new branch in order to get it back into develop,
      eg feat_main_to_dev.
@@ -117,11 +117,10 @@ To release a new version:
    - Open a PR against `develop` with the updated version files and the
      updates previously merged to `main`.
 
-1. Merge the PR to `develop`. As above, it is important to *merge* the PR, not
+1. Merge the PR to `develop`. As above, it is important to _merge_ the PR, not
    squash, to preserve history and keep `develop` and `main` from diverging.
 
 1. Update `main` image on WholeTale to have the current release.
-
 
 ## Utility scripts
 
@@ -138,15 +137,15 @@ set the version number, use the `--version` (short `-v`) option.
 
 For instance, to set the version number before a release:
 
-```shell python .github/scripts/update_version.py -a -v 0.1.3 ```
+`shell python .github/scripts/update_version.py -a -v 0.1.3 `
 
 Or to set the version number on `develop` following a release:
 
-```shell python .github/scripts/update_version.py -a -v 0.2.0.dev0 ```
+`shell python .github/scripts/update_version.py -a -v 0.2.0.dev0 `
 
 To get the current version number without writing any changes to the
 repository's files, use the `--get` (short `-g`) flag:
 
-```shell python .github/scripts/update_version.py -g ```
+`shell python .github/scripts/update_version.py -g `
 
 **Note**: this script should not need to be run manually, as it is run automatically in the release automation.

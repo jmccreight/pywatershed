@@ -1,7 +1,7 @@
 import inspect
 import os
 import pathlib as pl
-from typing import Literal
+from typing import Iterable, Literal, Union
 from warnings import warn
 
 import numpy as np
@@ -86,6 +86,31 @@ class Process(Accessor):
         experimental.
     metadata_patch_conflicts:
         How to handle metadata_patches conflicts. Experimental.
+    restart_read:
+        May be boolean or a Pathlib.Path. If False, control.options
+        will be examined for this key. If True, the working
+        directory is searched for restart files. If a Pathlib.Path, this
+        specifies an alternative directory to search for restart files.
+        Files searched for are of the pattern YYYY-mm-dd-varname.nc where the
+        date is the control.init_time. The timestamp on the file is the valid
+        time of the states in the file with the exception of processes with
+        sub-daily timesteps. For example, the outflow_ts variable of
+        PRMSChannel is instantaneous and valid at the 23rd hour of the
+        timestampped day whereas its variable seg_outflow is the daily averge
+        value over the timestampped day.
+    restart_write:
+        As for restart_read but for writing. The directory in either
+        case will be attempted to be created if it does not exist.
+    restart_write_freq:
+        If False, then control.options is examined for this key. The follwing
+        values set the frequency of restart output with "y" for yearly, "m"
+        for monthly, "d" for daily, or "f" for final. "Final" means that
+        restart files are written with the states at control.end_time to files
+        timestampped with control.end_time. Yearly and monthly restart options
+        write files with timestamps on the last day of each year or month
+        during the run. If daily, restarts are written every day. If
+        restart_write is not False and restart_write_freq is False, the default
+        of "f" is used.
     """
 
     def __init__(
@@ -95,6 +120,9 @@ class Process(Accessor):
         parameters: Parameters,
         metadata_patches: dict[dict] = None,
         metadata_patch_conflicts: Literal["left", "warn", "error"] = "error",
+        restart_read: Union[pl.Path, bool] = False,
+        restart_write: Union[pl.Path, bool] = False,
+        restart_write_freq: Literal["y", "m", "d", "f", False] = False,
     ):
         self.name = "Process"
         self.control = control
@@ -114,8 +142,66 @@ class Process(Accessor):
                 conflicts=metadata_patch_conflicts,
             )
 
+        # Below, can remove the condition checking in locals().keys() when all
+        # processes have the opt.
+
+        # For these options not passed, look in control.option. That is, if
+        # the option is passed specifically, it is used.
+        # This cant be done by setting locals()[] unfortunately.
+        if "restart_read" in locals().keys() and restart_read is False:
+            if "restart_read" in self.control.options.keys():
+                restart_read = self.control.options["restart_read"]
+        if "restart_write" in locals().keys() and restart_write is False:
+            if "restart_write" in self.control.options.keys():
+                restart_write = self.control.options["restart_write"]
+        if (
+            "restart_write_freq" in locals().keys()
+            and restart_write_freq is False
+        ):
+            if "restart_write_freq" in self.control.options.keys():
+                restart_write_freq = self.control.options["restart_write_freq"]
+
+        if "restart_read" in locals().keys() and restart_read is not False:
+            if restart_read is True:
+                restart_path = pl.Path(".")
+            else:
+                restart_path = pl.Path(restart_read)
+            # <
+            self._restart_read = restart_path
+        else:
+            self._restart_read = False
+
+        if "restart_write" in locals().keys() and restart_write is not False:
+            if restart_write is True:
+                restart_path = pl.Path(".")
+            else:
+                restart_path = pl.Path(restart_write)
+            # <
+            if not restart_path.exists():
+                restart_path.mkdir(parents=True)
+            self._restart_write = restart_path
+
+            if restart_write_freq is False:
+                restart_write_freq = "f"
+            restart_write_freq_xform = {
+                "y": "%j",
+                "m": "%d",
+                "d": "%H",
+                "f": "f",
+            }
+            self._restart_write_strf_code = restart_write_freq_xform[
+                restart_write_freq
+            ]
+
+        else:
+            self._restart_write = False
+
+        # <
         self._initialize_self_variables()
         self._set_initial_conditions()
+        if self._restart_read:
+            self._restart_from_file()
+        # self._init_diagnostic_vars()
 
         return None
 
@@ -128,6 +214,9 @@ class Process(Accessor):
             if self._verbose:
                 print(f"writing output for: {self.name}")
             self._output_netcdf()
+
+        self._output_restart()
+
         return
 
     def finalize(self) -> None:
@@ -144,17 +233,17 @@ class Process(Accessor):
     @staticmethod
     def get_dimensions() -> tuple:
         """Get a tuple of dimension names for this Process."""
-        raise Exception("This must be overridden")
+        raise NotImplementedError("This must be implemented")
 
     @staticmethod
     def get_parameters() -> tuple:
         """Get a tuple of parameter names for this Process."""
-        raise Exception("This must be overridden")
+        raise NotImplementedError("This must be implemented")
 
     @staticmethod
     def get_inputs() -> tuple:
         """Get a tuple of input variable names for this Process."""
-        raise Exception("This must be overridden")
+        raise NotImplementedError("This must be implemented")
 
     @classmethod
     def get_variables(cls) -> tuple:
@@ -177,14 +266,14 @@ class Process(Accessor):
 
     @staticmethod
     def get_restart_variables() -> list:
-        """Get a list of restart varible names."""
-        raise Exception("This must be overridden")
+        """A list of restart varible names."""
+        raise NotImplementedError("This must be implemented")
 
     @staticmethod
     def get_init_values() -> dict:
         """Get a dictionary of initialization values for each public
         variable."""
-        raise Exception("This must be overridden")
+        raise NotImplementedError("This must be implemented")
 
     @property
     def dimensions(self) -> tuple:
@@ -207,8 +296,8 @@ class Process(Accessor):
         return self.get_variables()
 
     @property
-    def restart_variables(self) -> tuple:
-        """A tuple of restart variable names."""
+    def restart_variables(self) -> dict:
+        """A dict of restart variable names mapping current: previous."""
         return self.get_restart_variables()
 
     @property
@@ -240,7 +329,7 @@ class Process(Accessor):
         else:
             self._params = parameters.subset(self.parameters)
 
-    def _initialize_self_variables(self, restart: bool = False):
+    def _initialize_self_variables(self):
         # dims
         for name in self.dimensions:
             if name == "ntime":
@@ -262,12 +351,7 @@ class Process(Accessor):
             setattr(self, name, np.zeros(spatial_dims, dtype=float) + np.nan)
 
         # variables
-        # skip restart variables if restart (for speed) ?
-        # the code is below but commented.
-        # restart_variables = self.restart_variables
         for name in self.variables:
-            # if restart and (name in restart_variables):
-            #     continue
             self._initialize_var(name)
 
         return
@@ -302,11 +386,13 @@ class Process(Accessor):
             )
         return
 
-    def _set_initial_conditions(self):
-        raise Exception("This must be overridden")
+    def _set_initial_conditions(self) -> None:
+        """Set initial conditions for variables not in get_init_values"""
+        raise Exception("This must be implemented")
 
-    def _advance_variables(self):
-        raise Exception("This must be overridden")
+    def _advance_variables(self) -> None:
+        """Advance prognostic variables."""
+        raise Exception("This must be implemented.")
 
     def _advance_inputs(self):
         for key, value in self._input_variables_dict.items():
@@ -336,26 +422,52 @@ class Process(Accessor):
 
         return
 
+    def _restart_from_file(self):
+        from xarray import load_dataarray
+
+        init_strftime = self.control.init_time.item().strftime("%Y-%m-%d")
+        for vv in self.restart_variables:
+            rst_file = self._restart_read / f"{init_strftime}-{vv}.nc"
+            print(f"Restarting from file: {rst_file}")
+            if isinstance(self[vv], TimeseriesArray):
+                self[vv].data[0, :] = load_dataarray(rst_file).values
+            else:
+                self[vv][:] = load_dataarray(rst_file).values
+
+        return
+
     def _set_options(self, init_locals):
-        """Set options options on self if supplied on init, else take
+        """Set options on self if supplied on init, else take
         from control"""
         # some self and Process introspection reveals the option names
         init_arg_names = set(
             inspect.signature(self.__init__).parameters.keys()
         )
-        process_init_args = set(
+        process_init_arg_names = set(
             inspect.signature(Process.__init__).parameters.keys()
         )
-        inputs_args = self.inputs
-        non_option_args = process_init_args.union(inputs_args)
+        inputs_arg_names = set(self.inputs)
+
+        non_option_args = process_init_arg_names.union(inputs_arg_names)
+
+        # all process options should be set in the init
+        # process_options = {
+        #     "restart_read",
+        #     "restart_write",
+        #     "restart_write_freq",
+        # }
+        # option_names = (
+        #     init_arg_names.difference(non_option_args) | process_options
+        # )
         option_names = init_arg_names.difference(non_option_args)
+
         for opt in option_names:
             if opt in init_locals.keys() and init_locals[opt] is not None:
-                setattr(self, f"_{opt}", init_locals[opt])
+                self[f"_{opt}"] = init_locals[opt]
             elif opt in self.control.options.keys():
-                setattr(self, f"_{opt}", self.control.options[opt])
+                self[f"_{opt}"] = self.control.options[opt]
             else:
-                setattr(self, f"_{opt}", None)
+                self[f"_{opt}"] = None
 
         return
 
@@ -390,9 +502,7 @@ class Process(Accessor):
                     f"{self.name} did not advance because "
                     f"it is not behind control time"
                 )
-                # warn(msg)
                 print(msg)  # can/howto make warn flush in real time?
-                # is a warning sufficient? an error
             return
 
         if self._verbose:
@@ -403,8 +513,8 @@ class Process(Accessor):
         self._itime_step += 1
         return
 
-    def _calculate(self):
-        raise Exception("This must be overridden")
+    def _calculate(self) -> None:
+        raise NotImplementedError("This must be implemented")
 
     def calculate(self, time_length: float, **kwargs) -> None:
         """Calculate Process terms for a time step
@@ -469,6 +579,7 @@ class Process(Accessor):
         output_vars: list = None,
         extra_coords: dict = None,
         addtl_output_vars: list = None,
+        **kwargs,
     ) -> None:
         """Initialize NetCDF output.
 
@@ -478,7 +589,7 @@ class Process(Accessor):
             separate_files: boolean indicating if storage component output
                 variables should be written to a separate file for each
                 variable
-            output_vars: list of variable names to outuput.
+            output_vars: list of variable names to output.
 
         Returns:
             None
@@ -517,18 +628,22 @@ class Process(Accessor):
 
         self._netcdf_initialized = True
         self._netcdf_output_dir = pl.Path(output_dir)
+
         if output_vars is None:
             self._netcdf_output_vars = self.variables
         else:
             self._netcdf_output_vars = list(
                 set(output_vars).intersection(set(self.variables))
             )
-            if len(self._netcdf_output_vars) == 0:
-                self._netcdf_initialized = False
-                return
 
         if addtl_output_vars is not None:
             self._netcdf_output_vars += addtl_output_vars
+
+        if len(self._netcdf_output_vars) == 0:
+            msg = f"No output variables found for process: {self.name}."
+            warn(msg)
+            self._netcdf_initialized = False
+            return
 
         self._netcdf = {}
 
@@ -589,6 +704,62 @@ class Process(Accessor):
 
         return
 
+    def _output_restart(self) -> None:
+        from xarray import DataArray
+
+        # preamble is logic for outputting restarts, or not.
+        if (
+            hasattr(self, "_restart_write")
+            and self._restart_write is not False
+            and self.control.itime_step >= 0
+        ):
+            if self._restart_write_strf_code == "f":
+                if self.control.itime_step != (self.control.n_times - 1):
+                    return
+            else:
+                next_count = int(
+                    # write restarts on the LAST day of the period, so
+                    # add a day to current time
+                    (self.control.current_time + np.timedelta64(24, "h"))
+                    .astype("datetime64[D]")
+                    .item()
+                    .strftime(self._restart_write_strf_code)
+                )
+                if self._restart_write_strf_code != "%H":
+                    # because hours are counted from zero but days are not
+                    next_count -= 1
+                if next_count != 0:
+                    return
+
+        else:
+            return
+
+        cur_time = self.control.current_time
+        time = np.atleast_1d(np.array(cur_time.astype("datetime64[ns]")))
+
+        for rv in self.restart_variables:
+            meta = self.meta[rv]
+            data = self[rv]
+            dims = meta["dims"]
+            if isinstance(data, TimeseriesArray):
+                data = data.current
+                dims = dims[1:]
+            da = DataArray(
+                data=np.expand_dims(data, 0),
+                dims=("time", *dims),
+                coords=dict(
+                    time=time,
+                ),
+                attrs=dict(
+                    description=meta["desc"],
+                    units=meta["units"],
+                ),
+                name=rv,
+            )
+            cur_strft = cur_time.item().strftime("%Y-%m-%d")
+            file = self._restart_write / f"{cur_strft}-{rv}.nc"
+            da.to_netcdf(file)
+
     def _finalize_netcdf(self) -> None:
         """Finalize NetCDF output to disk.
 
@@ -623,6 +794,11 @@ class Process(Accessor):
             "separate_files": separate_files,
         }
 
+        self_vars = set(self.get_variables())
+
+        def is_not_str_iteratable(it: Iterable):
+            return isinstance(it, Iterable) and not isinstance(it, str)
+
         for vv in args.keys():
             arg_val = args[vv]
             opt_name = arg_opt_name_map[vv]
@@ -641,6 +817,23 @@ class Process(Accessor):
 
             elif arg_val is None:
                 args[vv] = opt_val
+
+            elif is_not_str_iteratable(opt_val) and (
+                (set(opt_val) & self_vars) == self_vars
+            ):
+                args[vv] = self_vars
+
+            elif (
+                is_not_str_iteratable(opt_val)
+                and len(set(opt_val) & self_vars) == 0
+            ):
+                args[vv] = None
+
+            elif (
+                is_not_str_iteratable(opt_val)
+                and is_not_str_iteratable(arg_val)
+            ) and (set(opt_val) & set(arg_val)) == set(arg_val):
+                args[vv] = arg_val
 
             elif opt_val is not None and arg_val is not None:
                 if opt_val == arg_val:

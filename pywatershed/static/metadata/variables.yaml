@@ -4,6 +4,149 @@ KKITER:
     0: one
   type: int32
   units: none
+actet:
+  desc: Input actual ET for each HRU
+  dims:
+    0: nhru
+  type: float64
+  units: inches
+aet_external:
+  desc: Actual evapotranspiration for each HRU that is read from a CBH File.
+  dims:
+    0: nhru
+  type: float64
+  units: inches
+ag_aet_external_vol:
+  desc: External actual evapotranspiration used as a target for simulating
+    actual ET during transpiration days for the irrigated fraction of each HRU
+  dims:
+    0: nhru
+  type: float64
+  units: acre-inches
+ag_actet:
+  desc: Actual ET in capillary reservoir for irrigated fraction of each HRU
+  dims:
+    0: nhru
+  type: float64
+  units: inches
+ag_hortonian:
+  desc: Hortonian surface runoff that flows to the stream network from the
+    irrigated area of each HRU
+  dims:
+    0: nhru
+  type: float64
+  units: inches
+ag_irrigation_add:
+  desc:
+    Irrigation water added to irrigated area when ag_actet < AET_external for
+    each HRU.
+  dims:
+    0: nhru
+  type: float64
+  units: inches
+ag_irrigation_add_vol:
+  desc: Irrigation water added to irrigated area when ag_actet < AET_external
+    for each HRU
+  dims:
+    0: nhru
+  type: float64
+  units: acre-inches
+ag_potet_lower:
+  desc: Potential ET in the lower zone of the agriculture reservoir for the
+    irrigated fraction of each HRU
+  dims:
+    0: nhru
+  type: float64
+  units: inches
+ag_potet_rechr:
+  desc: Potential ET in the recharge zone of the agriculture reservoir for the
+    irrigated fraction of each HRU
+  dims:
+    0: nhru
+  type: float64
+  units: inches
+ag_soil_lower:
+  desc:
+    Storage in the lower zone of the irrigated area that is only available for
+    transpiration for each HRU
+  dims:
+    0: nhru
+  type: float64
+  units: inches
+ag_soil_lower_stor_max:
+  default: -1.0
+  desc:
+    Storage in the lower zone of the irrigated area that is only available for
+    transpiration for each HRU
+  dims:
+    0: nhru
+  type: float64
+  units: inches
+ag_soil_moist:
+  desc:
+    Water storage for upper portion in the capillary reservoir of the irrigated
+    area for each HRU that.
+  dims:
+    0: nhru
+  type: float64
+  units: inches
+ag_soil_moist_prev:
+  desc: Previous timestep water storage for upper portion in the capillary
+    reservoir of the irrigated area for each HRU that.
+  dims:
+    0: nhru
+  type: float64
+  units: inches
+ag_soil_rechr:
+  desc: Water storage for upper portion in the capillary reservoir of the
+    irrigated area for each HRU that is available for both evaporation and
+    transpiration
+  dims:
+    0: nhru
+  type: float64
+  units: inches
+ag_soil_rechr_max:
+  desc: Water storage for upper portion in the capillary reservoir of the
+    irrigated area for each HRU that is only available for transpiration (?)
+  dims:
+    0: nhru
+  type: float64
+  units: inches
+ag_soil_rechr_prev:
+  desc: Previous timestep water storage for upper portion in the capillary
+    reservoir of the irrigated area for each HRU that is available for both
+    evaporation and transpiration
+  dims:
+    0: nhru
+  type: float64
+  units: inches
+ag_soil_saturated:
+  desc: Flag set if infiltration saturates capillary reservoir for the irrigated
+    area of the HRU (0=no, 1=yes)
+  dims:
+    0: nhru
+  type: int64
+  units: inches
+ag_soil_to_gvr:
+  desc: Excess capillary water that flows to the gravity reservoir from the
+    irrigated area of each HRU
+  dims:
+    0: nhru
+  type: float64
+  units: inches
+ag_soil_to_gw:
+  desc: Direct recharge from capillary reservoir for the irrigated area to
+    groundwater reservoir for each HRU
+  dims:
+    0: nhru
+  type: float64
+  units: inches
+ag_soilwater_deficit:
+  desc: Soil-water deficit of agriculture fraction for each HRU
+  dims:
+    0: nhru
+  type: float64
+  units: inches
 ai:
   desc: Maximum snowpack for each HRU
   dims:
@@ -1257,6 +1400,13 @@ dprst_vol_open_frac:
     0: nhru
   type: float64
   units: decimal fraction
+dprst_vol_thres_open:
+  desc: The depression storage volume threshold for open area (?)
+    HRU
+  dims:
+    0: nhru
+  type: float64
+  units: unknown
 dunnian_flow:
   desc: Dunnian surface runoff that flows to the stream network for each HRU
   dims:
@@ -1546,6 +1696,14 @@ hru_actet:
     0: nhru
   type: float64
   units: inches
+hru_ag_actet:
+  desc:
+    Actual ET for irrigated area portion of capillary reservoir averaged over
+    irrigated area of HRU
+  dims:
+    0: nhru
+  type: float64
+  units: inches
 hru_et_yr:
   desc: Yearly area-weighted average actual ET for each HRU
   dims:
@@ -1742,6 +1900,13 @@ infil:
   type: float64
   units: inches
   var_category: mass flux
+infil_ag:
+  desc: Infiltration to the irrigated area fraction of each HRU
+  dims:
+    0: nhru
+  type: float64
+  units: inches
+  var_category: mass flux
 infil_hru:
   desc: Infiltration to the capillary and preferential-flow reservoirs, depth on HRU area
   dims:
@@ -1753,6 +1918,13 @@ inflows:
   desc: Inflows to FlowGraph in vol/time
   dims:
     0: nnodes
+  type: float64
+  units: cfs
+  var_category: mass flux
+inflow_ts_prev:
+  desc: Segment inflow from the previous sub-timestep
+  dims:
+    0: nsegment
   type: float64
   units: cfs
   var_category: mass flux
@@ -2216,6 +2388,12 @@ orad_hru:
     0: nhru
   type: float64
   units: Langleys
+outflow_ts:
+  desc: outflow timeseries
+  dims:
+    0: nsegment
+  type: float64
+  units: cfs
 outflows:
   desc: Outflows exiting the FlowGraph (vol/time)
   dims:
@@ -2252,6 +2430,22 @@ perv_actet_hru:
   var_category: mass flux
 perv_avail_et:
   desc: Unsatisfied ET available to the capillary reservoir of each HRU
+  dims:
+    0: nhru
+  type: float64
+  units: inches
+perv_soil_to_gw:
+  desc:
+    Direct recharge from pervious capillary reservoir to groundwater reservior
+    for each HRU
+  dims:
+    0: nhru
+  type: float64
+  units: inches
+perv_soil_to_gvr:
+  desc:
+    Excess pervious capillary water that flows to the gravity reservoir of each
+    HRU
   dims:
     0: nhru
   type: float64
@@ -2593,6 +2787,143 @@ seg_shade:
     0: nsegment
   type: float64
   units: decimal fraction
+seg_flow_area:
+  desc: Cross-sectional area of flow in each segment (computed from hydraulic geometry)
+  dims:
+    0: nsegment
+  type: float64
+  units: square meters
+seg_flow_depth:
+  desc: Flow-dependent depth in each segment (computed from hydraulic geometry)
+  dims:
+    0: nsegment
+  type: float64
+  units: meters
+seg_flow_velocity:
+  desc: Mean velocity of flow in each segment (computed from hydraulic geometry)
+  dims:
+    0: nsegment
+  type: float64
+  units: meters per second
+seg_flow_width:
+  desc: Flow-dependent width in each segment (computed from hydraulic geometry)
+  dims:
+    0: nsegment
+  type: float64
+  units: meters
+seg_tave_air:
+  desc: Area-weighted average air temperature for each segment from HRUs contributing flow to the segment
+  dims:
+    0: nsegment
+  type: float64
+  units: degrees Celsius
+seg_tave_gw:
+  desc: Groundwater temperature for each segment
+  dims:
+    0: nsegment
+  type: float64
+  units: degrees Celsius
+seg_tave_lat:
+  desc: Lateral flow temperature for each segment
+  dims:
+    0: nsegment
+  type: float64
+  units: degrees Celsius
+seg_tave_ss:
+  desc: Subsurface temperature for each segment
+  dims:
+    0: nsegment
+  type: float64
+  units: degrees Celsius
+seg_tave_upstream:
+  desc: Temperature of streamflow entering each segment from upstream
+  dims:
+    0: nsegment
+  type: float64
+  units: degrees Celsius
+seg_tave_water:
+  desc: Computed daily mean stream temperature for each segment
+  dims:
+    0: nsegment
+  type: float64
+  units: degrees Celsius
+heat_upstream:
+  desc: Advective heat flux transported into stream segment by upstream flow (for stream temperature energy budget)
+  dims:
+    0: nsegment
+  type: float64
+  units: watts
+  var_category: energy flux
+heat_lateral:
+  desc: Advective heat flux transported into stream segment by lateral inflows (for stream temperature energy budget)
+  dims:
+    0: nsegment
+  type: float64
+  units: watts
+  var_category: energy flux
+solar_radiation:
+  desc: Net shortwave solar radiation absorbed by stream segment surface (for stream temperature energy budget)
+  dims:
+    0: nsegment
+  type: float64
+  units: watts
+  var_category: energy flux
+atmospheric_longwave:
+  desc: Atmospheric longwave radiation received by stream segment surface (for stream temperature energy budget)
+  dims:
+    0: nsegment
+  type: float64
+  units: watts
+  var_category: energy flux
+friction_heat:
+  desc: Heat generated by friction from flowing water in stream segment (for stream temperature energy budget)
+  dims:
+    0: nsegment
+  type: float64
+  units: watts
+  var_category: energy flux
+groundwater_conduction:
+  desc: Heat conducted from groundwater into stream segment through streambed (for stream temperature energy budget)
+  dims:
+    0: nsegment
+  type: float64
+  units: watts
+  var_category: energy flux
+heat_outflow:
+  desc: Advective heat flux transported out of stream segment by outflow (for stream temperature energy budget)
+  dims:
+    0: nsegment
+  type: float64
+  units: watts
+  var_category: energy flux
+longwave_emission:
+  desc: Longwave radiation emitted by stream segment water surface (for stream temperature energy budget)
+  dims:
+    0: nsegment
+  type: float64
+  units: watts
+  var_category: energy flux
+longwave_vegetation:
+  desc: Longwave radiation emitted by riparian vegetation over stream segment (for stream temperature energy budget)
+  dims:
+    0: nsegment
+  type: float64
+  units: watts
+  var_category: energy flux
+evaporative_cooling:
+  desc: Latent heat loss from evaporation at stream segment water surface (for stream temperature energy budget)
+  dims:
+    0: nsegment
+  type: float64
+  units: watts
+  var_category: energy flux
+convective_exchange:
+  desc: Sensible heat exchange between stream segment water surface and atmosphere (for stream temperature energy budget)
+  dims:
+    0: nsegment
+  type: float64
+  units: watts
+  var_category: energy flux
 seg_sroff:
   desc:
     Area-weighted average surface runoff for each segment from HRUs contributing
@@ -2622,12 +2953,6 @@ seg_upstream_inflow:
     0: nsegment
   type: float64
   units: cfs
-seg_width:
-  desc: Width of each segment
-  dims:
-    0: nsegment
-  type: float64
-  units: meters
 seginc_gwflow:
   desc:
     Area-weighted average groundwater discharge for each segment from HRUs contributing
@@ -2939,6 +3264,12 @@ soil_rechr_ratio:
     0: nhru
   type: float64
   units: decimal fraction
+soil_saturated:
+  desc: Flag set if infiltration saturates capillary reservoir (0=no, 1=yes)
+  dims:
+    0: nhru
+  type: int64
+  units: inches
 soil_to_gw:
   desc:
     Portion of excess flow to the capillary reservoir that drains to the associated
@@ -3359,6 +3690,12 @@ tmax_sta:
     0: ntemp
   type: float64
   units: degC
+tmax_sum:
+  desc: Sum of tmax (def F) since beginning of transp period in transp_tindex
+  dims:
+    0: nhru
+  type: float64
+  units: degF
 tmaxc:
   desc: Maximum air temperature distributed to each HRU
   dims:
@@ -3505,6 +3842,12 @@ transp_on:
     0: nhru
   type: int32
   units: none
+unused_ag_et:
+  desc: Actual ET for agriculture capillary reservoir for each HRU
+  dims:
+    0: nhru
+  type: float64
+  units: inches
 unused_potet:
   desc: Unsatisfied potential evapotranspiration
   dims:

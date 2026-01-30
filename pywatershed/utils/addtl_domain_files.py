@@ -17,7 +17,7 @@ def download(force=False):
 
     if not addtl_domains_dir.exists():
         addtl_domains_url = (
-            "https://github.com/EC-USGS/pywatershed/"
+            "https://github.com/DOI-USGS/pywatershed/"
             "releases/download/1.1.0/pywatershed_addtl_domains.zip"
         )
         addtl_domains_file = (

@@ -55,8 +55,8 @@ extensions = [
 ]
 
 extlinks = {
-    "issue": ("https://github.com/EC-USGS/pywatershed/issues/%s", "GH%s"),
-    "pull": ("https://github.com/EC-USGS/pywatershed/pull/%s", "PR%s"),
+    "issue": ("https://github.com/DOI-USGS/pywatershed/issues/%s", "GH%s"),
+    "pull": ("https://github.com/DOI-USGS/pywatershed/pull/%s", "PR%s"),
 }
 
 
@@ -107,7 +107,7 @@ html_theme = "sphinx_book_theme"
 html_title = "pywatershed"
 
 html_context = {
-    "github_user": "EC-USGS",
+    "github_user": "DOI-USGS",
     "github_repo": "pywatershed",
     "github_version": "main",
     "doc_path": "doc",
@@ -128,7 +128,7 @@ html_css_files = ["style.css"]
 html_theme_options = dict(
     # analytics_id=''  this is configured in rtfd.io
     # canonical_url="",
-    repository_url="https://github.com/EC-USGS/pywatershed",
+    repository_url="https://github.com/DOI-USGS/pywatershed",
     repository_branch="main",
     path_to_docs="doc",
     use_edit_page_button=True,

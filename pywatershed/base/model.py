@@ -26,6 +26,8 @@ process_order_nhm = [
     "PRMSGroundwater",
     "PRMSGroundwaterNoDprst",
     "PRMSChannel",
+    "PRMSHydraulicGeometryWidthOnly",
+    "PRMSStreamTemp",
 ]
 
 
@@ -64,7 +66,7 @@ class Model:
     * parameters: A PrmsParameters object.
 
     The first example below provides details. An extended example is given by
-    `examples/02_prms_legacy_models.ipynb <https://github.com/EC-USGS/pywatershed/blob/develop/examples/02_prms_legacy_models.ipynb>`__.
+    `examples/02_prms_legacy_models.ipynb <https://github.com/DOI-USGS/pywatershed/blob/develop/examples/02_prms_legacy_models.ipynb>`__.
 
     pywatershed-centric instatiation
     ------------------------------------
@@ -91,7 +93,7 @@ class Model:
     different.
 
     See the second and third examples below for more details and see
-    `examples/01_multi-process_models.ipynb <https://github.com/EC-USGS/pywatershed/blob/develop/examples/01_multi-process_models.ipynb>`__
+    `examples/01_multi-process_models.ipynb <https://github.com/DOI-USGS/pywatershed/blob/develop/examples/01_multi-process_models.ipynb>`__
     for an extended example.
 
     Model dictionary values description:
@@ -232,7 +234,7 @@ class Model:
     ...     "time_step": 24,
     ...     "time_step_units": "h",
     ...     "verbosity": 0,
-    ...     "budget_type": "warn",
+    ...     "imbalance_behavior": "warn",
     ...     "input_dir": str(domain_dir),
     ... }
     >>> control_file = domain_dir / "example_control.yaml"
@@ -328,7 +330,7 @@ class Model:
 
         self._categorize_model_dict()
         self._validate_model_dict()
-        self._set_input_dir()
+        self._set_input_path()
         self._solve_inputs()
         self._init_procs()
         self._connect_procs()
@@ -460,24 +462,24 @@ class Model:
                         # check?
 
         # If inputs dont come from other processes, assume they come from
-        # file in input_dir. Exception is that PRMSAtmosphere requires its
-        # files on init, so dont adapt these
-        file_input_names = set([])
+        # file in input_dir or input_file. Exception is that PRMSAtmosphere
+        # requires its files on init, so dont adapt these
+        input_names = set([])
         for k0, v0 in inputs_from.items():
             for k1, v1 in v0.items():
                 if not v1:
-                    file_input_names = file_input_names.union([k1])
+                    input_names = input_names.union([k1])
 
         # initiate the file inputs here rather than in the processes
         file_inputs = {}
         # Use dummy names for now
-        for name in file_input_names:
+        for name in input_names:
             file_inputs[name] = pl.Path(name)
 
         self._proc_dict = proc_dict
         self._inputs_from = inputs_from
         self._file_inputs = file_inputs
-        self._file_input_names = file_input_names
+        self._input_names = input_names
         return
 
     def _init_procs(self):
@@ -534,22 +536,30 @@ class Model:
         #   <   <   <
         return
 
-    def _set_input_dir(self):
-        if "input_dir" not in self.control.options.keys():
-            msg = "Required control option 'input_dir' not found"
+    def _set_input_path(self):
+        opt_keys = self.control.options.keys()
+        if ("input_dir" in opt_keys and "input_file" in opt_keys) or (
+            "input_dir" not in opt_keys and "input_file" not in opt_keys
+        ):
+            msg = (
+                "Exactly one of 'input_dir' or 'input_file' must be specified"
+            )
             raise ValueError(msg)
-        else:
-            self._input_dir = pl.Path(
-                self.control.options["input_dir"]
-            ).resolve()
+
+        for ii in ["input_dir", "input_file"]:
+            if ii in opt_keys:
+                self._input_path = pl.Path(self.control.options[ii]).resolve()
 
         return
 
     def _find_input_files(self) -> None:
-        file_inputs = {}
-        for name in self._file_input_names:
-            nc_path = self._input_dir / f"{name}.nc"
-            file_inputs[name] = adapter_factory(
+        input_adapters = {}
+        for name in self._input_names:
+            if self._input_path.is_dir():
+                nc_path = self._input_path / f"{name}.nc"
+            else:
+                nc_path = self._input_path
+            input_adapters[name] = adapter_factory(
                 nc_path,
                 name,
                 control=self.control,
@@ -557,10 +567,10 @@ class Model:
         for process in self.process_order:
             for input, frm in self._inputs_from[process].items():
                 if not frm:
-                    fname = file_inputs[input]._fname
+                    fname = input_adapters[input]._fname
                     self.process_input_from[process][input] = fname
                     self.processes[process].set_input_to_adapter(
-                        input, file_inputs[input]
+                        input, input_adapters[input]
                     )
 
         self._found_input_files = True
@@ -614,6 +624,9 @@ class Model:
                     )
                     # dis = val["dis"]
                     # val["dis"] = model_dict[dis]
+                    for subkey in val.keys():
+                        if "_class" in subkey:
+                            val[subkey] = getattr(pywatershed, val[subkey])
 
             elif isinstance(val, list):
                 pass

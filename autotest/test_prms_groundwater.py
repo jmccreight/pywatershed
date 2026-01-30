@@ -5,7 +5,6 @@ from utils_compare import compare_in_memory, compare_netcdfs
 
 from pywatershed import Control, Parameters, PRMSGroundwater
 from pywatershed.base.adapter import adapter_factory
-from pywatershed.hydrology.prms_groundwater import has_prmsgroundwater_f
 from pywatershed.hydrology.prms_groundwater_no_dprst import (
     PRMSGroundwaterNoDprst,
 )
@@ -16,7 +15,7 @@ do_compare_output_files = False
 do_compare_in_memory = True
 rtol = atol = 1.0e-13
 
-calc_methods = ("numpy", "numba", "fortran")
+calc_methods = ("numpy", "numba")
 params = ("params_sep", "params_one")
 
 
@@ -68,11 +67,6 @@ def test_compare_prms(
     tmp_path,
     calc_method,
 ):
-    if not has_prmsgroundwater_f and calc_method == "fortran":
-        pytest.skip(
-            "PRMSGroundwater fortran code not available, skipping its test."
-        )
-
     tmp_path = pl.Path(tmp_path)
 
     output_dir = simulation["output_dir"]
@@ -94,7 +88,7 @@ def test_compare_prms(
         discretization,
         parameters,
         **input_variables,
-        budget_type="error",
+        imbalance_behavior="error",
         calc_method=calc_method,
     )
 

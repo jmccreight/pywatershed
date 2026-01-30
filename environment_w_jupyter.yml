@@ -15,18 +15,18 @@ dependencies:
   - geopandas
   - geoviews
   - git
-  - holoviews
+  - holoviews<=1.20.0
   - hvplot
   - ipython
   - ipywidgets
   - jupyter
+  - jupyter-black
   - jupyterlab
   - nbconvert
   - netCDF4
   - networkx
   - numpy>=2.0.0
   - numba
-  - modflow-devtools
   - pandas>=1.4.0
   - pint
   - pip
@@ -37,8 +37,9 @@ dependencies:
   - pytest-env
   - pytest-order
   - pytest-xdist
-  - python<3.12,>=3.10
+  - python<3.13,>=3.11
   - pyyaml
+  - pyvis
   - ruff
   - shapely
   - sphinx
@@ -50,6 +51,6 @@ dependencies:
   - xarray>=2024.06.0
   - xmltodict
   - pip:
-      - jupyter_black
       - git+https://github.com/jararias/mpsplines.git
       - pyPRMS
+      - modflow-devtools[dfn]==1.7.0

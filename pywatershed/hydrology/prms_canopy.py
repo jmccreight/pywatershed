@@ -1,4 +1,5 @@
-from typing import Literal
+import pathlib as pl
+from typing import Literal, Union
 from warnings import warn
 
 import numpy as np
@@ -54,14 +55,40 @@ class PRMSCanopy(ConservativeProcess):
         hru_ppt: Precipitation on each HRU
         hru_rain: Rain on each HRU
         hru_snow: Snow on each HRU
-        budget_type: one of ["defer", None, "warn", "error"] with "defer" being
-            the default and defering to control.options["budget_type"] when
-            available. When control.options["budget_type"] is not avaiable,
-            budget_type is set to "warn".
+        imbalance_behavior: one of ["defer", None, "warn", "error"]
+            with "defer" being the default and defering to
+            control.options["imbalance_behavior"] when available. When
+            control.options["imbalance_behavior"] is not avaiable,
+            imbalance_behavior is set to "warn".
         calc_method: one of ["numba", "numpy"]. None defaults to
             "numba".
         verbose: Print extra information or not?
         load_n_time_batches: not-implemented
+        restart_read:
+            May be boolean or a Pathlib.Path. If False, control.options
+            will be examined for this key. If True, the working
+            directory is searched for restart files. If a Pathlib.Path, this
+            specifies an alternative directory to search for restart files.
+            Files searched for are of the pattern YYYY-mm-dd-varname.nc where
+            the date is the control.init_time. The timestamp on the file is the
+            valid time of the states in the file with the exception of
+            processes with sub-daily timesteps. For example, the outflow_ts
+            variable of PRMSChannel is instantaneous and valid at the 23rd hour
+            of the timestampped day whereas its variable seg_outflow is the
+            daily averge value over the timestampped day.
+        restart_write:
+            As for restart_read but for writing. The directory in either
+            case will be attempted to be created if it does not exist.
+        restart_write_freq:
+            If False, then control.options is examined for this key. The
+            follwing values set the frequency of restart output with "y" for
+            yearly, "m" for monthly, "d" for daily, or "f" for final. "Final"
+            means that restart files are written with the states at
+            control.end_time to files timestampped with control.end_time.
+            Yearly and monthly restart options write files with timestamps on
+            the last day of each year or month during the run. If daily,
+            restarts are written every day. If restart_write is not False and
+            restart_write_freq is False, the default of "f" is used.
     """
 
     def __init__(
@@ -77,14 +104,20 @@ class PRMSCanopy(ConservativeProcess):
         hru_snow: adaptable,
         potet: adaptable,
         pptmix: adaptable,
-        budget_type: Literal["defer", None, "warn", "error"] = "defer",
+        imbalance_behavior: Literal["defer", None, "warn", "error"] = "defer",
         calc_method: Literal["numba", "numpy"] = None,
         verbose: bool = None,
-    ):
+        restart_read: Union[pl.Path, bool] = False,
+        restart_write: Union[pl.Path, bool] = False,
+        restart_write_freq: Literal["y", "m", "d", "f", False] = False,
+    ) -> None:
         super().__init__(
             control=control,
             discretization=discretization,
             parameters=parameters,
+            restart_read=restart_read,
+            restart_write=restart_write,
+            restart_write_freq=restart_write_freq,
         )
         self.name = "PRMSCanopy"
 
@@ -146,6 +179,14 @@ class PRMSCanopy(ConservativeProcess):
         }
 
     @staticmethod
+    def get_restart_variables() -> list:
+        return [
+            "hru_intcpstor",
+            "intcp_stor",
+            "intcp_transp_on",
+        ]
+
+    @staticmethod
     def get_mass_budget_terms():
         return {
             "inputs": ["hru_rain", "hru_snow"],
@@ -159,6 +200,10 @@ class PRMSCanopy(ConservativeProcess):
         }
 
     def _set_initial_conditions(self):
+        """Set initial conditions for variables not in get_init_values"""
+        return
+
+    def _init_diagnostic_vars(self) -> None:
         return
 
     def _init_calc_method(self):
@@ -273,16 +318,12 @@ class PRMSCanopy(ConservativeProcess):
 
         return
 
-    def _advance_variables(self):
-        """Advance canopy
-        Returns:
-            None
-
-        """
+    def _advance_variables(self) -> None:
+        """Advance canopy variables"""
         self.hru_intcpstor_old[:] = self.hru_intcpstor
         return
 
-    def _calculate(self, time_length):
+    def _calculate(self, time_length) -> None:
         """Calculate canopy terms for a time step
 
         Args:

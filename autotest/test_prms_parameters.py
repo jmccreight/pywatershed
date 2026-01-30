@@ -69,13 +69,13 @@ def test_parameter_init():
     parameters = {
         "nhru": 2,
         "abc": np.zeros(2, dtype=float),
-        "nmonths": 12,
+        "nmonth": 12,
         "nsegment": 10,
         "xyz": np.arange(12 * 10, dtype=float).reshape(12, 10),
     }
     param_obj = Parameters(data_vars=parameters, validate=False)
 
-    answers = {"nhru": 2, "nmonths": 12, "nsegment": 10}
+    answers = {"nhru": 2, "nmonth": 12, "nsegment": 10}
 
     results = {
         key: val

@@ -204,8 +204,11 @@ def load_wbl_output(output_data_path, convert=True, verbose=False):
 class Soltab(Accessor):
     def __init__(
         self,
-        soltab_file: fileish,
-        output_dir: fileish = None,
+        soltab_file: Union[pl.Path, None] = None,
+        soltab_sunhrs_file: Union[pl.Path, None] = None,
+        soltab_potsw_file: Union[pl.Path, None] = None,
+        soltab_horad_potsw_file: Union[pl.Path, None] = None,
+        output_dir: Union[pl.Path, None] = None,
         nhm_ids: np.ndarray = None,
         chunk_sizes: dict = {"doy": 0, "nhm_id": 0},
     ):
@@ -225,11 +228,31 @@ class Soltab(Accessor):
             "soltab_sunhrs",
         ]
 
-        (
-            self.soltab_potsw,
-            self.soltab_horad_potsw,
-            self.soltab_sunhrs,
-        ) = load_soltab_debug(self.soltab_file)
+        if soltab_file is not None:
+            (
+                self.soltab_potsw,
+                self.soltab_horad_potsw,
+                self.soltab_sunhrs,
+            ) = load_soltab_debug(self.soltab_file)
+
+        elif (
+            soltab_sunhrs_file is not None
+            and soltab_potsw_file is not None
+            and soltab_horad_potsw_file is not None
+        ):
+            (
+                self.soltab_potsw,
+                self.soltab_horad_potsw,
+                self.soltab_sunhrs,
+            ) = load_soltab_debug_indiv_files(
+                soltab_sunhrs_file, soltab_potsw_file, soltab_horad_potsw_file
+            )
+        else:
+            raise ValueError(
+                "Improper init of Soltab: user must supply either "
+                "'soltab_file' or all of 'soltab_sunhrs_file', "
+                "'soltab_potsw_file', and 'soltab_horad_potsw_file'."
+            )
 
         if self.output_dir:
             self.to_netcdf(chunk_sizes=chunk_sizes)
@@ -299,7 +322,9 @@ class Soltab(Accessor):
         return
 
 
-def load_soltab_debug(file_path: pl.Path) -> Tuple[np.ndarray, np.ndarray]:
+def load_soltab_debug(
+    file_path: pl.Path,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Load the PRMS soltab_debug output file.
 
     With `print_debug` set to 5 in the control file, PRMS 5.2.1 prings the
@@ -369,3 +394,26 @@ def load_soltab_debug(file_path: pl.Path) -> Tuple[np.ndarray, np.ndarray]:
         sun_hrs[:, hh] = np.array(data_list[hh]["sunhrs"])
 
     return potential_sw_rad, potential_sw_rad_flat, sun_hrs
+
+
+def load_soltab_debug_indiv_files(
+    soltab_sunhrs_path: pl.Path,
+    soltab_potsw_path: pl.Path,
+    soltab_horad_potsw_path: pl.Path,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    var_names = ["soltab_sunhrs", "soltab_potsw", "soltab_horad_potsw"]
+
+    results = {}
+    for vv in var_names:
+        file_path = locals()[f"{vv}_path"]
+        df = pd.read_csv(file_path, header=0, index_col=None)
+        # trailing comma results in a final unnamed column full w NaNs. Drop
+        # the column.
+        df = df.drop(df.columns[-1], axis=1)
+        results[vv] = df.values
+
+    return (
+        results["soltab_potsw"],
+        results["soltab_horad_potsw"],
+        results["soltab_sunhrs"],
+    )

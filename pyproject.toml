@@ -1,15 +1,12 @@
 [build-system]
-requires = [
-    "setuptools>64",
-    "numpy>=2.0",
-]
+requires = ["setuptools>64", "numpy>=2.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "pywatershed"
 description = "pywatershed is a Python package for hydrologic modeling"
 authors = [
-    {name = "USGS Enterprise Capacity Team", email = "modflow@usgs.gov"},
+    { name = "USGS Enterprise Capacity Team", email = "modflow@usgs.gov" },
 ]
 maintainers = [
     { name = "James L. McCreight", email = "jmccreight@usgs.gov" },
@@ -22,11 +19,11 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "License :: CC0 1.0 Universal (CC0 1.0) Public Domain Dedication",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Hydrology",
 ]
-requires-python = ">=3.10,<3.12"
+requires-python = ">=3.11,<3.13"
 dependencies = [
     "contextily",
     "numpy>=2.0.0",
@@ -39,6 +36,7 @@ dependencies = [
     "numba",
     "pandas >= 1.4.0",
     "pint",
+    "pyPRMS",
     "pyyaml",
     "tqdm",
     "xarray >= 2023.5.0",
@@ -48,19 +46,13 @@ dependencies = [
 dynamic = ["version", "readme"]
 
 [project.optional-dependencies]
-lint = [
-    "cffconvert",
-    "click",
-    "ruff",
-    "flynt",
-    "pre-commit",
-]
+lint = ["cffconvert", "click", "ruff", "flynt", "pre-commit"]
 test = [
     "pywatershed[lint]",
     "coverage",
     "flaky",
     "filelock",
-    "modflow-devtools",
+    "modflow-devtools[dfn]==1.7.0",
     "pre-commit",
     "pytest!=8.1.0",
     "pytest-cov",
@@ -79,6 +71,7 @@ optional = [
     "ipython",
     "jupyter",
     "jupyterlab",
+    "pyvis",
 ]
 doc = [
     "ipython",
@@ -87,16 +80,14 @@ doc = [
     "sphinx-book-theme>=0.3.3",
     "sphinx-autodoc-typehints>=2.2.1",
     "sphinx-autosummary-accessors",
-    "sphinx-copybutton"
+    "sphinx-copybutton",
 ]
-all = [
-    "pywatershed[lint, test, optional, doc]",
-]
+all = ["pywatershed[lint, test, optional, doc]"]
 
 [project.urls]
 Documentation = "https://pywatershed.readthedocs.io"
-"Bug Tracker" = "https://github.com/EC-USGS/pywatershed/issues"
-"Source Code" = "https://github.com/EC-USGS/pywatershed"
+"Bug Tracker" = "https://github.com/DOI-USGS/pywatershed/issues"
+"Source Code" = "https://github.com/DOI-USGS/pywatershed"
 
 [tool.setuptools]
 include-package-data = true
@@ -116,7 +107,7 @@ include = ["pywatershed", "pywatershed.*"]
 
 [tool.ruff]
 line-length = 79
-target-version = "py39"
+target-version = "py312"
 include = [
     "pyproject.toml",
     "pywatershed/**/*.py",
@@ -136,4 +127,4 @@ ignore = [
 # that dont yet support ruff
 [tool.black]
 line-length = 79
-target_version = ["py39"]
+target_version = ["py312"]

@@ -1,4 +1,5 @@
-from typing import Literal
+import pathlib as pl
+from typing import Literal, Union
 from warnings import warn
 
 import numpy as np
@@ -63,10 +64,11 @@ class PRMSSoilzone(ConservativeProcess):
             sublimation unless snowpack
         dprst_flag: use depression storage or not? None uses value in control
             file, which otherwise defaults to True.
-        budget_type: one of ["defer", None, "warn", "error"] with "defer" being
-            the default and defering to control.options["budget_type"] when
-            available. When control.options["budget_type"] is not avaiable,
-            budget_type is set to "warn".
+        imbalance_behavior: one of ["defer", None, "warn", "error"]
+            with "defer" being the default and defering to
+            control.options["imbalance_behavior"] when available. When
+            control.options["imbalance_behavior"] is not avaiable,
+            imbalance_behavior is set to "warn".
         calc_method: one of ["fortran", "numba", "numpy"]. None defaults to
             "numba".
         adjust_parameters: one of ["warn", "error", "no"]. Default is "warn",
@@ -76,6 +78,31 @@ class PRMSSoilzone(ConservativeProcess):
             selected then no parameters are adjusted and there will be no
             warnings or errors.
         verbose: Print extra information or not?
+        restart_read:
+            May be boolean or a Pathlib.Path. If False, control.options
+            will be examined for this key. If True, the working
+            directory is searched for restart files. If a Pathlib.Path, this
+            specifies an alternative directory to search for restart files.
+            Files searched for are of the pattern YYYY-mm-dd-varname.nc where
+            the date is the control.init_time. The timestamp on the file is the
+            valid time of the states in the file with the exception of
+            processes with sub-daily timesteps. For example, the outflow_ts
+            variable of PRMSChannel is instantaneous and valid at the 23rd hour
+            of the timestampped day whereas its variable seg_outflow is the
+            daily averge value over the timestampped day.
+        restart_write:
+            As for restart_read but for writing. The directory in either
+            case will be attempted to be created if it does not exist.
+        restart_write_freq:
+            If False, then control.options is examined for this key. The
+            follwing values set the frequency of restart output with "y" for
+            yearly, "m" for monthly, "d" for daily, or "f" for final. "Final"
+            means that restart files are written with the states at
+            control.end_time to files timestampped with control.end_time.
+            Yearly and monthly restart options write files with timestamps on
+            the last day of each year or month during the run. If daily,
+            restarts are written every day. If restart_write is not False and
+            restart_write_freq is False, the default of "f" is used.
     """
 
     def __init__(
@@ -95,15 +122,21 @@ class PRMSSoilzone(ConservativeProcess):
         snow_evap: adaptable,
         snowcov_area: adaptable,
         dprst_flag: bool = None,
-        budget_type: Literal["defer", None, "warn", "error"] = "defer",
+        imbalance_behavior: Literal["defer", None, "warn", "error"] = "defer",
         calc_method: Literal["numba", "numpy"] = None,
         adjust_parameters: Literal["warn", "error", "no"] = "warn",
         verbose: bool = None,
-    ) -> "PRMSSoilzone":
+        restart_read: Union[pl.Path, bool] = False,
+        restart_write: Union[pl.Path, bool] = False,
+        restart_write_freq: Literal["y", "m", "d", "f", False] = False,
+    ):
         super().__init__(
             control=control,
             discretization=discretization,
             parameters=parameters,
+            restart_read=restart_read,
+            restart_write=restart_write,
+            restart_write_freq=restart_write_freq,
         )
         self.name = "PRMSSoilzone"
 
@@ -181,10 +214,6 @@ class PRMSSoilzone(ConservativeProcess):
         )
 
     @staticmethod
-    def get_restart_variables() -> tuple:
-        return ()
-
-    @staticmethod
     def get_init_values() -> dict:
         return {
             "cap_infil_tot": zero,
@@ -233,7 +262,18 @@ class PRMSSoilzone(ConservativeProcess):
         }
 
     @staticmethod
-    def get_mass_budget_terms():
+    def get_restart_variables() -> list:
+        return [
+            "soil_moist",
+            "soil_rechr",
+            "slow_stor",
+            # these might be necessary with different options...
+            # "pref_flow_stor",  # apparently not necessary
+            # "ssres_stor",  # apparently not necessary
+        ]
+
+    @staticmethod
+    def get_mass_budget_terms() -> dict:
         return {
             "inputs": [
                 "infil_hru",
@@ -257,6 +297,9 @@ class PRMSSoilzone(ConservativeProcess):
     def _set_initial_conditions(self):
         # this is called in the super before options are set on self
         pass
+
+    def _init_diagnostic_vars(self) -> None:
+        return
 
     def _initialize_soilzone_data(self):
         # Derived parameters
@@ -311,7 +354,7 @@ class PRMSSoilzone(ConservativeProcess):
             raise ValueError(msg)
 
         # variables
-        if True:
+        if not self._restart_read:
             # For now there is no restart capability. we'll use the following
             # line when there is
             # if self.control.options["restart"] in [0, 2, 5]:
@@ -323,19 +366,13 @@ class PRMSSoilzone(ConservativeProcess):
             self.soil_rechr[:] = (
                 self.soil_rechr_init_frac * self.soil_rechr_max
             )
-        else:
-            # call ctl_data%read_restart_variable(
-            #    'soil_moist', this%soil_moist)
-            # call ctl_data%read_restart_variable(
-            #    'soil_rechr', this%soil_rechr)
-            raise RuntimeError("Soilzone restart capability not implemented")
 
         # Note that the following is often editing a copy of the parameters,
         # which is a bit odd in that it might be contrary to the users
         # expectations. Move this parameter business to __init__
 
         # ssres_stor
-        if True:
+        if not self._restart_read:
             # For now there is no restart capability. we'll use the following
             # line when there is
             # if self.control.options["restart"] in [0, 2, 5]:
@@ -347,11 +384,6 @@ class PRMSSoilzone(ConservativeProcess):
             )
             self.ssres_stor[wh_inactive_or_lake] = zero
             del self.ssstor_init_frac
-
-        else:
-            # call ctl_data%read_restart_variable(
-            #     'ssres_stor', this%ssres_stor)
-            raise RuntimeError("Soilzone restart capability not implemented")
 
         # Parameter edits in climateflow
         # JLM: some of these should just be runtime/value errors
@@ -486,7 +518,7 @@ class PRMSSoilzone(ConservativeProcess):
         self._pref_flow_flag[wh_land_and_prf_den] = True
 
         # can this one be combined with the restart read logic above?
-        if True:
+        if not self._restart_read:
             # For now there is no restart capability. we'll use the following
             # line when there is
             # if self.control.options["restart"] in [0, 2, 5]:
@@ -504,12 +536,6 @@ class PRMSSoilzone(ConservativeProcess):
                 self.ssres_stor[wh_land_or_swale]
                 - self.slow_stor[wh_land_or_swale]
             )
-
-        else:
-            # call ctl_data%read_restart_variable(
-            #    'pref_flow_stor', self.pref_flow_stor)
-            # call ctl_data%read_restart_variable('slow_stor', self.slow_stor)
-            raise RuntimeError("Soilzone restart capability not implemented")
 
         # <
         # need to set soil2gw_flag on self? move to variables?
