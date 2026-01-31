@@ -11,7 +11,13 @@ actet:
   type: float64
   units: inches
 AET_external:
-  desc: Actual evapotranspiration for each HRU that is read from a CBH File.
+  desc: Actual evapotranspiration for each HRU computed from aet_observed and pet_observed.
+  dims:
+    0: nhru
+  type: float64
+  units: inches
+aet_observed:
+  desc: Observed actual evapotranspiration for each HRU read from a CBH file (when iter_aet_flag is True).
   dims:
     0: nhru
   type: float64
@@ -32,6 +38,12 @@ ag_actet:
 ag_hortonian:
   desc: Hortonian surface runoff that flows to the stream network from the
     irrigated area of each HRU
+  dims:
+    0: nhru
+  type: float64
+  units: inches
+pet_observed:
+  desc: Observed potential evapotranspiration for each HRU read from a CBH file ( when iter_aet_flag is True).
   dims:
     0: nhru
   type: float64

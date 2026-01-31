@@ -284,8 +284,9 @@ if [ -z "${t}" ]; then
             --ignore=test_prms_et_can_runoff.py \
             --ignore=test_prms_et_canopy.py \
             --ignore=test_prms_hydraulic_geometry.py \
-            --ignore=test_prms_runoff.py \
+            \
             --ignore=test_prms_soilzone_ag.py \
+            --ignore=test_prms_runoff_ag.py \
             --ignore=test_prms_stream_temp.py \
             --ignore=test_source_sink_flow_node.py \
             --ignore=test_starfit_flow_graph.py || exit 1

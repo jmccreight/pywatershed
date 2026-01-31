@@ -44,7 +44,7 @@ simplifications:
 Implementation Notes
 --------------------
 - The iteration loop adjusts `ag_irrigation_add` to minimize the difference
-  between computed agricultural ET and observed AET (from AET_external input)
+  between computed agricultural ET and observed AET
 - Convergence criteria: unsatisfied_ag_et <= soilzone_aet_converge
 - Maximum iterations: max_soilzone_ag_iter (default 10)
 - After 20 iterations, doubles the irrigation increment to speed convergence
@@ -127,8 +127,10 @@ class PRMSSoilzoneAg(ConservativeProcess):
         snowcov_area: Snow-covered area on each HRU prior to melt and
             sublimation unless snowpack
         ag_frac: Fraction of HRU that is agricultural/irrigated area
-        AET_external: External observed actual ET for each HRU (when
-            iter_aet_flag is True)
+        aet_observed: Observed actual ET from CBH file for each HRU (when
+            iter_aet_flag is True). Used to calculate AET_external.
+        pet_observed: Observed potential ET from CBH file for each HRU (when
+            iter_aet_flag is True). Used to calculate AET_external.
         dprst_flag: use depression storage or not? None uses value in control
             file, which otherwise defaults to True.
         iter_aet_flag: Flag to enable iterative AET matching. If None,
@@ -182,7 +184,8 @@ class PRMSSoilzoneAg(ConservativeProcess):
         snow_evap: adaptable,
         snowcov_area: adaptable,
         ag_frac: adaptable,
-        AET_external: Union[adaptable, None] = None,
+        aet_observed: Union[adaptable, None] = None,
+        pet_observed: Union[adaptable, None] = None,
         dprst_flag: bool = None,
         iter_aet_flag: Literal[True, False, None] = None,
         imbalance_behavior: Literal["defer", None, "warn", "error"] = "defer",
@@ -225,11 +228,29 @@ class PRMSSoilzoneAg(ConservativeProcess):
                     control=self.control,
                 )
 
-        # Validate AET_external input when iter_aet_flag is True
-        if self._iter_aet_flag:
-            if AET_external is None:
-                msg = "AET_external input is required when iter_aet_flag=True"
+        # Validate aet_observed and pet_observed inputs when iter_aet_flag is
+        # True
+        missing_inputs = []
+        if aet_observed is None:
+            missing_inputs.append("aet_observed")
+        if pet_observed is None:
+            missing_inputs.append("pet_observed")
+        if missing_inputs:
+            if self._iter_aet_flag:
+                plural = "s" if len(missing_inputs) > 1 else ""
+                msg = (
+                    f"{' and '.join(missing_inputs)} input{plural} required when "
+                    "iter_aet_flag=True"
+                )
                 raise ValueError(msg)
+            else:
+                for kk in ["aet_observed", "pet_observed"]:
+                    if locals()[kk] is None:
+                        nc_path = adapter_factory(
+                            np.zeros(self._params.dimensions["nhru"]),
+                            kk,
+                            control,
+                        )
 
         # This uses options
         self._initialize_soilzone_ag_data()
@@ -299,7 +320,8 @@ class PRMSSoilzoneAg(ConservativeProcess):
             "snow_evap",
             "snowcov_area",
             "ag_frac",
-            "AET_external",
+            "aet_observed",
+            "pet_observed",
         )
 
     @staticmethod
@@ -380,6 +402,7 @@ class PRMSSoilzoneAg(ConservativeProcess):
             "ag_irrigation_add": zero,
             "ag_irrigation_add_vol": zero,
             "ag_aet_external_vol": zero,
+            "AET_external": zero,
             # Redistribution tracking (for ag_frac changes)
             "ag_soil_moist_redistribution": zero,
             "ag_soil_rechr_redistribution": zero,
@@ -1057,6 +1080,32 @@ class PRMSSoilzoneAg(ConservativeProcess):
         self.ag_irrigation_add_vol[:] = zero
         self.ag_aet_external_vol[:] = zero
 
+        # Compute and validate AET_external from observed values
+        # (per climate_hru_debug.f90 lines 113-127)
+        if self._iter_aet_flag:
+            # Copy observed values to working variables
+            self.AET_external[:] = self.aet_observed
+            self._pet_observed = self.pet_observed.copy()
+
+            # Where PET < AET for ag HRUs, set PET = AET
+            mask = (self._pet_observed < self.AET_external) & (
+                self.ag_frac > 0.0
+            )
+            if np.any(mask):
+                self._pet_observed[mask] = self.AET_external[mask]
+
+            # Where AET < 0 (but not -1.0 missing value) for ag HRUs, set to 0
+            mask = (
+                (self.AET_external < 0.0)
+                & (self.AET_external != -1.0)
+                & (self.ag_frac > 0.0)
+            )
+            if np.any(mask) and self._verbose:
+                warn(
+                    f"AET_external < 0.0 for {mask.sum()} HRUs; setting to 0.0"
+                )
+            self.AET_external[mask] = 0.0
+
         # Fortran: DO WHILE ( keep_iterating==ACTIVE )
         while keep_iterating:
             # Restore initial conditions for iteration
@@ -1118,7 +1167,9 @@ class PRMSSoilzoneAg(ConservativeProcess):
                 transp_on=self.transp_on,
                 snow_evap=self.snow_evap,
                 snowcov_area=self.snowcov_area,
-                aet_external=self.AET_external,
+                aet_external=self.AET_external
+                if self._iter_aet_flag
+                else None,
                 ag_irrigation_add=self.ag_irrigation_add,
                 # State variables
                 soil_moist=self.soil_moist,
