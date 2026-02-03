@@ -129,8 +129,6 @@ class PRMSSoilzoneAgObsET(ConservativeProcess):
         ag_frac: Fraction of HRU that is agricultural/irrigated area
         aet_observed: Observed actual ET from CBH file for each HRU (when
             iter_aet_flag is True). Used to calculate AET_external.
-        pet_observed: Observed potential ET from CBH file for each HRU (when
-            iter_aet_flag is True). Used to calculate AET_external.
         dprst_flag: use depression storage or not? None uses value in control
             file, which otherwise defaults to True.
         iter_aet_flag: Flag to enable iterative AET matching. If None,
@@ -185,7 +183,6 @@ class PRMSSoilzoneAgObsET(ConservativeProcess):
         snowcov_area: adaptable,
         ag_frac: adaptable,
         aet_observed: adaptable | None = None,
-        pet_observed: adaptable | None = None,
         dprst_flag: bool | None = None,
         iter_aet_flag: Literal[True, False, None] = None,
         imbalance_behavior: Literal["defer", None, "warn", "error"] = "defer",
@@ -228,13 +225,11 @@ class PRMSSoilzoneAgObsET(ConservativeProcess):
                     control=self.control,
                 )
 
-        # Validate aet_observed and pet_observed inputs when iter_aet_flag is
+        # Validate aet_observed input when iter_aet_flag is
         # True
         missing_inputs = []
         if aet_observed is None:
             missing_inputs.append("aet_observed")
-        if pet_observed is None:
-            missing_inputs.append("pet_observed")
         if missing_inputs:
             if self._iter_aet_flag:
                 plural = "s" if len(missing_inputs) > 1 else ""
@@ -244,7 +239,7 @@ class PRMSSoilzoneAgObsET(ConservativeProcess):
                 )
                 raise ValueError(msg)
             else:
-                for kk in ["aet_observed", "pet_observed"]:
+                for kk in ["aet_observed"]:
                     if locals()[kk] is None:
                         nc_path = adapter_factory(
                             np.zeros(self._params.dimensions["nhru"]),
@@ -321,7 +316,6 @@ class PRMSSoilzoneAgObsET(ConservativeProcess):
             "snowcov_area",
             "ag_frac",
             "aet_observed",
-            "pet_observed",
         )
 
     @staticmethod
@@ -1085,14 +1079,6 @@ class PRMSSoilzoneAgObsET(ConservativeProcess):
         if self._iter_aet_flag:
             # Copy observed values to working variables
             self.AET_external[:] = self.aet_observed
-            self._pet_observed = self.pet_observed.copy()
-
-            # Where PET < AET for ag HRUs, set PET = AET
-            mask = (self._pet_observed < self.AET_external) & (
-                self.ag_frac > 0.0
-            )
-            if np.any(mask):
-                self._pet_observed[mask] = self.AET_external[mask]
 
             # Where AET < 0 (but not -1.0 missing value) for ag HRUs, set to 0
             mask = (
