@@ -43,6 +43,7 @@ from .hydrology.prms_runoff_no_dprst import PRMSRunoffNoDprst
 from .hydrology.prms_snow import PRMSSnow
 from .hydrology.prms_soilzone import PRMSSoilzone
 from .hydrology.prms_soilzone_ag import PRMSSoilzoneAg
+from .hydrology.prms_soilzone_ag_obs_et import PRMSSoilzoneAgObsET
 from .hydrology.prms_soilzone_no_dprst import PRMSSoilzoneNoDprst
 from .hydrology.prms_stream_shade import (
     PRMSStreamShadeDynamic,
@@ -121,6 +122,7 @@ __all__ = (
     "PRMSSnow",
     "PRMSSoilzone",
     "PRMSSoilzoneAg",
+    "PRMSSoilzoneAgObsET",
     "PRMSSoilzoneNoDprst",
     "PRMSStreamShadeDynamic",
     "PRMSStreamTemp",

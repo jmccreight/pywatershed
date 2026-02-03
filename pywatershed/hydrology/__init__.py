@@ -21,6 +21,7 @@ from .prms_runoff_no_dprst import PRMSRunoffNoDprst
 from .prms_snow import PRMSSnow
 from .prms_soilzone import PRMSSoilzone
 from .prms_soilzone_ag import PRMSSoilzoneAg
+from .prms_soilzone_ag_obs_et import PRMSSoilzoneAgObsET
 from .prms_soilzone_no_dprst import PRMSSoilzoneNoDprst
 from .prms_stream_shade import (
     PRMSStreamShade,
@@ -49,6 +50,7 @@ __all__ = (
     "PRMSSnow",
     "PRMSSoilzone",
     "PRMSSoilzoneAg",
+    "PRMSSoilzoneAgObsET",
     "PRMSSoilzoneNoDprst",
     "PRMSStreamShade",
     "PRMSStreamShadeConstant",

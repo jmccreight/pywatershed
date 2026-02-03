@@ -29,6 +29,11 @@ previous_vars = prev_vars_both | {
     "ssres_stor": pws.PRMSSoilzone,
 }
 
+previous_vars_obs_et = previous_vars | {
+    "ag_soil_moist": pws.PRMSSoilzoneAgObsET,
+    "ag_soil_rechr": pws.PRMSSoilzoneAgObsET,
+}
+
 previous_vars_no_dprst = prev_vars_both | {
     "hru_impervstor": pws.PRMSRunoffNoDprst,
     "pref_flow_stor": pws.PRMSSoilzoneNoDprst,
@@ -109,6 +114,11 @@ def diagnose_simple_vars_to_nc(
         params = pws.parameters.PrmsParameters.load(param_file)
 
         if (
+            "iter_aet_flag" in control.options.keys()
+            and control.options["iter_aet_flag"]
+        ):
+            proc_class = previous_vars_obs_et[var_name]
+        elif (
             "dprst_flag" in control.options.keys()
             and control.options["dprst_flag"]
         ):
@@ -117,6 +127,7 @@ def diagnose_simple_vars_to_nc(
             proc_class = previous_vars_no_dprst[var_name]
 
         inputs = {}
+
         for input_name in proc_class.get_inputs():
             # taken from process._initialize_var
             meta = pws.meta.find_variables([input_name])

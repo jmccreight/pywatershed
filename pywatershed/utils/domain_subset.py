@@ -14,7 +14,19 @@ from .segment_from_tracing import (
     get_nhm_segs_ids_above_seg,
 )
 
+cbh_var_ascii_format = {
+    "tmax": "%0.2f",
+    "tmin": "%0.2f",
+    "prcp": "%0.2f",
+    "rhavg": "%0.2f",
+    "actet": "%0.4f",
+    "potet": "%0.4f",
+}
+
 pyprms_meta = pp.MetaData(verbose=False).metadata
+
+cbh_vars_rename = {"actet": "aet_observed", "potet": "pet_observed"}
+cbh_vars_rename_inv = {vv: kk for kk, vv in cbh_vars_rename.items()}
 
 # TODO: subset restarts
 # TODO: maybe something todo, there are no real checks on time or subsetting
@@ -816,6 +828,13 @@ class DomainSubset:
             # internal variables is INSANE and a mess in PRMS.
             var_name = cbh_ctl_var_map[kk]
             file_name = f"{var_name}.nc"
+            if var_name not in vv.data_vars:
+                current_name = cbh_vars_rename_inv[var_name]
+                vv = vv.rename(
+                    {
+                        current_name: var_name,
+                    }
+                )
             vv.to_netcdf(write_dir / file_name)
         # <
         # write netcdf parameter file
@@ -906,7 +925,9 @@ class DomainSubset:
             file_name = pl.Path(self._sub_control[kk].values).name
             self._sub_control[kk].values = file_name
             pp_cbh.write_ascii(
-                filename=write_dir / file_name, variable=var_name
+                filename=write_dir / file_name,
+                variable=var_name,
+                float_format=cbh_var_ascii_format[var_name],
             )
 
     def _parameters_to_ascii(self, write_dir):

@@ -36,6 +36,7 @@ from utils_compare import compare_in_memory, compare_netcdfs
 from pywatershed.base.adapter import adapter_factory
 from pywatershed.base.control import Control
 from pywatershed.hydrology.prms_soilzone_ag import PRMSSoilzoneAg
+from pywatershed.hydrology.prms_soilzone_ag_obs_et import PRMSSoilzoneAgObsET
 
 # from pywatershed.hydrology.prms_soilzone_no_dprst import PRMSSoilzoneNoDprst
 from pywatershed.parameters import Parameters, PrmsParameters
@@ -166,7 +167,12 @@ def SoilzoneAg(simulation):
         )
 
     if "dprst_flag" in ctl.options.keys() and ctl.options["dprst_flag"]:
-        SoilzoneAg = PRMSSoilzoneAg
+        # Choose class based on iter_aet_flag
+        iter_aet_flag = ctl.options.get("iter_aet_flag", None)
+        if iter_aet_flag:
+            SoilzoneAg = PRMSSoilzoneAgObsET
+        else:
+            SoilzoneAg = PRMSSoilzoneAg
     else:
         pytest.skip("Not testing PRMSSoilzoneNoDprstAg")
         # SoilzoneAg = PRMSSoilzoneNoDprstAg
