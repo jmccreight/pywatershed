@@ -248,14 +248,10 @@ def test_compare_prms(
 
     output_dir = simulation["output_dir"]
 
-    iter_aet_flag = control.options.get("iter_aet_flag", None)
     input_variables = {}
     for key in SoilzoneAg.get_inputs():
-        if key in ["aet_observed", "pet_observed"]:
-            if not iter_aet_flag:
-                continue
-            else:
-                nc_path = output_dir.parent / f"{key}.nc"
+        if key in ["aet_observed"]:
+            nc_path = output_dir.parent / f"{key}.nc"
 
         elif key == "ag_frac":
             opts = control.options
@@ -273,22 +269,6 @@ def test_compare_prms(
             nc_path = output_dir / f"{key}.nc"
             if not nc_path.exists():
                 nc_path = None
-
-        # if not nc_path.exists():
-        #     if key == "AET_external":
-        #         nc_path = adapter_factory(
-        #             np.zeros(parameters.dimensions["nhru"]),
-        #             key,
-        #             control,
-        #         )
-        #     elif key == "ag_frac":
-        #         nc_path = adapter_factory(
-        #             parameters.parameters[key].copy(),
-        #             key,
-        #             control,
-        #         )
-        #     else:
-        #         nc_path = None
 
         input_variables[key] = nc_path
 

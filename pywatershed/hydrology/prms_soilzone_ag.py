@@ -21,9 +21,8 @@ class PRMSSoilzoneAg(PRMSSoilzoneAgObsET):
     """PRMS soil zone with agricultural area (no observed ET iteration).
 
     This is a simplified version of PRMSSoilzoneAgObsET that does not require
-    observed actual ET (aet_observed) or potential ET (pet_observed) inputs.
-    It performs agricultural soil zone calculations without iterative AET
-    matching.
+    observed actual ET (aet_observed) inputs. It performs agricultural soil
+    zone calculations without iterative AET matching.
 
     For cases where you have observed ET data and want to iteratively match it
     by adjusting irrigation, use PRMSSoilzoneAgObsET instead.
@@ -120,7 +119,6 @@ class PRMSSoilzoneAg(PRMSSoilzoneAgObsET):
             snowcov_area=snowcov_area,
             ag_frac=ag_frac,
             aet_observed=None,
-            pet_observed=None,
             dprst_flag=dprst_flag,
             iter_aet_flag=iter_aet_flag,
             imbalance_behavior=imbalance_behavior,
@@ -140,8 +138,8 @@ class PRMSSoilzoneAg(PRMSSoilzoneAgObsET):
     def get_inputs() -> tuple:
         """Return the input variable names required by this Process.
 
-        Returns a tuple without aet_observed and pet_observed since this class
-        does not require observed ET data.
+        Returns a tuple without aet_observed since this class does not require
+        observed ET data.
         """
         return (
             "dprst_evap_hru",

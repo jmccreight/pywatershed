@@ -1153,9 +1153,7 @@ class PRMSSoilzoneAgObsET(ConservativeProcess):
                 transp_on=self.transp_on,
                 snow_evap=self.snow_evap,
                 snowcov_area=self.snowcov_area,
-                aet_external=self.AET_external
-                if self._iter_aet_flag
-                else None,
+                aet_external=self.AET_external,
                 ag_irrigation_add=self.ag_irrigation_add,
                 # State variables
                 soil_moist=self.soil_moist,

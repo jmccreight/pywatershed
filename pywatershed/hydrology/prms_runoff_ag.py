@@ -79,7 +79,7 @@ class PRMSRunoffAg(PRMSRunoff):
         intcp_changeover: adaptable,
         ag_soil_moist_prev: adaptable,
         ag_soil_rechr_prev: adaptable,
-        ag_frac: Union[adaptable, None] = None,
+        ag_frac: adaptable,
         dprst_flag: Union[bool, None] = None,
         intcp_changeover_in_net_rain: bool = False,
         imbalance_behavior: Literal["defer", None, "warn", "error"] = "defer",
@@ -120,14 +120,6 @@ class PRMSRunoffAg(PRMSRunoff):
         if restart_read is not False or restart_write is not False:
             self.restart_read = False
             self.restart_write = False
-
-        # PRMSRunoffAg-specific initialization
-        dyn_ag_frac_flag = self.control.options.get("dyn_ag_frac_flag", False)
-        if not dyn_ag_frac_flag:
-            assert "ag_frac" not in self._input_variables_dict.keys()
-            self.ag_frac = self._params.parameters["ag_frac"]
-        else:
-            assert "ag_frac" in self._input_variables_dict.keys()
 
         # Calculate ag_area from ag_frac
         # Following PRMSSoilzoneAg line 447-451
