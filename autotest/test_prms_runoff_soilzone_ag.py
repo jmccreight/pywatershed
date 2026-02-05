@@ -27,14 +27,17 @@ Tolerance Strategy
 
 """
 
-import pathlib as pl
+import shutil
 
 import numpy as np
 import pytest
+import xarray as xr
 from utils_compare import compare_in_memory, compare_netcdfs
 
 from pywatershed.base.adapter import adapter_factory
 from pywatershed.base.control import Control
+from pywatershed.base.model import Model
+from pywatershed.hydrology.prms_runoff_ag import PRMSRunoffAg
 from pywatershed.hydrology.prms_soilzone_ag import PRMSSoilzoneAg
 from pywatershed.hydrology.prms_soilzone_ag_obs_et import PRMSSoilzoneAgObsET
 
@@ -44,7 +47,10 @@ from pywatershed.parameters import Parameters, PrmsParameters
 # compare in memory (faster) or full output files? or both!
 do_compare_output_files = True
 do_compare_in_memory = True
-
+invoke_style = ("legacy", "pws")[0:1]
+calc_methods = ("numpy", "numba")[0:1]  # todo: fix
+params = ("params_sep", "params_one")[1:]  # todo: fix
+imbalance_behavior = "error"
 # Default tolerances for most variables (depth-based)
 default_rtol = 1.0e-5
 default_atol = 1.0e-5
@@ -54,6 +60,10 @@ default_atol = 1.0e-5
 #     errors at that precision multiplied by hru_area can give larger relative
 #     errors while the absolute errors are still near precision.
 var_tolerance_exceptions = {
+    # Runoff variable exceptions:
+    "sroff_vol": {"atol": 1.0e-4, "rtol": 5.0e-5},
+    "dprst_vol_open": {"atol": 3.0e-4, "rtol": 3.0e-4},
+    # Soilzone variable exceptions
     "ssres_flow_vol": {"atol": 2.0, "rtol": 1.0e-2},  # cubic feet
     # ratio capping: small differences when soil_lower is near soil_lower_max
     "soil_lower_ratio": {"atol": 1.0e-4, "rtol": 1.0e-5},
@@ -129,16 +139,57 @@ domain_hru_time_exceptions = {
     },
 }
 
-calc_methods = ("numpy", "numba")[1:]  # todo: fix
-params = ("params_sep", "params_one")[1:]  # todo: fix
-imbalance_behavior = "error"
+
+def mk_ag_frac_input(domain_dir, param_obj, input_dir):
+    """Not a fixture"""
+    # deal with the ag frac input which may option be supplied to PRMS
+    # but not pywatershed
+    ag_frac = xr.load_dataarray(domain_dir / "tmin.nc")
+    ag_frac[:, :] = param_obj.parameters["ag_frac"]
+    ag_frac.name = "ag_frac"
+    ag_frac.to_netcdf(input_dir / "ag_frac.nc")
 
 
-@pytest.fixture(scope="function")
-def control(simulation):
+def setup_input_dir(simulation, control, param_obj, process_list):
+    opts = control.options
+    domain_dir = simulation["dir"]
+    input_dir = opts["input_dir"]
+    ag_frac_dyn_flag = opts.get("dyn_ag_frac_flag", [False])[0]
+    if not ag_frac_dyn_flag:
+        mk_ag_frac_input(domain_dir, param_obj, input_dir)
+    output_dir = simulation["output_dir"]
+    input_list = [ii for proc in process_list for ii in proc.get_inputs()]
+    for ii in input_list:
+        fname = f"{ii}.nc"
+        out_path = output_dir / fname
+        in_path = input_dir / fname
+        if ii == "ag_frac" and ag_frac_dyn_flag:
+            fname = opts["ag_frac_dynamic"][0]
+            out_path = output_dir / f"../{fname}"
+            in_path = input_dir / "ag_frac.param"
+        elif ii == "aet_observed":
+            out_path = output_dir / f"../{fname}"
+
+        # <
+        shutil.copy(out_path, in_path)
+
+
+@pytest.fixture(scope="function", params=calc_methods)
+def control(simulation, tmp_path, request):
     control = Control.load_prms(
         simulation["control_file"], warn_unused_options=False
     )
+    control.options["calc_method"] = request.param
+    control.options["imbalance_behavior"] = imbalance_behavior
+    # because we have to write ag_frac input, we need a custom
+    # input dir
+    control.options["input_dir"] = tmp_path / "input"
+    control.options["input_dir"].mkdir()
+    if do_compare_output_files:
+        # populate the input dir later when the processes are known
+        control.options["netcdf_output_dir"] = tmp_path / "run_output"
+        control.options["netcdf_output_dir"].mkdir()
+
     return control
 
 
@@ -187,7 +238,27 @@ def discretization(simulation):
 
 
 @pytest.fixture(scope="function", params=params)
-def parameters(simulation, control, request):
+def parameters_runoff(simulation, control, request):
+    if request.param == "params_one":
+        param_file = simulation["dir"] / control.options["parameter_file"]
+        params = PrmsParameters.load(param_file)
+
+    else:
+        # Load runoff parameters
+        param_file = simulation["dir"] / "parameters_PRMSRunoffAg.nc"
+        params = PrmsParameters.from_netcdf(param_file)
+
+    if abs(params.parameters["sat_threshold"]).min() < 999.0:
+        pytest.skip(
+            "test_prms_runoff_ag only valid when sat_threshold >= 999 "
+            "(or some amount) which causes zero dunnian_flow"
+        )
+
+    return params
+
+
+@pytest.fixture(scope="function", params=params)
+def parameters_soilzone(simulation, control, request):
     if request.param == "params_one":
         param_file = simulation["dir"] / control.options["parameter_file"]
         params = PrmsParameters.load(param_file)
@@ -198,17 +269,83 @@ def parameters(simulation, control, request):
     return params
 
 
+@pytest.fixture(scope="function")
+def model_args_init_legacy(simulation, control, SoilzoneAg):
+    process_list = [PRMSRunoffAg, SoilzoneAg]
+    param_file = simulation["dir"] / control.options["parameter_file"]
+    parameters = PrmsParameters.load(param_file)
+    args = {
+        "process_list_or_model_dict": process_list,
+        "control": control,
+        "parameters": parameters,
+    }
+    setup_input_dir(simulation, control, parameters, process_list)
+    return args
+
+
+@pytest.fixture(scope="function")
+def model_args_init_pws(
+    simulation,
+    control,
+    discretization,
+    parameters_runoff,
+    parameters_soilzone,
+    SoilzoneAg,
+):
+    process_list = [PRMSRunoffAg, SoilzoneAg]
+    process_dict = {pp.__name__.lower(): pp for pp in process_list}
+    model_dict = {
+        "control": control,
+        "dis_hru": discretization,
+        "model_order": list(process_dict.keys()),
+    }
+    for proc_name, proc in process_dict.items():
+        model_dict[proc_name] = {}
+        proc_args = model_dict[proc_name]
+        proc_args["class"] = proc
+        if "runoff" in proc_name:
+            params = parameters_runoff
+        elif "soilzone" in proc_name:
+            params = parameters_soilzone
+        else:
+            raise ValueError(f"Unknown process name: {proc_name}")
+        # <
+        proc_args["parameters"] = params  # PrmsParameters.from_netcdf(params)
+        proc_args["dis"] = "dis_hru"
+
+    args = {
+        "process_list_or_model_dict": model_dict,
+        "control": None,
+        "parameters": None,
+    }
+
+    setup_input_dir(simulation, control, parameters_soilzone, process_list)
+    return args
+
+
+@pytest.fixture(scope="function", params=invoke_style)
+def model(model_args_init_legacy, model_args_init_pws, request):
+    invoke_style = request.param
+
+    if invoke_style == "legacy":
+        return Model(**model_args_init_legacy)
+    elif invoke_style == "pws":
+        return Model(**model_args_init_pws)
+    else:
+        raise ValueError(f"Unknown invoke style: {invoke_style}")
+
+
 @pytest.mark.parametrize("calc_method", calc_methods)
 def test_compare_prms(
     simulation,
     control,
-    discretization,
-    parameters,
-    SoilzoneAg,
-    tmp_path,
+    model,
     calc_method,
 ):
-    tmp_path = pl.Path(tmp_path)
+    process_list = list(model.processes.values())
+    all_vars_set = set(
+        [ii for proc in process_list for ii in proc.get_variables()]
+    )
 
     # sroff is a runoff variable is edited by soilzone but the forcings are
     # from the output of soilzone, so checking it is kind of a tautology
@@ -219,23 +356,33 @@ def test_compare_prms(
         "soil_lower_change",
         "soil_rechr_change",
     }
-    comparison_var_names = list(
-        set(SoilzoneAg.get_variables())
-        # These are not prms variables per se.
-        # The _hru ones have non-hru equivalents being checked.
-        # soil_zone_max and soil_lower_max would be nice to check but
-        # prms5.2.1 wont write them as hru variables.
-        - {
-            "perv_actet_hru",
-            "soil_lower_change_hru",
-            "soil_lower_max",
-            "soil_rechr_change_hru",
-            "soil_zone_max",  # not a prms variable?
-        }
-        - change_vars
+    # These are not prms variables per se.
+    # The _hru ones have non-hru equivalents being checked.
+    # soil_zone_max and soil_lower_max would be nice to check but
+    # prms5.2.1 wont write them as hru variables.
+    not_prms_vars = {
+        "perv_actet_hru",
+        "soil_lower_change_hru",
+        "soil_lower_max",
+        "soil_rechr_change_hru",
+        "soil_zone_max",  # not a prms variable?
+    }
+    other_vars_excl = {
+        "dprst_vol_thres_open",  # not output by fortran nor post-processed
+        "infil_ag_hru",  # currently not post-processed but infil_ag is
+        "hru_sroff_ag",  # PRMS does can not write this variable
+        "sroff_vol",  # errors for large HRUs, rely on sroff
+        "intcp_changeover_budget",  # not a PRMS/GSFLOW variable
+    }
+
+    comparison_var_names = (
+        all_vars_set - change_vars - not_prms_vars - other_vars_excl
     )
 
     control.options["netcdf_output_var_names"] = comparison_var_names
+    intcp_changeover_in_net_rain = (
+        "gsflow" in control.options["executable_desc"][0].lower()
+    )
 
     # TODO: this is hacky, improve the design
     if (
@@ -246,55 +393,13 @@ def test_compare_prms(
             vv for vv in comparison_var_names if "dprst" not in vv
         }
 
-    output_dir = simulation["output_dir"]
-
-    input_variables = {}
-    for key in SoilzoneAg.get_inputs():
-        if key in ["aet_observed"]:
-            nc_path = output_dir.parent / f"{key}.nc"
-
-        elif key == "ag_frac":
-            opts = control.options
-            ag_frac_dyn_flag = opts.get("dyn_ag_frac_flag", [False])[0]
-            ag_frac_dyn_file = opts.get("ag_frac_dynamic", [None])[0]
-            if not ag_frac_dyn_flag:
-                nc_path = adapter_factory(
-                    parameters.parameters[key].copy(),
-                    key,
-                    control,
-                )
-            else:
-                # there is an adapter for dynamic param files.
-                nc_path = output_dir.parent / ag_frac_dyn_file
-
-        else:
-            nc_path = output_dir / f"{key}.nc"
-            if not nc_path.exists():
-                nc_path = None
-
-        input_variables[key] = nc_path
-
-    if do_compare_output_files:
-        nc_parent = tmp_path / simulation["name"]
-        control.options["netcdf_output_dir"] = nc_parent
-
-    soil = SoilzoneAg(
-        control=control,
-        discretization=discretization,
-        parameters=parameters,
-        **input_variables,
-        imbalance_behavior=imbalance_behavior,
-        calc_method=calc_method,
-    )
-
-    if do_compare_output_files:
-        soil.initialize_netcdf()
-
     # Load answers for comparison and HRU-time exceptions
+    prms_output_dir = simulation["output_dir"]
+    pws_output_dir = control.options["netcdf_output_dir"]
     answers = {}
     skipped_comp_vars = []
     for var in comparison_var_names:
-        var_pth = output_dir / f"{var}.nc"
+        var_pth = prms_output_dir / f"{var}.nc"
         if not var_pth.exists():
             skipped_comp_vars += [var]
             continue
@@ -308,8 +413,10 @@ def test_compare_prms(
         print(f"Skipped comparison for variables: {skipped_comp_vars}")
 
     if do_compare_in_memory:
-        ag_mask = np.where(soil["ag_frac"] > 0.0)
-        not_ag_mask = np.where(soil["ag_frac"] <= 0.0)
+        first_proc = next(iter(model.processes.values()))
+        ag_frac = first_proc._params.parameters["ag_frac"]
+        ag_mask = np.where(ag_frac > 0.0)
+        not_ag_mask = np.where(ag_frac <= 0.0)
         mask_dict = {}
         for vv in answers.keys():
             if "ag_" in vv:
@@ -332,14 +439,14 @@ def test_compare_prms(
                 mask_dict[vv] = None
 
     for istep in range(control.n_times):
-        control.advance()
-        soil.advance()
+        # control.advance()
+        model.advance()
 
         # Advance answers to current timestep
         for var in answers.values():
             var.advance()
 
-        soil.calculate(1.0)
+        model.calculate()
 
         # Apply HRU-time exceptions: replace Python values with Fortran values
         # for HRUs that have diverged due to threshold crossings
@@ -357,14 +464,17 @@ def test_compare_prms(
             if istep >= start_time:
                 for var in affected_vars:
                     if var in answers:
-                        fortran_val = answers[var].current.data[hru_idx]
-                        if isinstance(soil[var], np.ndarray):
-                            soil[var][hru_idx] = fortran_val
-                        else:
-                            # Handle TimeseriesArray
-                            soil[var].current[hru_idx] = fortran_val
+                        for proc_name, proc in model.processes.items():
+                            if var not in proc.variables():
+                                continue
+                            fortran_val = answers[var].current.data[hru_idx]
+                            if isinstance(proc[var], np.ndarray):
+                                proc[var][hru_idx] = fortran_val
+                            else:
+                                # Handle TimeseriesArray
+                                proc[var].current[hru_idx] = fortran_val
 
-        soil.output()
+        model.output()
 
         if do_compare_in_memory:
             # Build variable-specific tolerances: default for all,
@@ -377,24 +487,27 @@ def test_compare_prms(
                 if var in var_tolerances:
                     var_tolerances[var] = tols
 
-            compare_in_memory(
-                soil,
-                answers,
-                mask_dict=mask_dict,
-                atol=default_atol,
-                rtol=default_rtol,
-                var_tolerances=var_tolerances,
-                skip_missing_ans=True,
-                fail_after_all_vars=True,
-            )
+            for proc_name, proc in model.processes.items():
+                print(proc_name)
+                compare_in_memory(
+                    proc,
+                    answers,
+                    mask_dict=mask_dict,
+                    atol=default_atol,
+                    rtol=default_rtol,
+                    var_tolerances=var_tolerances,
+                    skip_missing_ans=True,
+                    fail_after_all_vars=True,
+                    verbose=True,
+                )
 
-    soil.finalize()
+    model.finalize()
 
     if do_compare_output_files:
         # Filter out variables without answer files
         vars_with_answers = []
         for var in comparison_var_names:
-            var_pth = output_dir / f"{var}.nc"
+            var_pth = pws_output_dir / f"{var}.nc"
             if var_pth.exists():
                 vars_with_answers.append(var)
 

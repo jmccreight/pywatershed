@@ -174,8 +174,10 @@ class AdapterDynamicParameter(Adapter):
         # Load from file if path provided
         if isinstance(dyn_param, (str, pl.Path)):
             self._dyn_param = PrmsDynamicParameter.load(dyn_param, dtype=dtype)
+            self._fname = dyn_param
         else:
             self._dyn_param = dyn_param
+            self._fname = None
 
         # Find starting index based on control.start_time
         self._date_index = self._find_date_index(control.start_time)

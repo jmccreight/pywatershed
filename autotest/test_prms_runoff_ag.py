@@ -85,10 +85,6 @@ def test_compare_prms(
 ):
     tmp_path = pl.Path(tmp_path)
 
-    # Skip if not an ag domain
-    if "ag" not in simulation["name"].lower():
-        pytest.skip("test_prms_runoff_ag only valid for ag domains")
-
     comparison_var_names = set(PRMSRunoffAg.get_variables()) - {
         "dprst_vol_thres_open",  # not output by fortran nor post-processed
         "infil_ag_hru",  # currently not post-processed but infil_ag is

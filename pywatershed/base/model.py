@@ -22,6 +22,7 @@ process_order_nhm = [
     "PRMSRunoffNoDprst",
     "PRMSSoilzone",
     "PRMSSoilzoneAg",
+    "PRMSSoilzoneAgObsET",
     "PRMSSoilzoneNoDprst",
     "PRMSEt",
     "PRMSGroundwater",
@@ -531,6 +532,9 @@ class Model:
         for name in self._input_names:
             if self._input_path.is_dir():
                 nc_path = self._input_path / f"{name}.nc"
+                # currently netcdf files or dynamic parameter files accepted
+                if not nc_path.exists():
+                    nc_path = self._input_path / f"{name}.param"
             else:
                 nc_path = self._input_path
             input_adapters[name] = adapter_factory(

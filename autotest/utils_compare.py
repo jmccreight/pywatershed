@@ -178,12 +178,14 @@ def compare_in_memory(
                     sentinel_to_nan=sentinel,
                 )
                 if verbose:
-                    print(f"compare_netcdfs all close for variable: {var}")
+                    print(f"compare_in_memory all close for variable: {var}")
 
             except AssertionError:
                 fail_list += [var]
                 if verbose:
-                    print(f"compare_netcdfs NOT all close for variable: {var}")
+                    print(
+                        f"compare_in_memory NOT all close for variable: {var}"
+                    )
 
     if len(fail_list) > 0:
         success_vars = sorted(

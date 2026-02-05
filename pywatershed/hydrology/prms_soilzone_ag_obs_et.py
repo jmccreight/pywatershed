@@ -182,7 +182,7 @@ class PRMSSoilzoneAgObsET(ConservativeProcess):
         snow_evap: adaptable,
         snowcov_area: adaptable,
         ag_frac: adaptable,
-        aet_observed: adaptable | None = None,
+        aet_observed: adaptable,
         dprst_flag: bool | None = None,
         iter_aet_flag: Literal[True, False, None] = None,
         imbalance_behavior: Literal["defer", None, "warn", "error"] = "defer",
@@ -224,28 +224,6 @@ class PRMSSoilzoneAgObsET(ConservativeProcess):
                     variable_name=kk,
                     control=self.control,
                 )
-
-        # Validate aet_observed input when iter_aet_flag is
-        # True
-        missing_inputs = []
-        if aet_observed is None:
-            missing_inputs.append("aet_observed")
-        if missing_inputs:
-            if self._iter_aet_flag:
-                plural = "s" if len(missing_inputs) > 1 else ""
-                msg = (
-                    f"{' and '.join(missing_inputs)} input{plural} required when "
-                    "iter_aet_flag=True"
-                )
-                raise ValueError(msg)
-            else:
-                for kk in ["aet_observed"]:
-                    if locals()[kk] is None:
-                        nc_path = adapter_factory(
-                            np.zeros(self._params.dimensions["nhru"]),
-                            kk,
-                            control,
-                        )
 
         # This uses options
         self._initialize_soilzone_ag_data()
