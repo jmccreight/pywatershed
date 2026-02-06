@@ -183,6 +183,8 @@ def seasonal_min_max(
         raise ValueError(f"Stat '{stat_name}' not available.")
     # <
     stat["time"] = stat_dates
+    if "units" in stat["time"].attrs:
+        del stat["time"].attrs["units"]
     return stat
 
 
