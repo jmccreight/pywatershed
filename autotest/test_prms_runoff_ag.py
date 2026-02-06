@@ -106,8 +106,13 @@ def test_compare_prms(
             opts = control.options
             ag_frac_dyn_flag = opts.get("dyn_ag_frac_flag", False)
             if not ag_frac_dyn_flag:
+                import xarray as xr
+
+                af_da = xr.load_dataarray(
+                    output_dir.parent / "ag_frac_static.nc"
+                )
                 nc_pth = adapter_factory(
-                    parameters.parameters[key].copy(),
+                    af_da.values,
                     key,
                     control,
                 )

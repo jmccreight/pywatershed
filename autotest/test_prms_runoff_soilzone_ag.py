@@ -163,10 +163,13 @@ def setup_input_dir(simulation, control, param_obj, process_list):
         fname = f"{ii}.nc"
         out_path = output_dir / fname
         in_path = input_dir / fname
-        if ii == "ag_frac" and ag_frac_dyn_flag:
-            fname = opts["ag_frac_dynamic"][0]
-            out_path = output_dir / f"../{fname}"
-            in_path = input_dir / "ag_frac.param"
+        if ii == "ag_frac":
+            if ag_frac_dyn_flag:
+                fname = opts["ag_frac_dynamic"][0]
+                out_path = output_dir / f"../{fname}"
+                in_path = input_dir / "ag_frac.param"
+            else:
+                continue
         elif ii == "aet_observed":
             out_path = output_dir / f"../{fname}"
 
@@ -414,7 +417,7 @@ def test_compare_prms(
 
     if do_compare_in_memory:
         first_proc = next(iter(model.processes.values()))
-        ag_frac = first_proc._params.parameters["ag_frac"]
+        ag_frac = first_proc["ag_frac"]
         ag_mask = np.where(ag_frac > 0.0)
         not_ag_mask = np.where(ag_frac <= 0.0)
         mask_dict = {}
@@ -465,7 +468,7 @@ def test_compare_prms(
                 for var in affected_vars:
                     if var in answers:
                         for proc_name, proc in model.processes.items():
-                            if var not in proc.variables():
+                            if var not in proc.variables:
                                 continue
                             fortran_val = answers[var].current.data[hru_idx]
                             if isinstance(proc[var], np.ndarray):

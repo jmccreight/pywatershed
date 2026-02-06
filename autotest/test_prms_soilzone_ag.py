@@ -129,8 +129,8 @@ domain_hru_time_exceptions = {
     },
 }
 
-calc_methods = ("numpy", "numba")[1:]  # todo: fix
-params = ("params_sep", "params_one")[1:]  # todo: fix
+calc_methods = ("numpy", "numba")
+params = ("params_sep", "params_one")
 imbalance_behavior = "error"
 
 
@@ -258,8 +258,13 @@ def test_compare_prms(
             ag_frac_dyn_flag = opts.get("dyn_ag_frac_flag", [False])[0]
             ag_frac_dyn_file = opts.get("ag_frac_dynamic", [None])[0]
             if not ag_frac_dyn_flag:
+                import xarray as xr
+
+                af_da = xr.load_dataarray(
+                    output_dir.parent / "ag_frac_static.nc"
+                )
                 nc_path = adapter_factory(
-                    parameters.parameters[key].copy(),
+                    af_da.values,
                     key,
                     control,
                 )

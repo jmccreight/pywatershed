@@ -60,7 +60,7 @@ from warnings import warn
 import numba as nb
 import numpy as np
 
-from ..base.adapter import adaptable, adapter_factory
+from ..base.adapter import adaptable
 from ..base.conservative_process import ConservativeProcess
 from ..base.control import Control
 from ..constants import (
@@ -216,17 +216,11 @@ class PRMSSoilzoneAgObsET(ConservativeProcess):
 
         # Handle missing inputs when dprst_flag == False
         if not self._dprst_flag:
-            for kk, vv in self._input_variables_dict.items():
-                if vv is not None:
-                    continue
-                self._input_variables_dict[kk] = adapter_factory(
-                    np.zeros(self._params.dimensions["nhru"]),
-                    variable_name=kk,
-                    control=self.control,
-                )
+            raise ValueError("Not currently supporting non-dprst configs")
 
         # This uses options
-        self._initialize_soilzone_ag_data()
+        # if this uses inputs/dynamic parameters, they are not available until
+        # advance, after model has solved inputs.
 
         self._set_budget()
         self._init_calc_method()
@@ -321,18 +315,18 @@ class PRMSSoilzoneAgObsET(ConservativeProcess):
             "slow_stor": zero,
             "slow_stor_change": zero,
             "slow_stor_prev": nan,
-            "soil_lower": nan,
+            "soil_lower": zero,
             "soil_lower_change": zero,
             "soil_lower_change_hru": zero,
-            "soil_lower_prev": nan,
+            "soil_lower_prev": zero,
             "soil_lower_ratio": zero,
             "soil_lower_max": nan,
             "soil_moist": nan,
             "soil_moist_tot": nan,
-            "soil_rechr": nan,
+            "soil_rechr": zero,
             "soil_rechr_change": zero,
             "soil_rechr_change_hru": zero,
-            "soil_rechr_prev": nan,
+            "soil_rechr_prev": zero,
             "soil_saturated": zero,
             "soil_to_gw": zero,
             "soil_to_ssr": zero,
@@ -348,12 +342,12 @@ class PRMSSoilzoneAgObsET(ConservativeProcess):
             "perv_soil_to_gvr": zero,
             # Agricultural area variables (whole HRU basis)
             "ag_cap_infil_tot": zero,
-            "ag_soil_moist": nan,
-            "ag_soil_moist_prev": nan,
+            "ag_soil_moist": zero,
+            "ag_soil_moist_prev": zero,
             "ag_soil_moist_change": zero,
             "ag_soil_moist_change_hru": zero,
-            "ag_soil_rechr": nan,
-            "ag_soil_rechr_prev": nan,
+            "ag_soil_rechr": zero,
+            "ag_soil_rechr_prev": zero,
             "ag_soil_rechr_change": zero,
             "ag_soil_rechr_change_hru": zero,
             "ag_soil_rechr_max": nan,
@@ -781,6 +775,15 @@ class PRMSSoilzoneAgObsET(ConservativeProcess):
         # Iteration counter for non-convergence tracking
         self._iter_nonconverge = 0
 
+        # Initialize _prev variables for timestep 0 (when not reading restart)
+        if not self._restart_read:
+            self.soil_rechr_prev[:] = self.soil_rechr
+            self.soil_lower_prev[:] = self.soil_lower
+            self.ag_soil_moist_prev[:] = self.ag_soil_moist
+            self.ag_soil_rechr_prev[:] = self.ag_soil_rechr
+            self.pref_flow_stor_prev[:] = self.pref_flow_stor
+            self.slow_stor_prev[:] = self.slow_stor
+
         return
 
     def _init_calc_method(self):
@@ -988,6 +991,9 @@ class PRMSSoilzoneAgObsET(ConservativeProcess):
         This method implements the iterative loop that adjusts irrigation
         to match observed AET when iter_aet_flag is True.
         """
+        if self.control._itime_step == 0:
+            self._initialize_soilzone_ag_data()
+
         # Update ag_area and related quantities in case ag_frac changed
         self._update_ag_areas()
 

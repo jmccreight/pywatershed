@@ -112,22 +112,9 @@ class PRMSRunoffAg(PRMSRunoff):
         self._set_budget()
         self._init_calc_method()
 
-        self.basin_init()
-
-        if self._dprst_flag:
-            self.dprst_init()
-
         if restart_read is not False or restart_write is not False:
             self.restart_read = False
             self.restart_write = False
-
-        # Calculate ag_area from ag_frac
-        # Following PRMSSoilzoneAg line 447-451
-        self.ag_area = self.ag_frac * self.hru_area
-
-        # Adjust pervious area to exclude agricultural area
-        self.hru_perv = self.hru_perv - self.ag_area
-        self.hru_frac_perv = self.hru_perv / self.hru_area
 
         return
 
@@ -221,7 +208,6 @@ class PRMSRunoffAg(PRMSRunoff):
             "va_open_exp",
             "va_clos_exp",
             "op_flow_thres",
-            "ag_frac",
             "sat_threshold",
         )
 
@@ -345,6 +331,18 @@ class PRMSRunoffAg(PRMSRunoff):
 
     def _calculate(self, time_length, vectorized=False):
         """Calculate runoff with agricultural infiltration."""
+
+        if self.control.itime_step == 0:
+            self.basin_init()
+            if self._dprst_flag:
+                self.dprst_init()
+            # Calculate ag_area from ag_frac
+            # Following PRMSSoilzoneAg line 447-451
+            self.ag_area = self.ag_frac * self.hru_area
+            # Adjust pervious area to exclude agricultural area
+            self.hru_perv = self.hru_perv - self.ag_area
+            self.hru_frac_perv = self.hru_perv / self.hru_area
+
         (
             self.infil[:],
             self.infil_ag[:],
