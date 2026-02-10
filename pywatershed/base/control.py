@@ -34,6 +34,7 @@ pws_control_options_avail = [
     # "restart",
     "input_dir",  #
     "input_file",
+    "intcp_changeover_in_net_rain",
     "iter_aet_flag",
     # "load_n_time_batches",
     "netcdf_output_dir",

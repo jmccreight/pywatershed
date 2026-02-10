@@ -81,7 +81,7 @@ class PRMSRunoffAg(PRMSRunoff):
         ag_soil_rechr_prev: adaptable,
         ag_frac: adaptable,
         dprst_flag: Union[bool, None] = None,
-        intcp_changeover_in_net_rain: bool = False,
+        intcp_changeover_in_net_rain: bool | None = None,
         imbalance_behavior: Literal["defer", None, "warn", "error"] = "defer",
         calc_method: Literal["numba", "numpy", None] = None,
         verbose: Union[bool, None] = None,
@@ -111,6 +111,18 @@ class PRMSRunoffAg(PRMSRunoff):
 
         self._set_budget()
         self._init_calc_method()
+
+        if self._intcp_changeover_in_net_rain is None:
+            if "intcp_changeover_in_net_rain" in self.control.options.keys():
+                self._intcp_changeover_in_net_rain = self.control.options[
+                    "intcp_changeover_in_net_rain"
+                ]
+            else:
+                self._intcp_changeover_in_net_rain = False
+                # raise ValueError(
+                #     "intcp_changeover_in_net_rain must be specified for "
+                #     "{self.name}"
+                # )
 
         if restart_read is not False or restart_write is not False:
             self.restart_read = False

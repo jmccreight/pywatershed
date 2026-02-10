@@ -150,6 +150,18 @@ class PRMSRunoff(ConservativeProcess):
         self._set_budget()
         self._init_calc_method()
 
+        if self._intcp_changeover_in_net_rain is None:
+            if "intcp_changeover_in_net_rain" in self.control.options.keys():
+                self._intcp_changeover_in_net_rain = self.control.options[
+                    "intcp_changeover_in_net_rain"
+                ]
+            else:
+                self._intcp_changeover_in_net_rain = False
+                # raise ValueError(
+                #     "intcp_changeover_in_net_rain must be specified for "
+                #     "{self.name}"
+                # )
+
         self.basin_init()
 
         if self._dprst_flag:

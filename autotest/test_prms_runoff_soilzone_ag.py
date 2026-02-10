@@ -47,9 +47,8 @@ from pywatershed.parameters import Parameters, PrmsParameters
 # compare in memory (faster) or full output files? or both!
 do_compare_output_files = True
 do_compare_in_memory = True
-invoke_style = ("legacy", "pws")[0:1]
-calc_methods = ("numpy", "numba")[0:1]  # todo: fix
-params = ("params_sep", "params_one")[1:]  # todo: fix
+invoke_styles = ("legacy", "pws")
+calc_methods = ("numpy", "numba")
 imbalance_behavior = "error"
 # Default tolerances for most variables (depth-based)
 default_rtol = 1.0e-5
@@ -140,10 +139,11 @@ domain_hru_time_exceptions = {
 }
 
 
-def mk_ag_frac_input(domain_dir, param_obj, input_dir):
+def mk_ag_frac_input(domain_dir, full_param_file, input_dir):
     """Not a fixture"""
     # deal with the ag frac input which may option be supplied to PRMS
     # but not pywatershed
+    param_obj = PrmsParameters.load(full_param_file)
     ag_frac = xr.load_dataarray(domain_dir / "tmin.nc")
     ag_frac[:, :] = param_obj.parameters["ag_frac"]
     ag_frac.name = "ag_frac"
@@ -156,7 +156,12 @@ def setup_input_dir(simulation, control, param_obj, process_list):
     input_dir = opts["input_dir"]
     ag_frac_dyn_flag = opts.get("dyn_ag_frac_flag", [False])[0]
     if not ag_frac_dyn_flag:
-        mk_ag_frac_input(domain_dir, param_obj, input_dir)
+        mk_ag_frac_input(
+            domain_dir,
+            simulation["control_file"].parent
+            / control.options["parameter_file"],
+            input_dir,
+        )
     output_dir = simulation["output_dir"]
     input_list = [ii for proc in process_list for ii in proc.get_inputs()]
     for ii in input_list:
@@ -177,12 +182,22 @@ def setup_input_dir(simulation, control, param_obj, process_list):
         shutil.copy(out_path, in_path)
 
 
+@pytest.fixture(scope="function", params=invoke_styles)
+def invoke_style(request):
+    return request.param
+
+
 @pytest.fixture(scope="function", params=calc_methods)
-def control(simulation, tmp_path, request):
+def calc_method(request):
+    return request.param
+
+
+@pytest.fixture(scope="function")
+def control(simulation, tmp_path, calc_method):
     control = Control.load_prms(
         simulation["control_file"], warn_unused_options=False
     )
-    control.options["calc_method"] = request.param
+    control.options["calc_method"] = calc_method
     control.options["imbalance_behavior"] = imbalance_behavior
     # because we have to write ag_frac input, we need a custom
     # input dir
@@ -192,6 +207,10 @@ def control(simulation, tmp_path, request):
         # populate the input dir later when the processes are known
         control.options["netcdf_output_dir"] = tmp_path / "run_output"
         control.options["netcdf_output_dir"].mkdir()
+
+    control.options["intcp_changeover_in_net_rain"] = (
+        "gsflow" in control.options["executable_desc"][0].lower()
+    )
 
     return control
 
@@ -240,9 +259,9 @@ def discretization(simulation):
     return Parameters.from_netcdf(dis_hru_file, encoding=False)
 
 
-@pytest.fixture(scope="function", params=params)
-def parameters_runoff(simulation, control, request):
-    if request.param == "params_one":
+@pytest.fixture(scope="function")
+def parameters_runoff(simulation, control, invoke_style):
+    if invoke_style == "legacy":
         param_file = simulation["dir"] / control.options["parameter_file"]
         params = PrmsParameters.load(param_file)
 
@@ -260,9 +279,9 @@ def parameters_runoff(simulation, control, request):
     return params
 
 
-@pytest.fixture(scope="function", params=params)
-def parameters_soilzone(simulation, control, request):
-    if request.param == "params_one":
+@pytest.fixture(scope="function")
+def parameters_soilzone(simulation, control, invoke_style):
+    if invoke_style == "legacy":
         param_file = simulation["dir"] / control.options["parameter_file"]
         params = PrmsParameters.load(param_file)
     else:
@@ -326,10 +345,8 @@ def model_args_init_pws(
     return args
 
 
-@pytest.fixture(scope="function", params=invoke_style)
-def model(model_args_init_legacy, model_args_init_pws, request):
-    invoke_style = request.param
-
+@pytest.fixture(scope="function")
+def model(model_args_init_legacy, model_args_init_pws, invoke_style):
     if invoke_style == "legacy":
         return Model(**model_args_init_legacy)
     elif invoke_style == "pws":
@@ -338,7 +355,6 @@ def model(model_args_init_legacy, model_args_init_pws, request):
         raise ValueError(f"Unknown invoke style: {invoke_style}")
 
 
-@pytest.mark.parametrize("calc_method", calc_methods)
 def test_compare_prms(
     simulation,
     control,
@@ -383,9 +399,6 @@ def test_compare_prms(
     )
 
     control.options["netcdf_output_var_names"] = comparison_var_names
-    intcp_changeover_in_net_rain = (
-        "gsflow" in control.options["executable_desc"][0].lower()
-    )
 
     # TODO: this is hacky, improve the design
     if (
@@ -415,35 +428,36 @@ def test_compare_prms(
     if len(skipped_comp_vars) > 0:
         print(f"Skipped comparison for variables: {skipped_comp_vars}")
 
-    if do_compare_in_memory:
-        first_proc = next(iter(model.processes.values()))
-        ag_frac = first_proc["ag_frac"]
-        ag_mask = np.where(ag_frac > 0.0)
-        not_ag_mask = np.where(ag_frac <= 0.0)
-        mask_dict = {}
-        for vv in answers.keys():
-            if "ag_" in vv:
-                mask_dict[vv] = ag_mask
-            if vv in [
-                "soil_moist",
-                "soil_rechr",
-                "soil_lower",
-                "soil_moist_tot",
-                "soil_rechr_change",
-                "soil_lower_change",
-                "perv_actet",
-                "potet_rechr",
-                "potet_lower",
-                "cap_infil_tot",
-                "cap_waterin",
-            ]:
-                mask_dict[vv] = not_ag_mask
-            else:
-                mask_dict[vv] = None
-
     for istep in range(control.n_times):
         # control.advance()
         model.advance()
+
+        # Because ag_mask is an input, this has to be after the first adva  nce
+        if istep == 0 and do_compare_in_memory:
+            first_proc = next(iter(model.processes.values()))
+            ag_frac = first_proc["ag_frac"]
+            ag_mask = np.where(ag_frac > 0.0)
+            not_ag_mask = np.where(ag_frac <= 0.0)
+            mask_dict = {}
+            for vv in answers.keys():
+                if "ag_" in vv:
+                    mask_dict[vv] = ag_mask
+                if vv in [
+                    "soil_moist",
+                    "soil_rechr",
+                    "soil_lower",
+                    "soil_moist_tot",
+                    "soil_rechr_change",
+                    "soil_lower_change",
+                    "perv_actet",
+                    "potet_rechr",
+                    "potet_lower",
+                    "cap_infil_tot",
+                    "cap_waterin",
+                ]:
+                    mask_dict[vv] = not_ag_mask
+                else:
+                    mask_dict[vv] = None
 
         # Advance answers to current timestep
         for var in answers.values():
@@ -491,7 +505,6 @@ def test_compare_prms(
                     var_tolerances[var] = tols
 
             for proc_name, proc in model.processes.items():
-                print(proc_name)
                 compare_in_memory(
                     proc,
                     answers,
@@ -501,7 +514,7 @@ def test_compare_prms(
                     var_tolerances=var_tolerances,
                     skip_missing_ans=True,
                     fail_after_all_vars=True,
-                    verbose=True,
+                    verbose=False,
                 )
 
     model.finalize()
@@ -510,7 +523,7 @@ def test_compare_prms(
         # Filter out variables without answer files
         vars_with_answers = []
         for var in comparison_var_names:
-            var_pth = pws_output_dir / f"{var}.nc"
+            var_pth = simulation["output_dir"] / f"{var}.nc"
             if var_pth.exists():
                 vars_with_answers.append(var)
 
@@ -525,10 +538,10 @@ def test_compare_prms(
 
         compare_netcdfs(
             vars_with_answers,
-            tmp_path / simulation["name"],
-            output_dir,
-            atol=default_atol,
+            control.options["netcdf_output_dir"],
+            simulation["output_dir"],
             rtol=default_rtol,
+            atol=default_atol,
             var_tolerances=var_tolerances,
             # fail_after_all_vars=False,
             verbose=True,
