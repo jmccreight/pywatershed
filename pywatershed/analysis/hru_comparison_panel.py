@@ -19,6 +19,7 @@ import numpy as np
 import pandas as pd
 import panel as pn
 import xarray as xr
+from bokeh.models import DatetimeTickFormatter
 from cartopy import crs as ccrs
 from holoviews import streams
 
@@ -99,6 +100,23 @@ class HRUComparisonPanel:
         }
         self.run_names = list(self.run_directories.keys())
 
+        # Assign consistent colors to each run
+        # Using a colorblind-friendly palette
+        color_palette = [
+            "#56B4E9",  # light blue
+            "#DE8F05",  # orange
+            "#949494",  # gray
+            "#029E73",  # green
+            "#CC78BC",  # purple
+            "#CA9161",  # brown
+            "#ECE133",  # yellow
+            "#0173B2",  # blue
+        ]
+        self.run_colors = {
+            run_name: color_palette[i % len(color_palette)]
+            for i, run_name in enumerate(self.run_names)
+        }
+
         # Visual parameters
         self.map_width = map_width
         self.map_height = map_height
@@ -156,6 +174,23 @@ class HRUComparisonPanel:
         # Variable metadata cache
         self.var_metadata = {}
 
+        # Check which runs have which variables
+        print("Checking variable availability across runs...")
+        self.var_availability = {}  # {var_name: [run_names that have it]}
+        for var_name in self.variable_names:
+            available_runs = []
+            for run_name in self.run_names:
+                nc_path = self.run_directories[run_name] / f"{var_name}.nc"
+                if nc_path.exists():
+                    available_runs.append(run_name)
+            self.var_availability[var_name] = available_runs
+            if available_runs:
+                print(
+                    f"  {var_name}: available in {', '.join(available_runs)}"
+                )
+            else:
+                print(f"  {var_name}: NOT FOUND in any run")
+
         # Widgets (will be initialized in create_app)
         self.selected_hru_widget = None
         self.variable_selector = None
@@ -181,7 +216,9 @@ class HRUComparisonPanel:
             f"Available columns: {list(self.gdf.columns)}"
         )
 
-    def load_variable_data(self, var_name: str, run_name: str) -> xr.DataArray:
+    def load_variable_data(
+        self, var_name: str, run_name: str
+    ) -> Optional[xr.DataArray]:
         """
         Load data for a specific variable and run.
 
@@ -194,8 +231,8 @@ class HRUComparisonPanel:
 
         Returns
         -------
-        xr.DataArray
-            Loaded data array
+        xr.DataArray or None
+            Loaded data array, or None if file doesn't exist
         """
         cache_key = (var_name, run_name)
 
@@ -205,10 +242,9 @@ class HRUComparisonPanel:
         nc_path = self.run_directories[run_name] / f"{var_name}.nc"
 
         if not nc_path.exists():
-            raise FileNotFoundError(
-                f"File not found: {nc_path}\n"
-                f"Variable: {var_name}, Run: {run_name}"
-            )
+            # Return None instead of raising error
+            self.data_cache[cache_key] = None
+            return None
 
         print(f"Loading {var_name} from {run_name}...")
         da = xr.load_dataarray(nc_path)
@@ -249,7 +285,9 @@ class HRUComparisonPanel:
 
         return da
 
-    def compute_time_mean(self, var_name: str, run_name: str) -> np.ndarray:
+    def compute_time_mean(
+        self, var_name: str, run_name: str
+    ) -> Optional[np.ndarray]:
         """
         Compute time mean for a variable and run.
 
@@ -262,15 +300,17 @@ class HRUComparisonPanel:
 
         Returns
         -------
-        np.ndarray
-            Time mean values for each HRU
+        np.ndarray or None
+            Time mean values for each HRU, or None if data not available
         """
         da = self.load_variable_data(var_name, run_name)
+        if da is None:
+            return None
         return da.mean(dim="time").values
 
     def compute_difference(
         self, var_name: str, left_run: str, right_run: str
-    ) -> np.ndarray:
+    ) -> Optional[np.ndarray]:
         """
         Compute difference between two runs (left - right).
 
@@ -285,11 +325,13 @@ class HRUComparisonPanel:
 
         Returns
         -------
-        np.ndarray
-            Difference values for each HRU
+        np.ndarray or None
+            Difference values for each HRU, or None if either run doesn't have data
         """
         left_mean = self.compute_time_mean(var_name, left_run)
         right_mean = self.compute_time_mean(var_name, right_run)
+        if left_mean is None or right_mean is None:
+            return None
         return left_mean - right_mean
 
     def get_variable_metadata(self, var_name: str) -> dict:
@@ -354,13 +396,66 @@ class HRUComparisonPanel:
         desc_str = f": {var_meta['desc']}" if var_meta["desc"] else ""
         units_str = f" ({var_meta['units']})" if var_meta["units"] else ""
 
-        if right_run is None or right_run == "None":
-            values = self.compute_time_mean(var_name, left_run)
-            title = f"Time mean of {left_run}: {var_name}{desc_str}{units_str}"
+        # Determine which runs to use based on availability
+        available_runs = self.var_availability.get(var_name, [])
+
+        if not available_runs:
+            # No runs have this variable
+            return (
+                self._create_empty_map(
+                    f"Variable '{var_name}' not found in any run"
+                ),
+                None,
+                self.gdf,
+            )
+
+        # Determine actual left and right runs to use
+        actual_left = left_run if left_run in available_runs else None
+        actual_right = (
+            right_run
+            if (
+                right_run
+                and right_run != "None"
+                and right_run in available_runs
+            )
+            else None
+        )
+
+        # If neither selected run has the variable, use first available
+        if actual_left is None and actual_right is None:
+            actual_left = available_runs[0]
+            actual_right = None
+        elif actual_left is None:
+            actual_left = actual_right
+            actual_right = None
+
+        if actual_right is None or actual_right == "None":
+            values = self.compute_time_mean(var_name, actual_left)
+            if values is None:
+                return (
+                    self._create_empty_map(
+                        f"Could not load data for {var_name} from {actual_left}"
+                    ),
+                    None,
+                    self.gdf,
+                )
+            title = (
+                f"Time mean of {actual_left}: {var_name}{desc_str}{units_str}"
+            )
             cmap = cmap_name
         else:
-            values = self.compute_difference(var_name, left_run, right_run)
-            title = f"Time mean difference of {left_run} - {right_run}: {var_name}{desc_str}{units_str}"
+            values = self.compute_difference(
+                var_name, actual_left, actual_right
+            )
+            if values is None:
+                return (
+                    self._create_empty_map(
+                        f"Could not compute difference for {var_name}"
+                    ),
+                    None,
+                    self.gdf,
+                )
+            title = f"Time mean difference of {actual_left} - {actual_right}: {var_name}{desc_str}{units_str}"
             cmap = cmap_name
 
         # Create a copy of gdf with values
@@ -448,6 +543,31 @@ class HRUComparisonPanel:
         # Return the geodataframe with data for selection purposes
         return map_plot, gv_polys_data, gdf_with_data
 
+    def _create_empty_map(self, message: str):
+        """Create an empty map with a message."""
+        tiles = getattr(gv.tile_sources, self.tile_selector.value)()
+
+        # Create empty polygons for outline only
+        gv_polys = gv.Polygons(
+            self.gdf,
+            vdims=[self.hru_id_column],
+            crs=ccrs.GOOGLE_MERCATOR,
+        ).opts(
+            fill_alpha=0,
+            line_color="lightgray",
+            line_width=0.5,
+            tools=["hover"],
+            hover_tooltips=[("HRU ID", f"@{self.hru_id_column}")],
+        )
+
+        map_plot = (tiles * gv_polys).opts(
+            width=self.map_width,
+            height=self.map_height,
+            title=message,
+        )
+
+        return map_plot
+
     def create_timeseries_plot(
         self,
         var_name: str,
@@ -471,17 +591,34 @@ class HRUComparisonPanel:
         if hru_id not in self.hru_ids:
             return pn.pane.Markdown(f"**HRU {hru_id} not found in data**")
 
-        # Collect timeseries for all runs
+        # Collect timeseries for runs that have this variable
         data_dict = {}
+        time_coords = None
         for run_name in self.run_names:
             da = self.load_variable_data(var_name, run_name)
-            ts = da.sel({self.spatial_dim: hru_id})
-            data_dict[run_name] = ts.values
+            if da is not None:
+                # Find spatial dimension for this specific file
+                spatial_dim = [d for d in da.dims if d != "time"][0]
+
+                # Try to select the HRU, handle if ID doesn't exist in this file
+                try:
+                    ts = da.sel({spatial_dim: hru_id})
+                    data_dict[run_name] = ts.values
+                    if time_coords is None:
+                        time_coords = ts.coords["time"].values
+                except (KeyError, ValueError):
+                    # HRU ID not found in this file, skip this run
+                    continue
+
+        if not data_dict:
+            return pn.pane.Markdown(
+                f"**Variable '{var_name}' not found in any run**"
+            )
 
         # Create DataFrame
         df = pd.DataFrame(
             data_dict,
-            index=ts.coords["time"].values,
+            index=time_coords,
         )
 
         # Get variable metadata
@@ -489,13 +626,19 @@ class HRUComparisonPanel:
         desc_str = f": {var_meta['desc']}" if var_meta["desc"] else ""
         ylabel = var_meta["units"] if var_meta["units"] else var_name
 
-        # Create plot
+        # Assign colors based on run names for consistency
+        color_list = [self.run_colors[col] for col in df.columns]
+
+        # Create plot with monthly x-axis ticks (month over year)
         plot = df.hvplot.line(
             title=f"HRU {hru_id}: {var_name}{desc_str}",
             width=self.timeseries_width,
             height=self.timeseries_height,
             ylabel=ylabel,
             legend="top_right",
+            color=color_list,
+        ).opts(
+            xformatter=DatetimeTickFormatter(months="%b\n%Y"),
         )
 
         return plot
@@ -528,6 +671,35 @@ class HRUComparisonPanel:
             options=right_options,
             value="None" if len(self.run_names) < 2 else self.run_names[1],
         )
+
+        # Function to update run selector options based on variable
+        def update_run_selectors(event):
+            var_name = self.variable_selector.value
+            available_runs = self.var_availability.get(var_name, [])
+
+            if not available_runs:
+                # No runs have this variable
+                self.left_run_selector.options = ["(none available)"]
+                self.left_run_selector.value = "(none available)"
+                self.right_run_selector.options = ["None"]
+                self.right_run_selector.value = "None"
+            else:
+                # Update left selector
+                if self.left_run_selector.value not in available_runs:
+                    self.left_run_selector.value = available_runs[0]
+                self.left_run_selector.options = available_runs
+
+                # Update right selector
+                right_opts = ["None"] + available_runs
+                if self.right_run_selector.value not in right_opts:
+                    self.right_run_selector.value = "None"
+                self.right_run_selector.options = right_opts
+
+        # Watch variable selector to update run options
+        self.variable_selector.param.watch(update_run_selectors, "value")
+
+        # Initialize run selectors for first variable
+        update_run_selectors(None)
 
         # Colorblind-friendly colormap options
         colormap_options = {
@@ -570,8 +742,20 @@ class HRUComparisonPanel:
             value="EsriImagery",
         )
 
-        # Load first variable to get HRU IDs
-        _ = self.load_variable_data(self.variable_names[0], self.run_names[0])
+        # Load first available variable to get HRU IDs
+        for var_name in self.variable_names:
+            for run_name in self.run_names:
+                da = self.load_variable_data(var_name, run_name)
+                if da is not None:
+                    break
+            if self.hru_ids is not None:
+                break
+
+        if self.hru_ids is None:
+            raise ValueError(
+                "Could not load any variables from any runs. "
+                "Please check that NetCDF files exist in the run directories."
+            )
 
         self.selected_hru_widget = pn.widgets.IntInput(
             name="Selected HRU ID",
@@ -591,43 +775,49 @@ class HRUComparisonPanel:
         # Function to update map
         def update_map(event=None):
             try:
-                map_plot, gv_polys, self._gdf_for_selection = (
-                    self.create_map_plot(
-                        self.variable_selector.value,
-                        self.left_run_selector.value,
-                        self.right_run_selector.value,
-                        self.colormap_selector.value,
-                        self.diff_tolerance.value,
-                    )
+                result = self.create_map_plot(
+                    self.variable_selector.value,
+                    self.left_run_selector.value,
+                    self.right_run_selector.value,
+                    self.colormap_selector.value,
+                    self.diff_tolerance.value,
                 )
 
-                # Set up selection stream
-                if self._selection_stream is None:
-                    self._selection_stream = streams.Selection1D(
-                        source=gv_polys
-                    )
-
-                    def update_from_selection(index):
-                        if index and len(index) > 0:
-                            idx = index[0]
-                            if 0 <= idx < len(self._gdf_for_selection):
-                                hru_id = int(
-                                    self._gdf_for_selection.iloc[idx][
-                                        self.hru_id_column
-                                    ]
-                                )
-                                if hru_id in self.hru_ids:
-                                    self.selected_hru_widget.value = hru_id
-
-                    self._selection_stream.param.watch(
-                        lambda event: update_from_selection(event.new), "index"
-                    )
+                if result[1] is None:
+                    # Empty map case (no data available)
+                    map_plot = result[0]
+                    map_row.objects = [map_plot]
                 else:
-                    # Update the source for the existing selection stream
-                    self._selection_stream.source = gv_polys
+                    map_plot, gv_polys, self._gdf_for_selection = result
 
-                # Update the row
-                map_row.objects = [map_plot]
+                    # Set up selection stream
+                    if self._selection_stream is None:
+                        self._selection_stream = streams.Selection1D(
+                            source=gv_polys
+                        )
+
+                        def update_from_selection(index):
+                            if index and len(index) > 0:
+                                idx = index[0]
+                                if 0 <= idx < len(self._gdf_for_selection):
+                                    hru_id = int(
+                                        self._gdf_for_selection.iloc[idx][
+                                            self.hru_id_column
+                                        ]
+                                    )
+                                    if hru_id in self.hru_ids:
+                                        self.selected_hru_widget.value = hru_id
+
+                        self._selection_stream.param.watch(
+                            lambda event: update_from_selection(event.new),
+                            "index",
+                        )
+                    else:
+                        # Update the source for the existing selection stream
+                        self._selection_stream.source = gv_polys
+
+                    # Update the row
+                    map_row.objects = [map_plot]
 
             except Exception as e:
                 map_row.objects = [
