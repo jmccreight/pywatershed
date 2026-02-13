@@ -43,7 +43,7 @@ ag_hortonian:
   type: float64
   units: inches
 pet_observed:
-  desc: Observed potential evapotranspiration for each HRU read from a CBH file ( when iter_aet_flag is True).
+  desc: Observed potential evapotranspiration for each HRU read from a CBH file (when iter_aet_flag is True).
   dims:
     0: nhru
   type: float64

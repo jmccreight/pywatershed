@@ -41,6 +41,10 @@ class HRUComparisonPanel:
     run_directories : dict
         Dictionary mapping run names to directory paths containing netcdf files
         Example: {"Run1": "/path/to/run1/output", "Run2": "/path/to/run2/output"}
+    input_directories : dict, optional
+        Dictionary mapping run names to input directory paths. If a variable is not
+        found in run_directories, will check input_directories.
+        Example: {"Run1": "/path/to/run1/input", "Run2": "/path/to/run2/input"}
     hru_id_column : str, optional
         Column name in shapefile containing HRU IDs. If None, will auto-detect.
     map_width : int, optional
@@ -57,6 +61,18 @@ class HRUComparisonPanel:
     simplify_tolerance : int, optional
         Tolerance in meters for geometry simplification (default: 100).
         Increase this (e.g., 500 or 1000) for faster rendering with large domains.
+    time_aggregations : dict, optional
+        Dictionary mapping aggregation names to functions that take an xarray
+        DataArray and return aggregated values. If None, uses built-in defaults:
+        Mean, Sum, Max, Min, Std, Range, Trend.
+        Custom examples:
+            {
+                "Median": lambda da: da.median(dim="time").values,
+                "95th percentile": lambda da: da.quantile(0.95, dim="time").values,
+                "Jan-Mar Mean": lambda da: da.sel(
+                    time=da.time.dt.month.isin([1,2,3])
+                ).mean(dim="time").values,
+            }
 
     Examples
     --------
@@ -78,13 +94,15 @@ class HRUComparisonPanel:
         shapefile_path: Union[str, pl.Path],
         variable_names: List[str],
         run_directories: Dict[str, Union[str, pl.Path]],
+        input_directories: Optional[Dict[str, Union[str, pl.Path]]] = None,
         hru_id_column: Optional[str] = "nhru_v1_1",
         map_width: int = 1200,
         map_height: int = 650,
-        timeseries_width: int = 1400,
+        timeseries_width: int = 1500,
         timeseries_height: int = 250,
         colormap: str = "viridis",
         simplify_tolerance: int = 300,
+        time_aggregations: Optional[Dict] = None,
     ):
         """Initialize the HRU Comparison Panel."""
         # Initialize Panel and HoloViews extensions
@@ -98,6 +116,11 @@ class HRUComparisonPanel:
         self.run_directories = {
             name: pl.Path(path) for name, path in run_directories.items()
         }
+        self.input_directories = (
+            {name: pl.Path(path) for name, path in input_directories.items()}
+            if input_directories
+            else {}
+        )
         self.run_names = list(self.run_directories.keys())
 
         # Assign consistent colors to each run
@@ -116,6 +139,26 @@ class HRUComparisonPanel:
             run_name: color_palette[i % len(color_palette)]
             for i, run_name in enumerate(self.run_names)
         }
+
+        # Set up time aggregations
+        if time_aggregations is None:
+            # Default aggregations
+            self.time_aggregations = {
+                "Mean": lambda da: da.mean(dim="time").values,
+                "Sum": lambda da: da.sum(dim="time").values,
+                "Max": lambda da: da.max(dim="time").values,
+                "Min": lambda da: da.min(dim="time").values,
+                "Std": lambda da: da.std(dim="time").values,
+                "Range": lambda da: (
+                    da.max(dim="time") - da.min(dim="time")
+                ).values,
+                "Trend": lambda da: self._compute_trend(da),
+            }
+        else:
+            # User-provided custom aggregations
+            self.time_aggregations = time_aggregations
+
+        self.aggregation_names = list(self.time_aggregations.keys())
 
         # Visual parameters
         self.map_width = map_width
@@ -174,15 +217,32 @@ class HRUComparisonPanel:
         # Variable metadata cache
         self.var_metadata = {}
 
-        # Check which runs have which variables
+        # Check which runs have which variables and diagnose dimension issues
         print("Checking variable availability across runs...")
         self.var_availability = {}  # {var_name: [run_names that have it]}
+        self.var_locations = {}  # {(var_name, run_name): 'run'|'input'}
+
         for var_name in self.variable_names:
             available_runs = []
             for run_name in self.run_names:
+                # Check run directory first
                 nc_path = self.run_directories[run_name] / f"{var_name}.nc"
                 if nc_path.exists():
                     available_runs.append(run_name)
+                    self.var_locations[(var_name, run_name)] = "run"
+                    self._diagnose_file(nc_path, var_name, run_name, "run")
+                # Check input directory if not found in run
+                elif run_name in self.input_directories:
+                    input_path = (
+                        self.input_directories[run_name] / f"{var_name}.nc"
+                    )
+                    if input_path.exists():
+                        available_runs.append(run_name)
+                        self.var_locations[(var_name, run_name)] = "input"
+                        self._diagnose_file(
+                            input_path, var_name, run_name, "input"
+                        )
+
             self.var_availability[var_name] = available_runs
             if available_runs:
                 print(
@@ -239,7 +299,14 @@ class HRUComparisonPanel:
         if cache_key in self.data_cache:
             return self.data_cache[cache_key]
 
-        nc_path = self.run_directories[run_name] / f"{var_name}.nc"
+        # Determine which directory to load from
+        if (var_name, run_name) in self.var_locations:
+            if self.var_locations[(var_name, run_name)] == "input":
+                nc_path = self.input_directories[run_name] / f"{var_name}.nc"
+            else:
+                nc_path = self.run_directories[run_name] / f"{var_name}.nc"
+        else:
+            nc_path = self.run_directories[run_name] / f"{var_name}.nc"
 
         if not nc_path.exists():
             # Return None instead of raising error
@@ -248,6 +315,21 @@ class HRUComparisonPanel:
 
         print(f"Loading {var_name} from {run_name}...")
         da = xr.load_dataarray(nc_path)
+
+        # Check if this file uses index-based dimension (nhru) with nhm_id coordinate
+        spatial_dim = [d for d in da.dims if d != "time"][0]
+        if spatial_dim == "nhru" and "nhm_id" in da.coords:
+            # This file uses indices - create a mapping
+            nhm_id_to_index = {
+                int(nhm_id): idx
+                for idx, nhm_id in enumerate(da.coords["nhm_id"].values)
+            }
+            # Store the mapping with the cache key
+            self.data_cache[f"{cache_key}_mapping"] = nhm_id_to_index
+            print(
+                "  File uses index-based dimension with nhm_id coordinate mapping"
+            )
+
         self.data_cache[cache_key] = da
 
         # Set spatial dimension and HRU IDs from first loaded variable
@@ -285,6 +367,103 @@ class HRUComparisonPanel:
 
         return da
 
+    def _diagnose_file(
+        self, nc_path: pl.Path, var_name: str, run_name: str, location: str
+    ):
+        """Diagnose dimension and coordinate issues in a NetCDF file."""
+        try:
+            da = xr.load_dataarray(nc_path)
+            dims = list(da.dims)
+            coords = list(da.coords.keys())
+
+            print(f"    [{location}] {var_name} in {run_name}:")
+            print(f"      Dimensions: {dims}")
+            print(f"      Coordinates: {coords}")
+
+            # Check for spatial dimension
+            spatial_dims = [d for d in dims if d != "time"]
+            if spatial_dims:
+                spatial_dim = spatial_dims[0]
+                print(
+                    f"      Spatial dimension: '{spatial_dim}' with {da.sizes[spatial_dim]} elements"
+                )
+
+                # Check if dimension name is nhm_id vs nhru
+                if spatial_dim == "nhm_id":
+                    print(
+                        "      ⚠️  WARNING: Dimension is 'nhm_id', should be 'nhru'"
+                    )
+                    print(
+                        f"      Coordinate values: {da[spatial_dim].values[:5]}... (first 5)"
+                    )
+                elif spatial_dim == "nhru":
+                    print("      ✓ Dimension is 'nhru' (index-based)")
+                    print(f"      Range: 0 to {da.sizes[spatial_dim] - 1}")
+                else:
+                    print(
+                        f"      ⚠️  WARNING: Unexpected spatial dimension name: '{spatial_dim}'"
+                    )
+
+                # Check if nhm_id exists as a coordinate
+                if "nhm_id" in coords and spatial_dim == "nhru":
+                    print("      ✓ Has 'nhm_id' coordinate for mapping")
+                    print(
+                        f"      nhm_id values: {da.coords['nhm_id'].values[:5]}... (first 5)"
+                    )
+
+        except Exception as e:
+            print(f"    ⚠️  Error diagnosing {nc_path}: {e}")
+
+    def _compute_trend(self, da: xr.DataArray) -> np.ndarray:
+        """Compute linear trend coefficient for each spatial location."""
+        # Get time as numeric values (days since first timestep)
+        time_numeric = (
+            (da.coords["time"] - da.coords["time"][0]).values.astype(float)
+            / 1e9
+            / 86400
+        )  # convert to days
+
+        # Compute trend for each spatial location
+        spatial_dim = [d for d in da.dims if d != "time"][0]
+        trends = np.zeros(da.sizes[spatial_dim])
+
+        for i in range(da.sizes[spatial_dim]):
+            values = da.isel({spatial_dim: i}).values
+            if not np.all(np.isnan(values)):
+                # Simple linear regression: slope = cov(x,y) / var(x)
+                trends[i] = np.cov(time_numeric, values)[0, 1] / np.var(
+                    time_numeric
+                )
+
+        return trends
+
+    def compute_time_aggregation(
+        self, var_name: str, run_name: str, aggregation: str
+    ) -> Optional[np.ndarray]:
+        """
+        Compute time aggregation for a variable and run.
+
+        Parameters
+        ----------
+        var_name : str
+            Variable name
+        run_name : str
+            Run name
+        aggregation : str
+            Aggregation method name
+
+        Returns
+        -------
+        np.ndarray or None
+            Aggregated values for each HRU, or None if data not available
+        """
+        da = self.load_variable_data(var_name, run_name)
+        if da is None:
+            return None
+
+        agg_func = self.time_aggregations[aggregation]
+        return agg_func(da)
+
     def compute_time_mean(
         self, var_name: str, run_name: str
     ) -> Optional[np.ndarray]:
@@ -303,10 +482,8 @@ class HRUComparisonPanel:
         np.ndarray or None
             Time mean values for each HRU, or None if data not available
         """
-        da = self.load_variable_data(var_name, run_name)
-        if da is None:
-            return None
-        return da.mean(dim="time").values
+        # Use the generic aggregation method
+        return self.compute_time_aggregation(var_name, run_name, "Mean")
 
     def compute_difference(
         self, var_name: str, left_run: str, right_run: str
@@ -328,11 +505,17 @@ class HRUComparisonPanel:
         np.ndarray or None
             Difference values for each HRU, or None if either run doesn't have data
         """
-        left_mean = self.compute_time_mean(var_name, left_run)
-        right_mean = self.compute_time_mean(var_name, right_run)
-        if left_mean is None or right_mean is None:
+        # Use current aggregation method from selector
+        agg_method = getattr(self, "_current_aggregation", "Mean")
+        left_agg = self.compute_time_aggregation(
+            var_name, left_run, agg_method
+        )
+        right_agg = self.compute_time_aggregation(
+            var_name, right_run, agg_method
+        )
+        if left_agg is None or right_agg is None:
             return None
-        return left_mean - right_mean
+        return left_agg - right_agg
 
     def get_variable_metadata(self, var_name: str) -> dict:
         """
@@ -373,6 +556,7 @@ class HRUComparisonPanel:
         right_run: Optional[str],
         cmap_name: str = "viridis",
         diff_tolerance: float = 0.0,
+        aggregation: str = "Mean",
     ):
         """
         Create map plot showing either single run mean or difference.
@@ -391,6 +575,9 @@ class HRUComparisonPanel:
         gv.Overlay
             GeoViews overlay with tiles and polygons
         """
+        # Store current aggregation for compute_difference to use
+        self._current_aggregation = aggregation
+
         # Get variable metadata
         var_meta = self.get_variable_metadata(var_name)
         desc_str = f": {var_meta['desc']}" if var_meta["desc"] else ""
@@ -430,7 +617,9 @@ class HRUComparisonPanel:
             actual_right = None
 
         if actual_right is None or actual_right == "None":
-            values = self.compute_time_mean(var_name, actual_left)
+            values = self.compute_time_aggregation(
+                var_name, actual_left, aggregation
+            )
             if values is None:
                 return (
                     self._create_empty_map(
@@ -439,9 +628,7 @@ class HRUComparisonPanel:
                     None,
                     self.gdf,
                 )
-            title = (
-                f"Time mean of {actual_left}: {var_name}{desc_str}{units_str}"
-            )
+            title = f"{aggregation} of {actual_left}\n{var_name}{desc_str}{units_str}"
             cmap = cmap_name
         else:
             values = self.compute_difference(
@@ -455,7 +642,7 @@ class HRUComparisonPanel:
                     None,
                     self.gdf,
                 )
-            title = f"Time mean difference of {actual_left} - {actual_right}: {var_name}{desc_str}{units_str}"
+            title = f"Difference of {aggregation} of {actual_left} - {actual_right}\n{var_name}{desc_str}{units_str}"
             cmap = cmap_name
 
         # Create a copy of gdf with values
@@ -602,11 +789,27 @@ class HRUComparisonPanel:
 
                 # Try to select the HRU, handle if ID doesn't exist in this file
                 try:
-                    ts = da.sel({spatial_dim: hru_id})
+                    # Check if we need to use index mapping
+                    cache_key = (var_name, run_name)
+                    mapping_key = f"{cache_key}_mapping"
+
+                    if mapping_key in self.data_cache:
+                        # This file uses indices - map HRU ID to index
+                        id_to_idx = self.data_cache[mapping_key]
+                        if hru_id in id_to_idx:
+                            idx = id_to_idx[hru_id]
+                            ts = da.isel({spatial_dim: idx})
+                        else:
+                            # HRU ID not in this file's mapping
+                            continue
+                    else:
+                        # This file uses HRU IDs directly as dimension
+                        ts = da.sel({spatial_dim: hru_id})
+
                     data_dict[run_name] = ts.values
                     if time_coords is None:
                         time_coords = ts.coords["time"].values
-                except (KeyError, ValueError):
+                except (KeyError, ValueError, IndexError):
                     # HRU ID not found in this file, skip this run
                     continue
 
@@ -657,6 +860,12 @@ class HRUComparisonPanel:
             name="Variable",
             options=self.variable_names,
             value=self.variable_names[0],
+        )
+
+        self.aggregation_selector = pn.widgets.Select(
+            name="Time Aggregation",
+            options=self.aggregation_names,
+            value="Mean",
         )
 
         self.left_run_selector = pn.widgets.Select(
@@ -781,6 +990,7 @@ class HRUComparisonPanel:
                     self.right_run_selector.value,
                     self.colormap_selector.value,
                     self.diff_tolerance.value,
+                    self.aggregation_selector.value,
                 )
 
                 if result[1] is None:
@@ -867,6 +1077,10 @@ class HRUComparisonPanel:
             map_row.objects = [pn.pane.Markdown("## ⏳ Loading map...")]
             update_map(event)
 
+        def on_aggregation_change(event):
+            map_row.objects = [pn.pane.Markdown("## ⏳ Loading map...")]
+            update_map(event)
+
         def on_tile_change(event):
             map_row.objects = [pn.pane.Markdown("## ⏳ Loading map...")]
             update_map(event)
@@ -883,6 +1097,7 @@ class HRUComparisonPanel:
         self.right_run_selector.param.watch(on_right_run_change, "value")
         self.colormap_selector.param.watch(on_colormap_change, "value")
         self.diff_tolerance.param.watch(on_diff_tolerance_change, "value")
+        self.aggregation_selector.param.watch(on_aggregation_change, "value")
         self.tile_selector.param.watch(on_tile_change, "value")
         self.selected_hru_widget.param.watch(on_hru_change, "value")
 
@@ -893,12 +1108,18 @@ class HRUComparisonPanel:
         # Build layout with controls|map on top, timeseries full width below
         app = pn.Column(
             "# HRU Comparison Panel",
-            f"**Comparing {len(self.run_names)} runs across {len(self.variable_names)} variables**",
+            pn.pane.Markdown(
+                f"**Comparing {len(self.run_names)} runs across {len(self.variable_names)} variables**  \n"
+                f"Runs: {', '.join(self.run_names)}  \n"
+                f"Variables: {', '.join(self.variable_names)}"
+            ),
             "**Click on any HRU polygon on the map to view its timeseries, or manually enter an HRU ID.**",
             pn.Row(
                 pn.Column(
-                    "### Plot Controls",
+                    "### Variable Selection",
                     self.variable_selector,
+                    "### Spatial Plot Controls",
+                    self.aggregation_selector,
                     self.left_run_selector,
                     self.right_run_selector,
                     self.colormap_selector,
@@ -910,11 +1131,11 @@ class HRUComparisonPanel:
                     width=300,
                 ),
                 pn.Column(
-                    "## Spatial Pattern (Time Mean)",
+                    "## Spatial pattern of stats for selected run(s)",
                     map_row,
                 ),
             ),
-            "## Timeseries at Selected HRU",
+            "## Timeseries for all (available) runs at selected HRU",
             timeseries_row,
         )
 
