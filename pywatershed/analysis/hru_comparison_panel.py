@@ -464,27 +464,6 @@ class HRUComparisonPanel:
         agg_func = self.time_aggregations[aggregation]
         return agg_func(da)
 
-    def compute_time_mean(
-        self, var_name: str, run_name: str
-    ) -> Optional[np.ndarray]:
-        """
-        Compute time mean for a variable and run.
-
-        Parameters
-        ----------
-        var_name : str
-            Variable name
-        run_name : str
-            Run name
-
-        Returns
-        -------
-        np.ndarray or None
-            Time mean values for each HRU, or None if data not available
-        """
-        # Use the generic aggregation method
-        return self.compute_time_aggregation(var_name, run_name, "Mean")
-
     def compute_difference(
         self, var_name: str, left_run: str, right_run: str
     ) -> Optional[np.ndarray]:
@@ -505,8 +484,8 @@ class HRUComparisonPanel:
         np.ndarray or None
             Difference values for each HRU, or None if either run doesn't have data
         """
-        # Use current aggregation method from selector
-        agg_method = getattr(self, "_current_aggregation", "Mean")
+        # Use current aggregation method
+        agg_method = self._current_aggregation
         left_agg = self.compute_time_aggregation(
             var_name, left_run, agg_method
         )
@@ -609,11 +588,8 @@ class HRUComparisonPanel:
         )
 
         # If neither selected run has the variable, use first available
-        if actual_left is None and actual_right is None:
-            actual_left = available_runs[0]
-            actual_right = None
-        elif actual_left is None:
-            actual_left = actual_right
+        if actual_left is None:
+            actual_left = actual_right if actual_right else available_runs[0]
             actual_right = None
 
         if actual_right is None or actual_right == "None":
@@ -629,7 +605,6 @@ class HRUComparisonPanel:
                     self.gdf,
                 )
             title = f"{aggregation} of {actual_left}\n{var_name}{desc_str}{units_str}"
-            cmap = cmap_name
         else:
             values = self.compute_difference(
                 var_name, actual_left, actual_right
@@ -643,22 +618,23 @@ class HRUComparisonPanel:
                     self.gdf,
                 )
             title = f"Difference of {aggregation} of {actual_left} - {actual_right}\n{var_name}{desc_str}{units_str}"
-            cmap = cmap_name
 
-        # Create a copy of gdf with values
+        cmap = cmap_name
+
+        # Map values to geodataframe
+        hru_id_to_idx = {
+            hru_id: idx for idx, hru_id in enumerate(self.hru_ids)
+        }
         gdf_plot = self.gdf.copy()
         gdf_plot["value"] = gdf_plot[self.hru_id_column].map(
-            lambda hru_id: values[self.hru_ids.index(hru_id)]
-            if hru_id in self.hru_ids
+            lambda hru_id: values[hru_id_to_idx[hru_id]]
+            if hru_id in hru_id_to_idx
             else np.nan
         )
         gdf_plot["hru_id_display"] = gdf_plot[self.hru_id_column]
 
         # Optionally filter out HRUs with small differences
-        if diff_tolerance > 0 and (
-            right_run is not None and right_run != "None"
-        ):
-            # Mask out values below the tolerance
+        if diff_tolerance > 0 and right_run and right_run != "None":
             gdf_plot.loc[
                 np.abs(gdf_plot["value"]) < diff_tolerance, "value"
             ] = np.nan
@@ -787,30 +763,23 @@ class HRUComparisonPanel:
                 # Find spatial dimension for this specific file
                 spatial_dim = [d for d in da.dims if d != "time"][0]
 
-                # Try to select the HRU, handle if ID doesn't exist in this file
+                # Select HRU using index mapping if available
                 try:
-                    # Check if we need to use index mapping
-                    cache_key = (var_name, run_name)
-                    mapping_key = f"{cache_key}_mapping"
-
+                    mapping_key = f"{(var_name, run_name)}_mapping"
                     if mapping_key in self.data_cache:
-                        # This file uses indices - map HRU ID to index
-                        id_to_idx = self.data_cache[mapping_key]
-                        if hru_id in id_to_idx:
-                            idx = id_to_idx[hru_id]
-                            ts = da.isel({spatial_dim: idx})
-                        else:
-                            # HRU ID not in this file's mapping
+                        # Index-based file - use mapping
+                        idx = self.data_cache[mapping_key].get(hru_id)
+                        if idx is None:
                             continue
+                        ts = da.isel({spatial_dim: idx})
                     else:
-                        # This file uses HRU IDs directly as dimension
+                        # ID-based file - use direct selection
                         ts = da.sel({spatial_dim: hru_id})
 
                     data_dict[run_name] = ts.values
                     if time_coords is None:
                         time_coords = ts.coords["time"].values
                 except (KeyError, ValueError, IndexError):
-                    # HRU ID not found in this file, skip this run
                     continue
 
         if not data_dict:
@@ -845,6 +814,249 @@ class HRUComparisonPanel:
         )
 
         return plot
+
+    def hru_plot_together(
+        self,
+        run_variables: Dict[str, List[str]],
+        hru_id: Optional[int] = None,
+        width: Optional[int] = None,
+        height: Optional[int] = None,
+        renamer: Optional[Dict[str, str]] = None,
+        colors: Optional[Dict[str, str]] = None,
+    ):
+        """
+        Plot multiple variables from different runs together at a single HRU.
+
+        Variables with the same units are plotted on the same subplot, while
+        variables with different units get separate subplots.
+
+        Parameters
+        ----------
+        run_variables : dict
+            Dictionary mapping run names to lists of variable names.
+            Example: {"Run1": ["prcp", "hru_ppt"], "Run2": ["prcp"]}
+        hru_id : int, optional
+            HRU ID to plot. If None, uses current selected HRU from widget.
+        width : int, optional
+            Width of plot in pixels. If None, uses self.timeseries_width.
+        height : int, optional
+            Height of each subplot in pixels. If None, uses self.timeseries_height.
+        renamer : dict, optional
+            Dictionary to rename series labels in the legend.
+            Keys are "{run}: {variable}", values are display names.
+            Example: {"Run1: prcp": "Precipitation (Run1)"}
+        colors : dict, optional
+            Dictionary mapping series labels (after renaming) to colors.
+            If None, uses run colors from self.run_colors.
+            Example: {"Precipitation (Run1)": "#0173B2"}
+
+        Returns
+        -------
+        hvplot object
+            Plot or layout of plots
+
+        Examples
+        --------
+        >>> plot = comparer.hru_plot_together(
+        ...     {"Run1": ["prcp", "hru_ppt"], "Run2": ["prcp", "hru_rain"]},
+        ...     hru_id=85806,
+        ...     width=1600,
+        ...     height=300,
+        ...     renamer={
+        ...         "Run1: prcp": "Precip",
+        ...         "Run1: hru_ppt": "HRU Precip",
+        ...     },
+        ...     colors={"Precip": "#0173B2", "HRU Precip": "#DE8F05"},
+        ... )
+        """
+        try:
+            # Use current HRU if not specified
+            if hru_id is None:
+                if hasattr(self, "selected_hru_widget"):
+                    hru_id = self.selected_hru_widget.value
+                else:
+                    raise ValueError(
+                        "No HRU ID provided and no widget available"
+                    )
+
+            if hru_id not in self.hru_ids:
+                return pn.pane.Markdown(f"**HRU {hru_id} not found in data**")
+
+            # Set plot dimensions
+            plot_width = width if width is not None else self.timeseries_width
+            plot_height = (
+                height if height is not None else self.timeseries_height
+            )
+
+            # Collect all timeseries with metadata
+            series_data = []
+            for run_name, var_list in run_variables.items():
+                for var_name in var_list:
+                    da = self.load_variable_data(var_name, run_name)
+                    if da is None:
+                        print(
+                            f"Warning: Could not load {var_name} from {run_name}"
+                        )
+                        continue
+
+                    # Get variable metadata
+                    var_meta = self.get_variable_metadata(var_name)
+                    units = var_meta.get("units", "")
+                    desc = var_meta.get("desc", "")
+
+                    # Extract timeseries for this HRU
+                    spatial_dim = [d for d in da.dims if d != "time"][0]
+                    try:
+                        mapping_key = f"{(var_name, run_name)}_mapping"
+                        if mapping_key in self.data_cache:
+                            idx = self.data_cache[mapping_key].get(hru_id)
+                            if idx is None:
+                                print(
+                                    f"Warning: HRU {hru_id} not in mapping for {var_name} from {run_name}"
+                                )
+                                continue
+                            ts = da.isel({spatial_dim: idx})
+                        else:
+                            ts = da.sel({spatial_dim: hru_id})
+
+                        series_data.append(
+                            {
+                                "run": run_name,
+                                "variable": var_name,
+                                "units": units,
+                                "desc": desc,
+                                "time": ts.coords["time"].values,
+                                "values": ts.values,
+                            }
+                        )
+                        print(
+                            f"Successfully loaded {run_name}: {var_name} (units: {units})"
+                        )
+                    except (KeyError, ValueError, IndexError) as e:
+                        print(
+                            f"Warning: Failed to extract {var_name} from {run_name}: {e}"
+                        )
+                        continue
+
+            if not series_data:
+                return pn.pane.Markdown(
+                    "**No data available for requested variables**"
+                )
+
+            print(f"Total series loaded: {len(series_data)}")
+
+            # Group by units
+            units_groups = {}
+            for series in series_data:
+                unit = series["units"]
+                if unit not in units_groups:
+                    units_groups[unit] = []
+                units_groups[unit].append(series)
+
+            print(f"Unit groups: {list(units_groups.keys())}")
+
+            # Create plots for each unit group
+            plots = []
+            for unit, group in units_groups.items():
+                print(
+                    f"Creating plot for unit: '{unit}' with {len(group)} series"
+                )
+
+                # Build dataframe for this unit group
+                df_dict = {}
+                time_index = None
+                original_labels = []
+                for series in group:
+                    label = f"{series['run']}: {series['variable']}"
+                    original_labels.append(label)
+                    df_dict[label] = series["values"]
+                    if time_index is None:
+                        time_index = series["time"]
+
+                df = pd.DataFrame(df_dict, index=time_index)
+                print(
+                    f"DataFrame shape: {df.shape}, columns: {list(df.columns)}"
+                )
+
+                # Apply renaming if provided
+                if renamer:
+                    df.rename(columns=renamer, inplace=True)
+                    print(f"After renaming: {list(df.columns)}")
+
+                # Build color mapping for all columns (after renaming)
+                column_to_color = {}
+                for i, col in enumerate(df.columns):
+                    original_label = original_labels[i]
+                    # Check colors dict for both renamed and original labels
+                    if colors:
+                        if col in colors:
+                            # Use color for renamed label
+                            column_to_color[col] = colors[col]
+                        elif original_label in colors:
+                            # Use color for original label
+                            column_to_color[col] = colors[original_label]
+                        else:
+                            # Use run color as fallback
+                            run_name = original_label.split(":")[0].strip()
+                            column_to_color[col] = self.run_colors.get(
+                                run_name, "#000000"
+                            )
+                    else:
+                        # Use run colors
+                        run_name = original_label.split(":")[0].strip()
+                        column_to_color[col] = self.run_colors[run_name]
+
+                # Reorder columns based on colors dict order if provided
+                if colors:
+                    ordered_cols = [
+                        col for col in colors.keys() if col in df.columns
+                    ]
+                    remaining_cols = [
+                        col for col in df.columns if col not in ordered_cols
+                    ]
+                    df = df[ordered_cols + remaining_cols]
+                    print(f"After reordering: {list(df.columns)}")
+
+                # Build color list matching final column order
+                color_list = [column_to_color[col] for col in df.columns]
+                print(f"Colors: {color_list}")
+
+                # Create subplot with descriptive title
+                unit_label = f" ({unit})" if unit else ""
+
+                # For single series, include series name in title
+                if len(df.columns) == 1:
+                    title = f"HRU {hru_id}: {df.columns[0]}{unit_label}"
+                    show_legend = False
+                else:
+                    title = f"HRU {hru_id}{unit_label}"
+                    show_legend = True
+
+                # Create plot
+                plot = df.hvplot.line(
+                    title=title,
+                    ylabel=unit if unit else "Value",
+                    legend="top_right" if show_legend else False,
+                    color=color_list,
+                    width=plot_width,
+                    height=plot_height,
+                ).opts(xformatter=DatetimeTickFormatter(months="%b\n%Y"))
+
+                plots.append(plot)
+
+            # Return single plot or layout of plots
+            if len(plots) == 1:
+                return plots[0]
+            else:
+                # Return HoloViews Layout instead of Panel Column
+                return hv.Layout(plots).cols(1)
+
+        except Exception:
+            import traceback
+
+            error_msg = f"**Error in hru_plot_together:**\n```\n{traceback.format_exc()}\n```"
+            print(error_msg)
+            return pn.pane.Markdown(error_msg)
 
     def create_app(self):
         """
