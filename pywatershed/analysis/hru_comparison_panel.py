@@ -592,32 +592,25 @@ class HRUComparisonPanel:
             actual_left = actual_right if actual_right else available_runs[0]
             actual_right = None
 
+        # Compute values (single run or difference)
         if actual_right is None or actual_right == "None":
             values = self.compute_time_aggregation(
                 var_name, actual_left, aggregation
             )
-            if values is None:
-                return (
-                    self._create_empty_map(
-                        f"Could not load data for {var_name} from {actual_left}"
-                    ),
-                    None,
-                    self.gdf,
-                )
             title = f"{aggregation} of {actual_left}\n{var_name}{desc_str}{units_str}"
         else:
             values = self.compute_difference(
                 var_name, actual_left, actual_right
             )
-            if values is None:
-                return (
-                    self._create_empty_map(
-                        f"Could not compute difference for {var_name}"
-                    ),
-                    None,
-                    self.gdf,
-                )
             title = f"Difference of {aggregation} of {actual_left} - {actual_right}\n{var_name}{desc_str}{units_str}"
+
+        # Handle case where data could not be loaded
+        if values is None:
+            return (
+                self._create_empty_map(f"Could not load data for {var_name}"),
+                None,
+                self.gdf,
+            )
 
         cmap = cmap_name
 
@@ -894,9 +887,6 @@ class HRUComparisonPanel:
                 for var_name in var_list:
                     da = self.load_variable_data(var_name, run_name)
                     if da is None:
-                        print(
-                            f"Warning: Could not load {var_name} from {run_name}"
-                        )
                         continue
 
                     # Get variable metadata
@@ -911,9 +901,6 @@ class HRUComparisonPanel:
                         if mapping_key in self.data_cache:
                             idx = self.data_cache[mapping_key].get(hru_id)
                             if idx is None:
-                                print(
-                                    f"Warning: HRU {hru_id} not in mapping for {var_name} from {run_name}"
-                                )
                                 continue
                             ts = da.isel({spatial_dim: idx})
                         else:
@@ -929,21 +916,13 @@ class HRUComparisonPanel:
                                 "values": ts.values,
                             }
                         )
-                        print(
-                            f"Successfully loaded {run_name}: {var_name} (units: {units})"
-                        )
-                    except (KeyError, ValueError, IndexError) as e:
-                        print(
-                            f"Warning: Failed to extract {var_name} from {run_name}: {e}"
-                        )
+                    except (KeyError, ValueError, IndexError):
                         continue
 
             if not series_data:
                 return pn.pane.Markdown(
                     "**No data available for requested variables**"
                 )
-
-            print(f"Total series loaded: {len(series_data)}")
 
             # Group by units
             units_groups = {}
@@ -953,15 +932,9 @@ class HRUComparisonPanel:
                     units_groups[unit] = []
                 units_groups[unit].append(series)
 
-            print(f"Unit groups: {list(units_groups.keys())}")
-
             # Create plots for each unit group
             plots = []
             for unit, group in units_groups.items():
-                print(
-                    f"Creating plot for unit: '{unit}' with {len(group)} series"
-                )
-
                 # Build dataframe for this unit group
                 df_dict = {}
                 time_index = None
@@ -974,14 +947,10 @@ class HRUComparisonPanel:
                         time_index = series["time"]
 
                 df = pd.DataFrame(df_dict, index=time_index)
-                print(
-                    f"DataFrame shape: {df.shape}, columns: {list(df.columns)}"
-                )
 
                 # Apply renaming if provided
                 if renamer:
                     df.rename(columns=renamer, inplace=True)
-                    print(f"After renaming: {list(df.columns)}")
 
                 # Build color mapping for all columns (after renaming)
                 column_to_color = {}
@@ -1015,28 +984,24 @@ class HRUComparisonPanel:
                         col for col in df.columns if col not in ordered_cols
                     ]
                     df = df[ordered_cols + remaining_cols]
-                    print(f"After reordering: {list(df.columns)}")
 
-                # Build color list matching final column order
+                # Build color list and create plot
                 color_list = [column_to_color[col] for col in df.columns]
-                print(f"Colors: {color_list}")
-
-                # Create subplot with descriptive title
                 unit_label = f" ({unit})" if unit else ""
 
-                # For single series, include series name in title
-                if len(df.columns) == 1:
-                    title = f"HRU {hru_id}: {df.columns[0]}{unit_label}"
-                    show_legend = False
-                else:
-                    title = f"HRU {hru_id}{unit_label}"
-                    show_legend = True
+                # Single series: include name in title, no legend
+                # Multiple series: show legend with all names
+                single_series = len(df.columns) == 1
+                title = (
+                    f"HRU {hru_id}: {df.columns[0]}{unit_label}"
+                    if single_series
+                    else f"HRU {hru_id}{unit_label}"
+                )
 
-                # Create plot
                 plot = df.hvplot.line(
                     title=title,
                     ylabel=unit if unit else "Value",
-                    legend="top_right" if show_legend else False,
+                    legend=False if single_series else "top_right",
                     color=color_list,
                     width=plot_width,
                     height=plot_height,
@@ -1051,12 +1016,10 @@ class HRUComparisonPanel:
                 # Return HoloViews Layout instead of Panel Column
                 return hv.Layout(plots).cols(1)
 
-        except Exception:
-            import traceback
-
-            error_msg = f"**Error in hru_plot_together:**\n```\n{traceback.format_exc()}\n```"
-            print(error_msg)
-            return pn.pane.Markdown(error_msg)
+        except Exception as e:
+            return pn.pane.Markdown(
+                f"**Error in hru_plot_together:** {str(e)}"
+            )
 
     def create_app(self):
         """
