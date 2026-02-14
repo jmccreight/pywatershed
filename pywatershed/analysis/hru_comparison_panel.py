@@ -59,12 +59,16 @@ class HRUComparisonPanel:
         Default colormap to use for spatial plots (default: "viridis").
         Can be changed interactively in the app.
     simplify_tolerance : int, optional
-        Tolerance in meters for geometry simplification (default: 100).
+        Tolerance in meters for geometry simplification (default: 300).
         Increase this (e.g., 500 or 1000) for faster rendering with large domains.
     time_aggregations : dict, optional
         Dictionary mapping aggregation names to functions that take an xarray
         DataArray and return aggregated values. If None, uses built-in defaults:
         Mean, Sum, Max, Min, Std, Range, Trend.
+    run_colors : dict, optional
+        Dictionary mapping run names to colors for timeseries plots.
+        If None, uses built-in colorblind-friendly palette.
+        Example: {"Run1": "#0173B2", "Run2": "#DE8F05"}
         Custom examples:
             {
                 "Median": lambda da: da.median(dim="time").values,
@@ -103,6 +107,7 @@ class HRUComparisonPanel:
         colormap: str = "viridis",
         simplify_tolerance: int = 300,
         time_aggregations: Optional[Dict] = None,
+        run_colors: Optional[Dict[str, str]] = None,
     ):
         """Initialize the HRU Comparison Panel."""
         # Initialize Panel and HoloViews extensions
@@ -124,21 +129,30 @@ class HRUComparisonPanel:
         self.run_names = list(self.run_directories.keys())
 
         # Assign consistent colors to each run
-        # Using a colorblind-friendly palette
-        color_palette = [
-            "#56B4E9",  # light blue
-            "#DE8F05",  # orange
-            "#949494",  # gray
-            "#029E73",  # green
-            "#CC78BC",  # purple
-            "#CA9161",  # brown
-            "#ECE133",  # yellow
-            "#0173B2",  # blue
-        ]
-        self.run_colors = {
-            run_name: color_palette[i % len(color_palette)]
-            for i, run_name in enumerate(self.run_names)
-        }
+        if run_colors:
+            # Validate that all runs have colors specified
+            missing_runs = set(self.run_names) - set(run_colors.keys())
+            if missing_runs:
+                raise ValueError(
+                    f"run_colors must include all runs. Missing colors for: {missing_runs}"
+                )
+            self.run_colors = run_colors
+        else:
+            # Use default colorblind-friendly palette
+            color_palette = [
+                "#0173B2",  # blue
+                "#DE8F05",  # orange
+                "#029E73",  # green
+                "#CC78BC",  # purple
+                "#CA9161",  # brown
+                "#949494",  # gray
+                "#ECE133",  # yellow
+                "#56B4E9",  # light blue
+            ]
+            self.run_colors = {
+                run_name: color_palette[i % len(color_palette)]
+                for i, run_name in enumerate(self.run_names)
+            }
 
         # Set up time aggregations
         if time_aggregations is None:
@@ -814,6 +828,7 @@ class HRUComparisonPanel:
         hru_id: Optional[int] = None,
         width: Optional[int] = None,
         height: Optional[int] = None,
+        title: Optional[str] = None,
         renamer: Optional[Dict[str, str]] = None,
         colors: Optional[Dict[str, str]] = None,
     ):
@@ -834,6 +849,9 @@ class HRUComparisonPanel:
             Width of plot in pixels. If None, uses self.timeseries_width.
         height : int, optional
             Height of each subplot in pixels. If None, uses self.timeseries_height.
+        title : str, optional
+            Custom title to add after HRU ID. Replaces unit label in title.
+            Example: "HRU 84966: Precipitation Analysis"
         renamer : dict, optional
             Dictionary to rename series labels in the legend.
             Keys are "{run}: {variable}", values are display names.
@@ -987,19 +1005,19 @@ class HRUComparisonPanel:
 
                 # Build color list and create plot
                 color_list = [column_to_color[col] for col in df.columns]
-                unit_label = f" ({unit})" if unit else ""
 
-                # Single series: include name in title, no legend
-                # Multiple series: show legend with all names
+                # Build title: HRU ID + custom title OR series name/unit
                 single_series = len(df.columns) == 1
-                title = (
-                    f"HRU {hru_id}: {df.columns[0]}{unit_label}"
-                    if single_series
-                    else f"HRU {hru_id}{unit_label}"
-                )
+                if title:
+                    plot_title = f"HRU {hru_id}: {title}"
+                elif single_series:
+                    plot_title = f"HRU {hru_id}: {df.columns[0]}"
+                else:
+                    unit_label = f" ({unit})" if unit else ""
+                    plot_title = f"HRU {hru_id}{unit_label}"
 
                 plot = df.hvplot.line(
-                    title=title,
+                    title=plot_title,
                     ylabel=unit if unit else "Value",
                     legend=False if single_series else "top_right",
                     color=color_list,
