@@ -611,12 +611,12 @@ class HRUComparisonPanel:
             values = self.compute_time_aggregation(
                 var_name, actual_left, aggregation
             )
-            title = f"{aggregation} of {actual_left}\n{var_name}{desc_str}{units_str}"
+            title = f"{actual_left}: Temporal {aggregation}\n{var_name}{desc_str}{units_str}"
         else:
             values = self.compute_difference(
                 var_name, actual_left, actual_right
             )
-            title = f"Difference of {aggregation} of {actual_left} - {actual_right}\n{var_name}{desc_str}{units_str}"
+            title = f"{actual_left} - {actual_right}: Difference of temporal {aggregation}s\n{var_name}{desc_str}{units_str}"
 
         # Handle case where data could not be loaded
         if values is None:
