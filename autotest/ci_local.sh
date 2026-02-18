@@ -187,9 +187,14 @@ if [ -z "${m}" ]; then
 
     conda_dir=$(dirname $CONDA_EXE)
     source $conda_dir/activate $env_name || exit 1
+    # putting this here b/c of some issues on macos 26
+    # export SDKROOT=$(xcrun --sdk macosx --show-sdk-path)
+    # export LIBRARY_PATH="$LIBRARY_PATH:$SDKROOT/usr/lib"
     # only necessary the first time
-    # meson setup --prefix=$(pwd) --libdir=bin builddir
-    meson install -C builddir
+    if [ ! -d "buildir" ]; then
+        meson setup --prefix=$(pwd) --libdir=bin builddir || exit 11
+    fi
+    meson install -C builddir || exit 12
     conda deactivate
 
     cd $start_dir
