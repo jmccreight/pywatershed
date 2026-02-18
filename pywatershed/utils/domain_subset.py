@@ -576,7 +576,7 @@ class DomainSubset:
 
         self._data_file_name = data_file_name
         # <
-        data_file = pp.DataFile(data_file_name)
+        data_file = pp.DataFile(data_file_name, metadata=pyprms_meta)
         # for now only handle runoff, throw an error if there are other
         # variables, mostly because I'm unsure how that will work for certain.
         runoff_mask = data_file.data.columns.str.contains("runoff")

@@ -16,7 +16,7 @@ from pywatershed.hydrology.prms_channel_flow_graph import (
 )
 from pywatershed.parameters import PrmsParameters
 
-pyprms_metadata = pyprms.MetaData(verbose=False).metadata
+pyprms_meta = pyprms.MetaData(verbose=False).metadata
 
 do_compare_output_files = False
 do_compare_in_memory = True
@@ -78,7 +78,7 @@ def test_prms_channel_obsin_compare_prms(
     obsout_seg = control_parameters.parameters["obsout_segment"] - 1
     sf_data = PRMSStreamflowData(
         simulation["dir"] / "sf_data",
-        # metadata=pyprms_metadata  # future pyPRMS requirement
+        metadata=pyprms_meta,
     ).data_by_variable("runoff")
     old_names = sf_data.columns.tolist()
     new_names = [cc.split("_")[1] for cc in sf_data.columns.tolist()]
