@@ -45,7 +45,8 @@ modeling techniques and data sources. Pywatershed is a place for experimentation
 with software design, process representation, and data fusion in the context
 of well-established hydrologic process modeling.
 
-For more information on the goals and status of pywatershed, please see the [pywatershed docs](https://pywatershed.readthedocs.io/).
+For more information on the goals and status of pywatershed,
+please see the [pywatershed docs](https://pywatershed.readthedocs.io/).
 
 ## Installation
 
