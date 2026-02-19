@@ -1088,3 +1088,178 @@ def test_output_obj_kwargs_dict_wrong_model_raises(
                 "monthly_accum_var_list": ["sroff"],
             },
         )
+
+
+def test_output_zarr_chunked(
+    simulation, control, parameters, nhm_processes, tmp_path
+):
+    """Test zarr chunked output and compare to netcdf output."""
+    tmp_path = pl.Path(tmp_path)
+
+    # Variables to write with both methods
+    var_list = ["sroff", "seg_outflow"]
+
+    # Setup netcdf output for comparison
+    netcdf_dir = tmp_path / "netcdf"
+    netcdf_dir.mkdir()
+    control.options["netcdf_output_dir"] = netcdf_dir
+    control.options["netcdf_output_var_names"] = var_list
+
+    # Setup zarr output
+    zarr_file = tmp_path / "output.zarr"
+    chunk_sizes = {
+        "time": 30,  # 1 month chunks for testing
+        "nhru": 500,
+        "nsegment": 500,
+    }
+
+    # Create model
+    model = pws.Model(
+        nhm_processes,
+        control=control,
+        parameters=parameters,
+    )
+
+    # Create Output object with zarr chunked output
+    output = pws.base.Output(
+        control=control,
+        model=model,
+        chunked_var_list=var_list,
+        chunked_output_file=zarr_file,
+        chunk_sizes=chunk_sizes,
+        chunk_size_auto_warn=False,
+        netcdf_output_action="allow",
+    )
+
+    # Run model once with both netcdf and zarr output
+    model.run(finalize=True, output_obj=output)
+
+    # Verify zarr file was created
+    assert zarr_file.exists(), f"Zarr file not created: {zarr_file}"
+
+    # Load zarr data
+    ds_zarr = xr.open_zarr(zarr_file)
+
+    # Compare each variable
+    for vv in var_list:
+        # Load netcdf data
+        nc_file = netcdf_dir / f"{vv}.nc"
+        assert nc_file.exists(), f"NetCDF file not created: {nc_file}"
+        ds_netcdf = xr.open_dataset(nc_file)
+
+        # Check shapes match
+        assert ds_zarr[vv].shape == ds_netcdf[vv].shape, (
+            f"{vv}: shapes don't match - "
+            f"zarr: {ds_zarr[vv].shape}, netcdf: {ds_netcdf[vv].shape}"
+        )
+
+        # Check values match (allowing for floating point tolerance)
+        np.testing.assert_allclose(
+            ds_zarr[vv].values,
+            ds_netcdf[vv].values,
+            rtol=1e-10,
+            atol=1e-10,
+            err_msg=f"{vv}: values don't match between zarr and netcdf",
+        )
+
+        # Check time coordinate matches
+        np.testing.assert_array_equal(
+            ds_zarr.time.values,
+            ds_netcdf.time.values,
+            err_msg=f"{vv}: time coordinates don't match",
+        )
+
+        ds_netcdf.close()
+
+    ds_zarr.close()
+
+
+def test_output_zarr_auto_chunk_sizes(
+    simulation, control, parameters, nhm_processes, tmp_path
+):
+    """Test zarr chunked output with auto-determined chunk sizes."""
+    tmp_path = pl.Path(tmp_path)
+
+    var_list = ["sroff"]
+    zarr_file = tmp_path / "output_auto.zarr"
+
+    model = pws.Model(
+        nhm_processes,
+        control=control,
+        parameters=parameters,
+    )
+
+    # Should warn about auto-determined chunk sizes
+    with pytest.warns(UserWarning, match="Chunk sizes not specified"):
+        output = pws.base.Output(
+            control=control,
+            model=model,
+            chunked_var_list=var_list,
+            chunked_output_file=zarr_file,
+            chunk_sizes=None,  # Will auto-determine
+            chunk_size_auto_warn=True,
+        )
+
+    model.run(finalize=True, output=output)
+
+    # Verify zarr file was created
+    assert zarr_file.exists()
+
+    # Load and verify data
+    ds_zarr = xr.open_zarr(zarr_file)
+    assert "sroff" in ds_zarr
+    assert ds_zarr["sroff"].shape[0] == control.n_times
+    ds_zarr.close()
+
+
+def test_output_zarr_no_warn(
+    simulation, control, parameters, nhm_processes, tmp_path
+):
+    """Test zarr with chunk_size_auto_warn=False doesn't warn."""
+    tmp_path = pl.Path(tmp_path)
+
+    var_list = ["sroff"]
+    zarr_file = tmp_path / "output_nowarn.zarr"
+
+    model = pws.Model(
+        nhm_processes,
+        control=control,
+        parameters=parameters,
+    )
+
+    # Should not warn when chunk_size_auto_warn=False
+    output = pws.base.Output(
+        control=control,
+        model=model,
+        chunked_var_list=var_list,
+        chunked_output_file=zarr_file,
+        chunk_sizes=None,
+        chunk_size_auto_warn=False,
+    )
+
+    model.run(finalize=True, output=output)
+    assert zarr_file.exists()
+
+
+def test_output_zarr_requires_filename(
+    simulation, control, parameters, nhm_processes, tmp_path
+):
+    """Test that zarr output requires chunked_output_file."""
+    tmp_path = pl.Path(tmp_path)
+
+    model = pws.Model(
+        nhm_processes,
+        control=control,
+        parameters=parameters,
+    )
+
+    # Should raise ValueError when file not provided
+    with pytest.raises(
+        ValueError, match="chunked_output_file must be provided"
+    ):
+        pws.base.Output(
+            control=control,
+            model=model,
+            chunked_var_list=["sroff"],
+            chunked_output_file=None,  # Missing!
+        )

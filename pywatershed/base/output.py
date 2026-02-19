@@ -61,6 +61,7 @@ from typing import TYPE_CHECKING, Callable, Literal
 import numpy as np
 import xarray as xr
 
+from ..constants import var_type_to_numpy_type
 from . import meta
 from .flow_graph import FlowGraph
 
@@ -123,6 +124,18 @@ class Output:
           hoi_var_list)
     hoi_stats : dict[Callable, list[str]], optional
         Statistics for HOIs: {function: [var1, var2, ...]}
+    chunked_var_list : list[str], optional
+        Variables to write in chunks to zarr format. These variables will be
+        buffered in memory for chunk_sizes['time'] timesteps and written to
+        zarr file when buffer is full.
+    chunked_output_file : str or pathlib.Path, optional
+        Path to zarr output file. Required if chunked_var_list is provided.
+    chunk_sizes : dict[str, int], optional
+        Chunk sizes for zarr output. Keys: 'time', 'nhru', 'nsegment',
+        'nnode'. If not provided, sensible defaults will be used based on
+        spatial dimensions. Defaults target ~10-100 MB chunks.
+    chunk_size_auto_warn : bool, optional
+        If True (default), warn when chunk_sizes are auto-determined.
 
     Attributes
     ----------
@@ -207,6 +220,10 @@ class Output:
         hoi_ids: list | dict | None = None,
         hoi_stats: dict[Callable, list[str]] | None = None,
         netcdf_output_action: Literal["allow", "warn", "error"] = "error",
+        chunked_var_list: list[str] | None = None,
+        chunked_output_file: str | pl.Path | None = None,
+        chunk_sizes: dict[str, int] | None = None,
+        chunk_size_auto_warn: bool = True,
     ):
         """Initialize Output and set up data collection."""
 
@@ -236,6 +253,13 @@ class Output:
 
         self._init_monthly()
         self._init_noi_sub()
+        self._init_zarr_chunked(
+            chunked_var_list,
+            chunked_output_file,
+            chunk_sizes,
+            chunk_size_auto_warn,
+        )
+        self._build_chunked_iteration_list()
 
         return None
 
@@ -916,6 +940,275 @@ class Output:
 
                     stats[vv][func_name] = result
 
+    # ==== Zarr Methods ================
+    def _add_zarr_data(self) -> None:
+        """Add current timestep data to zarr chunk buffers."""
+        if not self._chunked_data_list:
+            return
+
+        buffer_ind = self._control.itime_step % self._chunk_time
+        for vv, proc_name in self._chunked_data_list:
+            self._zarr_buffers[vv][buffer_ind, :] = self._model.processes[
+                proc_name
+            ][vv]
+
+        # Write buffer to zarr when full
+        if (self._control.itime_step + 1) % self._chunk_time == 0:
+            self._write_zarr_buffer()
+
+    def _build_chunked_iteration_list(self) -> None:
+        """Build and cache iteration list for zarr chunked output."""
+        self._chunked_data_list = []
+        if self._chunked_var_list is not None:
+            for vv in self._chunked_var_list:
+                proc_name = self._chunked_vars_procs[vv]
+                self._chunked_data_list.append((vv, proc_name))
+
+    def _init_zarr_chunked(
+        self,
+        chunked_var_list: list[str] | None,
+        chunked_output_file: str | pl.Path | None,
+        chunk_sizes: dict[str, int] | None,
+        chunk_size_auto_warn: bool,
+    ) -> None:
+        """Initialize zarr chunked output."""
+        self._chunked_var_list = chunked_var_list
+        self._chunked_output_file = chunked_output_file
+        self._zarr_buffers = {}
+        self._zarr_ds = None
+        self._zarr_initialized = False
+
+        if chunked_var_list is None:
+            return
+
+        if chunked_output_file is None:
+            raise ValueError(
+                "chunked_output_file must be provided when "
+                "chunked_var_list is specified"
+            )
+
+        self._chunked_output_file = pl.Path(chunked_output_file)
+        self._zarr_store = None  # Will be opened after file initialization
+
+        # Determine which processes own which variables
+        self._chunked_vars_procs = {}
+        for vv in chunked_var_list:
+            found = False
+            for proc_name, proc in self._model.processes.items():
+                if vv in proc.variables:
+                    self._chunked_vars_procs[vv] = proc_name
+                    found = True
+                    break
+            if not found:
+                raise ValueError(
+                    f"Variable '{vv}' not found in any model process"
+                )
+
+        # Auto-determine chunk sizes if not provided
+        if chunk_sizes is None:
+            chunk_sizes = self._auto_determine_chunk_sizes(
+                chunk_size_auto_warn
+            )
+
+        self._chunk_sizes = chunk_sizes
+        self._chunk_time = chunk_sizes["time"]
+
+        # Get variable metadata for dtypes
+        var_metadata = meta.find_variables(chunked_var_list)
+
+        # Initialize buffers for each variable
+        for vv in chunked_var_list:
+            proc_name = self._chunked_vars_procs[vv]
+            proc = self._model.processes[proc_name]
+            spatial_shape = proc[vv].shape
+
+            # Get dtype from metadata, default to float64
+            if vv in var_metadata and "type" in var_metadata[vv]:
+                yaml_type = var_metadata[vv]["type"]
+                dtype = var_type_to_numpy_type.get(yaml_type, np.float64)
+            else:
+                dtype = np.float64
+
+            # Create buffer: (chunk_time, ...spatial_dims)
+            buffer_shape = (self._chunk_time,) + spatial_shape
+            self._zarr_buffers[vv] = np.zeros(buffer_shape, dtype=dtype)
+
+    def _auto_determine_chunk_sizes(self, warn: bool = True) -> dict[str, int]:
+        """Auto-determine sensible chunk sizes based on model dimensions."""
+        chunk_sizes = {"time": 365}  # Default: 1 year for daily data
+
+        # Get spatial dimensions from first chunked variable
+        first_var = self._chunked_var_list[0]
+        proc_name = self._chunked_vars_procs[first_var]
+        proc = self._model.processes[proc_name]
+
+        # Determine spatial dimensions
+        if hasattr(proc, "_params"):
+            dims = proc._params.dims
+            if "nhru" in dims:
+                chunk_sizes["nhru"] = min(5000, max(1000, dims["nhru"] // 2))
+            if "nsegment" in dims:
+                chunk_sizes["nsegment"] = min(
+                    5000, max(1000, dims["nsegment"] // 2)
+                )
+            if "nnode" in dims:
+                chunk_sizes["nnode"] = min(5000, max(1000, dims["nnode"] // 2))
+
+        # Estimate chunk size in MB
+        bytes_per_value = 8  # float64
+        n_vars = len(self._chunked_var_list)
+        first_var_size = proc[first_var].size
+        chunk_mb = (
+            chunk_sizes["time"] * first_var_size * bytes_per_value * n_vars
+        ) / (1024**2)
+
+        if warn:
+            warnings.warn(
+                f"Chunk sizes not specified. Using auto-determined values: "
+                f"{chunk_sizes}. Estimated chunk size: ~{chunk_mb:.1f} MB. "
+                "Consider tuning for your use case. "
+                "See documentation for chunking guidance.",
+                UserWarning,
+            )
+
+        return chunk_sizes
+
+    def _initialize_zarr_file(self) -> None:
+        """Initialize zarr file with appropriate structure and chunks."""
+        if self._zarr_initialized:
+            return
+
+        # Build time coordinate
+        time_array = np.arange(
+            self._control.start_time,
+            self._control.start_time + self._time_step * self._control.n_times,
+            self._time_step,
+        ).astype("datetime64[ns]")
+
+        # Get variable metadata for dtypes
+        var_metadata = meta.find_variables(self._chunked_var_list)
+
+        # Create dataset dict
+        data_vars = {}
+        coords = {"time": time_array}
+        encoding = {}
+
+        for vv in self._chunked_var_list:
+            proc_name = self._chunked_vars_procs[vv]
+            proc = self._model.processes[proc_name]
+            spatial_shape = proc[vv].shape
+
+            # Determine dimension names and add spatial coordinates
+            if spatial_shape == ():
+                dims = ["time"]
+                chunks_tuple = (self._chunk_sizes["time"],)
+            elif len(spatial_shape) == 1:
+                # Determine if nhru, nsegment, or nnode
+                if "nhm_id" in proc._params.parameters and spatial_shape[
+                    0
+                ] == len(proc._params.parameters["nhm_id"]):
+                    spatial_dim = "nhru"
+                    spatial_coord_name = "nhm_id"
+                    spatial_coord_values = proc._params.parameters["nhm_id"]
+                elif "nhm_seg" in proc._params.parameters and spatial_shape[
+                    0
+                ] == len(proc._params.parameters["nhm_seg"]):
+                    spatial_dim = "nsegment"
+                    spatial_coord_name = "nhm_seg"
+                    spatial_coord_values = proc._params.parameters["nhm_seg"]
+                else:
+                    spatial_dim = "nnode"
+                    spatial_coord_name = "node_coord"
+                    # For nodes, create integer indices
+                    spatial_coord_values = np.arange(spatial_shape[0])
+
+                # Add spatial coordinate
+                if spatial_coord_name not in coords:
+                    coords[spatial_coord_name] = (
+                        spatial_dim,
+                        spatial_coord_values,
+                    )
+
+                dims = ["time", spatial_dim]
+                spatial_chunk = self._chunk_sizes.get(
+                    spatial_dim, spatial_shape[0]
+                )
+                chunks_tuple = (self._chunk_sizes["time"], spatial_chunk)
+            else:
+                raise ValueError(
+                    f"Variable '{vv}' has unsupported shape: {spatial_shape}"
+                )
+
+            # Get dtype from metadata, default to float64
+            if vv in var_metadata and "type" in var_metadata[vv]:
+                yaml_type = var_metadata[vv]["type"]
+                dtype = var_type_to_numpy_type.get(yaml_type, np.float64)
+            else:
+                dtype = np.float64
+
+            # Create placeholder data (will be filled incrementally)
+            data_vars[vv] = (
+                dims,
+                np.zeros((len(time_array),) + spatial_shape, dtype=dtype),
+            )
+
+            # Store chunking for encoding
+            encoding[vv] = {"chunks": chunks_tuple}
+
+        # Create xarray Dataset
+        ds = xr.Dataset(data_vars, coords=coords)
+
+        # Write to zarr with chunking
+        ds.to_zarr(self._chunked_output_file, mode="w", encoding=encoding)
+
+        self._zarr_ds = xr.open_zarr(self._chunked_output_file)
+
+        # Open zarr store for direct writing
+        import zarr
+
+        self._zarr_store = zarr.open(str(self._chunked_output_file), mode="r+")
+
+        self._zarr_initialized = True
+
+    def _write_zarr_buffer(self) -> None:
+        """Write current buffer to zarr file."""
+        if not self._zarr_initialized:
+            self._initialize_zarr_file()
+
+        # Determine time slice for this chunk
+        current_step = self._control.itime_step + 1
+        chunk_start = (current_step // self._chunk_time - 1) * self._chunk_time
+        chunk_end = chunk_start + self._chunk_time
+
+        # Write directly to zarr arrays without copying
+        for vv in self._chunked_var_list:
+            self._zarr_store[vv][chunk_start:chunk_end] = self._zarr_buffers[
+                vv
+            ]
+
+    def _finalize_zarr(self) -> None:
+        """Finalize zarr output, writing any remaining buffered data."""
+        if self._chunked_var_list is None or not self._zarr_initialized:
+            return
+
+        # Write any remaining data in buffer
+        remaining_steps = (self._control.itime_step + 1) % self._chunk_time
+        if remaining_steps > 0:
+            current_step = self._control.itime_step + 1
+            chunk_start = (current_step // self._chunk_time) * self._chunk_time
+            chunk_end = chunk_start + remaining_steps
+
+            for vv in self._chunked_var_list:
+                self._zarr_store[vv][chunk_start:chunk_end] = (
+                    self._zarr_buffers[vv][:remaining_steps]
+                )
+
+        # Close zarr resources if opened
+        if self._zarr_ds is not None:
+            self._zarr_ds.close()
+        # Note: zarr stores don't need explicit closing, but set to None for clarity
+        self._zarr_store = None
+
     # ==== General methods ================
     def calculate(self) -> None:
         """Collect data for current timestep (called by model.run())."""
@@ -929,10 +1222,12 @@ class Output:
 
         self._accumulate_monthly_values()
         self._add_noi_hoi_data()
+        self._add_zarr_data()
 
     def finalize(self) -> None:
         """Finalize and calculate statistics (called by model.run())."""
         self._finalized = True
+        self._finalize_zarr()
         self._calculate_noi_hoi_stats()
 
     def to_netcdf(self, output_dir: pl.Path) -> None:
