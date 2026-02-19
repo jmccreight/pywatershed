@@ -12,6 +12,16 @@ What's New
     np.random.seed(123456)
 
 
+.. _whats-new.2.0.3:
+
+v2.0.2 (14 March 2025)
+---------------------
+
+New Features
+~~~~~~~~~~~~~~~~
+Some minor fixes. This is a data release for the upcoming major release, new data will be an asset on this
+release.
+
 .. _whats-new.2.0.2:
 
 v2.0.2 (14 March 2025)
