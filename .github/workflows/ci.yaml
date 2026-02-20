@@ -202,7 +202,8 @@ jobs:
       - name: Update flopy MODFLOW 6 classes
         working-directory: modflow6/autotest
         run: |
-          python update_flopy.py
+          pip install tomli_w boltons
+          python -m flopy.mf6.utils.generate_classes
 
       - name: Install mf6 nightly build binaries
         uses: modflowpy/install-modflow-action@v1
