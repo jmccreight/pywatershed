@@ -55,8 +55,8 @@ jobs:
         run: |
           ref="${{ github.ref_name }}"
           version="${ref#"v"}"
-          grep -E "^__version__ = \"${version}\"[[:space:]]*$" pywatershed/version.py
-          grep -E "^${version}[[:space:]]*$" version.txt
+          grep -E "^__version__ = \"${version}\"[[:space:]]*$" pywatershed/version.py || exit 1
+          grep -E "^${version}[[:space:]]*$" version.txt || exit 2
           echo "version=$version" >> $GITHUB_OUTPUT
 
       - name: Format files
