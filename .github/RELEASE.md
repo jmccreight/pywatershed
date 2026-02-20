@@ -40,28 +40,34 @@ To release a new version:
    releasing.
 
 1. On your local machine, create a release branch from `develop` or a patch
-   branch from `main`.  The branch's name must follow format
-   `v{major}.{minor}.{patch}` ([semantic version](https://semver.org/) number
+   branch from `main`. This branch should NOT have any changes to be checked by
+   CI, only the following changes to non-code files are allowed as the release
+   workflow no longer runs CI.
+   The release branch's name must follow format `v{major}.{minor}.{patch}`
+   ([semantic version](https://semver.org/) number
    with a leading 'v'). For instance, for a minor release, if this repo is an
    `upstream` remote and one's local `develop` is up to date with upstream
-   `develop`, then from `develop` run `git switch -c vx.y.z`.
+   `develop`, then from `develop` run `git switch -c vx.y.z`. Once the branch is
+   appropriately named, you can use .github/scripts/update_version.py to update
+   the version.txt and pywatershed/version.py or do this manually. The changes
+   must pass the checks in release.yaml:
+   
+   > grep -E "^__version__ = \"${version}\"[[:space:]]*$" pywatershed/version.py || exit 1
+   > grep -E "^${version}[[:space:]]*$" version.txt || exit 2
+   
+   for the release to be prepared.
 
-1. If this is a patch release, make changes/fixes locally. If this is a major or
-   minor release, no changes may be needed. In either case, add the release version
-   and date to the top of `doc/whats-new.rst`. If a patch, put it below the
-   pending minor release. Also update the version in `doc/index.rst`. Update the
-   CITATION.cff file. If a major release, get the provisional new DOI from USGS
+1. Add the release version and date to the top of `doc/whats-new.rst`. If a patch,
+   put it below the pending minor release. Also update the version in `doc/index.rst`.
+   Update the CITATION.cff file. If a major release, get the provisional new DOI from USGS
    and add it to CITATION.cff and the top-level README.md. If the release is
    approved, put the disclaimer for approved releases onthe top-level README.md.
-   Otherwise keep the provisional disclaimer.
+   Otherwise keep the provisional disclaimer. 
 
 1. Push the branch to this repo. For instance, if this repo is an `upstream`
    remote: `git push -u upstream vx.y.z`. This starts a job to:
-    - Check out the release branch and update version number in `version.txt` and
-      `pywatershed/version.py` to match the version in the branch name.
-    - Build and check the Python package.
+    - Build the Python package.
     - Upload the package as an artifact.
-    - Draft a PR against `main` with the updated version files.
 
 1. On all platforms, pull the release from upstream and perform ASV performance
    benchmarks against previous release , e.g., ```asv run --verbose

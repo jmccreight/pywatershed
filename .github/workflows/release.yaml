@@ -26,9 +26,14 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set environment variables
+      - name: Check for updated version
+        id: version
         run: |
-          echo "PYTHON_VERSION=${{ matrix.python-version }}" >> $GITHUB_ENV
+          ref="${{ github.ref_name }}"
+          version="${ref#"v"}"
+          grep -E "^__version__ = \"${version}\"[[:space:]]*$" pywatershed/version.py || exit 1
+          grep -E "^${version}[[:space:]]*$" version.txt || exit 2
+          echo "version=$version" >> $GITHUB_OUTPUT
 
       - name: Install Dependencies via Micromamba
         uses: mamba-org/setup-micromamba@v1.9.0
@@ -49,20 +54,6 @@ jobs:
         run: |
           pip -V
           pip list
-
-      - name: Update version
-        id: version
-        run: |
-          ref="${{ github.ref_name }}"
-          version="${ref#"v"}"
-          grep -E "^__version__ = \"${version}\"[[:space:]]*$" pywatershed/version.py || exit 1
-          grep -E "^${version}[[:space:]]*$" version.txt || exit 2
-          echo "version=$version" >> $GITHUB_OUTPUT
-
-      - name: Format files
-        run: |
-          ruff check .
-          ruff format --check .
 
       - name: Checkout repo
         uses: actions/checkout@v3

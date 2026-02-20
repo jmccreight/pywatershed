@@ -8,7 +8,13 @@ repos:
   rev: v2.2.0
   hooks:
     -   id: doctoc
+- repo: https://github.com/psf/black
+  rev: 23.10.1
+  hooks:
+  - id: black
 - repo: https://github.com/keewis/blackdoc
   rev: v0.3.8
   hooks:
-    - id: blackdoc
+  - id: blackdoc
+    additional_dependencies: ["black==23.10.1"]
+  - id: blackdoc-autoupdate-black
