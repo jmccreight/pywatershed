@@ -14,7 +14,7 @@ What's New
 
 .. _whats-new.2.0.3:
 
-v2.0.2 (14 March 2025)
+v2.0.3 (20 February 2026)
 ---------------------
 
 New Features
