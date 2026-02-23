@@ -12,6 +12,15 @@ What's New
     np.random.seed(123456)
 
 
+.. _whats-new.2.0.4:
+
+v2.0.4 (23 February 2026)
+---------------------
+
+New Features
+~~~~~~~~~~~~~~~~
+Fixes to release workflow, pypi publishing. 
+
 .. _whats-new.2.0.3:
 
 v2.0.3 (22 February 2026)
