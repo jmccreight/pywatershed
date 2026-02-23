@@ -3,13 +3,13 @@ on:
   push:
     branches:
       - main
-      - v[0-9]+.[0-9]+.[0-9]+*
   release:
     types:
       - published
 jobs:
+  # on push to main prepare draft release
   prep:
-    name: Prepare release
+    name: draft release
     runs-on: ubuntu-latest
     if: ${{ github.event_name == 'push' && github.ref_name != 'main' }}
     permissions:
@@ -20,41 +20,6 @@ jobs:
         shell: bash -l {0}
 
     steps:
-
-      - name: Checkout release branch
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Check for updated version
-        id: version
-        run: |
-          ref="${{ github.ref_name }}"
-          version="${ref#"v"}"
-          grep -E "^__version__ = \"${version}\"[[:space:]]*$" pywatershed/version.py || exit 1
-          grep -E "^${version}[[:space:]]*$" version.txt || exit 2
-          echo "version=$version" >> $GITHUB_OUTPUT
-
-      - name: Install Dependencies via Micromamba
-        uses: mamba-org/setup-micromamba@v1.9.0
-        with:
-          micromamba-version: '1.5.10-0'
-          environment-file: environment.yml
-          cache-environment: true
-          cache-downloads: true
-          create-args: >-
-            python=3.10
-            conda
-
-      - name: Install pywatershed
-        run: |
-          pip install .
-
-      - name: Version info
-        run: |
-          pip -V
-          pip list
-
       - name: Checkout repo
         uses: actions/checkout@v3
         with:
@@ -72,8 +37,9 @@ jobs:
             --draft \
             --latest
 
+  # on publish of draft, publish to pypi
   publish:
-    name: Publish package
+    name: Publish package to pypi
     # runs only when GitHub release is published (manually promoted from draft)
     if: ${{ github.event_name == 'release' }}
     runs-on: ubuntu-latest

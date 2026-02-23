@@ -1,0 +1,66 @@
+name: Check version
+on:
+  push:
+    branches:
+      - v[0-9]+.[0-9]+.[0-9]+*
+  release:
+    types:
+      - published
+
+jobs:
+  check:
+    name: check version
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' && github.ref_name != 'main' }}
+    permissions:
+      contents: write
+      pull-requests: write
+    defaults:
+      run:
+        shell: bash -l {0}
+
+    steps:
+
+      - name: Checkout version branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for updated version info matching branch name
+        id: version
+        run: |
+          ref="${{ github.ref_name }}"
+          version="${ref#"v"}"
+          esc_version="${version//./\\.}"
+          grep -E "^__version__ = \"${esc_version}\"[[:space:]]*$" pywatershed/version.py || exit 1
+          grep -E "^${esc_version}[[:space:]]*$" version.txt || exit 2
+          grep -E ".. _whats-new.${esc_version}:" doc/whats-new.rst || exit 3
+          grep -E "v${esc_version}" doc/whats-new.rst || exit 4
+          if echo "$esc_version" | grep -q '\.0\.0$'; then
+            # then major version checks
+            grep -E "${esc_version}" CITATION.cff || exit 5
+            grep -E "${esc_version}" README.md || exit 6
+            grep -E "${esc_version}" doc/index.rst || exit 7
+          fi
+                    
+          echo "successful version checkso for $version" >> $GITHUB_OUTPUT
+
+      - name: Install Dependencies via Micromamba
+        uses: mamba-org/setup-micromamba@v1.9.0
+        with:
+          micromamba-version: '1.5.10-0'
+          environment-file: environment.yml
+          cache-environment: true
+          cache-downloads: true
+          create-args: >-
+            python=3.10
+            conda
+
+      - name: Install pywatershed
+        run: |
+          pip install .
+
+      - name: Version info
+        run: |
+          pip -V
+          pip list

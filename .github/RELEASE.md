@@ -21,25 +21,33 @@ utilities for `pywatershed`.
 
 ## Releasing `pywatershed`
 
-The release procedure is mostly automated. The workflow is defined in
+The release procedure has three manual steps:
+    1. Take a feature/bugfix branch that is PASSING CI, rename it using a version convention, update various files
+    2. Check that all version information is correctly applied by pushing it to upstream
+    3. If it passes this check, merge it into main.
+    4. Merging into main triggers a draft release. Check the draft release and finalize it.
+
+. The workflow is defined in
 `.github/workflows/release.yaml` and triggers when a release or patch branch is
 pushed to this repo.
 
 To release a new version:
 
-1. Test asv benchmarking with the `-q` flag to ensure it is working (multiple
+1. Once you have a feature/bugfix branch passing CI with all requirements (documentation, etc)
+
+   a. Test asv benchmarking with the `-q` flag to ensure it is working (multiple
    platformas a bonus). You can merge the ref you are testing, but you cant
    test the release ref on main until after the release is made, so that step
    will come below and those details will merge to develop and not the
    release.
 
-1. If there are extended release notes to put in the gh-pages branch, once
+   b. If there are extended release notes to put in the gh-pages branch, once
    you have approval, change the dates of the appropriate pages to the
    desired release date. Change any links to the extended documentation in
    develop branch to match. Push gh-pages branch to confirm in develop before
    releasing.
 
-1. On your local machine, create a release branch from `develop` or a patch
+   c. On your local machine, create a release branch from `develop` or a patch
    branch from `main`. This branch should NOT have any changes to be checked by
    CI, only the following changes to non-code files are allowed as the release
    workflow no longer runs CI.
@@ -57,19 +65,21 @@ To release a new version:
    
    for the release to be prepared.
 
-1. Add the release version and date to the top of `doc/whats-new.rst`. If a patch,
+   d. Add the release version and date to the top of `doc/whats-new.rst`. If a patch,
    put it below the pending minor release. Also update the version in `doc/index.rst`.
    Update the CITATION.cff file. If a major release, get the provisional new DOI from USGS
    and add it to CITATION.cff and the top-level README.md. If the release is
    approved, put the disclaimer for approved releases onthe top-level README.md.
    Otherwise keep the provisional disclaimer. 
 
-1. Push the branch to this repo. For instance, if this repo is an `upstream`
-   remote: `git push -u upstream vx.y.z`. This starts a job to:
-    - Build the Python package.
-    - Upload the package as an artifact.
 
-1. On all platforms, pull the release from upstream and perform ASV performance
+2. Once the version checks pass.
+   a. Open a PR to main
+   can this trigger a job?
+   - Build the Python package.
+   - Upload the package as an artifact.
+
+   a. On all platforms, pull the release from upstream and perform ASV performance
    benchmarks against previous release , e.g., ```asv run --verbose
    -show-stderr HASHFILE:pws_refs_for_asv.txt``` after editing the file to
    contain the previous and current release. Collect performance results from
@@ -77,7 +87,7 @@ To release a new version:
    the static webpages to be included with the release as artifacts in that
    step below.
 
-1. Inspect the package. If it looks good, merge the PR to `main`.
+   c. Inspect the package. If it looks good, merge the PR to `main`.
 
    **Note**: it is critical to *merge* the PR to `main`, not squash as is
    conventional for development PRs. Squashing causes `develop` and `main` to
@@ -88,7 +98,7 @@ To release a new version:
    release](https://github.com/EC-USGS/pywatershed/releases). The release is
    not yet publicly visible at this point.
 
-1. Inspect the GitHub release. If needed, make any manual edits to the release
+   c. Inspect the GitHub release. If needed, make any manual edits to the release
    notes. If the release looks good, publish it via GitHub UI or CLI. Manually
    add the asv static web pages and frozen conda dependencies for each platform.
 
