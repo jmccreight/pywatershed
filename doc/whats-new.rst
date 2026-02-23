@@ -11,9 +11,6 @@ What's New
 
     np.random.seed(123456)
 
-
-.. _whats-new.2.1.0:
-
 v2.1.0 (Unreleased)
 ---------------------
 
@@ -90,6 +87,25 @@ Internal changes
   a separate file to run by pytests both after all other variables are generated and
   so the final variables are run serially.
   (:pull:`331`) By `James McCreight <https://github.com/jmccreight>`_.
+
+.. _whats-new.2.0.4:
+
+v2.0.4 (23 February 2026)
+---------------------
+
+New Features
+~~~~~~~~~~~~~~~~
+Fixes to release workflow, pypi publishing.
+
+.. _whats-new.2.0.3:
+
+v2.0.3 (22 February 2026)
+---------------------
+
+New Features
+~~~~~~~~~~~~~~~~
+Some minor fixes. This is a data release for the upcoming major release, new data will be an asset on this
+release.
 
 .. _whats-new.2.0.2:
 

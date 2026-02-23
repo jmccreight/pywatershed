@@ -173,7 +173,7 @@ if [ -z "${m}" ]; then
 
     # Update flopy MODFLOW 6 classes in the current environment
     cd autotest || exit 1
-    python -m flopy.mf6.utils.generate_classes
+    python -m flopy.mf6.utils.generate_classes || exit 8
 
     # Build mf6 locally instead of installing mf6 nightly build
     # install conda env for mf6
@@ -187,12 +187,18 @@ if [ -z "${m}" ]; then
 
     conda_dir=$(dirname $CONDA_EXE)
     source $conda_dir/activate $env_name || exit 1
+    # putting this here b/c of some issues on macos 26
+    # export SDKROOT=$(xcrun --sdk macosx --show-sdk-path)
+    # export LIBRARY_PATH="$LIBRARY_PATH:$SDKROOT/usr/lib"
     # only necessary the first time
-    # meson setup --prefix=$(pwd) --libdir=bin builddir
-    meson install -C builddir
+    if [ ! -d "buildir" ]; then
+        meson setup --prefix=$(pwd) --libdir=bin builddir || exit 11
+    fi
+    meson install -C builddir || exit 12
     conda deactivate
 
     cd $start_dir
+
 fi
 
 export PATH=$PATH:$modflow_repo_location/bin
@@ -250,10 +256,12 @@ if [ -z "${t}" ]; then
                 -n=$pytest_n --domain=sagehen_5yr \
                 --control_pattern=sagehen_no_cascades.control \
                 --remove_prms_csvs --remove_prms_output_dirs || exit 1
-
-            echo "sagehen_5yr_no_cascades - list netcdf input files"
-            find ../test_data/sagehen_5yr/output_no_cascades -name '*.nc' | sort -n
         fi
+
+        # - name: sagehen_5yr_no_cascades - list netcdf input files
+        #   working-directory: test_data
+        #   run: |
+        #     find sagehen_5yr/output_no_cascades -name '*.nc'
 
         echo
         echo ".........."
@@ -299,8 +307,8 @@ if [ -z "${t}" ]; then
         echo "DOMAIN: hru_1"
         echo "===================="
         echo
-
         if [ -z "${g}" ]; then
+
             echo
             echo ".........."
             echo "hru_1_nhm - generate and manage test data domain, run PRMS "
@@ -457,6 +465,7 @@ if [ -z "${t}" ]; then
             test_prms_hydraulic_geometry.py \
             test_prms_stream_temp.py || exit 1
 
+
     fi
 
     if [ -z "${u}" ]; then
@@ -469,6 +478,7 @@ if [ -z "${t}" ]; then
         if [ -z "${g}" ]; then
             echo
             echo ".........."
+
             echo "ucb_2yr all configs - generate and manage test data"
             echo ".........."
             echo
