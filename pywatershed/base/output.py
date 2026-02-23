@@ -948,9 +948,12 @@ class Output:
 
         buffer_ind = self._control.itime_step % self._chunk_time
         for vv, proc_name in self._chunked_data_list:
-            self._zarr_buffers[vv][buffer_ind, :] = self._model.processes[
-                proc_name
-            ][vv]
+            var_obj = self._model.processes[proc_name][vv]
+            # Handle TimeseriesArray objects
+            if hasattr(var_obj, "current"):
+                self._zarr_buffers[vv][buffer_ind, :] = var_obj.current
+            else:
+                self._zarr_buffers[vv][buffer_ind, :] = var_obj
 
         # Write buffer to zarr when full
         if (self._control.itime_step + 1) % self._chunk_time == 0:
@@ -1020,7 +1023,15 @@ class Output:
         for vv in chunked_var_list:
             proc_name = self._chunked_vars_procs[vv]
             proc = self._model.processes[proc_name]
-            spatial_shape = proc[vv].shape
+
+            # Handle TimeseriesArray objects
+            var_obj = proc[vv]
+            if hasattr(var_obj, "current"):
+                # TimeseriesArray - use .current.shape
+                spatial_shape = var_obj.current.shape
+            else:
+                # Regular array - use .shape
+                spatial_shape = var_obj.shape
 
             # Get dtype from metadata, default to float64
             if vv in var_metadata and "type" in var_metadata[vv]:
@@ -1096,7 +1107,15 @@ class Output:
         for vv in self._chunked_var_list:
             proc_name = self._chunked_vars_procs[vv]
             proc = self._model.processes[proc_name]
-            spatial_shape = proc[vv].shape
+
+            # Handle TimeseriesArray objects
+            var_obj = proc[vv]
+            if hasattr(var_obj, "current"):
+                # TimeseriesArray - use .current.shape
+                spatial_shape = var_obj.current.shape
+            else:
+                # Regular array - use .shape
+                spatial_shape = var_obj.shape
 
             # Determine dimension names and add spatial coordinates
             if spatial_shape == ():
