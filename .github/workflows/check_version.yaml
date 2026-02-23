@@ -43,7 +43,7 @@ jobs:
             grep -E "${esc_version}" doc/index.rst || exit 7
           fi
                     
-          echo "successful version checkso for $version" >> $GITHUB_OUTPUT
+          echo "version=$version" >> $GITHUB_OUTPUT
 
       - name: Install Dependencies via Micromamba
         uses: mamba-org/setup-micromamba@v1.9.0
