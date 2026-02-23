@@ -36,7 +36,7 @@ jobs:
           grep -E "^${esc_version}[[:space:]]*$" version.txt || exit 2
           grep -E ".. _whats-new.${esc_version}:" doc/whats-new.rst || exit 3
           grep -E "v${esc_version}" doc/whats-new.rst || exit 4
-          if echo "$esc_version" | grep -q '\.0\.0$'; then
+          if echo "$version" | grep -q '\.0\.0$'; then
             # then major version checks
             grep -E "${esc_version}" CITATION.cff || exit 5
             grep -E "${esc_version}" README.md || exit 6
