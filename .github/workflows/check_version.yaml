@@ -44,23 +44,3 @@ jobs:
           fi
                     
           echo "version=$version" >> $GITHUB_OUTPUT
-
-      - name: Install Dependencies via Micromamba
-        uses: mamba-org/setup-micromamba@v1.9.0
-        with:
-          micromamba-version: '1.5.10-0'
-          environment-file: environment.yml
-          cache-environment: true
-          cache-downloads: true
-          create-args: >-
-            python=3.10
-            conda
-
-      - name: Install pywatershed
-        run: |
-          pip install .
-
-      - name: Version info
-        run: |
-          pip -V
-          pip list

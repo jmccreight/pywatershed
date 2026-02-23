@@ -1,5 +1,97 @@
 name: Release
 on:
+  pull_request:
+    types:
+      - closed
+  release:
+    types:
+      - published
+
+jobs:
+  # on merged PR to main, prepare draft release
+  prep:
+    name: draft release
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main'
+    permissions:
+      contents: write
+      pull-requests: write
+    defaults:
+      run:
+        shell: bash -l {0}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+        with:
+          ref: main
+
+      - name: Draft release
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          version=$(cat version.txt | xargs)
+          title="pywatershed $version"
+          
+          # Check if this release already exists
+          if gh release view "$version" &> /dev/null; then
+            echo "Release $version already exists, skipping"
+            exit 0
+          fi
+          
+          gh release create "$version" \
+            --target main \
+            --title "$title" \
+            --draft \
+            --latest
+
+  # on publish of draft, publish to pypi
+  publish:
+    name: Publish package to pypi
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write  # mandatory for trusted publishing
+    environment:
+      name: pypi
+      url: https://pypi.org/p/pywatershed
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+          cache: 'pip'
+          cache-dependency-path: pyproject.toml
+
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install build twine
+          pip install .
+
+      - name: Build package
+        run: python -m build
+
+      - name: Check package
+        run: twine check --strict dist/*
+
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: dist
+          path: dist
+
+      - name: Publish package to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          verbose: truename: Release
+on:
   push:
     branches:
       - main
