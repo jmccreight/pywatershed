@@ -11,7 +11,7 @@ jobs:
   prep:
     name: draft release
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'push' && github.ref_name != 'main' }}
+    if: ${{ github.event_name == 'pull_request' && github.ref_name != 'main' }}
     permissions:
       contents: write
       pull-requests: write
