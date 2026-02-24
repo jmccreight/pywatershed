@@ -163,9 +163,9 @@ def test_output_monthly_accumulations(
         )
 
         # Check shapes match
-        assert (
-            monthly_mean_nc.shape == custom_monthly_mean.shape
-        ), f"{var_name}: shapes don't match"
+        assert monthly_mean_nc.shape == custom_monthly_mean.shape, (
+            f"{var_name}: shapes don't match"
+        )
 
         # Check values match (allowing for floating point tolerance)
         np.testing.assert_allclose(

@@ -934,9 +934,9 @@ class Output:
                     time_coord = arrays[vv].coords["time"]
                     period_start = str(time_coord.values[0])
                     period_end = str(time_coord.values[-1])
-                    result.attrs[
-                        "period_of_record"
-                    ] = f"{period_start} to {period_end}"
+                    result.attrs["period_of_record"] = (
+                        f"{period_start} to {period_end}"
+                    )
 
                     stats[vv][func_name] = result
 
@@ -1222,9 +1222,9 @@ class Output:
             chunk_end = chunk_start + remaining_steps
 
             for vv in self._chunked_var_list:
-                self._zarr_store[vv][
-                    chunk_start:chunk_end
-                ] = self._zarr_buffers[vv][:remaining_steps]
+                self._zarr_store[vv][chunk_start:chunk_end] = (
+                    self._zarr_buffers[vv][:remaining_steps]
+                )
 
         # Close zarr resources if opened
         if self._zarr_ds is not None:
