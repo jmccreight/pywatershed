@@ -19,7 +19,6 @@ Overview:
 
 from collections import defaultdict
 
-import geopandas as gpd
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -27,6 +26,7 @@ import xarray as xr
 import pywatershed as pws
 from pywatershed.utils.optional_import import import_optional_dependency
 
+gpd = import_optional_dependency("geopandas", errors="ignore")
 folium = import_optional_dependency("folium", errors="warn")
 
 

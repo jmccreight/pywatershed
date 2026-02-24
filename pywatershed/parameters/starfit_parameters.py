@@ -4,7 +4,6 @@ import urllib
 from typing import Union
 from warnings import warn
 
-import geopandas as gpd
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -12,6 +11,9 @@ import xarray as xr
 from ..base.data_model import DatasetDict
 from ..base.parameters import Parameters
 from ..constants import nan, nat
+from ..utils.optional_import import import_optional_dependency
+
+gpd = import_optional_dependency("geopandas", errors="ignore")
 
 # from ..hydrology.starfit import Starfit
 # from pywatershed import Starfit is circular so copy the needed info

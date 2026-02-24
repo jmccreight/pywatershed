@@ -1,11 +1,7 @@
 import pathlib as pl
 from warnings import warn
 
-import flopy
-import geopandas as gpd
 import numpy as np
-import pint
-import shapely
 import xarray as xr
 
 from pywatershed import Control, meta
@@ -14,6 +10,10 @@ from ..constants import fileish, zero
 from ..parameters import PrmsParameters
 from .optional_import import import_optional_dependency
 
+flopy = import_optional_dependency("flopy", errors="ignore")
+gpd = import_optional_dependency("geopandas", errors="ignore")
+pint = import_optional_dependency("pint", errors="ignore")
+shapely = import_optional_dependency("shapely", errors="ignore")
 mpsplines = import_optional_dependency("mpsplines", errors="warn")
 
 

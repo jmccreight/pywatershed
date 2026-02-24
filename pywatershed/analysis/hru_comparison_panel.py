@@ -25,18 +25,18 @@ import xarray as xr
 # from holoviews import streams
 from ..utils.optional_import import import_optional_dependency
 
-pn = import_optional_dependency("panel")
-gv = import_optional_dependency("geoviews")
-hv = import_optional_dependency("holoviews")
-gpd = import_optional_dependency("geopandas")
-streams = import_optional_dependency("holoviews.streams")
-ccrs = import_optional_dependency("cartopy.crs")
-bokeh_models = import_optional_dependency("bokeh.models")
+pn = import_optional_dependency("panel", errors="ignore")
+gv = import_optional_dependency("geoviews", errors="ignore")
+hv = import_optional_dependency("holoviews", errors="ignore")
+gpd = import_optional_dependency("geopandas", errors="ignore")
+streams = import_optional_dependency("holoviews.streams", errors="ignore")
+ccrs = import_optional_dependency("cartopy.crs", errors="ignore")
+bokeh_models = import_optional_dependency("bokeh.models", errors="ignore")
 if bokeh_models is not None:
     DatetimeTickFormatter = bokeh_models.DatetimeTickFormatter
 else:
     DatetimeTickFormatter = None
-_ = import_optional_dependency("hvplot.pandas")
+_ = import_optional_dependency("hvplot.pandas", errors="ignore")
 
 
 class HRUComparisonPanel:
