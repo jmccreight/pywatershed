@@ -144,5 +144,6 @@ cbh_ctl_var_map = {
     "transp_day": "transp_on",
     "windspeed_day": "windspeed_hru",
     "AET_cbh_file": "aet_observed",
+    "PET_cbh_file": "pet_observed",  # not used in PWS but required for subsetting domains  # noqa: E501
     "rhavg": "rhavg",
 }

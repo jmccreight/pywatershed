@@ -75,27 +75,9 @@ dt_1d = np.timedelta64(24, "h")
 # Restarts with "y" and "m" are always written on the last day of the period.
 # The "f" option is tested separately since it writes restarts only at the end.
 
-# For spinup domain (starts 1998-01-01)
-spinup_init_times_dict: dict[str, dict[str, np.datetime64]] = {
-    "d": {
-        "a": np.datetime64("1998-12-20") - dt_1d,
-        "b": np.datetime64("1998-12-25") - dt_1d,
-        "c": np.datetime64("1998-12-31") - dt_1d,
-    },
-    "m": {
-        "a": np.datetime64("1998-10-31") - dt_1d,
-        "b": np.datetime64("1998-11-01") - dt_1d,
-        "c": np.datetime64("1998-12-01") - dt_1d,
-    },
-    "y": {
-        "a": np.datetime64("1998-12-31") - dt_1d,
-        "b": np.datetime64("1999-01-01") - dt_1d,
-        "c": np.datetime64("1999-12-31") - dt_1d,
-    },
-}
 
 # For analysis domain (starts 2000-01-01)
-analysis_init_times_dict: dict[str, dict[str, np.datetime64]] = {
+init_times_dict: dict[str, dict[str, np.datetime64]] = {
     "d": {
         "a": np.datetime64("2000-12-20") - dt_1d,
         "b": np.datetime64("2000-12-25") - dt_1d,
@@ -113,20 +95,7 @@ analysis_init_times_dict: dict[str, dict[str, np.datetime64]] = {
     },
 }
 
-restart_freqs: list[str] = list(spinup_init_times_dict.keys())
-
-
-def get_init_times_dict(
-    simulation: dict[str, Any],
-) -> dict[str, dict[str, np.datetime64]]:
-    """Get the appropriate init times dict based on domain."""
-    domain_name = simulation["name"].split(":")[0]
-    if "spinup" in domain_name:
-        return spinup_init_times_dict
-    elif "analysis" in domain_name:
-        return analysis_init_times_dict
-    else:
-        pytest.skip(f"Unknown domain type for restart test: {domain_name}")
+restart_freqs: list[str] = list(init_times_dict.keys())
 
 
 def get_control(
@@ -136,6 +105,10 @@ def get_control(
 ) -> Control:
     """Load control and optionally adjust time bounds."""
     import warnings
+
+    domain_name = simulation["name"].split(":")[0]
+    if "fgr_ag_2yr" not in domain_name:
+        pytest.skip("Only running restart test for fgr_ag_2yr")
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
@@ -233,7 +206,6 @@ def test_restart(
     run 2, "bc":     b -> c'
     confirm c == c' in all variables (bit-for-bit match).
     """
-    init_times_dict = get_init_times_dict(simulation)
     times = init_times_dict[restart_freq]
 
     restart_dir = tmp_path / "restarts"
@@ -334,20 +306,11 @@ def test_restart_f(
     """
     # Use fixed times that work for both domains
     domain_name = simulation["name"].split(":")[0]
-    if "spinup" in domain_name:
-        init_times: dict[str, np.datetime64] = {
-            "a": np.datetime64("1998-06-01"),
-            "b": np.datetime64("1998-06-15"),
-            "c": np.datetime64("1998-06-30"),
-        }
-    elif "analysis" in domain_name:
-        init_times = {
-            "a": np.datetime64("2000-06-01"),
-            "b": np.datetime64("2000-06-15"),
-            "c": np.datetime64("2000-06-30"),
-        }
-    else:
-        pytest.skip(f"Unknown domain type for restart test: {domain_name}")
+    init_times = {
+        "a": np.datetime64("2000-06-01"),
+        "b": np.datetime64("2000-06-15"),
+        "c": np.datetime64("2000-06-30"),
+    }
 
     restart_dir = tmp_path / "restarts"
 

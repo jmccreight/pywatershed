@@ -15,7 +15,7 @@ modflow_repo_location=../../modflow6_for_pws_ci
 
 # options
 # all "no data" options. if passed, these turn OFF sections of the tests.
-while getopts 'hilmtosrdug' opt; do
+while getopts 'hilmtosrdufg' opt; do
     case "$opt" in
     h)
         h=h
@@ -57,6 +57,10 @@ while getopts 'hilmtosrdug' opt; do
         u=u
         echo "Not running the ucb_2yr tests"
         ;;
+    f)
+        f=f
+        echo "Not running the fgr_ag_2yr tests"
+        ;;
     g)
         g=g
         echo "Not generating test data for any run tests"
@@ -83,6 +87,8 @@ if [ ! -z "${h}" ]; then
     echo "    g: generate drb_2yr data"
     echo "  u: ucb_2yr"
     echo "    g: generate ucb_2yr data"
+    echo "  f: fgr_ag_2yr"
+    echo "    g: generate fgr_ag_2yr data"
 
     exit 0
 fi
@@ -220,6 +226,10 @@ if [ -z "${t}" ]; then
     echo
     echo "Get GIS files for tests"
     python pywatershed/utils/gis_files.py || exit 1
+
+    echo
+    echo "Get additional domain files for tests"
+    python pywatershed/utils/addtl_domain_files.py || exit 1
 
     cd autotest
 
@@ -522,6 +532,74 @@ if [ -z "${t}" ]; then
             --control_pattern=frost.control \
             --durations=0 \
             test_prms_atmosphere_transp_frost.py || exit 1
+    fi
+
+    if [ -z "${f}" ]; then
+        echo
+        echo
+        echo "===================="
+        echo "DOMAIN: fgr_ag_2yr"
+        echo "===================="
+        echo
+
+        if [ -z "${g}" ]; then
+            # Check and create symlink to additional domain data
+            echo
+            echo "Check/create symlink to fgr_ag_2yr domain data"
+            expected_target="../pywatershed/data/pywatershed_addtl_domains/fgr_ag_2yr"
+            symlink_path="../test_data/fgr_ag_2yr"
+
+            if [ -L "$symlink_path" ]; then
+                # Symlink exists, check if it points to the right place
+                current_target=$(readlink "$symlink_path")
+                if [ "$current_target" != "$expected_target" ]; then
+                    echo "ERROR: Symlink $symlink_path exists but points to wrong location:"
+                    echo "  Current: $current_target"
+                    echo "  Expected: $expected_target"
+                    exit 1
+                fi
+                echo "Symlink already exists and is correct"
+            elif [ -e "$symlink_path" ]; then
+                # Path exists but is not a symlink
+                echo "ERROR: $symlink_path exists but is not a symlink"
+                exit 1
+            else
+                # Create the symlink
+                ln -sfn "$expected_target" "$symlink_path" || exit 1
+                echo "Symlink created successfully"
+            fi
+
+            echo
+            echo ".........."
+            echo "fgr_ag_2yr all configs - generate and manage test data"
+            echo ".........."
+            echo
+            python generate_test_data.py \
+                -n=$pytest_n --domain=fgr_ag_2yr \
+                --remove_prms_csvs \
+                --remove_prms_output_dirs \
+                --control_pattern=spinup.control \
+                --control_pattern=analysis.control || exit 1
+
+            echo "fgr_ag_2yr - list netcdf input files"
+            find ../test_data/fgr_ag_2yr/output_spinup -name '*.nc' | sort -n
+            find ../test_data/fgr_ag_2yr/output_analysis -name '*.nc' | sort -n
+        fi
+
+        echo ".........."
+        echo "fgr_ag_2yr_nhm - pywatershed tests"
+        echo ".........."
+        echo
+        pytest \
+            -vv \
+            -rs \
+            -n=$pytest_n \
+            --domain=fgr_ag_2yr \
+            --control_pattern=spinup.control \
+            --control_pattern=analysis.control \
+            --durations=0 \
+            test_prms_runoff_ag.py \
+            test_prms_runoff_ag_restart.py || exit 1
     fi
 fi
 

@@ -220,6 +220,26 @@ jobs:
         run: |
           python pywatershed/utils/gis_files.py
 
+      - name: Get additional domain files for tests
+        run: |
+          python pywatershed/utils/addtl_domain_files.py
+          if [ $? -ne 0 ]; then
+            echo "Failed to download additional domain files"
+            exit 1
+          fi
+
+      - name: Create symlink to fgr_ag_2yr domain
+        run: |
+          python -c "
+          import os;
+          src = os.path.join(
+              '..', 'pywatershed', 'data', 'pywatershed_addtl_domains', 'fgr_ag_2yr'
+          );
+          dst = os.path.join('test_data', 'fgr_ag_2yr');
+          os.path.exists(dst) and os.unlink(dst);
+          os.symlink(src, dst, target_is_directory=True);
+          "
+
       - name: domainless - run tests not requiring domain data
         working-directory: autotest
         run: pytest
@@ -506,6 +526,42 @@ jobs:
           --junitxml=pytest_ucb_2yr_nhm_transp_frost.xml
           test_prms_atmosphere_transp_frost.py
 
+      - name: fgr_ag_2yr all configs - generate and manage test data
+        working-directory: autotest
+        run: |
+          python generate_test_data.py \
+            -n=auto \
+            --domain=fgr_ag_2yr \
+            --remove_prms_csvs \
+            --remove_prms_output_dirs \
+            --control_pattern=spinup.control \
+            --control_pattern=analysis.control
+
+      - name: fgr_ag_2yr_nhm - list netcdf input files
+        working-directory: test_data
+        run: |
+          find fgr_ag_2yr/output_spinup -name '*.nc' | sort -n
+          find fgr_ag_2yr/output_analysis -name '*.nc' | sort -n
+
+      - name: fgr_ag_2yr_nhm - pywatershed tests
+        working-directory: autotest
+        run: pytest
+          -vv
+          -rs
+          -n=auto
+          --domain=fgr_ag_2yr
+          --control_pattern=spinup.control
+          --control_pattern=analysis.control
+          --durations=0
+          --cov=pywatershed
+          --cov-report=xml
+          --junitxml=pytest_fgr_ag_2yr_spinup.xml
+          test_prms_runoff_ag.py
+          test_prms_runoff_ag_restart.py
+          test_prms_soilzone_ag.py
+          test_prms_soilzone_ag_restart.py
+          test_prms_runoff_soilzone_ag.py
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
@@ -515,7 +571,7 @@ jobs:
             ./autotest/pytest_hru_1_nhm.xml
             ./autotest/pytest_drb_2yr_nhm.xml
             ./autotest/pytest_drb_2yr_no_dprst.xml
-            ./autotest/pytest_ucb_2yr_nhm.xml
+            ./autotest/pytest_fgr_ag_2yr_nhm.xml
 
       - name: Upload code coverage to Codecov
         uses: codecov/codecov-action@v3
