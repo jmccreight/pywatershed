@@ -1229,7 +1229,8 @@ class Output:
         # Close zarr resources if opened
         if self._zarr_ds is not None:
             self._zarr_ds.close()
-        # Note: zarr stores don't need explicit closing, but set to None for clarity
+        # Note: zarr stores don't need explicit closing, but set to None for
+        # clarity
         self._zarr_store = None
 
     # ==== General methods ================
