@@ -305,7 +305,6 @@ def test_restart_f(
     confirm c == c' in all variables.
     """
     # Use fixed times that work for both domains
-    domain_name = simulation["name"].split(":")[0]
     init_times = {
         "a": np.datetime64("2000-06-01"),
         "b": np.datetime64("2000-06-15"),

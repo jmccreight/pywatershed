@@ -1,5 +1,5 @@
-from .hru_comparison_panel import HRUComparisonPanel, compare_hru_runs
 from . import time_stats
+from .hru_comparison_panel import HRUComparisonPanel, compare_hru_runs
 from .model_graph import ModelGraph
 from .process_plot import ProcessPlot
 

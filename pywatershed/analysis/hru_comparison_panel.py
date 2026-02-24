@@ -52,13 +52,15 @@ class HRUComparisonPanel:
     shapefile_path : str or Path
         Path to shapefile containing HRU polygons
     variable_names : list of str
-        List of variable names to compare (should match netcdf filenames without .nc)
+        List of variable names to compare (should match netcdf filenames
+        without .nc)
     run_directories : dict
-        Dictionary mapping run names to directory paths containing netcdf files
-        Example: {"Run1": "/path/to/run1/output", "Run2": "/path/to/run2/output"}
+        Dictionary mapping run names to directory paths containing netcdf
+        files. Example: {"Run1": "/path/to/run1/output", "Run2":
+        "/path/to/run2/output"}
     input_directories : dict, optional
-        Dictionary mapping run names to input directory paths. If a variable is not
-        found in run_directories, will check input_directories.
+        Dictionary mapping run names to input directory paths. If a variable
+        is not found in run_directories, will check input_directories.
         Example: {"Run1": "/path/to/run1/input", "Run2": "/path/to/run2/input"}
     hru_id_column : str, optional
         Column name in shapefile containing HRU IDs. If None, will auto-detect.
@@ -75,10 +77,12 @@ class HRUComparisonPanel:
         Can be changed interactively in the app.
     simplify_tolerance : int, optional
         Tolerance in meters for geometry simplification (default: 300).
-        Increase this (e.g., 500 or 1000) for faster rendering with large domains.
+        Increase this (e.g., 500 or 1000) for faster rendering with large
+        domains.
     time_aggregations : dict, optional
-        Dictionary mapping aggregation names to functions that take an xarray
-        DataArray and return aggregated values. If None, uses built-in defaults:
+        Dictionary mapping aggregation names to functions that take an
+        xarray DataArray and return aggregated values. If None, uses
+        built-in defaults:
         Mean, Sum, Max, Min, Std, Range, Trend.
     run_colors : dict, optional
         Dictionary mapping run names to colors for timeseries plots.
@@ -87,7 +91,9 @@ class HRUComparisonPanel:
         Custom examples:
             {
                 "Median": lambda da: da.median(dim="time").values,
-                "95th percentile": lambda da: da.quantile(0.95, dim="time").values,
+                "95th percentile": lambda da: da.quantile(
+                    0.95, dim="time"
+                ).values,
                 "Jan-Mar Mean": lambda da: da.sel(
                     time=da.time.dt.month.isin([1,2,3])
                 ).mean(dim="time").values,
@@ -149,7 +155,8 @@ class HRUComparisonPanel:
             missing_runs = set(self.run_names) - set(run_colors.keys())
             if missing_runs:
                 raise ValueError(
-                    f"run_colors must include all runs. Missing colors for: {missing_runs}"
+                    f"run_colors must include all runs. Missing colors "
+                    f"for: {missing_runs}"
                 )
             self.run_colors = run_colors
         else:
@@ -210,19 +217,23 @@ class HRUComparisonPanel:
         print("Reprojecting to Web Mercator (EPSG:3857)...")
         self.gdf = self.gdf.to_crs(epsg=3857)
 
-        # Simplify geometries to speed up rendering (tolerance in meters for EPSG:3857)
+        # Simplify geometries to speed up rendering (tolerance in meters
+        # for EPSG:3857)
         if self.simplify_tolerance > 0:
             print(
-                f"Simplifying geometries with tolerance={self.simplify_tolerance}m for faster rendering..."
+                f"Simplifying geometries with tolerance="
+                f"{self.simplify_tolerance}m for faster rendering..."
             )
             num_hrus = len(self.gdf)
             print(f"  Domain has {num_hrus} HRUs")
             if num_hrus > 1000:
                 print(
-                    f"  WARNING: Large domain ({num_hrus} HRUs) may render slowly."
+                    f"  WARNING: Large domain ({num_hrus} HRUs) may render "
+                    f"slowly."
                 )
                 print(
-                    f"  Consider increasing simplify_tolerance (currently {self.simplify_tolerance}m) to 500-1000m"
+                    f"  Consider increasing simplify_tolerance (currently "
+                    f"{self.simplify_tolerance}m) to 500-1000m"
                 )
             self.gdf["geometry"] = self.gdf.geometry.simplify(
                 tolerance=self.simplify_tolerance, preserve_topology=True
@@ -345,7 +356,8 @@ class HRUComparisonPanel:
         print(f"Loading {var_name} from {run_name}...")
         da = xr.load_dataarray(nc_path)
 
-        # Check if this file uses index-based dimension (nhru) with nhm_id coordinate
+        # Check if this file uses index-based dimension (nhru) with nhm_id
+        # coordinate
         spatial_dim = [d for d in da.dims if d != "time"][0]
         if spatial_dim == "nhru" and "nhm_id" in da.coords:
             # This file uses indices - create a mapping
@@ -356,7 +368,8 @@ class HRUComparisonPanel:
             # Store the mapping with the cache key
             self.data_cache[f"{cache_key}_mapping"] = nhm_id_to_index
             print(
-                "  File uses index-based dimension with nhm_id coordinate mapping"
+                "  File uses index-based dimension with nhm_id coordinate "
+                "mapping"
             )
 
         self.data_cache[cache_key] = da
@@ -370,14 +383,16 @@ class HRUComparisonPanel:
             print(f"Spatial dimension: {self.spatial_dim}")
             print(f"Number of HRUs in NetCDF: {len(self.hru_ids)}")
             print(
-                f"NetCDF HRU ID range: {min(self.hru_ids)} to {max(self.hru_ids)}"
+                f"NetCDF HRU ID range: {min(self.hru_ids)} to "
+                f"{max(self.hru_ids)}"
             )
 
             # Check shapefile HRU IDs
             shp_hru_ids = sorted(self.gdf[self.hru_id_column].unique())
             print(f"Number of HRUs in shapefile: {len(shp_hru_ids)}")
             print(
-                f"Shapefile HRU ID range: {min(shp_hru_ids)} to {max(shp_hru_ids)}"
+                f"Shapefile HRU ID range: {min(shp_hru_ids)} to "
+                f"{max(shp_hru_ids)}"
             )
 
             # Check for mismatches
@@ -385,12 +400,14 @@ class HRUComparisonPanel:
             in_nc_not_shp = set(self.hru_ids) - set(shp_hru_ids)
             if in_shp_not_nc:
                 print(
-                    f"WARNING: {len(in_shp_not_nc)} HRUs in shapefile but not in NetCDF"
+                    f"WARNING: {len(in_shp_not_nc)} HRUs in shapefile but "
+                    f"not in NetCDF"
                 )
                 print(f"  Examples: {list(in_shp_not_nc)[:5]}")
             if in_nc_not_shp:
                 print(
-                    f"WARNING: {len(in_nc_not_shp)} HRUs in NetCDF but not in shapefile"
+                    f"WARNING: {len(in_nc_not_shp)} HRUs in NetCDF but not "
+                    f"in shapefile"
                 )
                 print(f"  Examples: {list(in_nc_not_shp)[:5]}")
 
@@ -414,30 +431,35 @@ class HRUComparisonPanel:
             if spatial_dims:
                 spatial_dim = spatial_dims[0]
                 print(
-                    f"      Spatial dimension: '{spatial_dim}' with {da.sizes[spatial_dim]} elements"
+                    f"      Spatial dimension: '{spatial_dim}' with "
+                    f"{da.sizes[spatial_dim]} elements"
                 )
 
                 # Check if dimension name is nhm_id vs nhru
                 if spatial_dim == "nhm_id":
                     print(
-                        "      ⚠️  WARNING: Dimension is 'nhm_id', should be 'nhru'"
+                        "      ⚠️  WARNING: Dimension is 'nhm_id', should be "
+                        "'nhru'"
                     )
                     print(
-                        f"      Coordinate values: {da[spatial_dim].values[:5]}... (first 5)"
+                        f"      Coordinate values: "
+                        f"{da[spatial_dim].values[:5]}... (first 5)"
                     )
                 elif spatial_dim == "nhru":
                     print("      ✓ Dimension is 'nhru' (index-based)")
                     print(f"      Range: 0 to {da.sizes[spatial_dim] - 1}")
                 else:
                     print(
-                        f"      ⚠️  WARNING: Unexpected spatial dimension name: '{spatial_dim}'"
+                        f"      ⚠️  WARNING: Unexpected spatial dimension "
+                        f"name: '{spatial_dim}'"
                     )
 
                 # Check if nhm_id exists as a coordinate
                 if "nhm_id" in coords and spatial_dim == "nhru":
                     print("      ✓ Has 'nhm_id' coordinate for mapping")
                     print(
-                        f"      nhm_id values: {da.coords['nhm_id'].values[:5]}... (first 5)"
+                        f"      nhm_id values: "
+                        f"{da.coords['nhm_id'].values[:5]}... (first 5)"
                     )
 
         except Exception as e:
@@ -511,7 +533,8 @@ class HRUComparisonPanel:
         Returns
         -------
         np.ndarray or None
-            Difference values for each HRU, or None if either run doesn't have data
+            Difference values for each HRU, or None if either run doesn't
+            have data
         """
         # Use current aggregation method
         agg_method = self._current_aggregation
@@ -537,7 +560,8 @@ class HRUComparisonPanel:
         Returns
         -------
         dict
-            Dictionary with 'desc' and 'units' keys, or empty strings if not found
+            Dictionary with 'desc' and 'units' keys, or empty strings if
+            not found
         """
         if var_name not in self.var_metadata:
             try:
@@ -626,12 +650,18 @@ class HRUComparisonPanel:
             values = self.compute_time_aggregation(
                 var_name, actual_left, aggregation
             )
-            title = f"{actual_left}: Temporal {aggregation}\n{var_name}{desc_str}{units_str}"
+            title = (
+                f"{actual_left}: Temporal {aggregation}\n{var_name}"
+                f"{desc_str}{units_str}"
+            )
         else:
             values = self.compute_difference(
                 var_name, actual_left, actual_right
             )
-            title = f"{actual_left} - {actual_right}: Difference of temporal {aggregation}s\n{var_name}{desc_str}{units_str}"
+            title = (
+                f"{actual_left} - {actual_right}: Difference of temporal "
+                f"{aggregation}s\n{var_name}{desc_str}{units_str}"
+            )
 
         # Handle case where data could not be loaded
         if values is None:
@@ -865,7 +895,8 @@ class HRUComparisonPanel:
         width : int, optional
             Width of plot in pixels. If None, uses self.timeseries_width.
         height : int, optional
-            Height of each subplot in pixels. If None, uses self.timeseries_height.
+            Height of each subplot in pixels. If None, uses
+            self.timeseries_height.
         title : str, optional
             Custom title to add after HRU ID. Replaces unit label in title.
             Example: "HRU 84966: Precipitation Analysis"
@@ -1319,11 +1350,13 @@ class HRUComparisonPanel:
         app = pn.Column(
             "# HRU Comparison Panel",
             pn.pane.Markdown(
-                f"**Comparing {len(self.run_names)} runs across {len(self.variable_names)} variables**  \n"
+                f"**Comparing {len(self.run_names)} runs across "
+                f"{len(self.variable_names)} variables**  \n"
                 f"Runs: {', '.join(self.run_names)}  \n"
                 f"Variables: {', '.join(self.variable_names)}"
             ),
-            "**Click on any HRU polygon on the map to view its timeseries, or manually enter an HRU ID.**",
+            "**Click on any HRU polygon on the map to view its timeseries, "
+            "or manually enter an HRU ID.**",
             pn.Row(
                 pn.Column(
                     "### Variable Selection",

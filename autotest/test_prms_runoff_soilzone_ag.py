@@ -411,7 +411,6 @@ def test_compare_prms(
 
     # Load answers for comparison and HRU-time exceptions
     prms_output_dir = simulation["output_dir"]
-    pws_output_dir = control.options["netcdf_output_dir"]
     answers = {}
     skipped_comp_vars = []
     for var in comparison_var_names:
