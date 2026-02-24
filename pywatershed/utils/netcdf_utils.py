@@ -541,10 +541,7 @@ class NetCdfWrite(Accessor):
                     # if it is a string array, convert it to a character array
                     # I dont understand the particulars here, may need more
                     # work
-                    if "U" in type_str:
-                        char_array = stringtochar(x_data.astype("S"))
-                    else:
-                        char_array = stringtochar(x_data)
+                    char_array = stringtochar(x_data)
 
                     char_dim_len = char_array.shape[1]
                     dim_name = f"char{char_dim_len}"

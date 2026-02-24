@@ -11,9 +11,6 @@ What's New
 
     np.random.seed(123456)
 
-
-.. _whats-new.2.1.0:
-
 v2.1.0 (Unreleased)
 ---------------------
 
@@ -59,6 +56,11 @@ New Features
 - The :class:`StarfitSourceSinkFlowNode` allows sources and sinks to interact
   with storage of a Starfit reservoir/FlowNode.
   (:pull:`348`) By `James McCreight <https://github.com/jmccreight>`_.
+- The new :class:`base.Output` class provides flexible output collection and statistical
+  analysis for models, supporting HRUs of interest (HOI), segments/nodes of interest (NOI),
+  and monthly accumulations. Includes Zarr chunked output capability for efficient large-scale
+  data writing (~6x faster than NetCDF). See notebook ``09_model_output.ipynb`` for examples.
+  (:pull:`363`) By `James McCreight <https://github.com/jmccreight>`_.
 
 Breaking Changes
 ~~~~~~~~~~~~~~~~
@@ -91,6 +93,25 @@ Internal changes
   so the final variables are run serially.
   (:pull:`331`) By `James McCreight <https://github.com/jmccreight>`_.
 
+.. _whats-new.2.0.4:
+
+v2.0.4 (23 February 2026)
+---------------------
+
+New Features
+~~~~~~~~~~~~~~~~
+Fixes to release workflow, pypi publishing.
+
+.. _whats-new.2.0.3:
+
+v2.0.3 (22 February 2026)
+---------------------
+
+New Features
+~~~~~~~~~~~~~~~~
+Some minor fixes. This is a data release for the upcoming major release, new data will be an asset on this
+release.
+
 .. _whats-new.2.0.2:
 
 v2.0.2 (14 March 2025)
@@ -108,7 +129,7 @@ Bug fixes
 .. _whats-new.2.0.1:
 
 v2.0.1 (19 December 2024)
--------------------------
+-----------------------------
 
 New Features
 ~~~~~~~~~~~~~~~~
@@ -118,7 +139,7 @@ New Features
 .. _whats-new.2.0.0:
 
 v2.0.0 (16 December 2024)
--------------------------
+-----------------------------
 
 New Features
 ~~~~~~~~~~~~~~~~

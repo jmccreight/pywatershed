@@ -317,12 +317,19 @@ class DatasetDict(Accessor):
     @classmethod
     def from_dict(cls, dict_in, copy=False):
         """Return this class from a passed dictionary.
-        Args:
-            dict_in: a dictionary from which to create an instance of this
-                class
-            copy: boolean if the passed dictionary should be deep copied
-        Returns:
-            A object of this class.
+
+        Parameters
+        ----------
+        dict_in : dict
+            A dictionary from which to create an instance of this class
+        copy : bool, optional
+            If True, the passed dictionary will be deep copied. Default is
+            False.
+
+        Returns
+        -------
+        DatasetDict
+            An object of this class.
         """
         if copy:
             return cls(**deepcopy(dict_in))
@@ -689,11 +696,11 @@ class DatasetDict(Accessor):
             dd_list = [deepcopy(dd.data) for dd in dd_list]
             if del_global_src:
                 for dd in dd_list:
-                    if (
-                        "global" in dd["encoding"].keys()
-                        and "source" in dd["encoding"]["global"]
-                    ):
+                    if "global" not in dd["encoding"]:
+                        continue
+                    if "source" in dd["encoding"]["global"]:
                         del dd["encoding"]["global"]["source"]
+            # <<<
             merged_dict = _merge_dicts(dd_list)
         else:
             merged_dict = _merge_dicts([deepcopy(dd.data) for dd in dd_list])

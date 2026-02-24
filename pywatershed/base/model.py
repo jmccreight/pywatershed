@@ -7,6 +7,7 @@ from tqdm.auto import tqdm
 
 from ..base.adapter import adapter_factory
 from ..base.control import Control
+from ..base.output import Output
 from ..constants import fileish
 from ..parameters import Parameters, PrmsParameters
 from ..utils.path import path_rel_to_yaml
@@ -290,6 +291,7 @@ class Model:
         parameters: Union[Parameters, dict[Parameters]] = None,
         find_input_files: bool = True,
         write_control: Union[bool, str, pl.Path] = False,
+        output_obj_kwargs_dict: dict = None,
     ):
         self.control = control
         self.parameters = parameters
@@ -356,7 +358,33 @@ class Model:
                 yaml_fn.parent.mkdir(parents=True)
             self.control.to_yaml(yaml_fn)
 
+        self._output_obj_kwargs_dict = output_obj_kwargs_dict
+        self._handle_output_obj_kwargs_dict()
+
         return
+
+    def _handle_output_obj_kwargs_dict(self):
+        if not self._output_obj_kwargs_dict:
+            self._output_obj_kwargs_dict = {}
+            self._output_obj = None
+            return
+
+        for kk, vv in {"control": self.control, "model": self}.items():
+            if kk in self._output_obj_kwargs_dict.keys():
+                if self._output_obj_kwargs_dict[kk] is not vv:
+                    raise ValueError(
+                        f"An inappropriate (and unnecessary) {kk} object "
+                        "was passed via output_obj_kwargs_dict."
+                    )
+            else:
+                self._output_obj_kwargs_dict[kk] = vv
+
+        self._output_obj = Output(**self._output_obj_kwargs_dict)
+
+    @property
+    def output_obj(self) -> "Output | None":
+        """Output object collector for the model (if configured)."""
+        return self._output_obj
 
     def _categorize_model_dict(self):
         """Categorize model_dict entries
@@ -696,10 +724,11 @@ class Model:
 
     def run(
         self,
-        netcdf_dir: fileish = None,
+        netcdf_dir: fileish | None = None,
         finalize: bool = True,
-        n_time_steps: int = None,
-        output_vars: list = None,
+        n_time_steps: int | None = None,
+        output_vars: list | None = None,
+        output_obj: "Output | None" = None,
     ):
         """Run the model.
 
@@ -719,6 +748,11 @@ class Model:
             n_time_steps: the number of timesteps to run
             output_vars: the vars to output to the netcdf_dir
         """
+        if self._output_obj is not None:
+            if output_obj is not None:
+                raise ValueError("Output previously defined on self")
+            output_obj = self._output_obj
+
         if netcdf_dir or (
             not self._netcdf_initialized
             and self._default_nc_out_dir is not None
@@ -732,10 +766,14 @@ class Model:
             self.advance()
             self.calculate()
             self.output()
+            if output_obj is not None:
+                output_obj.calculate()
 
         if finalize:
             print("model.run(): finalizing")
             self.finalize()
+            if output_obj is not None:
+                output_obj.finalize()
 
         return
 

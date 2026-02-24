@@ -78,6 +78,7 @@ examples/model_loop_custom_output
 examples/make_starfit_parameters
 pywatershed/data/pynhm_gis
 pywatershed/data/pywatershed_gis
+pywatershed/data/pywatershed_addtl_domains
 
 pyrightconfig.json
 .DS_Store

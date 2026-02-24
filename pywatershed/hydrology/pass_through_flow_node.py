@@ -1,3 +1,5 @@
+import numpy as np
+
 from ..base.control import Control
 from ..base.flow_graph import FlowNode, FlowNodeMaker
 from ..constants import nan, zero
@@ -16,6 +18,8 @@ class PassThroughFlowNode(FlowNode):
             control: A control object.
         """
         self.control = control
+        self._seg_outflow = np.array([nan])
+        self._inflow_subtimestep = np.array([nan])
         return
 
     def prepare_timestep(self):

@@ -26,7 +26,7 @@ from pywatershed.parameters import Parameters
 
 
 class PRMSChannelFlowNode(FlowNode):
-    """A FlowNode for the Muskingum-Mann method of PRMSChannel
+    r"""A FlowNode for the Muskingum-Mann method of PRMSChannel
 
     This is a :class:`FlowNode` implementation of :class:`PRMSChannel` where
     the solution is the so-called Muskingum-Mann method.
@@ -157,7 +157,7 @@ class PRMSChannelFlowNode(FlowNode):
 
 
 class PRMSChannelFlowNodeMaker(FlowNodeMaker):
-    """A FlowNodeMaker for PRMSChannelFlowNodes.
+    r"""A FlowNodeMaker for PRMSChannelFlowNodes.
 
     See :class:`PRMSChannelFlowNode` for additional details and the required
     parameters.
@@ -633,9 +633,10 @@ def prms_channel_flow_graph_postprocess(
     addtl_output_vars: list[str] = None,
     allow_disconnected_nodes: bool = False,
     imbalance_behavior: Literal["defer", None, "warn", "error"] = "defer",
+    prms_channel_node_maker_name: str = "prms_channel",
     type_check_nodes: bool = False,
 ) -> FlowGraph:
-    """Add nodes to a PRMSChannel-based FlowGraph to run from known inputs.
+    r"""Add nodes to a PRMSChannel-based FlowGraph to run from known inputs.
 
     This function helps construct a :class:`FlowGraph` starting from existing
     data for a :class:`PRMSChannel` simulation. The resulting FlowGraph is
@@ -695,6 +696,7 @@ def prms_channel_flow_graph_postprocess(
         new_nodes_maker_indices,
         new_nodes_maker_ids,
         new_nodes_flow_to_nhm_seg,
+        prms_channel_node_maker_name=prms_channel_node_maker_name,
     )
 
     # combine PRMS lateral inflows to a single non-volumetric inflow
@@ -760,9 +762,9 @@ def prms_channel_flow_graph_to_model_dict(
         "defer", None, "warn", "error"
     ] = "defer",
     allow_disconnected_nodes: bool = False,
-    type_check_nodes: bool = False,
+    prms_channel_node_maker_name: str = "prms_channel",
 ) -> dict:
-    """Add nodes to a PRMSChannel-based FlowGraph within a Model's model_dict.
+    r"""Add nodes to a PRMSChannel-based FlowGraph within a Model's model_dict.
 
     This function helps construct a :class:`FlowGraph` starting from existing
     data for a :class:`PRMSChannel` simulation. The resulting FlowGraph is
@@ -818,6 +820,7 @@ def prms_channel_flow_graph_to_model_dict(
         new_nodes_maker_indices,
         new_nodes_maker_ids,
         new_nodes_flow_to_nhm_seg,
+        prms_channel_node_maker_name=prms_channel_node_maker_name,
     )
 
     def exchange_calculation(self) -> None:
@@ -907,6 +910,7 @@ def _build_flow_graph_inputs(
     new_nodes_maker_indices: list,
     new_nodes_maker_ids: list,
     new_nodes_flow_to_nhm_seg: list,
+    prms_channel_node_maker_name: str = "prms_channel",
 ):
     prms_channel_flow_makers = [
         type(vv)
@@ -928,7 +932,9 @@ def _build_flow_graph_inputs(
     nnew = len(new_nodes_maker_names)
     nnodes = nseg + nnew
 
-    node_maker_name = ["prms_channel"] * nseg + new_nodes_maker_names
+    node_maker_name = [
+        prms_channel_node_maker_name
+    ] * nseg + new_nodes_maker_names
     maxlen = np.array([len(nn) for nn in node_maker_name]).max()
     # need this to be unicode U# for keys and searching below
     node_maker_name = np.array(node_maker_name, dtype=f"|U{maxlen}")
@@ -961,11 +967,11 @@ def _build_flow_graph_inputs(
         )
         # have to map to the graph from an index found in prms_channel
         wh_intervene_above_graph = np.where(
-            (node_maker_name == "prms_channel")
+            (node_maker_name == prms_channel_node_maker_name)
             & (node_maker_index == wh_intervene_above_nhm[0][0])
         )
         wh_intervene_below_graph = np.where(
-            (node_maker_name == "prms_channel")
+            (node_maker_name == prms_channel_node_maker_name)
             & np.isin(node_maker_index, wh_intervene_below_nhm)
         )
 
@@ -1021,7 +1027,7 @@ def _build_flow_graph_inputs(
 
     # make available at top level __init__
     node_maker_dict = {
-        "prms_channel": PRMSChannelFlowNodeMaker(
+        prms_channel_node_maker_name: PRMSChannelFlowNodeMaker(
             prms_channel_dis, prms_channel_params
         ),
     } | new_nodes_maker_dict

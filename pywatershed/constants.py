@@ -70,6 +70,17 @@ np_type_to_netcdf_type_dict = {
     np.dtype("bool"): None,
 }
 
+# Map variable type strings from metadata YAML to numpy dtypes
+var_type_to_numpy_type = {
+    "float64": np.float64,
+    "float32": np.float32,
+    "int64": np.int64,
+    "int32": np.int32,
+    "int16": np.int16,
+    "int8": np.int8,
+    "bool": np.bool_,
+}
+
 inch2cm = 2.54
 ft2_per_acre = 43560.0
 inches_per_foot = 12.0

@@ -1,4 +1,5 @@
 from .hru_comparison_panel import HRUComparisonPanel, compare_hru_runs
+from . import time_stats
 from .model_graph import ModelGraph
 from .process_plot import ProcessPlot
 
@@ -7,4 +8,5 @@ __all__ = (
     "ProcessPlot",
     "HRUComparisonPanel",
     "compare_hru_runs",
+    "time_stats",
 )

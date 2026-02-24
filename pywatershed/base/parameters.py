@@ -23,26 +23,32 @@ class Parameters(DatasetDict):
     * get_param_values: get values from dd.variables
     * get_dim_values: get values from dd.dims
 
-    Args:
-        dims: A dictionary of pairs of `dim_names: dim_len` where `dim_len` is
-            an integer value.
-        coords: A dictionary of pairs of `coord_names: coord_data` where
-            `coord_data` is an np.ndarray.
-        data_vars: A dictionary of pairs of `var_names: var_data` where
-            `coord_data` is an np.ndarray.
-        metadata: For all names in `coords` and `data_vars`, metadata entries
-            with the required fields:
+    Parameters
+    ----------
+    dims : dict
+        A dictionary of pairs of `dim_names: dim_len` where `dim_len` is
+        an integer value.
+    coords : dict
+        A dictionary of pairs of `coord_names: coord_data` where
+        `coord_data` is an np.ndarray.
+    data_vars : dict
+        A dictionary of pairs of `var_names: var_data` where
+        `coord_data` is an np.ndarray.
+    metadata : dict
+        For all names in `coords` and `data_vars`, metadata entries
+        with the required fields:
 
-            - dims: tuple of names in dim,
-            - attrs: dictionary whose values may be strings, ints, floats
+        - dims: tuple of names in dim,
+        - attrs: dictionary whose values may be strings, ints, floats
 
-            The metadata argument may also contain a special `global` key
-            paired with a dictionary of global metadata of arbitrary name and
-            values of string, integer, or float types.
+        The metadata argument may also contain a special `global` key
+        paired with a dictionary of global metadata of arbitrary name and
+        values of string, integer, or float types.
 
-        encoding: The encoding attributes to/from file when reading/writing.
-        validate: A bool that defaults to True, enforcing the consistency
-            of the supplied dictionaries.
+    encoding : dict, optional
+        The encoding attributes to/from file when reading/writing.
+    validate : bool, optional
+        If True (default), enforces the consistency of the supplied dictionaries.
 
     See Also
     --------

@@ -20,6 +20,10 @@ API Summary
 
 .. include:: api/model.rst
 
+.. include:: api/output.rst
+
 .. include:: api/base.rst
+
+.. include:: api/analysis.rst
 
 .. include:: api/utils.rst
