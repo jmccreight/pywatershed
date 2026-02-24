@@ -56,6 +56,11 @@ New Features
 - The :class:`StarfitSourceSinkFlowNode` allows sources and sinks to interact
   with storage of a Starfit reservoir/FlowNode.
   (:pull:`348`) By `James McCreight <https://github.com/jmccreight>`_.
+- The new :class:`base.Output` class provides flexible output collection and statistical
+  analysis for models, supporting HRUs of interest (HOI), segments/nodes of interest (NOI),
+  and monthly accumulations. Includes Zarr chunked output capability for efficient large-scale
+  data writing (~6x faster than NetCDF). See notebook ``09_model_output.ipynb`` for examples.
+  (:pull:`363`) By `James McCreight <https://github.com/jmccreight>`_.
 
 Breaking Changes
 ~~~~~~~~~~~~~~~~
