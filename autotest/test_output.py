@@ -163,9 +163,9 @@ def test_output_monthly_accumulations(
         )
 
         # Check shapes match
-        assert monthly_mean_nc.shape == custom_monthly_mean.shape, (
-            f"{var_name}: shapes don't match"
-        )
+        assert (
+            monthly_mean_nc.shape == custom_monthly_mean.shape
+        ), f"{var_name}: shapes don't match"
 
         # Check values match (allowing for floating point tolerance)
         np.testing.assert_allclose(
@@ -1200,7 +1200,7 @@ def test_output_zarr_auto_chunk_sizes(
             chunk_size_auto_warn=True,
         )
 
-    model.run(finalize=True, output=output)
+    model.run(finalize=True, output_obj=output)
 
     # Verify zarr file was created
     assert zarr_file.exists()
@@ -1237,7 +1237,7 @@ def test_output_zarr_no_warn(
         chunk_size_auto_warn=False,
     )
 
-    model.run(finalize=True, output=output)
+    model.run(finalize=True, output_obj=output)
     assert zarr_file.exists()
 
 
