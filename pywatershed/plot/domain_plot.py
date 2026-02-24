@@ -9,7 +9,7 @@ import geopandas as gpd
 import pandas as pd
 
 from ..base import Parameters
-from ..utils import import_optional_dependency
+from ..utils.optional_import import import_optional_dependency
 
 folium = import_optional_dependency("folium", errors="warn")
 IPython = import_optional_dependency("IPython", errors="warn")

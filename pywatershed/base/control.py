@@ -9,7 +9,6 @@ import yaml
 
 from ..base import meta
 from ..constants import fileish
-from ..utils import ControlVariables
 from ..utils.path import assert_exists, dict_pl_to_str, path_rel_to_yaml
 from ..utils.time_utils import (
     datetime_dowy,
@@ -276,6 +275,8 @@ class Control(Accessor):
         Returns:
             An instance of a Control object.
         """
+        from ..utils import ControlVariables
+
         control = ControlVariables.load(control_file)
 
         if warn_unused_options:

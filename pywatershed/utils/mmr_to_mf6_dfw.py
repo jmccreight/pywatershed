@@ -12,7 +12,7 @@ from pywatershed import Control, meta
 
 from ..constants import fileish, zero
 from ..parameters import PrmsParameters
-from ..utils import import_optional_dependency
+from .optional_import import import_optional_dependency
 
 mpsplines = import_optional_dependency("mpsplines", errors="warn")
 

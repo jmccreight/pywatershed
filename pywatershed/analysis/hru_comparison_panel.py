@@ -11,17 +11,32 @@ with interactive visualization of spatial patterns and timeseries.
 import pathlib as pl
 from typing import Dict, List, Optional, Union
 
-import geopandas as gpd
-import geoviews as gv
-import holoviews as hv
-import hvplot.pandas  # noqa
+# import geopandas as gpd
+# import geoviews as gv
+# import holoviews as hv
 import numpy as np
 import pandas as pd
-import panel as pn
+
+# import panel as pn
 import xarray as xr
-from bokeh.models import DatetimeTickFormatter
-from cartopy import crs as ccrs
-from holoviews import streams
+
+# from bokeh.models import DatetimeTickFormatter
+# from cartopy import crs as ccrs
+# from holoviews import streams
+from ..utils.optional_import import import_optional_dependency
+
+pn = import_optional_dependency("panel")
+gv = import_optional_dependency("geoviews")
+hv = import_optional_dependency("holoviews")
+gpd = import_optional_dependency("geopandas")
+streams = import_optional_dependency("holoviews.streams")
+ccrs = import_optional_dependency("cartopy.crs")
+bokeh_models = import_optional_dependency("bokeh.models")
+if bokeh_models is not None:
+    DatetimeTickFormatter = bokeh_models.DatetimeTickFormatter
+else:
+    DatetimeTickFormatter = None
+_ = import_optional_dependency("hvplot.pandas")
 
 
 class HRUComparisonPanel:
@@ -164,8 +179,8 @@ class HRUComparisonPanel:
                 "Min": lambda da: da.min(dim="time").values,
                 "Std": lambda da: da.std(dim="time").values,
                 "Range": lambda da: (
-                    da.max(dim="time") - da.min(dim="time")
-                ).values,
+                    (da.max(dim="time") - da.min(dim="time")).values
+                ),
                 "Trend": lambda da: self._compute_trend(da),
             }
         else:
@@ -634,9 +649,11 @@ class HRUComparisonPanel:
         }
         gdf_plot = self.gdf.copy()
         gdf_plot["value"] = gdf_plot[self.hru_id_column].map(
-            lambda hru_id: values[hru_id_to_idx[hru_id]]
-            if hru_id in hru_id_to_idx
-            else np.nan
+            lambda hru_id: (
+                values[hru_id_to_idx[hru_id]]
+                if hru_id in hru_id_to_idx
+                else np.nan
+            )
         )
         gdf_plot["hru_id_display"] = gdf_plot[self.hru_id_column]
 

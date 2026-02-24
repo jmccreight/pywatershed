@@ -11,7 +11,7 @@ from pywatershed.base.conservative_process import ConservativeProcess
 from pywatershed.base.control import Control
 from pywatershed.constants import nan, zero
 from pywatershed.parameters import Parameters
-from pywatershed.utils import import_optional_dependency
+from pywatershed.utils.optional_import import import_optional_dependency
 
 
 class FlowNode(Accessor):
