@@ -173,7 +173,7 @@ if [ -z "${m}" ]; then
 
     # Update flopy MODFLOW 6 classes in the current environment
     cd autotest || exit 1
-    python -m flopy.mf6.utils.generate_classes
+    python -m flopy.mf6.utils.generate_classes || exit 8
 
     # Build mf6 locally instead of installing mf6 nightly build
     # install conda env for mf6
@@ -198,6 +198,7 @@ if [ -z "${m}" ]; then
     conda deactivate
 
     cd $start_dir
+
 fi
 
 export PATH=$PATH:$modflow_repo_location/bin
@@ -255,10 +256,12 @@ if [ -z "${t}" ]; then
                 -n=$pytest_n --domain=sagehen_5yr \
                 --control_pattern=sagehen_no_cascades.control \
                 --remove_prms_csvs --remove_prms_output_dirs || exit 1
-
-            echo "sagehen_5yr_no_cascades - list netcdf input files"
-            find ../test_data/sagehen_5yr/output_no_cascades -name '*.nc' | sort -n
         fi
+
+        # - name: sagehen_5yr_no_cascades - list netcdf input files
+        #   working-directory: test_data
+        #   run: |
+        #     find sagehen_5yr/output_no_cascades -name '*.nc'
 
         echo
         echo ".........."
@@ -281,6 +284,7 @@ if [ -z "${t}" ]; then
             --ignore=test_netcdf_subset.py \
             --ignore=test_nhm_restart.py \
             --ignore=test_obsin_flow_node.py \
+            --ignore=test_output.py \
             --ignore=test_pass_through_flow_graph.py \
             --ignore=test_prms_atmosphere_transp_frost.py \
             --ignore=test_prms_channel.py \
@@ -303,8 +307,8 @@ if [ -z "${t}" ]; then
         echo "DOMAIN: hru_1"
         echo "===================="
         echo
-
         if [ -z "${g}" ]; then
+
             echo
             echo ".........."
             echo "hru_1_nhm - generate and manage test data domain, run PRMS "
@@ -334,6 +338,7 @@ if [ -z "${t}" ]; then
             --ignore=test_domain_subset.py \
             --ignore=test_mmr_to_mf6_dfw.py \
             --ignore=test_obsin_flow_node.py \
+            --ignore=test_output.py \
             --ignore=test_pass_through_flow_graph.py \
             --ignore=test_prms_atmosphere_transp_frost.py \
             --ignore=test_prms_channel_flow_graph.py \
@@ -460,6 +465,7 @@ if [ -z "${t}" ]; then
             test_prms_hydraulic_geometry.py \
             test_prms_stream_temp.py || exit 1
 
+
     fi
 
     if [ -z "${u}" ]; then
@@ -472,6 +478,7 @@ if [ -z "${t}" ]; then
         if [ -z "${g}" ]; then
             echo
             echo ".........."
+
             echo "ucb_2yr all configs - generate and manage test data"
             echo ".........."
             echo
@@ -497,6 +504,7 @@ if [ -z "${t}" ]; then
             --durations=0 \
             --ignore=test_netcdf_subset.py \
             --ignore=test_obsin_flow_node.py \
+            --ignore=test_output.py \
             --ignore=test_pass_through_flow_graph.py \
             --ignore=test_prms_atmosphere_transp_frost.py \
             --ignore=test_mmr_to_mf6_dfw.py \

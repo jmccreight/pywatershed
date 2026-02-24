@@ -2078,6 +2078,18 @@ lake_outflow:
     0: nreservoirs
   type: float64
   units: cubic meters per second
+release:
+  desc: Release component of the STARFIT outflow from a lake/reservoir
+  dims:
+    0: nnodes
+  type: float64
+  units: cfs (unless otherwise requested)
+spill:
+  desc: Spill component of the STARFIT outflow from a lake/reservoir
+  dims:
+    0: nnodes
+  type: float64
+  units: cfs (unless otherwise requested)
 lake_outq2:
   desc: Streamflow from second outlet for each lake with a second outlet
   dims:

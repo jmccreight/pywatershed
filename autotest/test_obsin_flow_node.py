@@ -1,7 +1,7 @@
 import numpy as np
-import pyPRMS as pyprms
 import pytest
 from pyPRMS import DataFile as PRMSStreamflowData
+from pyPRMS import MetaData
 
 from pywatershed import PRMSChannel
 from pywatershed.base.adapter import Adapter, AdapterNetcdf, adapter_factory
@@ -16,7 +16,7 @@ from pywatershed.hydrology.prms_channel_flow_graph import (
 )
 from pywatershed.parameters import PrmsParameters
 
-pyprms_meta = pyprms.MetaData(verbose=False).metadata
+pyprms_meta = MetaData(verbose=False).metadata
 
 do_compare_output_files = False
 do_compare_in_memory = True

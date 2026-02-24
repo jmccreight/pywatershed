@@ -150,7 +150,9 @@ References
     Hydrology <api/hydrology>
     FlowGraph <api/flow_graph>
     Model <api/generated/pywatershed.Model.rst>
+    Output <api/generated/pywatershed.Output.rst>
     Base Classes <api/base>
+    Analysis <api/analysis>
     Utilities <api/utils>
 
 .. toctree::

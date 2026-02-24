@@ -10,7 +10,7 @@ dependencies:
   - contextily
   - epiweeks4cf
   - filelock
-  - flopy
+  - flopy[codegen]
   - folium
   - geopandas
   - geoviews
@@ -37,7 +37,7 @@ dependencies:
   - pyvis
   - ruff
   - shapely
-  - sphinx
+  - sphinx<9.0
   - sphinx-book-theme>=0.3.3
   - sphinx-autodoc-typehints>=2.2.1
   - sphinx-autosummary-accessors
@@ -45,6 +45,7 @@ dependencies:
   - tqdm
   - xarray>=2024.06.0
   - xmltodict
+  - zarr
   - pip:
       - git+https://github.com/jararias/mpsplines.git
       - pyPRMS

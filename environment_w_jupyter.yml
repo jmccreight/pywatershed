@@ -10,7 +10,7 @@ dependencies:
   - contextily
   - epiweeks4cf
   - filelock
-  - flopy
+  - flopy[codegen]
   - folium
   - geopandas
   - geoviews
@@ -50,6 +50,7 @@ dependencies:
   - tqdm
   - xarray>=2024.06.0
   - xmltodict
+  - zarr
   - pip:
       - git+https://github.com/jararias/mpsplines.git
       - pyPRMS

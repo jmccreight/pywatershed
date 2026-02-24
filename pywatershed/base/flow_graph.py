@@ -144,6 +144,7 @@ class FlowGraph(ConservativeProcess):
 
     .. |fg1| image:: /_static/flow_graph_schematic_1.png
        :align: middle
+
     +---------+
     |  |fg1|  |
     +---------+
@@ -158,6 +159,7 @@ class FlowGraph(ConservativeProcess):
 
     .. |fg2| image:: /_static/flow_graph_schematic_2.png
        :align: middle
+
     +---------+
     |  |fg2|  |
     +---------+
