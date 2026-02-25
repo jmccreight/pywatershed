@@ -1406,11 +1406,14 @@ class HRUComparisonPanel:
 
         In CI environments (detected via GITHUB_ACTIONS, CI, or
         CONTINUOUS_INTEGRATION environment variables), this method
-        will issue a warning instead of attempting to show the app,
-        which would hang indefinitely.
+        will create the app but skip displaying it, which would hang
+        indefinitely in non-interactive environments.
         """
         import os
         import warnings
+
+        # Always create the app so widgets are initialized
+        app = self.create_app()
 
         # Check for common CI environment variables
         is_ci = any(
@@ -1425,12 +1428,11 @@ class HRUComparisonPanel:
             warnings.warn(
                 "Detected CI environment. Skipping app.show() which would "
                 "hang indefinitely in non-interactive environments. "
-                "The app can still be created with create_app() if needed.",
+                "The app has been created and widgets are available.",
                 UserWarning,
             )
             return None
 
-        app = self.create_app()
         return app.show()
 
     def servable(self):
