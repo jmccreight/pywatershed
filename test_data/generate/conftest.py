@@ -1,6 +1,7 @@
 import os
 import pathlib as pl
 import sys
+import warnings
 from fnmatch import fnmatch
 from platform import processor
 from typing import List
@@ -88,6 +89,27 @@ def pytest_addoption(parser):
         ),
         action="store_true",
     )
+
+    parser.addoption(
+        "--suppress-control-warnings",
+        required=False,
+        action="store_true",
+        default=False,
+        help=(
+            "Suppress UserWarnings about unrecognized control options "
+            "(e.g., 'executable_model', 'model_mode')"
+        ),
+    )
+
+
+def pytest_configure(config):
+    """Configure pytest with warning filters based on command line options."""
+    if config.getoption("suppress_control_warnings"):
+        warnings.filterwarnings(
+            "ignore",
+            message=r".*is not an available control option",
+            category=UserWarning,
+        )
 
 
 @pytest.fixture(scope="function")
