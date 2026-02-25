@@ -61,8 +61,8 @@ Version 1.0.0 (2023-12-18)
 With pywatershed version 1.0.0, we have faithfully reproduced the PRMS process representations used in
 the USGS `National Hydrolgical Model <https://pubs.usgs.gov/publication/tm6B9>`__ (NHM, Regan et al.,
 2018). For more information on version 1.0.0 see the
-`release notes <https://github.com/DOI-USGS/pywatershed/releases/tag/1.0.0>`_
-and the `extended release notes <https://doi-usgs.github.io/pywatershed/2023/12/18/v1-0-0-overview>`_
+`v1.0.0 release notes <https://github.com/DOI-USGS/pywatershed/releases/tag/1.0.0>`_
+and the `v1.0.0 extended release notes <https://doi-usgs.github.io/pywatershed/2023/12/18/v1-0-0-overview>`_
 for version 1.0.0.
 
 ===================================
@@ -81,8 +81,8 @@ Version 2.0.0 also includes capabilties to translate :class:`PRMSChannel` simula
 into 1-D diffusive wave simulations in MODFLOW 6's development branch using :class:`MmrToMf6Dfw`.
 
 For more information on version 2.0.0 see the
-`release notes <https://github.com/DOI-USGS/pywatershed/releases/tag/2.0.0>`_
-and the `extended release notes <https://doi-usgs.github.io/pywatershed/2024/12/16/v2-0-0-overview>`_.
+`v2.0.0 release notes <https://github.com/DOI-USGS/pywatershed/releases/tag/2.0.0>`_
+and the `v2.0.0 extended release notes <https://doi-usgs.github.io/pywatershed/2024/12/16/v2-0-0-overview>`_.
 
 ============================================
 Upcoming development

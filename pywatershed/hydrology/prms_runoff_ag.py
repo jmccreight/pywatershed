@@ -45,6 +45,7 @@ class PRMSRunoffAg(PRMSRunoff):
     state variables that need to be saved for restart.
 
     The ag calculations use:
+
     - ag_soil_moist_prev and ag_soil_rechr_prev: These come from PRMSSoilzoneAg
       as inputs, not from runoff itself
     - ag_area: Derived from the ag_frac parameter and recalculated in

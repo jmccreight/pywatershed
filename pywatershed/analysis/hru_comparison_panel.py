@@ -88,7 +88,9 @@ class HRUComparisonPanel:
         Dictionary mapping run names to colors for timeseries plots.
         If None, uses built-in colorblind-friendly palette.
         Example: {"Run1": "#0173B2", "Run2": "#DE8F05"}
-        Custom examples:
+
+        Custom examples::
+
             {
                 "Median": lambda da: da.median(dim="time").values,
                 "95th percentile": lambda da: da.quantile(
@@ -104,6 +106,7 @@ class HRUComparisonPanel:
 
     Examples
     --------
+
     >>> comparer = HRUComparisonPanel(
     ...     shapefile_path="model_nhru.shp",
     ...     variable_names=["prcp", "tmean", "hru_ppt"],
@@ -1456,6 +1459,7 @@ def compare_hru_runs(
         Dictionary mapping run names to directory paths
     **kwargs
         Additional keyword arguments passed to HRUComparisonPanel, including:
+
         - verbose : bool, optional
             Whether to print diagnostic information during initialization
             (default: True). Set to False to suppress output messages.
@@ -1467,6 +1471,7 @@ def compare_hru_runs(
 
     Examples
     --------
+
     >>> app = compare_hru_runs(
     ...     shapefile_path="model_nhru.shp",
     ...     variable_names=["prcp", "tmean"],

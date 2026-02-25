@@ -38,7 +38,7 @@ New Features
   relationships when all parameters are provided, while :class:`PRMSHydraulicGeometryWidthOnly`
   uses PRMS default values for depth parameters (depth_alpha=0.27, depth_m=0.39) when they are
   missing from the parameter file, matching PRMS 5.2.1 behavior. These capabilities are
-  demonstrated in notebooks ``examples/01_process_visualization.ipynb`` and ``examples/02_prms_processes.ipynb``
+  demonstrated in notebooks ``examples/01_multi-process_models.ipynb`` and ``examples/02_prms_legacy_models.ipynb``
   as part of the NHM configuration in pywatershed.
   (:pull:`343`) By `James McCreight <https://github.com/jmccreight>`_.
 - Option for :class:`Model` class to read from a single netcdf file or (not and,
@@ -51,10 +51,9 @@ New Features
   (:pull:`335`) By `James McCreight <https://github.com/jmccreight>`_.
 - The :class:`FlowGraph` class has new method `plot` to show an abstract plot of the FlowGraph.
   (:pull:`351`) By `James McCreight <https://github.com/jmccreight>`_.
-- The :class:`base.Process` class and subclasses have a new restart capability (with the
-  exceptions of PRMSSnow and PRMSRunoff and their subclasses which are
-  still to be implemented).
-  (:pull:`349`) By `James McCreight <https://github.com/jmccreight>`_.
+- The :class:`base.Process` class and subclasses have a new restart capability.
+  See notebook ``examples/08_restart_streamflow.ipynb`` for examples.
+  (:pull:`349`, :pull:`362`) By `James McCreight <https://github.com/jmccreight>`_.
 - The :class:`PRMSAtmosphereTranspFrost` implements the transp_frost module of PRMS.
   (:pull:`354`) By `James McCreight <https://github.com/jmccreight>`_.
 - The `load()` method of :class:`parameters.PrmsParameters` now supports reading multiple parameter
@@ -67,8 +66,7 @@ New Features
 - The new :class:`~base.output.Output` class provides flexible output collection and statistical
   analysis for models, supporting HRUs of interest (HOI), segments/nodes of interest (NOI),
   and monthly accumulations. Includes Zarr chunked output capability for efficient large-scale
-  data writing (~6x faster than NetCDF). See notebooks ``examples/09_model_output.ipynb`` and
-  ``examples/09_model_output_zarr.ipynb`` for examples.
+  data writing (~6x faster than NetCDF). See notebook ``examples/09_model_output.ipynb`` for examples.
   (:pull:`363`) By `James McCreight <https://github.com/jmccreight>`_.
 - New agricultural water use classes enable simulation of irrigated agriculture based on GSFLOW.
   :class:`PRMSRunoffAg` extends PRMSRunoff to calculate infiltration separately for pervious
@@ -113,7 +111,7 @@ Internal changes
 .. _whats-new.2.0.4:
 
 v2.0.4 (23 February 2026)
----------------------
+--------------------------
 
 New Features
 ~~~~~~~~~~~~~~~~
@@ -122,7 +120,7 @@ Fixes to release workflow, pypi publishing.
 .. _whats-new.2.0.3:
 
 v2.0.3 (22 February 2026)
----------------------
+--------------------------
 
 New Features
 ~~~~~~~~~~~~~~~~
