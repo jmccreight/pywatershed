@@ -1399,7 +1399,34 @@ class HRUComparisonPanel:
         return app
 
     def show(self):
-        """Create and display the app in a notebook."""
+        """Create and display the app in a notebook.
+
+        In CI environments (detected via GITHUB_ACTIONS, CI, or
+        CONTINUOUS_INTEGRATION environment variables), this method
+        will issue a warning instead of attempting to show the app,
+        which would hang indefinitely.
+        """
+        import os
+        import warnings
+
+        # Check for common CI environment variables
+        is_ci = any(
+            [
+                os.environ.get("GITHUB_ACTIONS", "").lower() == "true",
+                os.environ.get("CI", "").lower() == "true",
+                os.environ.get("CONTINUOUS_INTEGRATION", "").lower() == "true",
+            ]
+        )
+
+        if is_ci:
+            warnings.warn(
+                "Detected CI environment. Skipping app.show() which would "
+                "hang indefinitely in non-interactive environments. "
+                "The app can still be created with create_app() if needed.",
+                UserWarning,
+            )
+            return None
+
         app = self.create_app()
         return app.show()
 
