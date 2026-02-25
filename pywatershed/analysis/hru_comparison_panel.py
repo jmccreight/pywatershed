@@ -235,8 +235,8 @@ class HRUComparisonPanel:
                 print(f"  Domain has {num_hrus} HRUs")
                 if num_hrus > 1000:
                     print(
-                        f"  WARNING: Large domain ({num_hrus} HRUs) may render "
-                        f"slowly."
+                        f"  WARNING: Large domain ({num_hrus} HRUs) may "
+                        f"render slowly."
                     )
                     print(
                         f"  Consider increasing simplify_tolerance (currently "
@@ -295,7 +295,8 @@ class HRUComparisonPanel:
             if self.verbose:
                 if available_runs:
                     print(
-                        f"  {var_name}: available in {', '.join(available_runs)}"
+                        f"  {var_name}: available in "
+                        f"{', '.join(available_runs)}"
                     )
                 else:
                     print(f"  {var_name}: NOT FOUND in any run")
@@ -417,8 +418,8 @@ class HRUComparisonPanel:
                     print(f"  Examples: {list(in_shp_not_nc)[:5]}")
                 if in_nc_not_shp:
                     print(
-                        f"WARNING: {len(in_nc_not_shp)} HRUs in NetCDF but not "
-                        f"in shapefile"
+                        f"WARNING: {len(in_nc_not_shp)} HRUs in NetCDF but "
+                        f"not in shapefile"
                     )
                     print(f"  Examples: {list(in_nc_not_shp)[:5]}")
 
