@@ -70,6 +70,8 @@ from pywatershed.parameters import Parameters, PrmsParameters
 
 dt_1d = np.timedelta64(24, "h")
 
+imbalance_behavior = "error"
+
 # Restart frequency options and corresponding init times
 # The "a", "b", "c" times for each restart frequency
 # Restarts with "y" and "m" are always written on the last day of the period.
@@ -224,6 +226,7 @@ def test_restart(
         "discretization": discretization,
         "parameters": parameters,
         **input_variables,
+        "imbalance_behavior": imbalance_behavior,
     }
     run_args["restart_write"] = restart_dir
     run_args["restart_write_freq"] = restart_freq
@@ -252,6 +255,7 @@ def test_restart(
         "discretization": discretization,
         "parameters": parameters,
         **input_variables,
+        "imbalance_behavior": imbalance_behavior,
     }
     run_args["restart_read"] = restart_dir
     run_args["intcp_changeover_in_net_rain"] = intcp_changeover_in_net_rain
@@ -332,6 +336,7 @@ def test_restart_f(
             "discretization": discretization,
             "parameters": parameters,
             **input_variables,
+            "imbalance_behavior": imbalance_behavior,
         }
         run_args["intcp_changeover_in_net_rain"] = intcp_changeover_in_net_rain
 

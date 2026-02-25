@@ -219,7 +219,7 @@ class Output:
         hoi_var_list: list | None = None,
         hoi_ids: list | dict | None = None,
         hoi_stats: dict[Callable, list[str]] | None = None,
-        netcdf_output_action: Literal["allow", "warn", "error"] = "error",
+        netcdf_output_action: Literal["allow", "error"] = "error",
         chunked_var_list: list[str] | None = None,
         chunked_output_file: str | pl.Path | None = None,
         chunk_sizes: dict[str, int] | None = None,
@@ -271,12 +271,11 @@ class Output:
             msg = (
                 "control.options['netcdf_output_dir'] is defined in "
                 "addition to Output object being intitalized with argument "
-                f"{self._netcdf_output_action=}."
+                f"netcdf_output_action={self._netcdf_output_action}. If you "
+                "truly want both NetCDF and Zarr output, set "
+                "netcdf_output_action=allow."
             )
-            if self._netcdf_output_action == "warn":
-                warnings.warn(msg, UserWarning)
-            else:
-                raise ValueError(msg)
+            raise ValueError(msg)
 
     # ==== ID Processing Methods =========================
     def _process_noi_ids(

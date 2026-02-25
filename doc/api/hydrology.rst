@@ -13,10 +13,16 @@ Hydrologic model components.
    PRMSCanopy
    PRMSSnow
    PRMSRunoff
+   PRMSRunoffAg
    PRMSRunoffNoDprst
    PRMSSoilzone
+   PRMSSoilzoneAg
+   PRMSSoilzoneAgObsET
    PRMSSoilzoneNoDprst
    PRMSGroundwater
    PRMSGroundwaterNoDprst
    PRMSChannel
+   PRMSHydraulicGeometryFull
+   PRMSHydraulicGeometryWidthOnly
+   PRMSStreamTemp
    Starfit
