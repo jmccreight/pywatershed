@@ -19,9 +19,9 @@ dependencies:
   - hvplot
   - ipython
   - ipywidgets
-  - jupyter
+  - jupyter>=1.1.1
   - jupyter-black
-  - jupyterlab
+  - jupyterlab>=4.5.5
   - nbconvert
   - netCDF4
   - networkx

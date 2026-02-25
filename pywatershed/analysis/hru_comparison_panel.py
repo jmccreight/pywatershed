@@ -98,6 +98,9 @@ class HRUComparisonPanel:
                     time=da.time.dt.month.isin([1,2,3])
                 ).mean(dim="time").values,
             }
+    verbose : bool, optional
+        Whether to print diagnostic information during initialization
+        (default: True). Set to False to suppress output messages.
 
     Examples
     --------
@@ -129,8 +132,10 @@ class HRUComparisonPanel:
         simplify_tolerance: int = 300,
         time_aggregations: Optional[Dict] = None,
         run_colors: Optional[Dict[str, str]] = None,
+        verbose: bool = True,
     ):
         """Initialize the HRU Comparison Panel."""
+        self.verbose = verbose
         # Initialize Panel and HoloViews extensions
         pn.extension()
         hv.extension("bokeh")
@@ -214,31 +219,32 @@ class HRUComparisonPanel:
             self.gdf.set_crs(epsg=4326, inplace=True)
 
         print(f"Original CRS: {self.gdf.crs}")
-        print("Reprojecting to Web Mercator (EPSG:3857)...")
+        if self.verbose:
+            print("Reprojecting to Web Mercator (EPSG:3857)...")
         self.gdf = self.gdf.to_crs(epsg=3857)
 
         # Simplify geometries to speed up rendering (tolerance in meters
         # for EPSG:3857)
         if self.simplify_tolerance > 0:
-            print(
-                f"Simplifying geometries with tolerance="
-                f"{self.simplify_tolerance}m for faster rendering..."
-            )
-            num_hrus = len(self.gdf)
-            print(f"  Domain has {num_hrus} HRUs")
-            if num_hrus > 1000:
+            if self.verbose:
                 print(
-                    f"  WARNING: Large domain ({num_hrus} HRUs) may render "
-                    f"slowly."
+                    f"Simplifying geometries with tolerance="
+                    f"{self.simplify_tolerance}m for faster rendering..."
                 )
-                print(
-                    f"  Consider increasing simplify_tolerance (currently "
-                    f"{self.simplify_tolerance}m) to 500-1000m"
-                )
+                num_hrus = len(self.gdf)
+                print(f"  Domain has {num_hrus} HRUs")
+                if num_hrus > 1000:
+                    print(
+                        f"  WARNING: Large domain ({num_hrus} HRUs) may render "
+                        f"slowly."
+                    )
+                    print(
+                        f"  Consider increasing simplify_tolerance (currently "
+                        f"{self.simplify_tolerance}m) to 500-1000m"
+                    )
             self.gdf["geometry"] = self.gdf.geometry.simplify(
                 tolerance=self.simplify_tolerance, preserve_topology=True
             )
-            print("Geometries simplified")
 
         # Find HRU ID column
         if hru_id_column:
@@ -247,7 +253,8 @@ class HRUComparisonPanel:
             self.hru_id_column = self._detect_hru_id_column()
 
         print(f"Using HRU ID column: {self.hru_id_column}")
-        print(f"Available shapefile columns: {list(self.gdf.columns)}")
+        if self.verbose:
+            print(f"Available shapefile columns: {list(self.gdf.columns)}")
 
         # Data storage
         self.data_cache = {}  # {(var_name, run_name): xr.DataArray}
@@ -258,7 +265,8 @@ class HRUComparisonPanel:
         self.var_metadata = {}
 
         # Check which runs have which variables and diagnose dimension issues
-        print("Checking variable availability across runs...")
+        if self.verbose:
+            print("Checking variable availability across runs...")
         self.var_availability = {}  # {var_name: [run_names that have it]}
         self.var_locations = {}  # {(var_name, run_name): 'run'|'input'}
 
@@ -284,12 +292,13 @@ class HRUComparisonPanel:
                         )
 
             self.var_availability[var_name] = available_runs
-            if available_runs:
-                print(
-                    f"  {var_name}: available in {', '.join(available_runs)}"
-                )
-            else:
-                print(f"  {var_name}: NOT FOUND in any run")
+            if self.verbose:
+                if available_runs:
+                    print(
+                        f"  {var_name}: available in {', '.join(available_runs)}"
+                    )
+                else:
+                    print(f"  {var_name}: NOT FOUND in any run")
 
         # Widgets (will be initialized in create_app)
         self.selected_hru_widget = None
@@ -335,10 +344,11 @@ class HRUComparisonPanel:
             Loaded data array, or None if file doesn't exist
         """
         cache_key = (var_name, run_name)
-
         if cache_key in self.data_cache:
             return self.data_cache[cache_key]
 
+        if self.verbose:
+            print(f"Loading {var_name} from {run_name}...")
         # Determine which directory to load from
         if (var_name, run_name) in self.var_locations:
             if self.var_locations[(var_name, run_name)] == "input":
@@ -367,49 +377,50 @@ class HRUComparisonPanel:
             }
             # Store the mapping with the cache key
             self.data_cache[f"{cache_key}_mapping"] = nhm_id_to_index
-            print(
-                "  File uses index-based dimension with nhm_id coordinate "
-                "mapping"
-            )
+            if self.verbose:
+                print(
+                    "  File uses index-based dimension with nhm_id coordinate "
+                    "mapping"
+                )
 
         self.data_cache[cache_key] = da
 
         # Set spatial dimension and HRU IDs from first loaded variable
+        # Store basic info on first load
         if self.spatial_dim is None:
             self.spatial_dim = [d for d in da.dims if d != "time"][0]
-            self.hru_ids = sorted(
-                [int(x) for x in da[self.spatial_dim].values]
-            )
-            print(f"Spatial dimension: {self.spatial_dim}")
-            print(f"Number of HRUs in NetCDF: {len(self.hru_ids)}")
-            print(
-                f"NetCDF HRU ID range: {min(self.hru_ids)} to "
-                f"{max(self.hru_ids)}"
-            )
-
-            # Check shapefile HRU IDs
-            shp_hru_ids = sorted(self.gdf[self.hru_id_column].unique())
-            print(f"Number of HRUs in shapefile: {len(shp_hru_ids)}")
-            print(
-                f"Shapefile HRU ID range: {min(shp_hru_ids)} to "
-                f"{max(shp_hru_ids)}"
-            )
-
-            # Check for mismatches
-            in_shp_not_nc = set(shp_hru_ids) - set(self.hru_ids)
-            in_nc_not_shp = set(self.hru_ids) - set(shp_hru_ids)
-            if in_shp_not_nc:
+            self.hru_ids = sorted(da[self.spatial_dim].values.tolist())
+            if self.verbose:
+                print(f"Spatial dimension: {self.spatial_dim}")
+                print(f"Number of HRUs in NetCDF: {len(self.hru_ids)}")
                 print(
-                    f"WARNING: {len(in_shp_not_nc)} HRUs in shapefile but "
-                    f"not in NetCDF"
+                    f"NetCDF HRU ID range: {min(self.hru_ids)} to "
+                    f"{max(self.hru_ids)}"
                 )
-                print(f"  Examples: {list(in_shp_not_nc)[:5]}")
-            if in_nc_not_shp:
+
+                # Check shapefile HRU IDs
+                shp_hru_ids = sorted(self.gdf[self.hru_id_column].unique())
+                print(f"Number of HRUs in shapefile: {len(shp_hru_ids)}")
                 print(
-                    f"WARNING: {len(in_nc_not_shp)} HRUs in NetCDF but not "
-                    f"in shapefile"
+                    f"Shapefile HRU ID range: {min(shp_hru_ids)} to "
+                    f"{max(shp_hru_ids)}"
                 )
-                print(f"  Examples: {list(in_nc_not_shp)[:5]}")
+
+                # Check for mismatches
+                in_shp_not_nc = set(shp_hru_ids) - set(self.hru_ids)
+                in_nc_not_shp = set(self.hru_ids) - set(shp_hru_ids)
+                if in_shp_not_nc:
+                    print(
+                        f"WARNING: {len(in_shp_not_nc)} HRUs in shapefile but "
+                        f"not in NetCDF"
+                    )
+                    print(f"  Examples: {list(in_shp_not_nc)[:5]}")
+                if in_nc_not_shp:
+                    print(
+                        f"WARNING: {len(in_nc_not_shp)} HRUs in NetCDF but not "
+                        f"in shapefile"
+                    )
+                    print(f"  Examples: {list(in_nc_not_shp)[:5]}")
 
         return da
 
@@ -417,6 +428,8 @@ class HRUComparisonPanel:
         self, nc_path: pl.Path, var_name: str, run_name: str, location: str
     ):
         """Diagnose dimension and coordinate issues in a NetCDF file."""
+        if not self.verbose:
+            return
         try:
             da = xr.load_dataarray(nc_path)
             dims = list(da.dims)
@@ -1414,7 +1427,10 @@ def compare_hru_runs(
     run_directories : dict
         Dictionary mapping run names to directory paths
     **kwargs
-        Additional keyword arguments passed to HRUComparisonPanel
+        Additional keyword arguments passed to HRUComparisonPanel, including:
+        - verbose : bool, optional
+            Whether to print diagnostic information during initialization
+            (default: True). Set to False to suppress output messages.
 
     Returns
     -------

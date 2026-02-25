@@ -483,7 +483,6 @@ if [ -z "${t}" ]; then
             test_prms_hydraulic_geometry.py \
             test_prms_stream_temp.py || exit 1
 
-
     fi
 
     if [ -z "${u}" ]; then
