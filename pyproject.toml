@@ -76,7 +76,7 @@ optional = [
 doc = [
     "ipython",
     "jinja2<3.1",
-    "sphinx",
+    "sphinx<9.0",
     "sphinx-book-theme>=0.3.3",
     "sphinx-autodoc-typehints>=2.2.1",
     "sphinx-autosummary-accessors",

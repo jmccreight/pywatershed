@@ -11,7 +11,7 @@ What's New
 
     np.random.seed(123456)
 
-v2.1.0 (Unreleased)
+v3.0.0 (Unreleased)
 ---------------------
 
 New Features
@@ -38,7 +38,7 @@ New Features
   relationships when all parameters are provided, while :class:`PRMSHydraulicGeometryWidthOnly`
   uses PRMS default values for depth parameters (depth_alpha=0.27, depth_m=0.39) when they are
   missing from the parameter file, matching PRMS 5.2.1 behavior. These capabilities are
-  demonstrated in notebooks ``01_process_visualization.ipynb`` and ``02_prms_processes.ipynb``
+  demonstrated in notebooks ``examples/01_process_visualization.ipynb`` and ``examples/02_prms_processes.ipynb``
   as part of the NHM configuration in pywatershed.
   (:pull:`343`) By `James McCreight <https://github.com/jmccreight>`_.
 - Option for :class:`Model` class to read from a single netcdf file or (not and,
@@ -64,18 +64,18 @@ New Features
 - The :class:`StarfitSourceSinkFlowNode` allows sources and sinks to interact
   with storage of a Starfit reservoir/FlowNode.
   (:pull:`348`) By `James McCreight <https://github.com/jmccreight>`_.
-- The new :class:`base.Output` class provides flexible output collection and statistical
+- The new :class:`~base.output.Output` class provides flexible output collection and statistical
   analysis for models, supporting HRUs of interest (HOI), segments/nodes of interest (NOI),
   and monthly accumulations. Includes Zarr chunked output capability for efficient large-scale
-  data writing (~6x faster than NetCDF). See notebooks ``09_model_output.ipynb`` and
-  ``09_model_output_zarr.ipynb`` for examples.
+  data writing (~6x faster than NetCDF). See notebooks ``examples/09_model_output.ipynb`` and
+  ``examples/09_model_output_zarr.ipynb`` for examples.
   (:pull:`363`) By `James McCreight <https://github.com/jmccreight>`_.
 - New agricultural water use classes enable simulation of irrigated agriculture based on GSFLOW.
   :class:`PRMSRunoffAg` extends PRMSRunoff to calculate infiltration separately for pervious
   and agricultural areas. :class:`PRMSSoilzoneAgObsET` provides dual-area soil moisture accounting
   with iterative adjustment of irrigation to match observed actual ET. :class:`PRMSSoilzoneAg`
   is a simplified version without the observed ET iteration, suitable when ET observations are
-  not available. See notebook ``10_water_use_ag.ipynb`` for examples.
+  not available. See notebook ``examples/10_ag_irrigation_use.ipynb`` for examples.
   (:pull:`362`) By `James McCreight <https://github.com/jmccreight>`_.
 
 Breaking Changes
@@ -93,11 +93,12 @@ Breaking Changes
 
 Bug fixes
 ~~~~~~~~~
- - PRMS 5.2.1.1 had a bug in stream where division by hru area was repeated
- multiple times. In the old code this ocurred in routing.f90 on lines 764 and
- 765 and then again on 789 and 790, where seginc_swrad and seginc_potet were
- divided despite this having already occured on lines 744 and 744. Comments
- regarding the fix are found on lines 764 and 793 in the fixed code.
+- PRMS 5.2.1.1 had a bug in stream where division by hru area was repeated
+  multiple times. In the old code this ocurred in routing.f90 on lines 764 and
+  765 and then again on 789 and 790, where seginc_swrad and seginc_potet were
+  divided despite this having already occured on lines 744 and 744. Comments
+  regarding the fix are found on lines 764 and 793 in the fixed code.
+  (:pull:`XXX`) By `Author Name <https://github.com/username>`_.
 
 Internal changes
 ~~~~~~~~~~~~~~~~
