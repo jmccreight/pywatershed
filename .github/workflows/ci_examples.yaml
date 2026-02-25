@@ -96,4 +96,4 @@ jobs:
       - name: Run tests
         working-directory: autotest_exs
         run: |
-          pytest -s -vv  --durations=0 -k "test_nb_10"
+          pytest -s -vv  --durations=0 -k "10_ag_irrigation_use.ipynb"
