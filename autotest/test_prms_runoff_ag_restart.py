@@ -169,6 +169,7 @@ def parameters(simulation: dict[str, Any]) -> PrmsParameters:
 def get_input_variables(
     simulation: dict[str, Any],
     control: Control,
+    parameters: PrmsParameters,
 ) -> dict[str, Any]:
     """Build input variables dict for PRMSRunoffAg."""
     output_dir = simulation["output_dir"]
@@ -177,13 +178,15 @@ def get_input_variables(
     for key in PRMSRunoffAg.get_inputs():
         if key in ["ag_frac"]:
             # Check for dynamic parameter file first
-            dyn_ag_frac_flag = control.options.get("dyn_ag_frac_flag", False)
-            if dyn_ag_frac_flag:
-                nc_pth = (
-                    simulation["dir"] / control.options["ag_frac_dynamic"][0]
-                )
+            dyn_ag_frac_file = simulation["dir"] / "dyn_ag_frac.param"
+            if dyn_ag_frac_file.exists():
+                nc_pth = dyn_ag_frac_file
             else:
-                nc_pth = None  # Use static parameter
+                nc_pth = adapter_factory(
+                    parameters.parameters[key].copy(),
+                    key,
+                    control,
+                )
         else:
             nc_pth = output_dir / f"{key}.nc"
 
@@ -214,7 +217,7 @@ def test_restart(
 
     # Run ac: continuous run from a to c, writing restart at b
     control_ac = get_control(simulation, times["a"], times["c"])
-    input_variables = get_input_variables(simulation, control_ac)
+    input_variables = get_input_variables(simulation, control_ac, parameters)
 
     # Get intcp_changeover_in_net_rain flag
     intcp_changeover_in_net_rain = control_ac.options.get(
@@ -244,7 +247,7 @@ def test_restart(
 
     # Run bc: restart from b to c
     control_bc = get_control(simulation, times["b"], times["c"])
-    input_variables = get_input_variables(simulation, control_bc)
+    input_variables = get_input_variables(simulation, control_bc, parameters)
 
     intcp_changeover_in_net_rain = control_bc.options.get(
         "intcp_changeover_in_net_rain", False
@@ -325,7 +328,7 @@ def test_restart_f(
     ) -> PRMSRunoffAg:
         """Helper to run PRMSRunoffAg for a time period."""
         control = get_control(simulation, init_time, end_time)
-        input_variables = get_input_variables(simulation, control)
+        input_variables = get_input_variables(simulation, control, parameters)
 
         intcp_changeover_in_net_rain = control.options.get(
             "intcp_changeover_in_net_rain", False
