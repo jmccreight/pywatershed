@@ -63,6 +63,7 @@ from typing import Any, Optional
 import numpy as np
 import pytest
 
+from pywatershed.base.adapter import adapter_factory
 from pywatershed.base.control import Control
 from pywatershed.base.timeseries import TimeseriesArray
 from pywatershed.hydrology.prms_runoff_ag import PRMSRunoffAg

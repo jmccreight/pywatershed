@@ -189,7 +189,10 @@ def output_format(simulation, request):
 
 
 @pytest.mark.xfail(
-    reason="Requires pyPRMS with float_format parameter support in Cbh.write_ascii()"
+    reason=(
+        "Requires pyPRMS with float_format parameter support in "
+        "Cbh.write_ascii()"
+    )
 )
 def test_pws_subset_known_ids_segs(
     full_control_file,
