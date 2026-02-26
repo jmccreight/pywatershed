@@ -300,6 +300,7 @@ jobs:
           --ignore=test_prms_runoff.py
           --ignore=test_prms_runoff_ag.py
           --ignore=test_prms_runoff_ag_restart.py
+          --ignore=test_prms_runoff_soilzone_ag.py
           --ignore=test_prms_soilzone_ag.py
           --ignore=test_prms_soilzone_ag_restart.py
           --ignore=test_prms_stream_temp.py

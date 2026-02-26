@@ -986,7 +986,30 @@ class PRMSRunoff(ConservativeProcess):
             avail_water = avail_water + snowmelt
             infil = infil + snowmelt
             if hru_flag == 1:
-                if (pkwater_equiv > 0.0) or not (net_ppt - net_snow > 0.0):
+                # The condition below determines whether to use check_capacity
+                # (infiltration-based) vs perv_comp (contributing area-based)
+                # runoff calculation. The logic differs based on how
+                # intcp_changeover water is handled:
+                #
+                # When intcp_changeover_in_net_rain = False (default PRMS):
+                #   - intcp_changeover is added separately to avail_water above
+                #   - net_rain does NOT include intcp_changeover
+                #   - Use: (net_rain < nearzero) to check for rain-on-snow
+                #
+                # When intcp_changeover_in_net_rain = True (alternative):
+                #   - intcp_changeover is already included in net_rain
+                #   - Must check if (net_ppt - net_snow) > 0 for rain presence
+                #   - Use: not (net_ppt - net_snow > 0.0)
+                #
+                # These conditions are NOT equivalent because net_rain may
+                # differ from (net_ppt - net_snow) depending on how
+                # intcp_changeover is accounted for.
+                if intcp_changeover_in_net_rain:
+                    check_condition = not (net_ppt - net_snow > 0.0)
+                else:
+                    check_condition = net_rain < nearzero
+
+                if (pkwater_equiv > 0.0) or check_condition:
                     # Pervious area computations
                     infil, srp = check_capacity(
                         soil_moist_prev,
