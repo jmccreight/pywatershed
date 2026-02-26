@@ -209,7 +209,7 @@ def control(simulation, tmp_path, calc_method):
         control.options["netcdf_output_dir"].mkdir()
 
     control.options["intcp_changeover_in_net_rain"] = (
-        "gsflow" in control.options["executable_desc"][0].lower()
+        "gsflow" in control.options.get("executable_desc", ["PRMS"])[0].lower()
     )
 
     return control

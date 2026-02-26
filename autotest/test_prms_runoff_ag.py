@@ -95,7 +95,7 @@ def test_compare_prms(
 
     control.options["netcdf_output_var_names"] = comparison_var_names
     intcp_changeover_in_net_rain = (
-        "gsflow" in control.options["executable_desc"][0].lower()
+        "gsflow" in control.options.get("executable_desc", ["PRMS"])[0].lower()
     )
 
     output_dir = simulation["output_dir"]

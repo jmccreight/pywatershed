@@ -221,6 +221,12 @@ def main():
             "convert_prms_output_to_nc.py",
         ]
 
+    # This is just a local hack
+    # run_verbose = True
+    # if run_verbose:
+    #     run_arg_list.remove(f"-n={n_simulations + 1}")
+    #     run_arg_list = ["-s", "-vv"] + run_arg_list
+
     # do NOT run the final conversion in parallel
     conv_final_arg_list = arg_list + [
         "-vv",

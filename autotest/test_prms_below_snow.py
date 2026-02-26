@@ -22,7 +22,7 @@ from pywatershed.parameters import Parameters, PrmsParameters
 # the test suite.
 
 invoke_style = ("prms", "model_dict", "model_dict_from_yaml")
-failfast = False
+failfast = True
 verbose = False
 
 test_models = {
