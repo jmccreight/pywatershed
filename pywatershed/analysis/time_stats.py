@@ -546,7 +546,8 @@ def percentile_resamp_enclosing(
     q: float,
     freq: str,
 ) -> callable:
-    """Create a percentile function with specific quantile and resample frequency.
+    """Create a percentile function with specific quantile and resample
+    frequency.
 
     This factory function returns a closure that calculates percentiles
     over resampled time periods.
@@ -554,7 +555,8 @@ def percentile_resamp_enclosing(
     Parameters
     ----------
     q : float
-        Quantile to compute, value between 0 and 1 (e.g., 0.95 for 95th percentile)
+        Quantile to compute, value between 0 and 1 (e.g., 0.95 for 95th
+        percentile)
     freq : str
         Resampling frequency string (e.g., '1D' for daily, '1MS' for monthly,
         '5D' for 5-day periods, '1YS' for yearly)

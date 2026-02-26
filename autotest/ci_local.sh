@@ -359,7 +359,9 @@ if [ -z "${t}" ]; then
             --ignore=test_prms_hydraulic_geometry.py \
             --ignore=test_prms_runoff_ag.py \
             --ignore=test_prms_runoff_ag_restart.py \
+            --ignore=test_prms_runoff_soilzone_ag.py \
             --ignore=test_prms_soilzone_ag.py \
+            --ignore=test_prms_soilzone_ag_restart.py \
             --ignore=test_prms_stream_temp.py \
             --ignore=test_source_sink_flow_node.py \
             --ignore=test_starfit_flow_graph.py || exit 1
@@ -418,6 +420,7 @@ if [ -z "${t}" ]; then
             --ignore=test_domain_subset.py \
             --ignore=test_prms_runoff_ag.py \
             --ignore=test_prms_runoff_ag_restart.py \
+            --ignore=test_prms_runoff_soilzone_ag.py \
             --ignore=test_prms_soilzone_ag.py \
             --ignore=test_prms_soilzone_ag_restart.py \
             --ignore=test_source_sink_flow_node.py \
@@ -530,6 +533,7 @@ if [ -z "${t}" ]; then
             --ignore=test_prms_stream_temp.py \
             --ignore=test_prms_runoff_ag.py \
             --ignore=test_prms_runoff_ag_restart.py \
+            --ignore=test_prms_runoff_soilzone_ag.py \
             --ignore=test_prms_soilzone_ag.py \
             --ignore=test_prms_soilzone_ag_restart.py || exit 1
 
