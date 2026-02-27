@@ -251,27 +251,27 @@ jobs:
           python -c "
           import os
           import sys
-          import pywatershed as pws
-          # Get source from installed package location
-          pkg_root = pws.constants.__pywatershed_root__
-          src = pkg_root / 'data' / 'pywatershed_addtl_domains' / 'fgr_ag_2yr'
+          import site
+          # Find pywatershed in site-packages
+          site_packages = site.getsitepackages()[0]
+          src = os.path.join(site_packages, 'pywatershed', 'data', 'pywatershed_addtl_domains', 'fgr_ag_2yr')
           dst = 'test_data/fgr_ag_2yr'
-          print(f'Package root: {pkg_root}')
+          print(f'Site-packages: {site_packages}')
           print(f'Source path: {src}')
-          print(f'Source exists: {src.exists()}')
+          print(f'Source exists: {os.path.exists(src)}')
           print(f'Destination path: {dst}')
           print(f'Destination absolute: {os.path.abspath(dst)}')
-          if not src.exists():
+          if not os.path.exists(src):
               print(f'ERROR: Source path does not exist!')
-              print(f'Listing package data dir:')
-              data_dir = pkg_root / 'data'
-              if data_dir.exists():
-                  print(os.listdir(data_dir))
+              print(f'Checking site-packages pywatershed/data:')
+              data_dir = os.path.join(site_packages, 'pywatershed', 'data')
+              if os.path.exists(data_dir):
+                  print(f'Contents: {os.listdir(data_dir)}')
               sys.exit(1)
           if os.path.exists(dst):
               print(f'Removing existing destination')
               os.unlink(dst)
-          os.symlink(str(src), dst, target_is_directory=True)
+          os.symlink(src, dst, target_is_directory=True)
           print(f'Symlink created successfully')
           print(f'Destination exists (after): {os.path.exists(dst)}')
           "
