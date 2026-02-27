@@ -353,8 +353,7 @@ jobs:
             --control_pattern=nhm.control \
             --control_pattern=frost.control
 
-      - name: drb_2yr - list netcdf input files
-        if: false
+      - name: hru_1_nhm - list netcdf input files
         if: false
         working-directory: test_data
         run: |
@@ -537,7 +536,7 @@ jobs:
             --control_pattern=nhm.control \
             --control_pattern=transp_frost.control
 
-      - name: ucb_2yr - list netcdf input files
+      - name: ucb_2yr_nhm - list netcdf input files
         if: false
         working-directory: test_data
         run: |
