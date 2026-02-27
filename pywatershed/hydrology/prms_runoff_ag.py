@@ -1234,6 +1234,16 @@ class PRMSRunoffAg(PRMSRunoff):
                 dprst_seep_hru = dprst_seep_hru + seep_clos / hru_area
 
         # Compute open surface runoff
+        # Note: In rare cases, accumulated floating-point errors can cause
+        # dprst_vol_open to become slightly negative (O(1e-9) or smaller).
+        # This is a known issue inherited from PRMS 5.2.1. While physically
+        # impossible, these tiny negative values generally don't affect model
+        # results significantly. However, they can cause bit-level differences
+        # in restart tests due to how the values are serialized/deserialized.
+        # A comprehensive fix would require clamping all depression storage
+        # volumes to >= 0.0 after each operation, but this would break
+        # regression testing against PRMS Fortran outputs.
+        # TODO: Consider adding systematic clamping in a future major version.
         dprst_sroff_hru = 0.0
         if dprst_vol_open > 0.0:
             dprst_sroff_hru = max(0.0, dprst_vol_open - dprst_vol_open_max)
