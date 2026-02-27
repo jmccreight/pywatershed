@@ -573,7 +573,8 @@ def test_output_properties_before_finalization(
     )
 
     # Properties should return None before finalization
-    # These accesses intentionally trigger warnings about accessing before finalization
+    # These accesses intentionally trigger warnings about accessing
+    # before finalization
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", UserWarning)
         assert output.monthly_accumulations is None

@@ -1177,7 +1177,8 @@ class Output:
         ds = xr.Dataset(data_vars, coords=coords)
 
         # Write to zarr with chunking
-        # consolidated=False to avoid Zarr v3 spec warning about consolidated metadata
+        # consolidated=False to avoid Zarr v3 spec warning about
+        # consolidated metadata
         ds.to_zarr(
             self._chunked_output_file,
             mode="w",
