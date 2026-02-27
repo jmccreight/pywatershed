@@ -1177,9 +1177,17 @@ class Output:
         ds = xr.Dataset(data_vars, coords=coords)
 
         # Write to zarr with chunking
-        ds.to_zarr(self._chunked_output_file, mode="w", encoding=encoding)
+        # consolidated=False to avoid Zarr v3 spec warning about consolidated metadata
+        ds.to_zarr(
+            self._chunked_output_file,
+            mode="w",
+            encoding=encoding,
+            consolidated=False,
+        )
 
-        self._zarr_ds = xr.open_zarr(self._chunked_output_file)
+        self._zarr_ds = xr.open_zarr(
+            self._chunked_output_file, consolidated=False
+        )
 
         # Open zarr store for direct writing
         import zarr
