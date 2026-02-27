@@ -121,8 +121,12 @@ def test_drive_indiv_process(simulation, process_list, tmp_path):
             if not results_file.exists():
                 print(f"results file not found: {results_file}")
                 continue
-            res = xr.open_dataset(proc_model_output_dir / f"{vv}.nc")
-            ans = xr.open_dataset(output_dir / f"{vv}.nc")
+            res = xr.open_dataset(
+                proc_model_output_dir / f"{vv}.nc", decode_timedelta=False
+            )
+            ans = xr.open_dataset(
+                output_dir / f"{vv}.nc", decode_timedelta=False
+            )
 
             # Leaving the commented to diagnose what PRMSRunoff later.
             try:

@@ -360,7 +360,11 @@ def test_compare_prms(
             r2 = 1 - (ss_res / ss_tot) if ss_tot > 0 else np.nan
 
             # Correlation coefficient
-            corr = np.corrcoef(sim_valid, obs_valid)[0, 1]
+            # Handle case where variance is zero (all values identical)
+            if np.std(sim_valid) == 0 or np.std(obs_valid) == 0:
+                corr = np.nan
+            else:
+                corr = np.corrcoef(sim_valid, obs_valid)[0, 1]
 
             print(f"\n{var}:")
             print(f"  N valid points: {np.sum(valid_mask):,}")

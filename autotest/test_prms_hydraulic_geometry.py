@@ -148,7 +148,7 @@ def test_compare_full(
 
     # Get the parameters as xarray dataset
     params_ds = parameters.to_xr_ds()
-    nsegment = params_ds.dims["nsegment"]
+    nsegment = params_ds.sizes["nsegment"]
 
     # Add depth parameters with PRMS default values
     params_ds["depth_alpha"] = xr.DataArray(
