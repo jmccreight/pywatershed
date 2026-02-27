@@ -29,6 +29,7 @@ def download(force=False):
             zz.extractall(pkg_root_dir / "data")
 
         assert addtl_domains_dir.exists()
+        print(f"{addtl_domains_dir=}")
 
     return
 
