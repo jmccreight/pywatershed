@@ -236,7 +236,7 @@ jobs:
           python -c "
           import os;
           src = os.path.join(
-              '..', 'pywatershed', 'data', 'pywatershed_addtl_domains', 'fgr_ag_2yr'
+              'pywatershed', 'data', 'pywatershed_addtl_domains', 'fgr_ag_2yr'
           );
           dst = os.path.join('test_data', 'fgr_ag_2yr');
           os.path.exists(dst) and os.unlink(dst);
