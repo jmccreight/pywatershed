@@ -252,10 +252,13 @@ jobs:
           import os
           import sys
           import site
+          import platform
+          import shutil
           # Find pywatershed in site-packages
           site_packages = site.getsitepackages()[0]
           src = os.path.join(site_packages, 'pywatershed', 'data', 'pywatershed_addtl_domains', 'fgr_ag_2yr')
           dst = 'test_data/fgr_ag_2yr'
+          print(f'Platform: {platform.system()}')
           print(f'Site-packages: {site_packages}')
           print(f'Source path: {src}')
           print(f'Source exists: {os.path.exists(src)}')
@@ -270,9 +273,18 @@ jobs:
               sys.exit(1)
           if os.path.exists(dst):
               print(f'Removing existing destination')
-              os.unlink(dst)
-          os.symlink(src, dst, target_is_directory=True)
-          print(f'Symlink created successfully')
+              if os.path.islink(dst) or os.path.isfile(dst):
+                  os.unlink(dst)
+              else:
+                  shutil.rmtree(dst)
+          # On Windows, copy instead of symlink (symlinks require special privileges)
+          if platform.system() == 'Windows':
+              print(f'Copying directory (Windows)')
+              shutil.copytree(src, dst)
+          else:
+              print(f'Creating symlink (Unix)')
+              os.symlink(src, dst, target_is_directory=True)
+          print(f'Link/copy created successfully')
           print(f'Destination exists (after): {os.path.exists(dst)}')
           "
 
