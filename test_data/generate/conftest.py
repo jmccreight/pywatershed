@@ -118,7 +118,7 @@ def exe(simulation):
     platform = sys.platform.lower()
     if "gsflow" in exe_desc:
         if platform == "win32":
-            pytest.skip(f"GSFLOW binary not yet provided for {platform}")
+            exe_name = "gsflow_2.4.0_gfortran_windows_dbl_prec"
         elif platform == "darwin":
             if processor() == "arm":
                 exe_name = "gsflow_2.4.0_ifort_apple_silicon_dbl_prec"
