@@ -251,23 +251,33 @@ jobs:
           python -c "
           import os
           import sys
-          import site
           import platform
           import shutil
-          # Find pywatershed in site-packages
-          site_packages = site.getsitepackages()[0]
-          src = os.path.join(site_packages, 'pywatershed', 'data', 'pywatershed_addtl_domains', 'fgr_ag_2yr')
+          # Remove current directory from sys.path to avoid importing local source
+          # We want the installed package in site-packages, not repo source
+          if '' in sys.path:
+              sys.path.remove('')
+          if '.' in sys.path:
+              sys.path.remove('.')
+          cwd = os.getcwd()
+          if cwd in sys.path:
+              sys.path.remove(cwd)
+          # Now import pywatershed from site-packages
+          import pywatershed as pws
+          # Find pywatershed package location using __file__
+          pkg_dir = os.path.dirname(pws.__file__)
+          src = os.path.join(pkg_dir, 'data', 'pywatershed_addtl_domains', 'fgr_ag_2yr')
           dst = 'test_data/fgr_ag_2yr'
           print(f'Platform: {platform.system()}')
-          print(f'Site-packages: {site_packages}')
+          print(f'Package directory: {pkg_dir}')
           print(f'Source path: {src}')
           print(f'Source exists: {os.path.exists(src)}')
           print(f'Destination path: {dst}')
           print(f'Destination absolute: {os.path.abspath(dst)}')
           if not os.path.exists(src):
               print(f'ERROR: Source path does not exist!')
-              print(f'Checking site-packages pywatershed/data:')
-              data_dir = os.path.join(site_packages, 'pywatershed', 'data')
+              print(f'Checking pywatershed/data:')
+              data_dir = os.path.join(pkg_dir, 'data')
               if os.path.exists(data_dir):
                   print(f'Contents: {os.listdir(data_dir)}')
               sys.exit(1)
