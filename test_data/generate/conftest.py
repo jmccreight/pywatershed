@@ -127,7 +127,7 @@ def exe(simulation):
                     f"GSFLOW binary not yet provided for {platform}:intel"
                 )
         elif platform == "linux":
-            pytest.skip(f"GSFLOW binary not yet provided for {platform}")
+            exe_name = "gsflow_2.4.0_gfortran_linux"
 
     elif "5.2.1.1" in exe_desc:
         if platform == "win32":
