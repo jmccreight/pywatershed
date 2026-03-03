@@ -101,6 +101,13 @@ def pytest_addoption(parser):
         ),
     )
 
+    parser.addoption(
+        "--exe",
+        required=False,
+        default=None,
+        help=("Path to PRMS or GSFLOW executable to use"),
+    )
+
 
 def pytest_configure(config):
     """Configure pytest with warning filters based on command line options."""
@@ -113,7 +120,16 @@ def pytest_configure(config):
 
 
 @pytest.fixture(scope="function")
-def exe(simulation):
+def exe(simulation, request):
+    # Check if exe was provided on command line
+    exe_path = request.config.getoption("exe")
+    if exe_path:
+        exe_pth = pl.Path(exe_path).resolve()
+        if not exe_pth.exists():
+            pytest.fail(f"Executable not found: {exe_pth}")
+        return exe_pth
+
+    # Otherwise, determine exe based on platform and control file
     exe_desc = get_ctl_exe_desc(simulation["control_file"])
     platform = sys.platform.lower()
     if "gsflow" in exe_desc:
