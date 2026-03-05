@@ -108,8 +108,8 @@ def test_compare_prms(
     )
 
     if do_compare_output_files:
-        nc_parent = tmp_path / simulation["name"]
-        snow.initialize_netcdf(nc_parent)
+        nc_output_dir = tmp_path / simulation["name"].replace(":", "_")
+        snow.initialize_netcdf(nc_output_dir)
 
     if do_compare_in_memory:
         answers = {}
@@ -136,7 +136,7 @@ def test_compare_prms(
     if do_compare_output_files:
         compare_netcdfs(
             comparison_var_names,
-            tmp_path / simulation["name"],
+            nc_output_dir,
             output_dir,
             atol=atol,
             rtol=rtol,

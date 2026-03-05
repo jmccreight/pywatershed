@@ -127,8 +127,8 @@ def test_compare_prms(
         input_variables[key] = nc_pth
 
     if do_compare_output_files:
-        nc_parent = tmp_path / simulation["name"]
-        control.options["netcdf_output_dir"] = nc_parent
+        nc_output_dir = tmp_path / simulation["name"].replace(":", "_")
+        control.options["netcdf_output_dir"] = nc_output_dir
 
     runoff = PRMSRunoffAg(
         control=control,
@@ -205,7 +205,7 @@ def test_compare_prms(
 
         compare_netcdfs(
             vars_with_answers,
-            tmp_path / simulation["name"],
+            nc_output_dir,
             output_dir,
             atol=default_atol,
             rtol=default_rtol,
