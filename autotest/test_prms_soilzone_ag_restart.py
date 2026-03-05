@@ -33,6 +33,7 @@ from pywatershed.base.adapter import adapter_factory
 from pywatershed.base.control import Control
 from pywatershed.base.timeseries import TimeseriesArray
 from pywatershed.hydrology.prms_soilzone_ag import PRMSSoilzoneAg
+from pywatershed.hydrology.prms_soilzone_ag_obs_et import PRMSSoilzoneAgObsET
 from pywatershed.parameters import Parameters, PrmsParameters
 
 dt_1d = np.timedelta64(24, "h")
@@ -42,27 +43,8 @@ dt_1d = np.timedelta64(24, "h")
 # Restarts with "y" and "m" are always written on the last day of the period.
 # The "f" option is tested separately since it writes restarts only at the end.
 
-# For spinup domain (starts 1998-01-01)
-spinup_init_times_dict: dict[str, dict[str, np.datetime64]] = {
-    "d": {
-        "a": np.datetime64("1998-12-20") - dt_1d,
-        "b": np.datetime64("1998-12-25") - dt_1d,
-        "c": np.datetime64("1998-12-31") - dt_1d,
-    },
-    "m": {
-        "a": np.datetime64("1998-10-31") - dt_1d,
-        "b": np.datetime64("1998-11-01") - dt_1d,
-        "c": np.datetime64("1998-12-01") - dt_1d,
-    },
-    "y": {
-        "a": np.datetime64("1998-12-31") - dt_1d,
-        "b": np.datetime64("1999-01-01") - dt_1d,
-        "c": np.datetime64("1999-12-31") - dt_1d,
-    },
-}
-
 # For analysis domain (starts 2000-01-01)
-analysis_init_times_dict: dict[str, dict[str, np.datetime64]] = {
+init_times_dict: dict[str, dict[str, np.datetime64]] = {
     "d": {
         "a": np.datetime64("2000-12-20") - dt_1d,
         "b": np.datetime64("2000-12-25") - dt_1d,
@@ -80,7 +62,7 @@ analysis_init_times_dict: dict[str, dict[str, np.datetime64]] = {
     },
 }
 
-restart_freqs: list[str] = list(spinup_init_times_dict.keys())
+restart_freqs: list[str] = list(init_times_dict.keys())
 
 
 def get_init_times_dict(
@@ -88,12 +70,10 @@ def get_init_times_dict(
 ) -> dict[str, dict[str, np.datetime64]]:
     """Get the appropriate init times dict based on domain."""
     domain_name = simulation["name"].split(":")[0]
-    if "spinup" in domain_name:
-        return spinup_init_times_dict
-    elif "analysis" in domain_name:
-        return analysis_init_times_dict
-    else:
-        pytest.skip(f"Unknown domain type for restart test: {domain_name}")
+    if "fgr_ag_2yr" not in domain_name:
+        pytest.skip(f"Only testing for fgr_ag_2yr domain, not {domain_name}")
+
+    return init_times_dict
 
 
 def get_control(
@@ -151,6 +131,37 @@ def get_control(
 
 
 @pytest.fixture(scope="function")
+def SoilzoneAg(simulation):
+    """Select appropriate SoilzoneAg class based on control file settings."""
+    import warnings
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        ctl = Control.load_prms(
+            simulation["control_file"],
+            warn_unused_options=False,
+            keep_unused_options=True,
+        )
+
+    if "executable_desc" in ctl.options.keys():
+        exe_desc = ctl.options["executable_desc"][0].lower()
+    else:
+        exe_desc = "prms"
+
+    if "gsflow" not in exe_desc:
+        pytest.skip(
+            "Only testing PRMSSoilzoneAg for domains run with a GSFLOW exe."
+        )
+
+    # Choose class based on iter_aet_flag
+    iter_aet_flag = ctl.options.get("iter_aet_flag", None)
+    if iter_aet_flag:
+        return PRMSSoilzoneAgObsET
+    else:
+        return PRMSSoilzoneAg
+
+
+@pytest.fixture(scope="function")
 def discretization(simulation: dict[str, Any]) -> Parameters:
     dis_hru_file = simulation["dir"] / "parameters_dis_hru.nc"
     return Parameters.from_netcdf(dis_hru_file, encoding=False)
@@ -167,12 +178,13 @@ def get_input_variables(
     simulation: dict[str, Any],
     control: Control,
     parameters: PrmsParameters,
+    SoilzoneAg,
 ) -> dict[str, Any]:
     """Build input variables dict for PRMSSoilzoneAg."""
     output_dir = simulation["output_dir"]
 
     input_variables: dict[str, Any] = {}
-    for key in PRMSSoilzoneAg.get_inputs():
+    for key in SoilzoneAg.get_inputs():
         nc_path = output_dir / f"{key}.nc"
 
         if not nc_path.exists():
@@ -213,6 +225,7 @@ def test_restart(
     simulation: dict[str, Any],
     discretization: Parameters,
     parameters: PrmsParameters,
+    SoilzoneAg,
     tmp_path: pl.Path,
     restart_freq: str,
 ) -> None:
@@ -231,7 +244,9 @@ def test_restart(
 
     # Run ac: continuous run from a to c, writing restart at b
     control_ac = get_control(simulation, times["a"], times["c"])
-    input_variables = get_input_variables(simulation, control_ac, parameters)
+    input_variables = get_input_variables(
+        simulation, control_ac, parameters, SoilzoneAg
+    )
 
     run_args: dict[str, Any] = {
         "control": control_ac,
@@ -242,7 +257,7 @@ def test_restart(
     run_args["restart_write"] = restart_dir
     run_args["restart_write_freq"] = restart_freq
 
-    proc_ac = PRMSSoilzoneAg(**run_args)
+    proc_ac = SoilzoneAg(**run_args)
 
     for istep in range(control_ac.n_times):
         control_ac.advance()
@@ -254,7 +269,9 @@ def test_restart(
 
     # Run bc: restart from b to c
     control_bc = get_control(simulation, times["b"], times["c"])
-    input_variables = get_input_variables(simulation, control_bc, parameters)
+    input_variables = get_input_variables(
+        simulation, control_bc, parameters, SoilzoneAg
+    )
 
     run_args = {
         "control": control_bc,
@@ -264,7 +281,7 @@ def test_restart(
     }
     run_args["restart_read"] = restart_dir
 
-    proc_bc = PRMSSoilzoneAg(**run_args)
+    proc_bc = SoilzoneAg(**run_args)
 
     for istep in range(control_bc.n_times):
         control_bc.advance()
@@ -300,6 +317,7 @@ def test_restart_f(
     simulation: dict[str, Any],
     discretization: Parameters,
     parameters: PrmsParameters,
+    SoilzoneAg,
     tmp_path: pl.Path,
 ) -> None:
     """Test the "f" restart frequency option for PRMSSoilzoneAg.
@@ -314,20 +332,14 @@ def test_restart_f(
     """
     # Use fixed times that work for both domains
     domain_name = simulation["name"].split(":")[0]
-    if "spinup" in domain_name:
-        init_times: dict[str, np.datetime64] = {
-            "a": np.datetime64("1998-06-01"),
-            "b": np.datetime64("1998-06-15"),
-            "c": np.datetime64("1998-06-30"),
-        }
-    elif "analysis" in domain_name:
+    if "fgr_ag_2yr" in domain_name:
         init_times = {
             "a": np.datetime64("2000-06-01"),
             "b": np.datetime64("2000-06-15"),
             "c": np.datetime64("2000-06-30"),
         }
     else:
-        pytest.skip(f"Unknown domain type for restart test: {domain_name}")
+        pytest.skip(f"Only testing for fgr_ag_2yr domain, not {domain_name}")
 
     restart_dir = tmp_path / "restarts"
 
@@ -336,10 +348,12 @@ def test_restart_f(
         end_time: np.datetime64,
         restart_write: bool = False,
         restart_read: bool = False,
-    ) -> PRMSSoilzoneAg:
+    ):
         """Helper to run PRMSSoilzoneAg for a time period."""
         control = get_control(simulation, init_time, end_time)
-        input_variables = get_input_variables(simulation, control, parameters)
+        input_variables = get_input_variables(
+            simulation, control, parameters, SoilzoneAg
+        )
 
         run_args: dict[str, Any] = {
             "control": control,
@@ -355,7 +369,7 @@ def test_restart_f(
         if restart_read:
             run_args["restart_read"] = restart_dir
 
-        proc = PRMSSoilzoneAg(**run_args)
+        proc = SoilzoneAg(**run_args)
 
         for istep in range(control.n_times):
             control.advance()

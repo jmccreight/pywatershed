@@ -604,7 +604,7 @@ if [ -z "${t}" ]; then
         fi
 
         echo ".........."
-        echo "fgr_ag_2yr_nhm - pywatershed tests"
+        echo "fgr_ag_2yr - pywatershed tests"
         echo ".........."
         echo
         pytest \
@@ -616,7 +616,11 @@ if [ -z "${t}" ]; then
             --control_pattern=analysis.control \
             --durations=0 \
             test_prms_runoff_ag.py \
-            test_prms_runoff_ag_restart.py || exit 1
+            test_prms_runoff_ag_restart.py \
+            test_prms_soilzone_ag.py \
+            test_prms_soilzone_ag_restart.py \
+            test_prms_runoff_soilzone_ag.py || exit 1
+
     fi
 fi
 
