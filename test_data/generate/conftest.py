@@ -143,7 +143,7 @@ def exe(simulation, request):
                     f"GSFLOW binary not yet provided for {platform}:intel"
                 )
         elif platform == "linux":
-            exe_name = "gsflow_2.4.0_gfortran_linux"
+            exe_name = "gsflow_2.4.0_gfortran_linux_dbl_prec"
 
     elif "5.2.1.1" in exe_desc:
         if platform == "win32":
