@@ -363,6 +363,13 @@ jobs:
           --ignore=test_source_sink_flow_node.py
           --ignore=test_starfit_flow_graph.py
 
+      - name: sagehen_5yr_no_cascades - cleanup output directories
+        working-directory: test_data/generate
+        run: |
+          pytest -v remove_output_dirs.py::test_remove_output_dirs \
+            --domain=sagehen_5yr \
+            --control_pattern=sagehen_no_cascades.control
+
       - name: hru_1 all configs - generate and manage test data, run PRMS and convert csv output to NetCDF
         working-directory: autotest
         run: |
@@ -426,6 +433,14 @@ jobs:
           --cov-report=xml
           --junitxml=pytest_hru_1_transp_frost.xml
           test_prms_atmosphere_transp_frost.py
+
+      - name: hru_1 all configs - cleanup output directories
+        working-directory: test_data/generate
+        run: |
+          pytest -v remove_output_dirs.py::test_remove_output_dirs \
+            --domain=hru_1 \
+            --control_pattern=nhm.control \
+            --control_pattern=frost.control
 
       - name: drb_2yr all domains - generate and manage test data
         working-directory: autotest
@@ -533,6 +548,12 @@ jobs:
           test_prms_hydraulic_geometry.py
           test_prms_stream_temp.py
 
+      - name: drb_2yr all domains - cleanup output directories
+        working-directory: test_data/generate
+        run: |
+          pytest -v remove_output_dirs.py::test_remove_output_dirs \
+            --domain=drb_2yr
+
       - name: ucb_2yr all configs - generate and manage test data
         working-directory: autotest
         run: |
@@ -596,6 +617,14 @@ jobs:
           --junitxml=pytest_ucb_2yr_nhm_transp_frost.xml
           test_prms_atmosphere_transp_frost.py
 
+      - name: ucb_2yr all configs - cleanup output directories
+        working-directory: test_data/generate
+        run: |
+          pytest -v remove_output_dirs.py::test_remove_output_dirs \
+            --domain=ucb_2yr \
+            --control_pattern=nhm.control \
+            --control_pattern=transp_frost.control
+
       - name: fgr_ag_2yr all configs - generate and manage test data
         working-directory: autotest
         run: |
@@ -631,6 +660,14 @@ jobs:
           test_prms_soilzone_ag.py
           test_prms_soilzone_ag_restart.py
           test_prms_runoff_soilzone_ag.py
+
+      - name: fgr_ag_2yr all configs - cleanup output directories
+        working-directory: test_data/generate
+        run: |
+          pytest -v remove_output_dirs.py::test_remove_output_dirs \
+            --domain=fgr_ag_2yr \
+            --control_pattern=spinup.control \
+            --control_pattern=analysis.control
 
       - name: Upload test results
         if: always()
