@@ -7,6 +7,7 @@ and an adapter factory to dispatch you the right subclass when you ask for it.
 
 import datetime
 import pathlib as pl
+import warnings
 from typing import Union
 
 import numpy as np
@@ -285,6 +286,7 @@ def adapter_factory(
         elif path.suffix in (".param", ".dyn"):
             # there is some danger here with the regular parameter file, but
             # that should trhow some errors
+            warnings.warn(f"Note: Using dynamic parameter file {str(path)}")
             return AdapterDynamicParameter(
                 var,
                 variable=variable_name,
