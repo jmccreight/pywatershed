@@ -63,6 +63,7 @@ autotest/prms_restart_transp_on/*
 
 # test_data
 test_data/.test_data_version*
+test_data/fgr_ag_2yr
 
 # sphinx
 generated/

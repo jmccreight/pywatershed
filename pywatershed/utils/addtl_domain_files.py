@@ -1,6 +1,7 @@
 # This utility gets additional doain files these files are not part of the pws
 # repo.
 
+import argparse
 import urllib.request as request
 import zipfile
 from shutil import rmtree
@@ -35,4 +36,13 @@ def download(force=False):
 
 
 if __name__ == "__main__":
-    download()
+    parser = argparse.ArgumentParser(
+        description="Download additional domain files for pywatershed"
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Force re-download by removing existing files first",
+    )
+    args = parser.parse_args()
+    download(force=args.force)

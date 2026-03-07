@@ -6,11 +6,10 @@ build-backend = "setuptools.build_meta"
 name = "pywatershed"
 description = "pywatershed is a Python package for hydrologic modeling"
 authors = [
-    { name = "USGS Enterprise Capacity Team", email = "modflow@usgs.gov" },
+    { name = "USGS Development and Standards Team", email = "modflow@usgs.gov" },
 ]
 maintainers = [
     { name = "James L. McCreight", email = "jmccreight@usgs.gov" },
-    { name = "Joseph D. Hughes", email = "jdhughes@usgs.gov" },
 ]
 keywords = ["hydrology", "PRMS"]
 license = { text = "CC0" }
@@ -19,11 +18,10 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "License :: CC0 1.0 Universal (CC0 1.0) Public Domain Dedication",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Hydrology",
 ]
-requires-python = ">=3.11,<3.13"
+requires-python = ">=3.12,<3.13"
 dependencies = [
     "contextily",
     "numpy>=2.0.0",
