@@ -122,8 +122,120 @@ jobs:
       - name: Format
         run: ruff format --check .
 
-  test:
-    name: ${{ matrix.os }} py${{ matrix.python-version }}
+  test_domainless:
+    name: domainless ${{ matrix.os }} py${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash -l {0}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["ubuntu-latest", "macos-latest", "windows-latest"]
+        python-version: ["3.12"]
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}
+
+      - name: Set environment variables
+        run: |
+          echo "PYTHON_VERSION=${{ matrix.python-version }}" >> $GITHUB_ENV
+          echo "PYWS_FORTRAN=false" >> $GITHUB_ENV
+          cat .mf6_ci_ref_remote  >> $GITHUB_ENV
+
+      - name: Enforce MF6 ref and remote merge to main
+        if: github.base_ref == 'main'
+        run: |
+          echo Merge commit: GITHUB_BASE_REF = $GITHUB_BASE_REF
+          req_ref=develop  # if not develop, submit an issue
+          echo $MF6_REF
+          if [[ "$MF6_REF" != "$req_ref" ]]; then exit 1; fi
+          req_remote=MODFLOW-USGS/modflow6
+          echo $MF6_REMOTE
+          if [[ "$MF6_REMOTE" != "$req_remote" ]]; then echo "bad mf6 remote in .mf6_ci_ref_remote"; exit 1; fi
+
+      - name: Setup gfortran
+        uses: fortran-lang/setup-fortran@v1
+        with:
+          compiler: gcc
+          version: 11
+
+      - name: Link gfortran dylibs on Mac
+        if: runner.os == 'macOS'
+        run: .github/scripts/symlink_gfortran_mac.sh
+
+      - name: Install Dependencies via Micromamba
+        uses: mamba-org/setup-micromamba@v1.9.0
+        with:
+          micromamba-version: "1.5.10-0"
+          log-level: debug
+          environment-file: environment.yml
+          cache-environment: true
+          cache-downloads: true
+          create-args: >-
+            python=${{matrix.python-version}}
+
+      - name: Checkout MODFLOW 6
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.MF6_REMOTE }}
+          ref: ${{ env.MF6_REF }}
+          path: modflow6
+
+      - name: Update flopy MODFLOW 6 classes
+        working-directory: modflow6/autotest
+        run: |
+          # requires flopy[codgen] install option
+          python -m flopy.mf6.utils.generate_classes
+
+      - name: Install mf6 nightly build binaries
+        uses: modflowpy/install-modflow-action@v1
+        with:
+          repo: modflow6-nightly-build
+
+      - name: Install pywatershed
+        run: |
+          pip install .
+
+      - name: Version info
+        run: |
+          pip -V
+          pip list
+
+      - name: domainless - run tests not requiring domain data
+        working-directory: autotest
+        run: pytest
+          -m domainless
+          -n=auto
+          -vv
+          --durations=0
+          --cov=pywatershed
+          --cov-report=xml
+          --junitxml=pytest_domainless.xml
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Test results for domainless-${{ runner.os }}-${{ matrix.python-version }}
+          path: |
+            ./autotest/pytest_domainless.xml
+
+      - name: Upload code coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./autotest/coverage.xml
+          env_vars: RUNNER_OS,PYTHON_VERSION
+          fail_ci_if_error: false
+          version: "v0.1.15"
+
+  test_sagehen_5yr:
+    name: sagehen_5yr ${{ matrix.os }} py${{ matrix.python-version }}
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -219,97 +331,6 @@ jobs:
           pip -V
           pip list
 
-      - name: Get GIS files for tests
-        run: |
-          python pywatershed/utils/gis_files.py
-
-      - name: Get additional domain files for tests
-        run: |
-          python pywatershed/utils/addtl_domain_files.py
-          if [ $? -ne 0 ]; then
-            echo "Failed to download additional domain files"
-            exit 1
-          fi
-          echo ""
-          echo "Checking where additional domains were downloaded:"
-          python -c "
-          import pywatershed as pws
-          pkg_root = pws.constants.__pywatershed_root__
-          addtl_dir = pkg_root / 'data' / 'pywatershed_addtl_domains'
-          print(f'Package root: {pkg_root}')
-          print(f'Additional domains dir: {addtl_dir}')
-          print(f'Additional domains exists: {addtl_dir.exists()}')
-          if addtl_dir.exists():
-              import os
-              print(f'Contents: {os.listdir(addtl_dir)}')
-          "
-
-      - name: Create symlink to fgr_ag_2yr domain
-        run: |
-          echo "Current directory: $(pwd)"
-          echo ""
-          python -c "
-          import os
-          import sys
-          import platform
-          import shutil
-          # Remove current directory from sys.path to avoid importing local source
-          # We want the installed package in site-packages, not repo source
-          if '' in sys.path:
-              sys.path.remove('')
-          if '.' in sys.path:
-              sys.path.remove('.')
-          cwd = os.getcwd()
-          if cwd in sys.path:
-              sys.path.remove(cwd)
-          # Now import pywatershed from site-packages
-          import pywatershed as pws
-          # Find pywatershed package location using __file__
-          pkg_dir = os.path.dirname(pws.__file__)
-          src = os.path.join(pkg_dir, 'data', 'pywatershed_addtl_domains', 'fgr_ag_2yr')
-          dst = 'test_data/fgr_ag_2yr'
-          print(f'Platform: {platform.system()}')
-          print(f'Package directory: {pkg_dir}')
-          print(f'Source path: {src}')
-          print(f'Source exists: {os.path.exists(src)}')
-          print(f'Destination path: {dst}')
-          print(f'Destination absolute: {os.path.abspath(dst)}')
-          if not os.path.exists(src):
-              print(f'ERROR: Source path does not exist!')
-              print(f'Checking pywatershed/data:')
-              data_dir = os.path.join(pkg_dir, 'data')
-              if os.path.exists(data_dir):
-                  print(f'Contents: {os.listdir(data_dir)}')
-              sys.exit(1)
-          if os.path.exists(dst):
-              print(f'Removing existing destination')
-              if os.path.islink(dst) or os.path.isfile(dst):
-                  os.unlink(dst)
-              else:
-                  shutil.rmtree(dst)
-          # On Windows, copy instead of symlink (symlinks require special privileges)
-          if platform.system() == 'Windows':
-              print(f'Copying directory (Windows)')
-              shutil.copytree(src, dst)
-          else:
-              print(f'Creating symlink (Unix)')
-              os.symlink(src, dst, target_is_directory=True)
-          print(f'Link/copy created successfully')
-          print(f'Destination exists (after): {os.path.exists(dst)}')
-          "
-
-      - name: domainless - run tests not requiring domain data
-        working-directory: autotest
-        run: pytest
-          -m domainless
-          -n=auto
-          -vv
-          --durations=0
-          --cov=pywatershed
-          --cov-report=xml
-          --junitxml=pytest_domainless.xml
-
-      # Temporarily disabled for fgr_ag_2yr debugging
       - name: sagehen_5yr_no_cascades - generate and manage test data domain, run PRMS and convert csv output to NetCDF
         working-directory: autotest
         run: |
@@ -369,6 +390,119 @@ jobs:
           pytest -v remove_output_dirs.py::test_remove_output_dirs \
             --domain=sagehen_5yr \
             --control_pattern=sagehen_no_cascades.control
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Test results for sagehen_5yr-${{ runner.os }}-${{ matrix.python-version }}
+          path: |
+            ./autotest/pytest_sagehen_5yr_no_cascades.xml
+
+      - name: Upload code coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./autotest/coverage.xml
+          env_vars: RUNNER_OS,PYTHON_VERSION
+          fail_ci_if_error: false
+          version: "v0.1.15"
+
+  test_hru_1:
+    name: hru_1 ${{ matrix.os }} py${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash -l {0}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["ubuntu-latest", "macos-latest", "windows-latest"]
+        python-version: ["3.12"]
+
+    steps:
+      - name: Free Disk Space (Ubuntu)
+        if: runner.os == 'Linux'
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: false
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}
+
+      - name: Set environment variables
+        run: |
+          echo "PYTHON_VERSION=${{ matrix.python-version }}" >> $GITHUB_ENV
+          echo "PYWS_FORTRAN=false" >> $GITHUB_ENV
+          cat .mf6_ci_ref_remote  >> $GITHUB_ENV
+
+      - name: Enforce MF6 ref and remote merge to main
+        if: github.base_ref == 'main'
+        run: |
+          echo Merge commit: GITHUB_BASE_REF = $GITHUB_BASE_REF
+          req_ref=develop  # if not develop, submit an issue
+          echo $MF6_REF
+          if [[ "$MF6_REF" != "$req_ref" ]]; then exit 1; fi
+          req_remote=MODFLOW-USGS/modflow6
+          echo $MF6_REMOTE
+          if [[ "$MF6_REMOTE" != "$req_remote" ]]; then echo "bad mf6 remote in .mf6_ci_ref_remote"; exit 1; fi
+
+      - name: Setup gfortran
+        uses: fortran-lang/setup-fortran@v1
+        with:
+          compiler: gcc
+          version: 11
+
+      - name: Link gfortran dylibs on Mac
+        if: runner.os == 'macOS'
+        run: .github/scripts/symlink_gfortran_mac.sh
+
+      - name: Install Dependencies via Micromamba
+        uses: mamba-org/setup-micromamba@v1.9.0
+        with:
+          micromamba-version: "1.5.10-0"
+          log-level: debug
+          environment-file: environment.yml
+          cache-environment: true
+          cache-downloads: true
+          create-args: >-
+            python=${{matrix.python-version}}
+
+      - name: Checkout MODFLOW 6
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.MF6_REMOTE }}
+          ref: ${{ env.MF6_REF }}
+          path: modflow6
+
+      - name: Update flopy MODFLOW 6 classes
+        working-directory: modflow6/autotest
+        run: |
+          # requires flopy[codgen] install option
+          python -m flopy.mf6.utils.generate_classes
+
+      - name: Install mf6 nightly build binaries
+        uses: modflowpy/install-modflow-action@v1
+        with:
+          repo: modflow6-nightly-build
+
+      - name: Install pywatershed
+        run: |
+          pip install .
+
+      - name: Version info
+        run: |
+          pip -V
+          pip list
 
       - name: hru_1 all configs - generate and manage test data, run PRMS and convert csv output to NetCDF
         working-directory: autotest
@@ -441,6 +575,120 @@ jobs:
             --domain=hru_1 \
             --control_pattern=nhm.control \
             --control_pattern=frost.control
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Test results for hru_1-${{ runner.os }}-${{ matrix.python-version }}
+          path: |
+            ./autotest/pytest_hru_1_nhm.xml
+            ./autotest/pytest_hru_1_transp_frost.xml
+
+      - name: Upload code coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./autotest/coverage.xml
+          env_vars: RUNNER_OS,PYTHON_VERSION
+          fail_ci_if_error: false
+          version: "v0.1.15"
+
+  test_drb_2yr:
+    name: drb_2yr ${{ matrix.os }} py${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash -l {0}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["ubuntu-latest", "macos-latest", "windows-latest"]
+        python-version: ["3.12"]
+
+    steps:
+      - name: Free Disk Space (Ubuntu)
+        if: runner.os == 'Linux'
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: false
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}
+
+      - name: Set environment variables
+        run: |
+          echo "PYTHON_VERSION=${{ matrix.python-version }}" >> $GITHUB_ENV
+          echo "PYWS_FORTRAN=false" >> $GITHUB_ENV
+          cat .mf6_ci_ref_remote  >> $GITHUB_ENV
+
+      - name: Enforce MF6 ref and remote merge to main
+        if: github.base_ref == 'main'
+        run: |
+          echo Merge commit: GITHUB_BASE_REF = $GITHUB_BASE_REF
+          req_ref=develop  # if not develop, submit an issue
+          echo $MF6_REF
+          if [[ "$MF6_REF" != "$req_ref" ]]; then exit 1; fi
+          req_remote=MODFLOW-USGS/modflow6
+          echo $MF6_REMOTE
+          if [[ "$MF6_REMOTE" != "$req_remote" ]]; then echo "bad mf6 remote in .mf6_ci_ref_remote"; exit 1; fi
+
+      - name: Setup gfortran
+        uses: fortran-lang/setup-fortran@v1
+        with:
+          compiler: gcc
+          version: 11
+
+      - name: Link gfortran dylibs on Mac
+        if: runner.os == 'macOS'
+        run: .github/scripts/symlink_gfortran_mac.sh
+
+      - name: Install Dependencies via Micromamba
+        uses: mamba-org/setup-micromamba@v1.9.0
+        with:
+          micromamba-version: "1.5.10-0"
+          log-level: debug
+          environment-file: environment.yml
+          cache-environment: true
+          cache-downloads: true
+          create-args: >-
+            python=${{matrix.python-version}}
+
+      - name: Checkout MODFLOW 6
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.MF6_REMOTE }}
+          ref: ${{ env.MF6_REF }}
+          path: modflow6
+
+      - name: Update flopy MODFLOW 6 classes
+        working-directory: modflow6/autotest
+        run: |
+          # requires flopy[codgen] install option
+          python -m flopy.mf6.utils.generate_classes
+
+      - name: Install mf6 nightly build binaries
+        uses: modflowpy/install-modflow-action@v1
+        with:
+          repo: modflow6-nightly-build
+
+      - name: Install pywatershed
+        run: |
+          pip install .
+
+      - name: Version info
+        run: |
+          pip -V
+          pip list
 
       - name: drb_2yr all domains - generate and manage test data
         working-directory: autotest
@@ -554,6 +802,123 @@ jobs:
           pytest -v remove_output_dirs.py::test_remove_output_dirs \
             --domain=drb_2yr
 
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Test results for drb_2yr-${{ runner.os }}-${{ matrix.python-version }}
+          path: |
+            ./autotest/pytest_drb_2yr_nhm.xml
+            ./autotest/pytest_drb_2yr_no_dprst.xml
+            ./autotest/pytest_drb_2yr_obsin.xml
+            ./autotest/pytest_drb_2yr_transp_frost.xml
+            ./autotest/pytest_drb_2yr_stream_temp.xml
+
+      - name: Upload code coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./autotest/coverage.xml
+          env_vars: RUNNER_OS,PYTHON_VERSION
+          fail_ci_if_error: false
+          version: "v0.1.15"
+
+  test_ucb_2yr:
+    name: ucb_2yr ${{ matrix.os }} py${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash -l {0}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["ubuntu-latest", "macos-latest", "windows-latest"]
+        python-version: ["3.12"]
+
+    steps:
+      - name: Free Disk Space (Ubuntu)
+        if: runner.os == 'Linux'
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: false
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}
+
+      - name: Set environment variables
+        run: |
+          echo "PYTHON_VERSION=${{ matrix.python-version }}" >> $GITHUB_ENV
+          echo "PYWS_FORTRAN=false" >> $GITHUB_ENV
+          cat .mf6_ci_ref_remote  >> $GITHUB_ENV
+
+      - name: Enforce MF6 ref and remote merge to main
+        if: github.base_ref == 'main'
+        run: |
+          echo Merge commit: GITHUB_BASE_REF = $GITHUB_BASE_REF
+          req_ref=develop  # if not develop, submit an issue
+          echo $MF6_REF
+          if [[ "$MF6_REF" != "$req_ref" ]]; then exit 1; fi
+          req_remote=MODFLOW-USGS/modflow6
+          echo $MF6_REMOTE
+          if [[ "$MF6_REMOTE" != "$req_remote" ]]; then echo "bad mf6 remote in .mf6_ci_ref_remote"; exit 1; fi
+
+      - name: Setup gfortran
+        uses: fortran-lang/setup-fortran@v1
+        with:
+          compiler: gcc
+          version: 11
+
+      - name: Link gfortran dylibs on Mac
+        if: runner.os == 'macOS'
+        run: .github/scripts/symlink_gfortran_mac.sh
+
+      - name: Install Dependencies via Micromamba
+        uses: mamba-org/setup-micromamba@v1.9.0
+        with:
+          micromamba-version: "1.5.10-0"
+          log-level: debug
+          environment-file: environment.yml
+          cache-environment: true
+          cache-downloads: true
+          create-args: >-
+            python=${{matrix.python-version}}
+
+      - name: Checkout MODFLOW 6
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.MF6_REMOTE }}
+          ref: ${{ env.MF6_REF }}
+          path: modflow6
+
+      - name: Update flopy MODFLOW 6 classes
+        working-directory: modflow6/autotest
+        run: |
+          # requires flopy[codgen] install option
+          python -m flopy.mf6.utils.generate_classes
+
+      - name: Install mf6 nightly build binaries
+        uses: modflowpy/install-modflow-action@v1
+        with:
+          repo: modflow6-nightly-build
+
+      - name: Install pywatershed
+        run: |
+          pip install .
+
+      - name: Version info
+        run: |
+          pip -V
+          pip list
+
       - name: ucb_2yr all configs - generate and manage test data
         working-directory: autotest
         run: |
@@ -625,6 +990,195 @@ jobs:
             --control_pattern=nhm.control \
             --control_pattern=transp_frost.control
 
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Test results for ucb_2yr-${{ runner.os }}-${{ matrix.python-version }}
+          path: |
+            ./autotest/pytest_ucb_2yr_nhm.xml
+            ./autotest/pytest_ucb_2yr_nhm_transp_frost.xml
+
+      - name: Upload code coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./autotest/coverage.xml
+          env_vars: RUNNER_OS,PYTHON_VERSION
+          fail_ci_if_error: false
+          version: "v0.1.15"
+
+  test_fgr_ag_2yr:
+    name: fgr_ag_2yr ${{ matrix.os }} py${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash -l {0}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["ubuntu-latest", "macos-latest", "windows-latest"]
+        python-version: ["3.12"]
+
+    steps:
+      - name: Free Disk Space (Ubuntu)
+        if: runner.os == 'Linux'
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: false
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}
+
+      - name: Set environment variables
+        run: |
+          echo "PYTHON_VERSION=${{ matrix.python-version }}" >> $GITHUB_ENV
+          echo "PYWS_FORTRAN=false" >> $GITHUB_ENV
+          cat .mf6_ci_ref_remote  >> $GITHUB_ENV
+
+      - name: Enforce MF6 ref and remote merge to main
+        if: github.base_ref == 'main'
+        run: |
+          echo Merge commit: GITHUB_BASE_REF = $GITHUB_BASE_REF
+          req_ref=develop  # if not develop, submit an issue
+          echo $MF6_REF
+          if [[ "$MF6_REF" != "$req_ref" ]]; then exit 1; fi
+          req_remote=MODFLOW-USGS/modflow6
+          echo $MF6_REMOTE
+          if [[ "$MF6_REMOTE" != "$req_remote" ]]; then echo "bad mf6 remote in .mf6_ci_ref_remote"; exit 1; fi
+
+      - name: Setup gfortran
+        uses: fortran-lang/setup-fortran@v1
+        with:
+          compiler: gcc
+          version: 11
+
+      - name: Link gfortran dylibs on Mac
+        if: runner.os == 'macOS'
+        run: .github/scripts/symlink_gfortran_mac.sh
+
+      - name: Install Dependencies via Micromamba
+        uses: mamba-org/setup-micromamba@v1.9.0
+        with:
+          micromamba-version: "1.5.10-0"
+          log-level: debug
+          environment-file: environment.yml
+          cache-environment: true
+          cache-downloads: true
+          create-args: >-
+            python=${{matrix.python-version}}
+
+      - name: Checkout MODFLOW 6
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.MF6_REMOTE }}
+          ref: ${{ env.MF6_REF }}
+          path: modflow6
+
+      - name: Update flopy MODFLOW 6 classes
+        working-directory: modflow6/autotest
+        run: |
+          # requires flopy[codgen] install option
+          python -m flopy.mf6.utils.generate_classes
+
+      - name: Install mf6 nightly build binaries
+        uses: modflowpy/install-modflow-action@v1
+        with:
+          repo: modflow6-nightly-build
+
+      - name: Install pywatershed
+        run: |
+          pip install .
+
+      - name: Version info
+        run: |
+          pip -V
+          pip list
+
+      - name: Get additional domain files for tests
+        run: |
+          python pywatershed/utils/addtl_domain_files.py
+          if [ $? -ne 0 ]; then
+            echo "Failed to download additional domain files"
+            exit 1
+          fi
+          echo ""
+          echo "Checking where additional domains were downloaded:"
+          python -c "
+          import pywatershed as pws
+          pkg_root = pws.constants.__pywatershed_root__
+          addtl_dir = pkg_root / 'data' / 'pywatershed_addtl_domains'
+          print(f'Package root: {pkg_root}')
+          print(f'Additional domains dir: {addtl_dir}')
+          print(f'Additional domains exists: {addtl_dir.exists()}')
+          if addtl_dir.exists():
+              import os
+              print(f'Contents: {os.listdir(addtl_dir)}')
+          "
+
+      - name: Create symlink to fgr_ag_2yr domain
+        run: |
+          echo "Current directory: $(pwd)"
+          echo ""
+          python -c "
+          import os
+          import sys
+          import platform
+          import shutil
+          # Remove current directory from sys.path to avoid importing local source
+          # We want the installed package in site-packages, not repo source
+          if '' in sys.path:
+              sys.path.remove('')
+          if '.' in sys.path:
+              sys.path.remove('.')
+          cwd = os.getcwd()
+          if cwd in sys.path:
+              sys.path.remove(cwd)
+          # Now import pywatershed from site-packages
+          import pywatershed as pws
+          # Find pywatershed package location using __file__
+          pkg_dir = os.path.dirname(pws.__file__)
+          src = os.path.join(pkg_dir, 'data', 'pywatershed_addtl_domains', 'fgr_ag_2yr')
+          dst = 'test_data/fgr_ag_2yr'
+          print(f'Platform: {platform.system()}')
+          print(f'Package directory: {pkg_dir}')
+          print(f'Source path: {src}')
+          print(f'Source exists: {os.path.exists(src)}')
+          print(f'Destination path: {dst}')
+          print(f'Destination absolute: {os.path.abspath(dst)}')
+          if not os.path.exists(src):
+              print(f'ERROR: Source path does not exist!')
+              print(f'Checking pywatershed/data:')
+              data_dir = os.path.join(pkg_dir, 'data')
+              if os.path.exists(data_dir):
+                  print(f'Contents: {os.listdir(data_dir)}')
+              sys.exit(1)
+          if os.path.exists(dst):
+              print(f'Removing existing destination')
+              if os.path.islink(dst) or os.path.isfile(dst):
+                  os.unlink(dst)
+              else:
+                  shutil.rmtree(dst)
+          # On Windows, copy instead of symlink (symlinks require special privileges)
+          if platform.system() == 'Windows':
+              print(f'Copying directory (Windows)')
+              shutil.copytree(src, dst)
+          else:
+              print(f'Creating symlink (Unix)')
+              os.symlink(src, dst, target_is_directory=True)
+          print(f'Link/copy created successfully')
+          print(f'Destination exists (after): {os.path.exists(dst)}')
+          "
+
       - name: fgr_ag_2yr all configs - generate and manage test data
         working-directory: autotest
         run: |
@@ -673,19 +1227,14 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Test results for ${{ runner.os }}-${{ matrix.python-version }}
+          name: Test results for fgr_ag_2yr-${{ runner.os }}-${{ matrix.python-version }}
           path: |
-            ./autotest/pytest_hru_1_nhm.xml
-            ./autotest/pytest_drb_2yr_nhm.xml
-            ./autotest/pytest_drb_2yr_no_dprst.xml
-            ./autotest/pytest_fgr_ag_2yr_nhm.xml
+            ./autotest/pytest_fgr_ag_2yr_spinup.xml
 
       - name: Upload code coverage to Codecov
         uses: codecov/codecov-action@v3
         with:
-          file: ./autotest/coverage.xml # should be just the ucb result
-          # flags: unittests
+          file: ./autotest/coverage.xml
           env_vars: RUNNER_OS,PYTHON_VERSION
-          # name: codecov-umbrella
           fail_ci_if_error: false
           version: "v0.1.15"
