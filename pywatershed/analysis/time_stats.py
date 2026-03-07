@@ -542,6 +542,77 @@ def max_yearly(da: xr.DataArray) -> xr.DataArray:
     return da.resample(time="1YS").max(dim="time")
 
 
+def percentile_resamp_enclosing(
+    q: float,
+    freq: str,
+) -> callable:
+    """Create a percentile function with specific quantile and resample
+    frequency.
+
+    This factory function returns a closure that calculates percentiles
+    over resampled time periods.
+
+    Parameters
+    ----------
+    q : float
+        Quantile to compute, value between 0 and 1 (e.g., 0.95 for 95th
+        percentile)
+    freq : str
+        Resampling frequency string (e.g., '1D' for daily, '1MS' for monthly,
+        '5D' for 5-day periods, '1YS' for yearly)
+
+    Returns
+    -------
+    callable
+        A function that takes an xr.DataArray and returns percentile values
+        resampled at the specified frequency
+
+    Examples
+    --------
+    >>> # Create a function for 95th percentile by month
+    >>> p95_monthly = percentile_resamp_enclosing(q=0.95, freq="1MS")
+    >>> result = p95_monthly(streamflow_data)
+    >>>
+    >>> # Create a function for 10th percentile by year
+    >>> p10_yearly = percentile_resamp_enclosing(q=0.10, freq="1YS")
+    >>> result = p10_yearly(streamflow_data)
+    >>>
+    >>> # Create a dictionary of percentile functions for common quantiles
+    >>> quantiles = [1, 5, 10, 25, 50, 90, 95, 99]
+    >>> percentile_funcs = {
+    ...     f"q{qq}": percentile_resamp_enclosing(q=qq / 100, freq="1MS")
+    ...     for qq in quantiles
+    ... }
+    >>> monthly_median = percentile_funcs["q50"](streamflow_data)
+    >>> monthly_95th = percentile_funcs["q95"](streamflow_data)
+    """
+
+    def percentile_resamp(da: xr.DataArray) -> xr.DataArray:
+        """Calculate percentile resampled to specified frequency.
+
+        Parameters
+        ----------
+        da : xr.DataArray
+            Input data array with time dimension
+
+        Returns
+        -------
+        xr.DataArray
+            Percentile values at resampled frequency
+        """
+        result = da.resample(time=freq).quantile(q=q, dim="time")
+        # Add quantile info to attributes
+        result.attrs["quantile"] = q
+        result.attrs["resample_freq"] = freq
+        return result
+
+    # Set a descriptive name for the function; critical to dictionary usage
+    # down the line, e.g. when instantiation Output()
+    percentile_resamp.__name__ = f"percentile_{int(q * 100):02d}_{freq}"
+
+    return percentile_resamp
+
+
 __all__ = [
     "mean",
     "std",
@@ -557,6 +628,7 @@ __all__ = [
     "mean_monthly",
     "max_5day",
     "max_yearly",
+    "percentile_resamp_enclosing",
     "cal_year_season_str",
     "water_year_season_str",
 ]

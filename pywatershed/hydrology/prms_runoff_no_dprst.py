@@ -114,6 +114,7 @@ class PRMSRunoffNoDprst(PRMSRunoff):
         through_rain: adaptable,
         hru_intcpevap: adaptable,
         intcp_changeover: adaptable,
+        intcp_changeover_in_net_rain: bool = False,
         imbalance_behavior: Literal["defer", None, "warn", "error"] = "defer",
         calc_method: Literal["numba", "numpy"] = None,
         verbose: bool = None,
@@ -148,6 +149,7 @@ class PRMSRunoffNoDprst(PRMSRunoff):
             restart_read=restart_read,
             restart_write=restart_write,
             restart_write_freq=restart_write_freq,
+            intcp_changeover_in_net_rain=intcp_changeover_in_net_rain,
         )
 
         self.name = "PRMSRunoffNoDprst"
@@ -219,9 +221,10 @@ class PRMSRunoffNoDprst(PRMSRunoff):
 
     @staticmethod
     def get_restart_variables() -> list:
-        raise NotImplementedError(
-            "Restart capability not implemented for PRMSRunoffNoDprst"
-        )
+        return [
+            "imperv_stor",
+            "hru_impervstor",
+        ]
 
     @staticmethod
     def get_mass_budget_terms():
@@ -344,6 +347,7 @@ class PRMSRunoffNoDprst(PRMSRunoff):
             imperv_et=self.imperv_et,
             through_rain=self.through_rain,
             dprst_flag=self._dprst_flag,
+            intcp_changeover_in_net_rain=self._intcp_changeover_in_net_rain,
         )
 
         self.infil_hru[:] = self.infil * self.hru_frac_perv

@@ -120,9 +120,8 @@ class PRMSRunoff(ConservativeProcess):
         through_rain: adaptable,
         hru_intcpevap: adaptable,
         intcp_changeover: adaptable,
-        ag_soil_moist_prev: Union[adaptable, None] = None,
-        ag_soil_rechr_prev: Union[adaptable, None] = None,
         dprst_flag: Union[bool, None] = None,
+        intcp_changeover_in_net_rain: bool = False,
         imbalance_behavior: Literal["defer", None, "warn", "error"] = "defer",
         calc_method: Literal["numba", "numpy", None] = None,
         verbose: Union[bool, None] = None,
@@ -148,11 +147,20 @@ class PRMSRunoff(ConservativeProcess):
         self._set_inputs(locals())
         self._set_options(locals())
 
-        if self._dprst_flag is None:
-            self._dprst_flag = True
-
         self._set_budget()
         self._init_calc_method()
+
+        if self._intcp_changeover_in_net_rain is None:
+            if "intcp_changeover_in_net_rain" in self.control.options.keys():
+                self._intcp_changeover_in_net_rain = self.control.options[
+                    "intcp_changeover_in_net_rain"
+                ]
+            else:
+                self._intcp_changeover_in_net_rain = False
+                # raise ValueError(
+                #     "intcp_changeover_in_net_rain must be specified for "
+                #     "{self.name}"
+                # )
 
         self.basin_init()
 
@@ -239,7 +247,7 @@ class PRMSRunoff(ConservativeProcess):
             "contrib_fraction": zero,
             "infil": zero,
             "infil_hru": zero,
-            "sroff": zero,  # todo: privatize and only make vol public
+            "sroff": zero,
             "sroff_vol": zero,
             "hru_sroffp": zero,
             "hru_sroffi": zero,
@@ -270,16 +278,16 @@ class PRMSRunoff(ConservativeProcess):
 
     @staticmethod
     def get_restart_variables() -> list:
-        raise NotImplementedError(
-            "Restart capability not implemented for PRMSRunoff"
-        )
-        # return [
-        #     "hru_impervstor",
-        #     "dprst_stor_hru",
-        #     "dprst_area_open",
-        #     "dprst_area_clos",
-        #     "dprst_vol_thres_open",
-        # ]
+        return [
+            "imperv_stor",
+            "hru_impervstor",
+            "dprst_stor_hru",
+            "dprst_area_open",
+            "dprst_area_clos",
+            "dprst_vol_open",
+            "dprst_vol_clos",
+            "dprst_vol_thres_open",
+        ]
 
     @staticmethod
     def get_mass_budget_terms():
@@ -382,17 +390,19 @@ class PRMSRunoff(ConservativeProcess):
 
                 # calculate the initial open and closed depression storage
                 # volume:
-                # if not self._restart_read:
-                self._dprst_open_flag = ACTIVE
-                if self._dprst_open_flag == ACTIVE:
-                    self.dprst_vol_open[i] = (
-                        self.dprst_frac_init[i] * self.dprst_vol_open_max[i]
-                    )
-                self._dprst_clos_flag = ACTIVE
-                if self._dprst_clos_flag == ACTIVE:
-                    self.dprst_vol_clos[i] = (
-                        self.dprst_frac_init[i] * self.dprst_vol_clos_max[i]
-                    )
+                if not self._restart_read:
+                    self._dprst_open_flag = ACTIVE
+                    if self._dprst_open_flag == ACTIVE:
+                        self.dprst_vol_open[i] = (
+                            self.dprst_frac_init[i]
+                            * self.dprst_vol_open_max[i]
+                        )
+                    self._dprst_clos_flag = ACTIVE
+                    if self._dprst_clos_flag == ACTIVE:
+                        self.dprst_vol_clos[i] = (
+                            self.dprst_frac_init[i]
+                            * self.dprst_vol_clos_max[i]
+                        )
 
                 # threshold volume is calculated as the % of maximum open
                 # depression storage above which flow occurs *  total open
@@ -592,6 +602,7 @@ class PRMSRunoff(ConservativeProcess):
             imperv_et=self.imperv_et,
             through_rain=self.through_rain,
             dprst_flag=self._dprst_flag,
+            intcp_changeover_in_net_rain=self._intcp_changeover_in_net_rain,
         )
 
         self.infil_hru[:] = self.infil * self.hru_frac_perv
@@ -681,6 +692,7 @@ class PRMSRunoff(ConservativeProcess):
         imperv_et,
         through_rain,
         dprst_flag,
+        intcp_changeover_in_net_rain,
     ):
         dprst_chk = 0
         infil[:] = 0.0
@@ -743,6 +755,7 @@ class PRMSRunoff(ConservativeProcess):
                 check_capacity=check_capacity,
                 perv_comp=perv_comp,
                 through_rain=through_rain[i],
+                intcp_changeover_in_net_rain=intcp_changeover_in_net_rain,
             )
 
             frzen = OFF  # cdl todo: hardwired
@@ -909,6 +922,7 @@ class PRMSRunoff(ConservativeProcess):
         check_capacity,
         perv_comp,
         through_rain,
+        intcp_changeover_in_net_rain,
     ):
         isglacier = False  # todo -- hardwired
         hru_flag = 0
@@ -918,7 +932,7 @@ class PRMSRunoff(ConservativeProcess):
         avail_water = 0.0
 
         # compute runoff from canopy changeover water
-        if intcp_changeover > 0.0:
+        if intcp_changeover > 0.0 and not intcp_changeover_in_net_rain:
             avail_water = avail_water + intcp_changeover
             infil = infil + intcp_changeover
             if hru_flag == 1:
@@ -972,7 +986,30 @@ class PRMSRunoff(ConservativeProcess):
             avail_water = avail_water + snowmelt
             infil = infil + snowmelt
             if hru_flag == 1:
-                if (pkwater_equiv > 0.0) or (net_rain < nearzero):
+                # The condition below determines whether to use check_capacity
+                # (infiltration-based) vs perv_comp (contributing area-based)
+                # runoff calculation. The logic differs based on how
+                # intcp_changeover water is handled:
+                #
+                # When intcp_changeover_in_net_rain = False (default PRMS):
+                #   - intcp_changeover is added separately to avail_water above
+                #   - net_rain does NOT include intcp_changeover
+                #   - Use: (net_rain < nearzero) to check for rain-on-snow
+                #
+                # When intcp_changeover_in_net_rain = True (alternative):
+                #   - intcp_changeover is already included in net_rain
+                #   - Must check if (net_ppt - net_snow) > 0 for rain presence
+                #   - Use: not (net_ppt - net_snow > 0.0)
+                #
+                # These conditions are NOT equivalent because net_rain may
+                # differ from (net_ppt - net_snow) depending on how
+                # intcp_changeover is accounted for.
+                if intcp_changeover_in_net_rain:
+                    check_condition = not (net_ppt - net_snow > 0.0)
+                else:
+                    check_condition = net_rain < nearzero
+
+                if (pkwater_equiv > 0.0) or check_condition:
                     # Pervious area computations
                     infil, srp = check_capacity(
                         soil_moist_prev,

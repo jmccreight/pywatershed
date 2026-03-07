@@ -290,7 +290,7 @@ def test_hru_segment_flow_exchange(
             "node_coord": np.arange(nnodes),
         },
         data_vars={
-            "node_maker_name": ["prms_channel"] * nnodes,
+            "node_maker_name": np.array(["prms_channel"] * nnodes, dtype="U"),
             "node_maker_index": np.arange(nnodes),
             "node_maker_id": np.arange(nnodes),
             "to_graph_index": discretization.parameters["tosegment"] - 1,

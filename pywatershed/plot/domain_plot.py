@@ -5,12 +5,13 @@
 import pathlib as pl
 from typing import Union
 
-import geopandas as gpd
+import numpy as np
 import pandas as pd
 
 from ..base import Parameters
-from ..utils import import_optional_dependency
+from ..utils.optional_import import import_optional_dependency
 
+gpd = import_optional_dependency("geopandas", errors="ignore")
 folium = import_optional_dependency("folium", errors="warn")
 IPython = import_optional_dependency("IPython", errors="warn")
 
@@ -89,6 +90,10 @@ class DomainPlot:
         self.crs = crs
         self.start_lat = start_lat
         self.start_lon = start_lon
+        if isinstance(self.start_lat, np.ndarray):
+            self.start_lat = self.start_lat[0]
+        if isinstance(self.start_lon, np.ndarray):
+            self.start_lon = self.start_lon[0]
         self.start_zoom = start_zoom
         self.display_plot = display_plot
         self.return_plot = return_plot

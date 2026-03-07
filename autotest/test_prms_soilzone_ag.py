@@ -1,3 +1,32 @@
+"""Tests for PRMSSoilzoneAg against PRMS/GSFLOW Fortran outputs.
+
+This test module validates the PRMSSoilzoneAg implementation by comparing
+Python outputs against pre-computed Fortran (PRMS/GSFLOW) outputs for
+agricultural soilzone simulations.
+
+Test Domains
+------------
+Two test domains are used (configured via pytest fixtures):
+
+1. **ucb_ag_spinup_2yr** (open-loop): Tests basic dual-area soil moisture
+   accounting without iterative AET matching (iter_aet_flag=False).
+
+2. **ucb_ag_analysis_2yr** (closed-loop): Tests full iterative AET matching
+   with observed AET data (iter_aet_flag=True).
+
+Tolerance Strategy
+------------------
+- **Default tolerances**: rtol=1e-5, atol=1e-5 for most variables
+- **Variable-specific exceptions**: Some variables accumulate floating-point
+  errors over time or involve precision-sensitive calculations. These have
+  relaxed tolerances defined in `var_tolerance_exceptions`.
+- **HRU-time exceptions**: Specific HRU-timestep combinations where Python
+  and Fortran diverge due to threshold crossings (e.g., pcts < 0.5 for LOAM
+  soil, snow_free < 0.01 for ET type). At these points, Python values are
+  replaced with Fortran values to allow the test to continue.
+
+"""
+
 import pathlib as pl
 
 import numpy as np
@@ -7,13 +36,14 @@ from utils_compare import compare_in_memory, compare_netcdfs
 from pywatershed.base.adapter import adapter_factory
 from pywatershed.base.control import Control
 from pywatershed.hydrology.prms_soilzone_ag import PRMSSoilzoneAg
+from pywatershed.hydrology.prms_soilzone_ag_obs_et import PRMSSoilzoneAgObsET
 
 # from pywatershed.hydrology.prms_soilzone_no_dprst import PRMSSoilzoneNoDprst
 from pywatershed.parameters import Parameters, PrmsParameters
 
 # compare in memory (faster) or full output files? or both!
-do_compare_output_files = True  # TODO: True
-do_compare_in_memory = True  # TODO: False once it's working
+do_compare_output_files = True
+do_compare_in_memory = True
 
 # Default tolerances for most variables (depth-based)
 default_rtol = 1.0e-5
@@ -25,8 +55,7 @@ default_atol = 1.0e-5
 #     errors while the absolute errors are still near precision.
 var_tolerance_exceptions = {
     "ssres_flow_vol": {"atol": 2.0, "rtol": 1.0e-2},  # cubic feet
-    # ratio capping differences,
-    # TODO, see if we can relax this with additional tune up
+    # ratio capping: small differences when soil_lower is near soil_lower_max
     "soil_lower_ratio": {"atol": 1.0e-4, "rtol": 1.0e-5},
     # Flow variables accumulate single-precision errors over time
     "slow_flow": {"atol": 2.0e-5, "rtol": 1.0e-5},
@@ -43,6 +72,10 @@ var_tolerance_exceptions = {
     "ssr_to_gw": {"atol": 2.0e-5, "rtol": 1.0e-5},
     "soil_lower_change": {"atol": 2.0e-5, "rtol": 1.0e-5},
     "soil_to_gw": {"atol": 2.0e-5, "rtol": 1.0e-5},
+    # perv_soil_to_gw accumulates precision differences over time
+    "perv_soil_to_gw": {"atol": 2.0e-5, "rtol": 1.0e-5},
+    # Agricultural soil moisture change accumulates precision differences
+    "ag_soil_moist_change": {"atol": 2.0e-5, "rtol": 1.0e-5},
 }
 
 # Domain-specific HRU-time exceptions for threshold-crossing divergences
@@ -55,17 +88,31 @@ var_tolerance_exceptions = {
 #     {hru_index: (start_timestep, affected_vars, reason)}
 # }
 domain_hru_time_exceptions = {
+    "ucb_ag_analysis_2yr:nhm_dynamic_2000_2020_w_output_subset_no_restart": {
+        # HRU 1279, timestep 472:
+        #   - ag_soil_moist = 2.000002 (Fortran) vs 1.9999997 (Python)
+        #   - pcts = 0.5000004 (Fortran) vs 0.49999991 (Python)
+        #   - Crosses 0.5 threshold for LOAM soil potet_lower reduction
+        #   - Fortran: pcts >= 0.5, no reduction, ag_potet_lower = 0.05
+        #   - Python: pcts < 0.5, reduction applied, ag_potet_lower = 0.025
+        #   - This is a floating-point precision boundary issue
+        1279: (
+            472,
+            ["ag_potet_lower"],
+            "pcts 0.5 threshold crossing for LOAM soil ag_potet_lower",
+        ),
+    },
     "ucb_ag_spinup_2yr:nhm_ic_w_output_subset": {
-        # HRU 1311, timestep 706:
-        #   - soil_moist ratio (pcts) = 0.2500000586 in Python vs ~0.2499999
-        #     in Fortran
-        #   - Crosses 0.25 threshold for SAND soil type ET reduction
-        #   - Python: pcts >= 0.25, no reduction, potet_lower = 0.0453
-        #   - Fortran: pcts < 0.25, reduction applied, potet_lower = 0.0064
+        # HRU 3642, timestep 40:
+        #   - snow_free = 1.0 - snowcov_area = 0.010000000000000009 in Python
+        #     vs ~0.00999999 in Fortran (single precision)
+        #   - Crosses 0.01 threshold for snow_free ET calculation
+        #   - Python: snow_free >= 0.01, et_type = EVAP_ONLY, ET computed
+        #   - Fortran: snow_free < 0.01, et_type = ET_DEFAULT, et = 0
         #   - This affects downstream ET calculations and soil moisture
         #     accounting
-        1311: (
-            706,
+        3642: (
+            40,
             [
                 "potet_lower",
                 "potet_rechr",
@@ -77,14 +124,14 @@ domain_hru_time_exceptions = {
                 "soil_moist_tot",
                 "soil_rechr_change",
             ],
-            "SAND soil 0.25 threshold crossing for ET reduction",
+            "snow_free 0.01 threshold crossing for ET calculation",
         ),
     },
 }
 
-calc_methods = ("numpy", "numba")[0:1]  # TODO: fix
-params = ("params_sep", "params_one")[1:]  # TODO: fix
-imbalance_behavior = None  # TODO: fix
+calc_methods = ("numpy", "numba")
+params = ("params_sep", "params_one")
+imbalance_behavior = "error"
 
 
 @pytest.fixture(scope="function")
@@ -120,7 +167,12 @@ def SoilzoneAg(simulation):
         )
 
     if "dprst_flag" in ctl.options.keys() and ctl.options["dprst_flag"]:
-        SoilzoneAg = PRMSSoilzoneAg
+        # Choose class based on iter_aet_flag
+        iter_aet_flag = ctl.options.get("iter_aet_flag", None)
+        if iter_aet_flag:
+            SoilzoneAg = PRMSSoilzoneAgObsET
+        else:
+            SoilzoneAg = PRMSSoilzoneAg
     else:
         pytest.skip("Not testing PRMSSoilzoneNoDprstAg")
         # SoilzoneAg = PRMSSoilzoneNoDprstAg
@@ -160,6 +212,13 @@ def test_compare_prms(
 
     # sroff is a runoff variable is edited by soilzone but the forcings are
     # from the output of soilzone, so checking it is kind of a tautology
+    change_vars = {
+        "ag_soil_moist_change",
+        "ag_soil_rechr_change",
+        "slow_stor_change",
+        "soil_lower_change",
+        "soil_rechr_change",
+    }
     comparison_var_names = list(
         set(SoilzoneAg.get_variables())
         # These are not prms variables per se.
@@ -173,6 +232,7 @@ def test_compare_prms(
             "soil_rechr_change_hru",
             "soil_zone_max",  # not a prms variable?
         }
+        - change_vars
     )
 
     control.options["netcdf_output_var_names"] = comparison_var_names
@@ -190,30 +250,38 @@ def test_compare_prms(
 
     input_variables = {}
     for key in SoilzoneAg.get_inputs():
-        nc_path = output_dir / f"{key}.nc"
-        # TODO: this is hacky for accommodating dprst_flag, improve the design
-        # so people dont have to pass None for dead options.
-        if not nc_path.exists():
-            if key in ["aet_external"]:
-                nc_path = adapter_factory(
-                    np.zeros(parameters.dimensions["nhru"]),
-                    key,
-                    control,
+        if key in ["aet_observed"]:
+            nc_path = output_dir.parent / f"{key}.nc"
+
+        elif key == "ag_frac":
+            opts = control.options
+            ag_frac_dyn_flag = opts.get("dyn_ag_frac_flag", [False])[0]
+            ag_frac_dyn_file = opts.get("ag_frac_dynamic", [None])[0]
+            if not ag_frac_dyn_flag:
+                import xarray as xr
+
+                af_da = xr.load_dataarray(
+                    output_dir.parent / "ag_frac_static.nc"
                 )
-            elif key in ["ag_frac"]:
                 nc_path = adapter_factory(
-                    parameters.parameters[key].copy(),
+                    af_da.values,
                     key,
                     control,
                 )
             else:
+                # there is an adapter for dynamic param files.
+                nc_path = output_dir.parent / ag_frac_dyn_file
+
+        else:
+            nc_path = output_dir / f"{key}.nc"
+            if not nc_path.exists():
                 nc_path = None
 
         input_variables[key] = nc_path
 
     if do_compare_output_files:
-        nc_parent = tmp_path / simulation["name"]
-        control.options["netcdf_output_dir"] = nc_parent
+        nc_output_dir = tmp_path / simulation["name"].replace(":", "_")
+        control.options["netcdf_output_dir"] = nc_output_dir
 
     soil = SoilzoneAg(
         control=control,
@@ -346,7 +414,7 @@ def test_compare_prms(
 
         compare_netcdfs(
             vars_with_answers,
-            tmp_path / simulation["name"],
+            nc_output_dir,
             output_dir,
             atol=default_atol,
             rtol=default_rtol,

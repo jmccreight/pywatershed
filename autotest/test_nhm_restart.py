@@ -18,8 +18,9 @@ nhm_processes = [
     pws.PRMSSolarGeometry,
     pws.PRMSAtmosphere,
     pws.PRMSCanopy,
-    # pws.PRMSSnow,  # not working/implemented
-    # pws.PRMSRunoff,  # not working/implemented
+    pws.PRMSSnow,
+    pws.PRMSRunoff,
+    pws.PRMSRunoffNoDprst,
     pws.PRMSSoilzone,
     pws.PRMSGroundwater,
     pws.PRMSChannel,

@@ -95,6 +95,7 @@ def answers():
     return ans.isel(grand_id=starfit_inds_test)
 
 
+@pytest.mark.domainless
 @pytest.mark.parametrize(
     "io_in_cfs", [True, False], ids=("io_in_cfs", "io_in_cms")
 )

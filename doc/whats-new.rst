@@ -11,7 +11,7 @@ What's New
 
     np.random.seed(123456)
 
-v2.1.0 (Unreleased)
+v3.0.0 (Unreleased)
 ---------------------
 
 New Features
@@ -31,7 +31,15 @@ New Features
   convective exchange), and internal sources (friction heating, groundwater conduction). These
   fluxes are available as output variables and included in the energy budget. When disabled
   (``track_energy_fluxes=False``), energy flux variables are set to None and excluded from
-  NetCDF output, with ``imbalance_behavior`` required to be None.
+  NetCDF output, with ``imbalance_behavior`` required to be None. PRMSStreamTemp requires
+  PRMSHydraulicGeometryFull or PRMSHydraulicGeometryWidthOnly as an upstream process to provide
+  hydraulic geometry variables needed for energy balance calculations. :class:`PRMSHydraulicGeometryFull`
+  computes flow-dependent hydraulic geometry (width, depth, area, velocity) using power-law
+  relationships when all parameters are provided, while :class:`PRMSHydraulicGeometryWidthOnly`
+  uses PRMS default values for depth parameters (depth_alpha=0.27, depth_m=0.39) when they are
+  missing from the parameter file, matching PRMS 5.2.1 behavior. These capabilities are
+  demonstrated in notebooks ``examples/01_multi-process_models.ipynb`` and ``examples/02_prms_legacy_models.ipynb``
+  as part of the NHM configuration in pywatershed.
   (:pull:`343`) By `James McCreight <https://github.com/jmccreight>`_.
 - Option for :class:`Model` class to read from a single netcdf file or (not and,
   the existing option,) from a directory containing multiple netcdf files.
@@ -43,10 +51,9 @@ New Features
   (:pull:`335`) By `James McCreight <https://github.com/jmccreight>`_.
 - The :class:`FlowGraph` class has new method `plot` to show an abstract plot of the FlowGraph.
   (:pull:`351`) By `James McCreight <https://github.com/jmccreight>`_.
-- The :class:`base.Process` class and subclasses have a new restart capability (with the
-  exceptions of PRMSSnow and PRMSRunoff and their subclasses which are
-  still to be implemented).
-  (:pull:`349`) By `James McCreight <https://github.com/jmccreight>`_.
+- The :class:`base.Process` class and subclasses have a new restart capability.
+  See notebook ``examples/08_restart_streamflow.ipynb`` for examples.
+  (:pull:`349`, :pull:`362`) By `James McCreight <https://github.com/jmccreight>`_.
 - The :class:`PRMSAtmosphereTranspFrost` implements the transp_frost module of PRMS.
   (:pull:`354`) By `James McCreight <https://github.com/jmccreight>`_.
 - The `load()` method of :class:`parameters.PrmsParameters` now supports reading multiple parameter
@@ -56,11 +63,18 @@ New Features
 - The :class:`StarfitSourceSinkFlowNode` allows sources and sinks to interact
   with storage of a Starfit reservoir/FlowNode.
   (:pull:`348`) By `James McCreight <https://github.com/jmccreight>`_.
-- The new :class:`base.Output` class provides flexible output collection and statistical
+- The new :class:`~base.output.Output` class provides flexible output collection and statistical
   analysis for models, supporting HRUs of interest (HOI), segments/nodes of interest (NOI),
   and monthly accumulations. Includes Zarr chunked output capability for efficient large-scale
-  data writing (~6x faster than NetCDF). See notebook ``09_model_output.ipynb`` for examples.
+  data writing (~6x faster than NetCDF). See notebook ``examples/09_model_output.ipynb`` for examples.
   (:pull:`363`) By `James McCreight <https://github.com/jmccreight>`_.
+- New agricultural water use classes enable simulation of irrigated agriculture based on GSFLOW.
+  :class:`PRMSRunoffAg` extends PRMSRunoff to calculate infiltration separately for pervious
+  and agricultural areas. :class:`PRMSSoilzoneAgObsET` provides dual-area soil moisture accounting
+  with iterative adjustment of irrigation to match observed actual ET. :class:`PRMSSoilzoneAg`
+  is a simplified version without the observed ET iteration, suitable when ET observations are
+  not available. See notebook ``examples/10_ag_irrigation_use.ipynb`` for examples.
+  (:pull:`362`) By `James McCreight <https://github.com/jmccreight>`_.
 
 Breaking Changes
 ~~~~~~~~~~~~~~~~
@@ -77,11 +91,12 @@ Breaking Changes
 
 Bug fixes
 ~~~~~~~~~
- - PRMS 5.2.1.1 had a bug in stream where division by hru area was repeated
- multiple times. In the old code this ocurred in routing.f90 on lines 764 and
- 765 and then again on 789 and 790, where seginc_swrad and seginc_potet were
- divided despite this having already occured on lines 744 and 744. Comments
- regarding the fix are found on lines 764 and 793 in the fixed code.
+- PRMS 5.2.1.1 had a bug in stream where division by hru area was repeated
+  multiple times. In the old code this ocurred in routing.f90 on lines 764 and
+  765 and then again on 789 and 790, where seginc_swrad and seginc_potet were
+  divided despite this having already occured on lines 744 and 744. Comments
+  regarding the fix are found on lines 764 and 793 in the fixed code.
+  (:pull:`XXX`) By `Author Name <https://github.com/username>`_.
 
 Internal changes
 ~~~~~~~~~~~~~~~~
@@ -96,7 +111,7 @@ Internal changes
 .. _whats-new.2.0.4:
 
 v2.0.4 (23 February 2026)
----------------------
+--------------------------
 
 New Features
 ~~~~~~~~~~~~~~~~
@@ -105,7 +120,7 @@ Fixes to release workflow, pypi publishing.
 .. _whats-new.2.0.3:
 
 v2.0.3 (22 February 2026)
----------------------
+--------------------------
 
 New Features
 ~~~~~~~~~~~~~~~~

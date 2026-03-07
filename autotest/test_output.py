@@ -551,6 +551,8 @@ def test_output_properties_before_finalization(
     simulation, control, parameters, nhm_processes, poi_info
 ):
     """Test properties return None before finalization."""
+    import warnings
+
     model = pws.Model(
         nhm_processes,
         control=control,
@@ -571,10 +573,14 @@ def test_output_properties_before_finalization(
     )
 
     # Properties should return None before finalization
-    assert output.monthly_accumulations is None
-    assert output.noi_arrays is None
-    assert output.noi_stats is None
-    assert output.n_days_per_month is None
+    # These accesses intentionally trigger warnings about accessing
+    # before finalization
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)
+        assert output.monthly_accumulations is None
+        assert output.noi_arrays is None
+        assert output.noi_stats is None
+        assert output.n_days_per_month is None
 
 
 def test_output_noi_requires_segments(
@@ -1138,7 +1144,7 @@ def test_output_zarr_chunked(
     assert zarr_file.exists(), f"Zarr file not created: {zarr_file}"
 
     # Load zarr data
-    ds_zarr = xr.open_zarr(zarr_file)
+    ds_zarr = xr.open_zarr(zarr_file, consolidated=False)
 
     # Compare each variable
     for vv in var_list:
@@ -1206,7 +1212,7 @@ def test_output_zarr_auto_chunk_sizes(
     assert zarr_file.exists()
 
     # Load and verify data
-    ds_zarr = xr.open_zarr(zarr_file)
+    ds_zarr = xr.open_zarr(zarr_file, consolidated=False)
     assert "sroff" in ds_zarr
     assert ds_zarr["sroff"].shape[0] == control.n_times
     ds_zarr.close()
@@ -1375,7 +1381,7 @@ def test_output_zarr_chunked_flow_graph(
     assert zarr_file.exists(), f"Zarr file not created: {zarr_file}"
 
     # Load zarr data
-    ds_zarr = xr.open_zarr(zarr_file)
+    ds_zarr = xr.open_zarr(zarr_file, consolidated=False)
 
     # Compare each variable with netcdf
     for vv in flow_graph_vars:

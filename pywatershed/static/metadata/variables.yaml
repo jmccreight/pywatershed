@@ -10,8 +10,14 @@ actet:
     0: nhru
   type: float64
   units: inches
-aet_external:
-  desc: Actual evapotranspiration for each HRU that is read from a CBH File.
+AET_external:
+  desc: Actual evapotranspiration for each HRU computed from aet_observed and pet_observed.
+  dims:
+    0: nhru
+  type: float64
+  units: inches
+aet_observed:
+  desc: Observed actual evapotranspiration for each HRU read from a CBH file (when iter_aet_flag is True).
   dims:
     0: nhru
   type: float64
@@ -32,6 +38,12 @@ ag_actet:
 ag_hortonian:
   desc: Hortonian surface runoff that flows to the stream network from the
     irrigated area of each HRU
+  dims:
+    0: nhru
+  type: float64
+  units: inches
+pet_observed:
+  desc: Observed potential evapotranspiration for each HRU read from a CBH file (when iter_aet_flag is True).
   dims:
     0: nhru
   type: float64
@@ -82,6 +94,26 @@ ag_soil_lower_stor_max:
     0: nhru
   type: float64
   units: inches
+ag_soil_lower_change:
+  desc: Change in storage in the lower zone of the irrigated area for each HRU
+  dims:
+    0: nhru
+  type: float64
+  units: inches
+ag_soil_lower_change_hru:
+  desc: Change in storage in the lower zone of the irrigated area for each HRU,
+    normalized to HRU area
+  dims:
+    0: nhru
+  type: float64
+  units: inches
+ag_cap_infil_tot:
+  desc: Infiltration to the irrigated area fraction of each HRU, normalized to
+    HRU area (depth over entire HRU)
+  dims:
+    0: nhru
+  type: float64
+  units: inches
 ag_soil_moist:
   desc:
     Water storage for upper portion in the capillary reservoir of the irrigated
@@ -90,9 +122,30 @@ ag_soil_moist:
     0: nhru
   type: float64
   units: inches
+ag_soil_moist_change:
+  desc: Change in water storage for the capillary reservoir of the irrigated
+    area for each HRU
+  dims:
+    0: nhru
+  type: float64
+  units: inches
+ag_soil_moist_change_hru:
+  desc: Change in water storage for the capillary reservoir of the irrigated
+    area for each HRU, normalized to HRU area
+  dims:
+    0: nhru
+  type: float64
+  units: inches
 ag_soil_moist_prev:
   desc: Previous timestep water storage for upper portion in the capillary
     reservoir of the irrigated area for each HRU that.
+  dims:
+    0: nhru
+  type: float64
+  units: inches
+ag_soil_moist_redistribution:
+  desc: Water redistributed in agricultural soil moisture due to ag_frac changes
+    (used to separate redistribution from hydrologic process changes)
   dims:
     0: nhru
   type: float64
@@ -112,10 +165,31 @@ ag_soil_rechr_max:
     0: nhru
   type: float64
   units: inches
+ag_soil_rechr_change:
+  desc: Change in water storage for the recharge zone of the irrigated area
+    capillary reservoir for each HRU
+  dims:
+    0: nhru
+  type: float64
+  units: inches
+ag_soil_rechr_change_hru:
+  desc: Change in water storage for the recharge zone of the irrigated area
+    capillary reservoir for each HRU, normalized to HRU area
+  dims:
+    0: nhru
+  type: float64
+  units: inches
 ag_soil_rechr_prev:
   desc: Previous timestep water storage for upper portion in the capillary
     reservoir of the irrigated area for each HRU that is available for both
     evaporation and transpiration
+  dims:
+    0: nhru
+  type: float64
+  units: inches
+ag_soil_rechr_redistribution:
+  desc: Water redistributed in agricultural recharge zone due to ag_frac changes
+    (used to separate redistribution from hydrologic process changes)
   dims:
     0: nhru
   type: float64
@@ -1843,6 +1917,12 @@ hru_sroffp:
     0: nhru
   type: float64
   units: inches
+hru_sroff_ag:
+  desc: HRU area-weighted average surface runoff from agricultural areas for each HRU
+  dims:
+    0: nhru
+  type: float64
+  units: inches
 hru_storage:
   desc: Storage for each HRU
   dims:
@@ -1907,6 +1987,13 @@ infil_ag:
   type: float64
   units: inches
   var_category: mass flux
+infil_ag_hru:
+  desc: Infiltration to the irrigated area fraction of each HRU, depth on HRU area
+  dims:
+    0: nhru
+  type: float64
+  units: inches
+  var_category: mass flux
 infil_hru:
   desc: Infiltration to the capillary and preferential-flow reservoirs, depth on HRU area
   dims:
@@ -1950,6 +2037,19 @@ intcp_changeover:
   type: float64
   units: inches
   var_category: mass flux
+intcp_changeover_budget:
+  desc: Canopy throughfall for mass budget accounting
+  dims:
+    0: nhru
+  help:
+    Canopy throughfall caused by canopy density change from winter to summer,
+    adjusted for mass budget accounting depending on if inputs include
+    intcp_changeover in net_rain (e.g. GSFLOW). When
+    intcp_changeover_in_net_rain=True, this is zero because intcp_changeover
+    is already included in through_rain. When
+    intcp_changeover_in_net_rain=False, this equals intcp_changeover.
+  type: float64
+  units: inches
 intcp_evap:
   desc: Evaporation from the canopy for each HRU
   dims:
@@ -3067,6 +3167,13 @@ slow_stor_prev:
   type: float64
   units: inches
   var_category: mass storage
+slow_stor_redistribution:
+  desc: Water redistributed in slow storage due to ag_frac changes
+    (used to separate redistribution from hydrologic process changes)
+  dims:
+    0: nhru
+  type: float64
+  units: inches
 slst:
   desc: Days since last new snow for each HRU
   dims:
@@ -3173,12 +3280,19 @@ soil_lower_max:
 soil_lower_prev:
   desc:
     Previous storage in the lower zone of the capillary reservoir that is only available
-    for transpiration for each HRU
+    for transpiration for each HRU, depth on pervious area
   dims:
     0: nhru
   type: float64
   units: inches
   var_category: mass storage
+soil_lower_redistribution:
+  desc: Water redistributed in pervious soil lower zone due to ag_frac changes
+    (used to separate redistribution from hydrologic process changes)
+  dims:
+    0: nhru
+  type: float64
+  units: inches
 soil_lower_ratio:
   desc:
     Water content ratio in the lower zone of the capillary reservoir for each
@@ -3242,12 +3356,19 @@ soil_rechr_change_hru:
 soil_rechr_prev:
   desc:
     Previous storage for recharge zone (upper portion) of the capillary reservoir that
-    is available for both evaporation and transpiration
+    is available for both evaporation and transpiration for each HRU, depth on pervious area
   dims:
     0: nhru
   type: float64
   units: inches
   var_category: mass storage
+soil_rechr_redistribution:
+  desc: Water redistributed in pervious recharge zone due to ag_frac changes
+    (used to separate redistribution from hydrologic process changes)
+  dims:
+    0: nhru
+  type: float64
+  units: inches
 soil_rechr_max:
   desc:
     Maximum storage for soil recharge zone (upper portion of capillary reservoir

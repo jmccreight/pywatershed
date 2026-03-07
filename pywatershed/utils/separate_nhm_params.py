@@ -110,6 +110,7 @@ def separate_domain_params_dis_to_ncdf(
         pywatershed.PRMSCanopy,
         pywatershed.PRMSSnow,
         pywatershed.PRMSRunoff,
+        pywatershed.PRMSRunoffAg,
         pywatershed.PRMSRunoffNoDprst,
         pywatershed.PRMSSoilzone,
         pywatershed.PRMSSoilzoneAg,

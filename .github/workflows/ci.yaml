@@ -223,6 +223,81 @@ jobs:
         run: |
           python pywatershed/utils/gis_files.py
 
+      - name: Get additional domain files for tests
+        run: |
+          python pywatershed/utils/addtl_domain_files.py
+          if [ $? -ne 0 ]; then
+            echo "Failed to download additional domain files"
+            exit 1
+          fi
+          echo ""
+          echo "Checking where additional domains were downloaded:"
+          python -c "
+          import pywatershed as pws
+          pkg_root = pws.constants.__pywatershed_root__
+          addtl_dir = pkg_root / 'data' / 'pywatershed_addtl_domains'
+          print(f'Package root: {pkg_root}')
+          print(f'Additional domains dir: {addtl_dir}')
+          print(f'Additional domains exists: {addtl_dir.exists()}')
+          if addtl_dir.exists():
+              import os
+              print(f'Contents: {os.listdir(addtl_dir)}')
+          "
+
+      - name: Create symlink to fgr_ag_2yr domain
+        run: |
+          echo "Current directory: $(pwd)"
+          echo ""
+          python -c "
+          import os
+          import sys
+          import platform
+          import shutil
+          # Remove current directory from sys.path to avoid importing local source
+          # We want the installed package in site-packages, not repo source
+          if '' in sys.path:
+              sys.path.remove('')
+          if '.' in sys.path:
+              sys.path.remove('.')
+          cwd = os.getcwd()
+          if cwd in sys.path:
+              sys.path.remove(cwd)
+          # Now import pywatershed from site-packages
+          import pywatershed as pws
+          # Find pywatershed package location using __file__
+          pkg_dir = os.path.dirname(pws.__file__)
+          src = os.path.join(pkg_dir, 'data', 'pywatershed_addtl_domains', 'fgr_ag_2yr')
+          dst = 'test_data/fgr_ag_2yr'
+          print(f'Platform: {platform.system()}')
+          print(f'Package directory: {pkg_dir}')
+          print(f'Source path: {src}')
+          print(f'Source exists: {os.path.exists(src)}')
+          print(f'Destination path: {dst}')
+          print(f'Destination absolute: {os.path.abspath(dst)}')
+          if not os.path.exists(src):
+              print(f'ERROR: Source path does not exist!')
+              print(f'Checking pywatershed/data:')
+              data_dir = os.path.join(pkg_dir, 'data')
+              if os.path.exists(data_dir):
+                  print(f'Contents: {os.listdir(data_dir)}')
+              sys.exit(1)
+          if os.path.exists(dst):
+              print(f'Removing existing destination')
+              if os.path.islink(dst) or os.path.isfile(dst):
+                  os.unlink(dst)
+              else:
+                  shutil.rmtree(dst)
+          # On Windows, copy instead of symlink (symlinks require special privileges)
+          if platform.system() == 'Windows':
+              print(f'Copying directory (Windows)')
+              shutil.copytree(src, dst)
+          else:
+              print(f'Creating symlink (Unix)')
+              os.symlink(src, dst, target_is_directory=True)
+          print(f'Link/copy created successfully')
+          print(f'Destination exists (after): {os.path.exists(dst)}')
+          "
+
       - name: domainless - run tests not requiring domain data
         working-directory: autotest
         run: pytest
@@ -234,6 +309,7 @@ jobs:
           --cov-report=xml
           --junitxml=pytest_domainless.xml
 
+      # Temporarily disabled for fgr_ag_2yr debugging
       - name: sagehen_5yr_no_cascades - generate and manage test data domain, run PRMS and convert csv output to NetCDF
         working-directory: autotest
         run: |
@@ -278,10 +354,21 @@ jobs:
           --ignore=test_prms_et_canopy.py
           --ignore=test_prms_hydraulic_geometry.py
           --ignore=test_prms_runoff.py
+          --ignore=test_prms_runoff_ag.py
+          --ignore=test_prms_runoff_ag_restart.py
+          --ignore=test_prms_runoff_soilzone_ag.py
           --ignore=test_prms_soilzone_ag.py
+          --ignore=test_prms_soilzone_ag_restart.py
           --ignore=test_prms_stream_temp.py
           --ignore=test_source_sink_flow_node.py
           --ignore=test_starfit_flow_graph.py
+
+      - name: sagehen_5yr_no_cascades - cleanup output directories
+        working-directory: test_data/generate
+        run: |
+          pytest -v remove_output_dirs.py::test_remove_output_dirs \
+            --domain=sagehen_5yr \
+            --control_pattern=sagehen_no_cascades.control
 
       - name: hru_1 all configs - generate and manage test data, run PRMS and convert csv output to NetCDF
         working-directory: autotest
@@ -323,7 +410,11 @@ jobs:
           --ignore=test_prms_atmosphere_transp_frost.py
           --ignore=test_prms_channel_flow_graph.py
           --ignore=test_prms_hydraulic_geometry.py
+          --ignore=test_prms_runoff_ag.py
+          --ignore=test_prms_runoff_ag_restart.py
+          --ignore=test_prms_runoff_soilzone_ag.py
           --ignore=test_prms_soilzone_ag.py
+          --ignore=test_prms_soilzone_ag_restart.py
           --ignore=test_prms_stream_temp.py
           --ignore=test_source_sink_flow_node.py
           --ignore=test_starfit_flow_graph.py
@@ -342,6 +433,14 @@ jobs:
           --cov-report=xml
           --junitxml=pytest_hru_1_transp_frost.xml
           test_prms_atmosphere_transp_frost.py
+
+      - name: hru_1 all configs - cleanup output directories
+        working-directory: test_data/generate
+        run: |
+          pytest -v remove_output_dirs.py::test_remove_output_dirs \
+            --domain=hru_1 \
+            --control_pattern=nhm.control \
+            --control_pattern=frost.control
 
       - name: drb_2yr all domains - generate and manage test data
         working-directory: autotest
@@ -373,7 +472,11 @@ jobs:
           --ignore=test_prms_hydraulic_geometry.py
           --ignore=test_prms_stream_temp.py
           --ignore=test_domain_subset.py
+          --ignore=test_prms_runoff_ag.py
+          --ignore=test_prms_runoff_ag_restart.py
+          --ignore=test_prms_runoff_soilzone_ag.py
           --ignore=test_prms_soilzone_ag.py
+          --ignore=test_prms_soilzone_ag_restart.py
           --ignore=test_source_sink_flow_node.py
           --ignore=test_starfit_flow_graph.py
 
@@ -445,6 +548,12 @@ jobs:
           test_prms_hydraulic_geometry.py
           test_prms_stream_temp.py
 
+      - name: drb_2yr all domains - cleanup output directories
+        working-directory: test_data/generate
+        run: |
+          pytest -v remove_output_dirs.py::test_remove_output_dirs \
+            --domain=drb_2yr
+
       - name: ucb_2yr all configs - generate and manage test data
         working-directory: autotest
         run: |
@@ -487,7 +596,11 @@ jobs:
           --ignore=test_mmr_to_mf6_dfw.py
           --ignore=test_prms_hydraulic_geometry.py
           --ignore=test_prms_stream_temp.py
+          --ignore=test_prms_runoff_ag.py
+          --ignore=test_prms_runoff_ag_restart.py
+          --ignore=test_prms_runoff_soilzone_ag.py
           --ignore=test_prms_soilzone_ag.py
+          --ignore=test_prms_soilzone_ag_restart.py
 
       - name: ucb_2yr_nhm_transp_frost - pywatershed tests
         working-directory: autotest
@@ -504,6 +617,58 @@ jobs:
           --junitxml=pytest_ucb_2yr_nhm_transp_frost.xml
           test_prms_atmosphere_transp_frost.py
 
+      - name: ucb_2yr all configs - cleanup output directories
+        working-directory: test_data/generate
+        run: |
+          pytest -v remove_output_dirs.py::test_remove_output_dirs \
+            --domain=ucb_2yr \
+            --control_pattern=nhm.control \
+            --control_pattern=transp_frost.control
+
+      - name: fgr_ag_2yr all configs - generate and manage test data
+        working-directory: autotest
+        run: |
+          python generate_test_data.py \
+            -n=auto \
+            --domain=fgr_ag_2yr \
+            --remove_prms_csvs \
+            --remove_prms_output_dirs \
+            --control_pattern=spinup.control \
+            --control_pattern=analysis.control
+
+      - name: fgr_ag_2yr - list netcdf input files
+        working-directory: test_data
+        run: |
+          find fgr_ag_2yr/output_spinup -name '*.nc' | sort -n
+          find fgr_ag_2yr/output_analysis -name '*.nc' | sort -n
+
+      - name: fgr_ag_2yr - pywatershed tests
+        working-directory: autotest
+        run: pytest
+          -vv
+          -rs
+          -n=auto
+          --domain=fgr_ag_2yr
+          --control_pattern=spinup.control
+          --control_pattern=analysis.control
+          --durations=0
+          --cov=pywatershed
+          --cov-report=xml
+          --junitxml=pytest_fgr_ag_2yr_spinup.xml
+          test_prms_runoff_ag.py
+          test_prms_runoff_ag_restart.py
+          test_prms_soilzone_ag.py
+          test_prms_soilzone_ag_restart.py
+          test_prms_runoff_soilzone_ag.py
+
+      - name: fgr_ag_2yr all configs - cleanup output directories
+        working-directory: test_data/generate
+        run: |
+          pytest -v remove_output_dirs.py::test_remove_output_dirs \
+            --domain=fgr_ag_2yr \
+            --control_pattern=spinup.control \
+            --control_pattern=analysis.control
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
@@ -513,7 +678,7 @@ jobs:
             ./autotest/pytest_hru_1_nhm.xml
             ./autotest/pytest_drb_2yr_nhm.xml
             ./autotest/pytest_drb_2yr_no_dprst.xml
-            ./autotest/pytest_ucb_2yr_nhm.xml
+            ./autotest/pytest_fgr_ag_2yr_nhm.xml
 
       - name: Upload code coverage to Codecov
         uses: codecov/codecov-action@v3

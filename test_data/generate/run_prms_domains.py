@@ -8,6 +8,7 @@ from flopy import run_model
 def test_exe_available(exe):
     assert exe.is_file(), f"'{exe}'...does not exist"
     assert os.access(exe, os.X_OK)
+    print(f"\nUsing exectuable: {exe}\n")
 
 
 def test_run_prms(simulation, exe):

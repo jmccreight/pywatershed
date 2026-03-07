@@ -209,18 +209,25 @@ def main():
         or (n_orig <= (n_simulations + 1))
     ):
         run_arg_list = arg_list + ["run_prms_domains.py"]
-        conv_arg_list = arg_list + ["convert_prms_output_to_nc.py"]
+        conv_arg_list = arg_list + ["-vv", "convert_prms_output_to_nc.py"]
     else:
         run_arg_list = arg_list_no_n + [
             f"-n={n_simulations + 1}",
             "run_prms_domains.py",
         ]
         conv_arg_list = arg_list_no_n + [
+            "-vv",
             f"-n={n_orig}",
             "convert_prms_output_to_nc.py",
         ]
 
-    # do NOT run in parallel
+    # This is just a local hack
+    # run_verbose = True
+    # if run_verbose:
+    #     run_arg_list.remove(f"-n={n_simulations + 1}")
+    #     run_arg_list = ["-s", "-vv"] + run_arg_list
+
+    # do NOT run the final conversion in parallel
     conv_final_arg_list = arg_list + [
         "-vv",
         "-n=0",

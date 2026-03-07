@@ -17,7 +17,7 @@ def final_netcdf_file(control_final_file):
 
     control_file = control_final_file[0]
     final_file = control_final_file[1]
-    domain_dir = final_file.parent
+    domain_dir = control_file.parent
     var_name = final_file.name
     control = pws.Control.load_prms(control_file, warn_unused_options=False)
     output_dir = control_file.parent / control.options["netcdf_output_dir"]

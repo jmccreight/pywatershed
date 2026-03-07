@@ -30,4 +30,3 @@ FlowGraph base classes and subclasses. See :class:`FlowGraph` for an overview of
    prms_segment_lateral_inflow_components_to_netcdf
    HruSegmentFlowAdapter
    HruNodeFlowExchange
-   HruSegmentFlowExchange

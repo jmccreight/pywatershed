@@ -1,6 +1,7 @@
 import os
 import pathlib as pl
 import sys
+import warnings
 from fnmatch import fnmatch
 from platform import processor
 from typing import List
@@ -25,7 +26,7 @@ all_domain_dirs = sorted(
 # This would change to handle other/additional schedulers
 domain_globs_schedule = ["*conus*"]
 
-final_var_names = ["through_rain", "seg_lateral_inflow"]
+final_var_names = ["through_rain", "infil", "seg_lateral_inflow"]
 
 
 def get_ctl_exe_desc(ctl_file):
@@ -89,14 +90,51 @@ def pytest_addoption(parser):
         action="store_true",
     )
 
+    parser.addoption(
+        "--suppress-control-warnings",
+        required=False,
+        action="store_true",
+        default=False,
+        help=(
+            "Suppress UserWarnings about unrecognized control options "
+            "(e.g., 'executable_model', 'model_mode')"
+        ),
+    )
+
+    parser.addoption(
+        "--exe",
+        required=False,
+        default=None,
+        help=("Path to PRMS or GSFLOW executable to use"),
+    )
+
+
+def pytest_configure(config):
+    """Configure pytest with warning filters based on command line options."""
+    if config.getoption("suppress_control_warnings"):
+        warnings.filterwarnings(
+            "ignore",
+            message=r".*is not an available control option",
+            category=UserWarning,
+        )
+
 
 @pytest.fixture(scope="function")
-def exe(simulation):
+def exe(simulation, request):
+    # Check if exe was provided on command line
+    exe_path = request.config.getoption("exe")
+    if exe_path:
+        exe_pth = pl.Path(exe_path).resolve()
+        if not exe_pth.exists():
+            pytest.fail(f"Executable not found: {exe_pth}")
+        return exe_pth
+
+    # Otherwise, determine exe based on platform and control file
     exe_desc = get_ctl_exe_desc(simulation["control_file"])
     platform = sys.platform.lower()
     if "gsflow" in exe_desc:
         if platform == "win32":
-            pytest.skip(f"GSFLOW binary not yet provided for {platform}")
+            exe_name = "gsflow_2.4.0_gfortran_windows_dbl_prec.exe"
         elif platform == "darwin":
             if processor() == "arm":
                 exe_name = "gsflow_2.4.0_ifort_apple_silicon_dbl_prec"
@@ -105,7 +143,7 @@ def exe(simulation):
                     f"GSFLOW binary not yet provided for {platform}:intel"
                 )
         elif platform == "linux":
-            pytest.skip(f"GSFLOW binary not yet provided for {platform}")
+            exe_name = "gsflow_2.4.0_gfortran_linux_dbl_prec"
 
     elif "5.2.1.1" in exe_desc:
         if platform == "win32":

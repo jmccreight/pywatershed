@@ -29,6 +29,11 @@ previous_vars = prev_vars_both | {
     "ssres_stor": pws.PRMSSoilzone,
 }
 
+previous_vars_obs_et = previous_vars | {
+    "ag_soil_moist": pws.PRMSSoilzoneAgObsET,
+    "ag_soil_rechr": pws.PRMSSoilzoneAgObsET,
+}
+
 previous_vars_no_dprst = prev_vars_both | {
     "hru_impervstor": pws.PRMSRunoffNoDprst,
     "pref_flow_stor": pws.PRMSSoilzoneNoDprst,
@@ -85,8 +90,14 @@ def diagnose_simple_vars_to_nc(
         output_dir = data_dir
 
     nc_path = data_dir / f"{var_name}.nc"
-    control = pws.Control.load_prms(control_file, warn_unused_options=False)
+    control = pws.Control.load_prms(
+        control_file, warn_unused_options=False, keep_unused_options=True
+    )
     param_file = control_file.parent / control.options["parameter_file"]
+    if "executable_desc" in control.options.keys():
+        exe_desc = control.options["executable_desc"][0].lower()
+    else:
+        exe_desc = "prms"
 
     if var_name in previous_vars.keys():
         # the _prev is the desired suffix but PRMS legacy is inconsistent
@@ -103,6 +114,11 @@ def diagnose_simple_vars_to_nc(
         params = pws.parameters.PrmsParameters.load(param_file)
 
         if (
+            "iter_aet_flag" in control.options.keys()
+            and control.options["iter_aet_flag"]
+        ):
+            proc_class = previous_vars_obs_et[var_name]
+        elif (
             "dprst_flag" in control.options.keys()
             and control.options["dprst_flag"]
         ):
@@ -111,6 +127,7 @@ def diagnose_simple_vars_to_nc(
             proc_class = previous_vars_no_dprst[var_name]
 
         inputs = {}
+
         for input_name in proc_class.get_inputs():
             # taken from process._initialize_var
             meta = pws.meta.find_variables([input_name])
@@ -151,7 +168,7 @@ def diagnose_simple_vars_to_nc(
         prev.rename(out_nc_path.stem).to_netcdf(out_nc_path)
         assert nc_path.exists()
 
-        # write the change file
+        # write the change file (skip if validated by mass budget)
         if var_name in change_rename.keys():
             nc_name = f"{change_rename[var_name]}.nc"
         else:
@@ -159,33 +176,22 @@ def diagnose_simple_vars_to_nc(
         out_nc_path = output_dir / nc_name
         change.rename(out_nc_path.stem).to_netcdf(out_nc_path)
         assert nc_path.exists()
+
         return nc_path
 
     if var_name in ["sroff", "ssres_flow", "gwres_flow"]:
         params = pws.parameters.PrmsParameters.load(param_file)
         ds = xr.open_dataset(nc_path)
         ds = ds.rename({var_name: f"{var_name}_vol"})
+        if "gsflow" in exe_desc.lower():
+            # Zero out tiny values before multiplying by large conversion
+            # factor
+            ds[f"{var_name}_vol"] = ds[f"{var_name}_vol"].where(
+                np.abs(ds[f"{var_name}_vol"]) > 1e-11, 0.0
+            )
         ds = ds * params.data_vars["hru_in_to_cf"]
         ds.to_netcdf(output_dir / f"{var_name}_vol.nc")
         ds.close()
-
-    if var_name == "infil":
-        params = pws.parameters.PrmsParameters.load(param_file).parameters
-        imperv_frac = params["hru_percent_imperv"]
-        if (
-            "dprst_flag" in control.options.keys()
-            and control.options["dprst_flag"]
-        ):
-            dprst_frac = params["dprst_frac"]
-        else:
-            dprst_frac = zero
-        perv_frac = 1.0 - imperv_frac - dprst_frac
-        ds = xr.open_dataset(nc_path.with_suffix(".nc"))
-        ds = ds.rename(infil="infil_hru")
-        ds["infil_hru"] = ds["infil_hru"] * perv_frac
-        ds.to_netcdf(output_dir / "infil_hru.nc")
-        ds.close()
-
     return True
 
 
@@ -219,7 +225,9 @@ def diagnose_final_vars_to_nc(
     if output_dir is None:
         output_dir = data_dir
 
-    control = pws.Control.load_prms(control_file, warn_unused_options=False)
+    control = pws.Control.load_prms(
+        control_file, warn_unused_options=False, keep_unused_options=True
+    )
     param_file = control_file.parent / control.options["parameter_file"]
 
     if var_name == "through_rain":
@@ -285,6 +293,65 @@ def diagnose_final_vars_to_nc(
             data[vv].close()
 
         assert out_file.exists()
+
+    if var_name == "infil":
+        params = pws.parameters.PrmsParameters.load(param_file).parameters
+        imperv_frac = params["hru_percent_imperv"]
+        if (
+            "dprst_flag" in control.options.keys()
+            and control.options["dprst_flag"]
+        ):
+            dprst_frac = params["dprst_frac"]
+        else:
+            dprst_frac = zero
+        perv_frac = 1.0 - imperv_frac - dprst_frac
+
+        # Check if agriculture is active
+        soilzone_module = control.options.get("soilzone_module", [None])[0]
+        ag_active = soilzone_module == "soilzone_ag"
+
+        ds = xr.open_dataset(data_dir / "infil.nc")
+        ds = ds.rename(infil="infil_hru")
+
+        if ag_active:
+            # Load infil_ag and ag_frac
+            # Check if ag_frac is dynamic
+            dyn_ag_frac_flag = control.options.get("dyn_ag_frac_flag", [0])[0]
+
+            if dyn_ag_frac_flag:
+                ag_frac_file = (
+                    control_file.parent / control.options["ag_frac_dynamic"][0]
+                )
+                if ag_frac_file.exists():
+                    ag_frac = pws.utils.PrmsDynamicParameter.load(
+                        ag_frac_file, control=control
+                    ).daily_data_array.rename(nhru="nhm_id")
+                else:
+                    raise FileNotFoundError(
+                        f"Dynamic ag_frac file not found: {ag_frac_file}"
+                    )
+            else:
+                # Static ag_frac from parameters
+                ag_frac = params["ag_frac"]
+
+            perv_frac = 1.0 - imperv_frac - dprst_frac - ag_frac
+
+            infil_ag_file = data_dir / "infil_ag.nc"
+            if not infil_ag_file.exists():
+                raise FileNotFoundError(f"File {infil_ag_file} not found")
+            else:
+                infil_ag = xr.open_dataarray(infil_ag_file)
+
+            # <
+            ds["infil_hru"] = ds["infil_hru"] * perv_frac + (
+                infil_ag * ag_frac
+            )
+            infil_ag.close()
+        else:
+            ds["infil_hru"] = ds["infil_hru"] * perv_frac
+
+        ds.to_netcdf(output_dir / "infil_hru.nc")
+        ds.close()
 
     # The rest of the conversion is on ly for muskingum_mann variables
     if control.options["streamflow_module"] != "muskingum_mann":

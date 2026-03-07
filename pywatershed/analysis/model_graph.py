@@ -3,7 +3,7 @@ import tempfile
 
 from ..base.conservative_process import ConservativeProcess
 from ..base.model import Model
-from ..utils import import_optional_dependency
+from ..utils.optional_import import import_optional_dependency
 
 
 class ModelGraph:

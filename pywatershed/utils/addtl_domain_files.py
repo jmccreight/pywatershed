@@ -18,7 +18,7 @@ def download(force=False):
     if not addtl_domains_dir.exists():
         addtl_domains_url = (
             "https://github.com/DOI-USGS/pywatershed/"
-            "releases/download/1.1.0/pywatershed_addtl_domains.zip"
+            "releases/download/2.0.3/pywatershed_addtl_domains.zip"
         )
         addtl_domains_file = (
             pkg_root_dir / "data/pywatershed_addtl_domains.zip"
@@ -29,6 +29,7 @@ def download(force=False):
             zz.extractall(pkg_root_dir / "data")
 
         assert addtl_domains_dir.exists()
+        print(f"{addtl_domains_dir=}")
 
     return
 

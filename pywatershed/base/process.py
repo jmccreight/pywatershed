@@ -404,6 +404,10 @@ class Process(Accessor):
     def _set_inputs(self, args):
         self._input_variables_dict = {}
         for ii in self.inputs:
+            if args[ii] is None:
+                # This should need no warning, just downstream consequences
+                continue
+
             ii_dims = self.control.meta.get_dimensions(ii)[ii]
             # This accomodates Timeseries like objects that need to init
             # both full rank and reduced rank versions of their data
@@ -429,10 +433,13 @@ class Process(Accessor):
         for vv in self.restart_variables:
             rst_file = self._restart_read / f"{init_strftime}-{vv}.nc"
             print(f"Restarting from file: {rst_file}")
+            # Use decode_timedelta=False to prevent xarray from converting
+            # float data with time-like units (e.g., "days") to timedelta64
+            data = load_dataarray(rst_file, decode_timedelta=False).values
             if isinstance(self[vv], TimeseriesArray):
-                self[vv].data[0, :] = load_dataarray(rst_file).values
+                self[vv].data[0, :] = data
             else:
-                self[vv][:] = load_dataarray(rst_file).values
+                self[vv][:] = data
 
         return
 

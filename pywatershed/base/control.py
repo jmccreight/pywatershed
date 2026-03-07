@@ -9,7 +9,6 @@ import yaml
 
 from ..base import meta
 from ..constants import fileish
-from ..utils import ControlVariables
 from ..utils.path import assert_exists, dict_pl_to_str, path_rel_to_yaml
 from ..utils.time_utils import (
     datetime_dowy,
@@ -34,6 +33,8 @@ pws_control_options_avail = [
     # "restart",
     "input_dir",  #
     "input_file",
+    "intcp_changeover_in_net_rain",
+    "iter_aet_flag",
     # "load_n_time_batches",
     "netcdf_output_dir",
     "netcdf_output_var_names",
@@ -49,13 +50,20 @@ pws_control_options_avail = [
     "strmtemp_humidity_flag",
     "time_step_units",
     "verbosity",
+    "dyn_ag_frac_flag",
+    "ag_frac_dynamic",
+    "AET_cbh_file",
+    "iter_aet_flag",
+    "executable_desc",
+    "init_vars_from_file",
+    "var_save_file",
 ]
 
 prms_legacy_options_avail = [
     "dprst_flag",
     "end_time",
-    # "init_vars_from_file",
     "initial_deltat",
+    "iter_aet_flag",
     "nhruOutBaseFileName",
     "nhruOutVar_names",
     "nsegmentOutBaseFileName",
@@ -67,6 +75,13 @@ prms_legacy_options_avail = [
     "strmflow_module",
     "strmtemp_humidity_flag",
     "print_debug",
+    "dyn_ag_frac_flag",
+    "ag_frac_dynamic",
+    "AET_cbh_file",
+    "iter_aet_flag",
+    "executable_desc",
+    "init_vars_from_file",
+    "var_save_file",
 ]
 
 prms_to_pws_option_map = {
@@ -260,6 +275,8 @@ class Control(Accessor):
         Returns:
             An instance of a Control object.
         """
+        from ..utils import ControlVariables
+
         control = ControlVariables.load(control_file)
 
         if warn_unused_options:
@@ -310,6 +327,8 @@ class Control(Accessor):
             # special cases, unmapped names
             if oo == "dprst_flag":
                 opts[oo] = bool(opts[oo][0])
+            if oo == "iter_aet_flag":
+                opts[oo] = opts[oo][0].tolist()
 
         start_time = control.control["start_time"]
         end_time = control.control["end_time"]

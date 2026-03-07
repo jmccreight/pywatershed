@@ -42,6 +42,7 @@ class PRMSStreamTemp(ConservativeProcess):
 
     A representation of stream temperature from PRMS. with two structural
     differences. This class uses:
+
     - PRMSHydraulicGeometryFull as an upstream process to get the hydraulic
       geometry variables (which were renamed seg_flow_*)
     - PRMSStreamShade as a shade representation to be passed/composed on
@@ -59,6 +60,7 @@ class PRMSStreamTemp(ConservativeProcess):
     The stream temperature module computes daily mean water temperature for
     each stream segment using an energy balance approach. The module accounts
     for:
+
     - Solar radiation (shortwave)
     - Longwave radiation (atmospheric and vegetation)
     - Convection and evaporation
@@ -118,6 +120,7 @@ class PRMSStreamTemp(ConservativeProcess):
         use_vectorized_shade: Use vectorized shade computation for all
             segments at once (default True)
         track_energy_fluxes: Track energy flux terms for budget analysis
+
     """
 
     def __init__(
