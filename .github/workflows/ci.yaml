@@ -142,23 +142,6 @@ jobs:
         uses: mxschmitt/action-tmate@v3
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}
 
-      - name: Set environment variables
-        run: |
-          echo "PYTHON_VERSION=${{ matrix.python-version }}" >> $GITHUB_ENV
-          echo "PYWS_FORTRAN=false" >> $GITHUB_ENV
-          cat .mf6_ci_ref_remote  >> $GITHUB_ENV
-
-      - name: Enforce MF6 ref and remote merge to main
-        if: github.base_ref == 'main'
-        run: |
-          echo Merge commit: GITHUB_BASE_REF = $GITHUB_BASE_REF
-          req_ref=develop  # if not develop, submit an issue
-          echo $MF6_REF
-          if [[ "$MF6_REF" != "$req_ref" ]]; then exit 1; fi
-          req_remote=MODFLOW-USGS/modflow6
-          echo $MF6_REMOTE
-          if [[ "$MF6_REMOTE" != "$req_remote" ]]; then echo "bad mf6 remote in .mf6_ci_ref_remote"; exit 1; fi
-
       - name: Setup gfortran
         uses: fortran-lang/setup-fortran@v1
         with:
@@ -179,24 +162,6 @@ jobs:
           cache-downloads: true
           create-args: >-
             python=${{matrix.python-version}}
-
-      - name: Checkout MODFLOW 6
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ env.MF6_REMOTE }}
-          ref: ${{ env.MF6_REF }}
-          path: modflow6
-
-      - name: Update flopy MODFLOW 6 classes
-        working-directory: modflow6/autotest
-        run: |
-          # requires flopy[codgen] install option
-          python -m flopy.mf6.utils.generate_classes
-
-      - name: Install mf6 nightly build binaries
-        uses: modflowpy/install-modflow-action@v1
-        with:
-          repo: modflow6-nightly-build
 
       - name: Install pywatershed
         run: |
@@ -266,23 +231,6 @@ jobs:
         uses: mxschmitt/action-tmate@v3
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}
 
-      - name: Set environment variables
-        run: |
-          echo "PYTHON_VERSION=${{ matrix.python-version }}" >> $GITHUB_ENV
-          echo "PYWS_FORTRAN=false" >> $GITHUB_ENV
-          cat .mf6_ci_ref_remote  >> $GITHUB_ENV
-
-      - name: Enforce MF6 ref and remote merge to main
-        if: github.base_ref == 'main'
-        run: |
-          echo Merge commit: GITHUB_BASE_REF = $GITHUB_BASE_REF
-          req_ref=develop  # if not develop, submit an issue
-          echo $MF6_REF
-          if [[ "$MF6_REF" != "$req_ref" ]]; then exit 1; fi
-          req_remote=MODFLOW-USGS/modflow6
-          echo $MF6_REMOTE
-          if [[ "$MF6_REMOTE" != "$req_remote" ]]; then echo "bad mf6 remote in .mf6_ci_ref_remote"; exit 1; fi
-
       - name: Setup gfortran
         uses: fortran-lang/setup-fortran@v1
         with:
@@ -303,24 +251,6 @@ jobs:
           cache-downloads: true
           create-args: >-
             python=${{matrix.python-version}}
-
-      - name: Checkout MODFLOW 6
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ env.MF6_REMOTE }}
-          ref: ${{ env.MF6_REF }}
-          path: modflow6
-
-      - name: Update flopy MODFLOW 6 classes
-        working-directory: modflow6/autotest
-        run: |
-          # requires flopy[codgen] install option
-          python -m flopy.mf6.utils.generate_classes
-
-      - name: Install mf6 nightly build binaries
-        uses: modflowpy/install-modflow-action@v1
-        with:
-          repo: modflow6-nightly-build
 
       - name: Install pywatershed
         run: |
@@ -438,23 +368,6 @@ jobs:
       - name: Setup tmate session
         uses: mxschmitt/action-tmate@v3
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}
-
-      - name: Set environment variables
-        run: |
-          echo "PYTHON_VERSION=${{ matrix.python-version }}" >> $GITHUB_ENV
-          echo "PYWS_FORTRAN=false" >> $GITHUB_ENV
-          cat .mf6_ci_ref_remote  >> $GITHUB_ENV
-
-      - name: Enforce MF6 ref and remote merge to main
-        if: github.base_ref == 'main'
-        run: |
-          echo Merge commit: GITHUB_BASE_REF = $GITHUB_BASE_REF
-          req_ref=develop  # if not develop, submit an issue
-          echo $MF6_REF
-          if [[ "$MF6_REF" != "$req_ref" ]]; then exit 1; fi
-          req_remote=MODFLOW-USGS/modflow6
-          echo $MF6_REMOTE
-          if [[ "$MF6_REMOTE" != "$req_remote" ]]; then echo "bad mf6 remote in .mf6_ci_ref_remote"; exit 1; fi
 
       - name: Setup gfortran
         uses: fortran-lang/setup-fortran@v1
@@ -662,24 +575,6 @@ jobs:
           cache-downloads: true
           create-args: >-
             python=${{matrix.python-version}}
-
-      - name: Checkout MODFLOW 6
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ env.MF6_REMOTE }}
-          ref: ${{ env.MF6_REF }}
-          path: modflow6
-
-      - name: Update flopy MODFLOW 6 classes
-        working-directory: modflow6/autotest
-        run: |
-          # requires flopy[codgen] install option
-          python -m flopy.mf6.utils.generate_classes
-
-      - name: Install mf6 nightly build binaries
-        uses: modflowpy/install-modflow-action@v1
-        with:
-          repo: modflow6-nightly-build
 
       - name: Install pywatershed
         run: |
@@ -1039,23 +934,6 @@ jobs:
         uses: mxschmitt/action-tmate@v3
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}
 
-      - name: Set environment variables
-        run: |
-          echo "PYTHON_VERSION=${{ matrix.python-version }}" >> $GITHUB_ENV
-          echo "PYWS_FORTRAN=false" >> $GITHUB_ENV
-          cat .mf6_ci_ref_remote  >> $GITHUB_ENV
-
-      - name: Enforce MF6 ref and remote merge to main
-        if: github.base_ref == 'main'
-        run: |
-          echo Merge commit: GITHUB_BASE_REF = $GITHUB_BASE_REF
-          req_ref=develop  # if not develop, submit an issue
-          echo $MF6_REF
-          if [[ "$MF6_REF" != "$req_ref" ]]; then exit 1; fi
-          req_remote=MODFLOW-USGS/modflow6
-          echo $MF6_REMOTE
-          if [[ "$MF6_REMOTE" != "$req_remote" ]]; then echo "bad mf6 remote in .mf6_ci_ref_remote"; exit 1; fi
-
       - name: Setup gfortran
         uses: fortran-lang/setup-fortran@v1
         with:
@@ -1076,24 +954,6 @@ jobs:
           cache-downloads: true
           create-args: >-
             python=${{matrix.python-version}}
-
-      - name: Checkout MODFLOW 6
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ env.MF6_REMOTE }}
-          ref: ${{ env.MF6_REF }}
-          path: modflow6
-
-      - name: Update flopy MODFLOW 6 classes
-        working-directory: modflow6/autotest
-        run: |
-          # requires flopy[codgen] install option
-          python -m flopy.mf6.utils.generate_classes
-
-      - name: Install mf6 nightly build binaries
-        uses: modflowpy/install-modflow-action@v1
-        with:
-          repo: modflow6-nightly-build
 
       - name: Install pywatershed
         run: |
