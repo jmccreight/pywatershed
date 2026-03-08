@@ -288,6 +288,7 @@ if [ -z "${t}" ]; then
             --durations=0 \
             --error-for-skips \
             --ignore=test_cbh_to_netcdf.py \
+            --ignore=test_prms_dyn_params.py \
             --ignore=test_control_read.py \
             --ignore=test_domain_subset.py \
             --ignore=test_mmr_to_mf6_dfw.py \
@@ -352,6 +353,7 @@ if [ -z "${t}" ]; then
             --durations=0 \
             --error-for-skips \
             --ignore=test_domain_subset.py \
+            --ignore=test_prms_dyn_params.py \
             --ignore=test_mmr_to_mf6_dfw.py \
             --ignore=test_obsin_flow_node.py \
             --ignore=test_output.py \
@@ -419,6 +421,7 @@ if [ -z "${t}" ]; then
             --durations=0 \
             --error-for-skips \
             --ignore=test_obsin_flow_node.py \
+            --ignore=test_prms_dyn_params.py \
             --ignore=test_prms_atmosphere_transp_frost.py \
             --ignore=test_prms_hydraulic_geometry.py \
             --ignore=test_prms_stream_temp.py \
@@ -534,6 +537,7 @@ if [ -z "${t}" ]; then
             --durations=0 \
             --error-for-skips \
             --ignore=test_netcdf_subset.py \
+            --ignore=test_prms_dyn_params.py \
             --ignore=test_obsin_flow_node.py \
             --ignore=test_output.py \
             --ignore=test_pass_through_flow_graph.py \
@@ -632,7 +636,8 @@ if [ -z "${t}" ]; then
             test_prms_runoff_ag_restart.py \
             test_prms_soilzone_ag.py \
             test_prms_soilzone_ag_restart.py \
-            test_prms_runoff_soilzone_ag.py || exit 1
+            test_prms_runoff_soilzone_ag.py \
+            test_prms_dyn_params.py || exit 1
 
     fi
 fi
