@@ -247,7 +247,7 @@ if [ -z "${t}" ]; then
         echo "===================="
         echo
         echo "domainless - run tests not requiring domain data"
-        pytest -m domainless -n=$pytest_n -vv || exit 1
+        pytest -m domainless -n=$pytest_n -vv --fail-on-skip || exit 1
     fi
 
     if [ -z "${s}" ]; then
@@ -286,6 +286,7 @@ if [ -z "${t}" ]; then
             --domain=sagehen_5yr \
             --control_pattern=sagehen_no_cascades.control \
             --durations=0 \
+            --fail-on-skip \
             --ignore=test_cbh_to_netcdf.py \
             --ignore=test_control_read.py \
             --ignore=test_domain_subset.py \
@@ -349,6 +350,7 @@ if [ -z "${t}" ]; then
             --domain=hru_1 \
             --control_pattern=nhm.control \
             --durations=0 \
+            --fail-on-skip \
             --ignore=test_domain_subset.py \
             --ignore=test_mmr_to_mf6_dfw.py \
             --ignore=test_obsin_flow_node.py \
@@ -379,6 +381,7 @@ if [ -z "${t}" ]; then
             --domain=hru_1 \
             --control_pattern=nhm_transp_frost.control \
             --durations=0 \
+            --fail-on-skip \
             test_prms_atmosphere_transp_frost.py || exit 1
 
     fi
@@ -414,6 +417,7 @@ if [ -z "${t}" ]; then
             --domain=drb_2yr \
             --control_pattern=nhm.control \
             --durations=0 \
+            --fail-on-skip \
             --ignore=test_obsin_flow_node.py \
             --ignore=test_prms_atmosphere_transp_frost.py \
             --ignore=test_prms_hydraulic_geometry.py \
@@ -440,6 +444,7 @@ if [ -z "${t}" ]; then
             --domain=drb_2yr \
             --control_pattern=no_dprst \
             --durations=0 \
+            --fail-on-skip \
             test_prms_runoff.py \
             test_prms_soilzone.py \
             test_prms_groundwater.py \
@@ -459,6 +464,7 @@ if [ -z "${t}" ]; then
             --domain=drb_2yr \
             --control_pattern=nhm_obsin.control \
             --durations=0 \
+            --fail-on-skip \
             test_obsin_flow_node.py || exit 1
 
         echo ".........."
@@ -472,6 +478,7 @@ if [ -z "${t}" ]; then
             --domain=drb_2yr \
             --control_pattern=nhm_transp_frost.control \
             --durations=0 \
+            --fail-on-skip \
             test_prms_atmosphere_transp_frost.py || exit 1
 
         echo ".........."
@@ -485,6 +492,7 @@ if [ -z "${t}" ]; then
             --domain=drb_2yr \
             --control_pattern=nhm_stream_temp.control \
             --durations=0 \
+            --fail-on-skip \
             test_prms_hydraulic_geometry.py \
             test_prms_stream_temp.py || exit 1
 
@@ -524,6 +532,7 @@ if [ -z "${t}" ]; then
             --domain=ucb_2yr \
             --control_pattern=nhm.control \
             --durations=0 \
+            --fail-on-skip \
             --ignore=test_netcdf_subset.py \
             --ignore=test_obsin_flow_node.py \
             --ignore=test_output.py \
@@ -550,6 +559,7 @@ if [ -z "${t}" ]; then
             --domain=ucb_2yr \
             --control_pattern=nhm_transp_frost.control \
             --durations=0 \
+            --fail-on-skip \
             test_prms_atmosphere_transp_frost.py || exit 1
     fi
 
@@ -617,6 +627,7 @@ if [ -z "${t}" ]; then
             --control_pattern=spinup.control \
             --control_pattern=analysis.control \
             --durations=0 \
+            --fail-on-skip \
             test_prms_runoff_ag.py \
             test_prms_runoff_ag_restart.py \
             test_prms_soilzone_ag.py \

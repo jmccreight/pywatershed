@@ -32,6 +32,7 @@ dependencies:
   - pytest-env
   - pytest-order
   - pytest-xdist
+  - pytest-fail-on-skip
   - python=3.12
   - pyyaml
   - pyvis

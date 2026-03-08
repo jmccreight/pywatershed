@@ -55,6 +55,7 @@ test = [
     "pytest!=8.1.0",
     "pytest-cov",
     "pytest-env",
+    "pytest-fail-on-skip",
     "pytest-order",
     "pytest-xdist",
 ]

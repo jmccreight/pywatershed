@@ -179,6 +179,7 @@ jobs:
           -n=auto
           -vv
           --durations=0
+          --fail-on-skip
           --cov=pywatershed
           --cov-report=xml
           --junitxml=pytest_domainless.xml
@@ -284,6 +285,7 @@ jobs:
           --domain=sagehen_5yr
           --control_pattern=sagehen_no_cascades.control
           --durations=0
+          --fail-on-skip
           --cov=pywatershed
           --cov-report=xml
           --junitxml=pytest_sagehen_5yr_no_cascades.xml
@@ -428,6 +430,7 @@ jobs:
           --domain=hru_1
           --control_pattern=nhm.control
           --durations=0
+          --fail-on-skip
           --cov=pywatershed
           --cov-report=xml
           --junitxml=pytest_hru_1_nhm.xml
@@ -458,6 +461,7 @@ jobs:
           --domain=hru_1
           --control_pattern=nhm_transp_frost.control
           --durations=0
+          --fail-on-skip
           --cov=pywatershed
           --cov-report=xml
           --junitxml=pytest_hru_1_transp_frost.xml
@@ -628,6 +632,7 @@ jobs:
           --domain=drb_2yr
           --control_pattern=nhm.control
           --durations=0
+          --fail-on-skip
           --cov=pywatershed
           --cov-report=xml
           --junitxml=pytest_drb_2yr_nhm.xml
@@ -655,6 +660,7 @@ jobs:
           --domain=drb_2yr
           --control_pattern=no_dprst
           --durations=0
+          --fail-on-skip
           --cov=pywatershed
           --cov-report=xml
           --junitxml=pytest_drb_2yr_no_dprst.xml
@@ -675,6 +681,7 @@ jobs:
           --domain=drb_2yr
           --control_pattern=nhm_obsin.control
           --durations=0
+          --fail-on-skip
           --cov=pywatershed
           --cov-report=xml
           --junitxml=pytest_drb_2yr_obsin.xml
@@ -691,6 +698,7 @@ jobs:
           --domain=drb_2yr
           --control_pattern=nhm_transp_frost.control
           --durations=0
+          --fail-on-skip
           --cov=pywatershed
           --cov-report=xml
           --junitxml=pytest_drb_2yr_transp_frost.xml
@@ -707,6 +715,7 @@ jobs:
           --domain=drb_2yr
           --control_pattern=nhm_stream_temp.control
           --durations=0
+          --fail-on-skip
           --cov=pywatershed
           --cov-report=xml
           --junitxml=pytest_drb_2yr_stream_temp.xml
@@ -849,6 +858,7 @@ jobs:
           --domain=ucb_2yr
           --control_pattern=nhm.control
           --durations=0
+          --fail-on-skip
           --cov=pywatershed
           --cov-report=xml
           --junitxml=pytest_ucb_2yr_nhm.xml
@@ -876,6 +886,7 @@ jobs:
           --domain=ucb_2yr
           --control_pattern=nhm_transp_frost.control
           --durations=0
+          --fail-on-skip
           --cov=pywatershed
           --cov-report=xml
           --junitxml=pytest_ucb_2yr_nhm_transp_frost.xml
@@ -1070,6 +1081,7 @@ jobs:
           --control_pattern=spinup.control
           --control_pattern=analysis.control
           --durations=0
+          --fail-on-skip
           --cov=pywatershed
           --cov-report=xml
           --junitxml=pytest_fgr_ag_2yr_spinup.xml
