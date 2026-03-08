@@ -235,7 +235,7 @@ if [ -z "${t}" ]; then
 
     echo
     echo "Get additional domain files for tests"
-    python pywatershed/utils/addtl_domain_files.py || exit 1
+    python pywatershed/utils/addtl_domain_files.py --force || exit 1
 
     cd autotest
 
@@ -375,8 +375,9 @@ if [ -z "${t}" ]; then
             -vv \
             -rs \
             -n=$pytest_n \
+            -m "not domainless" \
             --domain=hru_1 \
-            --control_pattern=frost.control \
+            --control_pattern=nhm_transp_frost.control \
             --durations=0 \
             test_prms_atmosphere_transp_frost.py || exit 1
 
@@ -545,8 +546,9 @@ if [ -z "${t}" ]; then
             -vv \
             -rs \
             -n=$pytest_n \
+            -m "not domainless" \
             --domain=ucb_2yr \
-            --control_pattern=frost.control \
+            --control_pattern=nhm_transp_frost.control \
             --durations=0 \
             test_prms_atmosphere_transp_frost.py || exit 1
     fi

@@ -50,7 +50,7 @@ please see the [pywatershed docs](https://pywatershed.readthedocs.io/).
 
 ## Installation
 
-`pywatershed` uses Python 3.11 or 3.12.
+`pywatershed` uses Python 3.12.
 
 The `pywatershed` package is [available on
 PyPI](https://pypi.org/project/pywatershed/) but installation of all
