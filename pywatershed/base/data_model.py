@@ -769,7 +769,7 @@ def xr_ds_to_dd(file_or_ds, schema_only=False, encoding=True) -> dict:
     the keys of coords and data_vars.
     """
     if not isinstance(file_or_ds, xr.Dataset):
-        xr_ds = xr.open_dataset(file_or_ds)
+        xr_ds = xr.load_dataset(file_or_ds)
     else:
         xr_ds = file_or_ds
 
@@ -1010,13 +1010,12 @@ def nc4_ds_to_xr_dd(file_or_ds, xr_enc: dict = None) -> dict:
 
 
 def _get_xr_encoding(nc_file) -> dict:
-    ds = xr.open_dataset(nc_file)
+    ds = xr.load_dataset(nc_file)
     encoding = {}
     encoding["global"] = ds.encoding
     for vv in ds.variables:
         encoding[vv] = ds[vv].encoding
 
-    ds.close()
     return encoding
 
 
