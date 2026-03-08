@@ -385,7 +385,8 @@ class TestRealFiles:
         domain_name = simulation["name"].split(":")[0]
         if domain_name not in self.SUPPORTED_DOMAINS:
             pytest.skip(
-                f"test_prms_dyn_params only runs on domains: {self.SUPPORTED_DOMAINS}"
+                f"test_prms_dyn_params only runs on domains: "
+                f"{self.SUPPORTED_DOMAINS}"
             )
 
         file_path = simulation["dir"] / "dyn_ag_frac.param"
@@ -444,7 +445,8 @@ class TestRealFiles:
         domain_name = simulation["name"].split(":")[0]
         if domain_name not in self.SUPPORTED_DOMAINS:
             pytest.skip(
-                f"test_prms_dyn_params only runs on domains: {self.SUPPORTED_DOMAINS}"
+                f"test_prms_dyn_params only runs on domains: "
+                f"{self.SUPPORTED_DOMAINS}"
             )
 
         file_path = simulation["dir"] / "spring_frost.dyn"
@@ -501,7 +503,8 @@ class TestRealFiles:
         domain_name = simulation["name"].split(":")[0]
         if domain_name not in self.SUPPORTED_DOMAINS:
             pytest.skip(
-                f"test_prms_dyn_params only runs on domains: {self.SUPPORTED_DOMAINS}"
+                f"test_prms_dyn_params only runs on domains: "
+                f"{self.SUPPORTED_DOMAINS}"
             )
 
         # Try float file first
