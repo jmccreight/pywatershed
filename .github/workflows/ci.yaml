@@ -602,6 +602,10 @@ jobs:
           pip -V
           pip list
 
+      - name: Get GIS files for tests
+        run: |
+          python pywatershed/utils/gis_files.py
+
       - name: drb_2yr all domains - generate and manage test data
         working-directory: autotest
         run: |
