@@ -13,6 +13,8 @@ class ModelGraph:
         show_params: bool = False,
         process_colors: dict = None,
         node_penwidth: int = 2,
+        edge_penwidth: float = 1.5,
+        edge_arrowsize: float = 1.2,
         default_edge_color: str = "black",
         from_file_edge_color: str = None,
         node_spacing: float = 2.75,
@@ -25,6 +27,8 @@ class ModelGraph:
         self.show_params = show_params
         self.process_colors = process_colors
         self.node_penwidth = node_penwidth
+        self.edge_penwidth = edge_penwidth
+        self.edge_arrowsize = edge_arrowsize
         self.default_edge_color = default_edge_color
         if not from_file_edge_color:
             self.from_file_edge_color = default_edge_color
@@ -37,7 +41,6 @@ class ModelGraph:
 
     def build_graph(self):
         # Build the process nodes in the graph
-        self._current_pos = self.node_spacing
         self.process_nodes = {}
         for process in self.model.process_order:
             self.process_nodes[process] = self._process_node(
@@ -86,24 +89,68 @@ class ModelGraph:
                         )
                     ]
 
-        # Build the file node, reset the position
-        self._current_pos = 0
+        # Build the file node
         self.file_node = self._file_node(self.files)
 
         # build the graph
         self.graph = self.pydot.Dot(
             graph_type="digraph",
-            layout="neato",
-            splines="polyline",
+            layout="dot",
+            rankdir="LR",
+            nodesep="0.5",
+            ranksep="1.0",
         )
 
+        # Add an invisible source node to force Files to leftmost position
+        source_node = self.pydot.Node(
+            "_source_",
+            style="invis",
+            width="0",
+            height="0",
+        )
+        self.graph.add_node(source_node)
+
         self.graph.add_node(self.file_node)
+
+        # Add invisible edge from source to Files to control rank
+        self.graph.add_edge(
+            self.pydot.Edge("_source_", "Files", style="invis")
+        )
 
         for process in self.model.process_order:
             self.graph.add_node(self.process_nodes[process])
 
+        # Add invisible edges between Files and first process, and between
+        # consecutive processes to enforce left-to-right ordering
+        if len(self.model.process_order) > 0:
+            first_process = self.model.process_order[0]
+            self.graph.add_edge(
+                self.pydot.Edge(
+                    "Files", first_process, style="invis", weight="10"
+                )
+            )
+
+            for i in range(len(self.model.process_order) - 1):
+                from_process = self.model.process_order[i]
+                to_process = self.model.process_order[i + 1]
+                self.graph.add_edge(
+                    self.pydot.Edge(
+                        from_process, to_process, style="invis", weight="10"
+                    )
+                )
+
         for con in self.connections:
-            self.graph.add_edge(self.pydot.Edge(con[0], con[1], color=con[2]))
+            # Use constraint=false so data edges don't affect ranking
+            self.graph.add_edge(
+                self.pydot.Edge(
+                    con[0],
+                    con[1],
+                    color=con[2],
+                    constraint="false",
+                    penwidth=str(self.edge_penwidth),
+                    arrowsize=str(self.edge_arrowsize),
+                )
+            )
 
         return
 
@@ -191,12 +238,10 @@ class ModelGraph:
         node = self.pydot.Node(
             process_name,
             label=label,
-            pos=f'"{self._current_pos},0!"',
             shape="box",
             color=color_str,
             penwidth=f'"{self.node_penwidth}"',
         )
-        self._current_pos += self.node_spacing
 
         return node
 
@@ -217,10 +262,8 @@ class ModelGraph:
         node = self.pydot.Node(
             "Files",
             label=label,
-            pos=f'"{self._current_pos},0!"',
             shape="note",
             color=f'"{self.from_file_edge_color}"',
             penwidth=f'"{self.node_penwidth}"',
         )
-        self._current_pos += self.node_spacing
         return node
