@@ -1994,6 +1994,13 @@ infil_ag_hru:
   type: float64
   units: inches
   var_category: mass flux
+infil_perv_hru:
+  desc: Infiltration to the pervious area fraction of each HRU, depth on HRU area
+  dims:
+    0: nhru
+  type: float64
+  units: inches
+  var_category: mass flux
 infil_hru:
   desc: Infiltration to the capillary and preferential-flow reservoirs, depth on HRU area
   dims:

@@ -88,6 +88,7 @@ def test_compare_prms(
     comparison_var_names = set(PRMSRunoffAg.get_variables()) - {
         "dprst_vol_thres_open",  # not output by fortran nor post-processed
         "infil_ag_hru",  # currently not post-processed but infil_ag is
+        "infil_perv_hru",  # new diagnostic variable, not in PRMS output
         "hru_sroff_ag",  # PRMS does can not write this variable
         "sroff_vol",  # errors for large HRUs, rely on sroff
         "intcp_changeover_budget",  # not a PRMS/GSFLOW variable

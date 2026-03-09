@@ -259,6 +259,7 @@ class PRMSRunoffAg(PRMSRunoff):
             "dprst_vol_thres_open": zero,
             "infil_ag": zero,
             "infil_ag_hru": zero,
+            "infil_perv_hru": zero,
             "hru_sroff_ag": zero,
             "intcp_changeover_budget": zero,
         }
@@ -268,16 +269,19 @@ class PRMSRunoffAg(PRMSRunoff):
         """Get mass budget terms for agricultural runoff.
 
         In GSFLOW with agriculture, the pervious area (hru_perv) is reduced
-        by ag_area. We calculate infil_hru to include BOTH pervious and
-        agricultural infiltration:
-        - Parent calculates: infil_hru = infil * hru_frac_perv (adjusted)
-        - We add: infil_ag_hru = infil_ag * ag_frac
-        - Final infil_hru = pervious_infil + ag_infil (total infiltration)
+        by ag_area. We break out infiltration and surface runoff into
+        separate pervious and agricultural components for budget clarity:
+
+        Infiltration components:
+        - infil_perv_hru: pervious infiltration only = infil * hru_frac_perv
+        - infil_ag_hru: agricultural infiltration = infil_ag * ag_frac
+        - infil_hru: combined total (pervious + ag) for compatibility with
+          PRMS source code
 
         Surface runoff is split into three components:
         - hru_sroffi: impervious runoff
         - hru_sroffp: pervious runoff
-        - hru_sroff_ag: agricultural runoff (new)
+        - hru_sroff_ag: agricultural runoff
         """
         return {
             "inputs": [
@@ -292,7 +296,8 @@ class PRMSRunoffAg(PRMSRunoff):
                 "hru_sroffp",
                 "hru_sroff_ag",  # Agricultural surface runoff
                 "dprst_sroff_hru",
-                "infil_hru",  # Includes both pervious and ag infiltration
+                "infil_perv_hru",  # Pervious infiltration only
+                "infil_ag_hru",  # Agricultural infiltration
                 "hru_impervevap",
                 "dprst_seep_hru",
                 "dprst_evap_hru",
@@ -467,10 +472,11 @@ class PRMSRunoffAg(PRMSRunoff):
         # Update ag_area and related quantities in case ag_frac changed
         self._update_ag_areas()
 
-        self.infil_hru[:] = (
-            self.infil * self.hru_frac_perv + self.infil_ag * self.ag_frac
-        )
+        # Calculate infiltration components for budget clarity
+        self.infil_perv_hru[:] = self.infil * self.hru_frac_perv
         self.infil_ag_hru[:] = self.infil_ag * self.ag_frac
+        # Calculate combined infiltration (maintains PRMS source code parity)
+        self.infil_hru[:] = self.infil_perv_hru + self.infil_ag_hru
 
         self.hru_impervstor_change[:] = (
             self.hru_impervstor - self.hru_impervstor_old
