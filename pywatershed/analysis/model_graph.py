@@ -7,19 +7,44 @@ from ..utils.optional_import import import_optional_dependency
 
 
 class ModelGraph:
+    """Visualize a pywatershed Model as a directed graph.
+
+    Creates a GraphViz visualization showing processes, their inputs/variables,
+    and the data flow between them. Uses the dot layout engine with left-to-right
+    orientation.
+
+    Args:
+        model: The pywatershed Model to visualize
+        show_params: Whether to display parameters in process nodes
+        process_colors: Dictionary mapping process names to colors for node borders
+        node_penwidth: Width of node borders (default: 2)
+        edge_penwidth: Width of edges/arrows (default: 1.5)
+        edge_arrowsize: Size of arrowheads (default: 1.2)
+        default_edge_color: Color for edges between processes (default: "black")
+        from_file_edge_color: Color for edges from file inputs (default: same as
+            default_edge_color)
+        hide_variables: If True, hide individual variable names and only show
+            process-to-process connections (default: True)
+
+    Example:
+        >>> import pywatershed as pws
+        >>> model = pws.Model(process_list, control=control, parameters=params)
+        >>> mg = pws.analysis.ModelGraph(model, hide_variables=False)
+        >>> mg.SVG()
+    """
+
     def __init__(
         self,
         model: Model,
         show_params: bool = False,
-        process_colors: dict = None,
+        process_colors: dict[str, str] | None = None,
         node_penwidth: int = 2,
         edge_penwidth: float = 1.5,
         edge_arrowsize: float = 1.2,
         default_edge_color: str = "black",
-        from_file_edge_color: str = None,
-        node_spacing: float = 2.75,
+        from_file_edge_color: str | None = None,
         hide_variables: bool = True,
-    ):
+    ) -> None:
         self.pydot = import_optional_dependency("pydot")
         self.graph = None
 
@@ -34,13 +59,21 @@ class ModelGraph:
             self.from_file_edge_color = default_edge_color
         else:
             self.from_file_edge_color = from_file_edge_color
-        self.node_spacing = node_spacing
         self.hide_variables = hide_variables
 
-        return
+    def build_graph(self) -> None:
+        """Build the GraphViz graph structure.
 
-    def build_graph(self):
-        # Build the process nodes in the graph
+        Creates nodes for all processes and files, establishes connections
+        between them, and sets up invisible ordering edges to enforce
+        left-to-right layout according to model.process_order.
+
+        The graph uses the dot layout engine with:
+        - Left-to-right orientation (rankdir="LR")
+        - Invisible edges to control node ordering
+        - constraint=false on data edges so they don't affect layout
+        """
+        # Build the process nodes
         self.process_nodes = {}
         for process in self.model.process_order:
             self.process_nodes[process] = self._process_node(
@@ -49,7 +82,7 @@ class ModelGraph:
                 show_params=self.show_params,
             )
 
-        # Solve the connections
+        # Build connections between processes and files
         self.files = []
         self.connections = []
         for process in self.model.process_order:
@@ -58,13 +91,13 @@ class ModelGraph:
                 var_con = f":{var}"
 
                 if self.hide_variables:
+                    # When hiding variables, connect directly to process
+                    # and avoid duplicate edges from same source
                     var_con = ""
                     if frm in frm_already:
-                        # print(f"skipping: {frm}")
                         continue
                     else:
                         frm_already += [frm]
-                        # print(frm_already)
 
                 if not isinstance(frm, pl.Path):
                     color = self.default_edge_color
@@ -89,10 +122,10 @@ class ModelGraph:
                         )
                     ]
 
-        # Build the file node
+        # Build the file inputs node
         self.file_node = self._file_node(self.files)
 
-        # build the graph
+        # Create the GraphViz graph with layout settings
         self.graph = self.pydot.Dot(
             graph_type="digraph",
             layout="dot",
@@ -120,8 +153,9 @@ class ModelGraph:
         for process in self.model.process_order:
             self.graph.add_node(self.process_nodes[process])
 
-        # Add invisible edges between Files and first process, and between
-        # consecutive processes to enforce left-to-right ordering
+        # Add invisible edges to enforce left-to-right process ordering.
+        # These edges control the layout while constraint=false on data
+        # edges prevents them from affecting node positions.
         if len(self.model.process_order) > 0:
             first_process = self.model.process_order[0]
             self.graph.add_edge(
@@ -139,8 +173,8 @@ class ModelGraph:
                     )
                 )
 
+        # Add data flow edges with constraint=false so they don't affect layout
         for con in self.connections:
-            # Use constraint=false so data edges don't affect ranking
             self.graph.add_edge(
                 self.pydot.Edge(
                     con[0],
@@ -152,10 +186,13 @@ class ModelGraph:
                 )
             )
 
-        return
+    def SVG(self, verbose: bool = False, dpi: int = 45) -> None:
+        """Render and display the graph as SVG in a Jupyter notebook.
 
-    def SVG(self, verbose: bool = False, dpi=45):
-        """Display an SVG in jupyter notebook (via tempfile)."""
+        Args:
+            verbose: If True, print the temporary file path
+            dpi: Resolution for the SVG output (default: 45)
+        """
 
         ipdisplay = import_optional_dependency("IPython.display")
 
@@ -167,9 +204,21 @@ class ModelGraph:
             print(f"Displaying SVG written to temp file: {tmp_file}")
 
         ipdisplay.display(ipdisplay.SVG(tmp_file))
-        return
 
-    def _process_node(self, process_name, process, show_params: bool = False):
+    def _process_node(
+        self, process_name: str, process, show_params: bool = False
+    ):
+        """Create a node for a process with its inputs, variables, and parameters.
+
+        Args:
+            process_name: Name of the process in the model
+            process: The process instance
+            show_params: Whether to include parameters in the node
+
+        Returns:
+            A pydot.Node with an HTML-like table label showing the process
+            structure
+        """
         inputs = process.get_inputs()
         variables = process.get_variables()
         params = process.get_parameters()
@@ -220,7 +269,7 @@ class ModelGraph:
             label += f'         BGCOLOR="{category_colors[varset_name]}">{varset_name}</TD>\n'  # noqa: E501
             label += "    </TR>\n"
 
-            for ii, vv in enumerate(sorted(varset)):
+            for vv in sorted(varset):
                 border_color_str = ""
                 if vv in mass_budget_vars:
                     border_color_str = 'border="1" COLOR="BLUE"'
@@ -229,7 +278,6 @@ class ModelGraph:
                 label += "    </TR>\n"
 
         label += "</TABLE>>\n"
-        label = label
 
         color_str = ""
         if self.process_colors:
@@ -245,7 +293,15 @@ class ModelGraph:
 
         return node
 
-    def _file_node(self, files):
+    def _file_node(self, files: list[str]):
+        """Create a node listing all input files.
+
+        Args:
+            files: List of file names that provide inputs to the model
+
+        Returns:
+            A pydot.Node with an HTML-like table label listing all files
+        """
         files = list(set(files))
         label = (
             '<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="1">\n'  # noqa
@@ -258,7 +314,6 @@ class ModelGraph:
             label += "    </TR>\n"
 
         label += "</TABLE>>\n"
-        label = label
         node = self.pydot.Node(
             "Files",
             label=label,
