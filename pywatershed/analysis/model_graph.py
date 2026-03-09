@@ -4,25 +4,28 @@ import tempfile
 from ..base.conservative_process import ConservativeProcess
 from ..base.model import Model
 from ..utils.optional_import import import_optional_dependency
+from .utils.colorbrewer import nhm_process_colors
 
 
 class ModelGraph:
     """Visualize a pywatershed Model as a directed graph.
 
-    Creates a GraphViz visualization showing processes, their inputs/variables,
-    and the data flow between them. Uses the dot layout engine with left-to-right
-    orientation.
+    Creates a GraphViz visualization showing processes, their
+    inputs/variables, and the data flow between them. Uses the dot layout
+    engine with left-to-right orientation.
 
     Args:
         model: The pywatershed Model to visualize
         show_params: Whether to display parameters in process nodes
-        process_colors: Dictionary mapping process names to colors for node borders
+        process_colors: Dictionary mapping process names to colors for node
+            borders
         node_penwidth: Width of node borders (default: 2)
         edge_penwidth: Width of edges/arrows (default: 1.5)
         edge_arrowsize: Size of arrowheads (default: 1.2)
-        default_edge_color: Color for edges between processes (default: "black")
-        from_file_edge_color: Color for edges from file inputs (default: same as
-            default_edge_color)
+        default_edge_color: Color for edges between processes
+            (default: "black")
+        from_file_edge_color: Color for edges from file inputs
+            (default: same as default_edge_color)
         hide_variables: If True, hide individual variable names and only show
             process-to-process connections (default: True)
 
@@ -50,7 +53,11 @@ class ModelGraph:
 
         self.model = model
         self.show_params = show_params
-        self.process_colors = process_colors
+        # Auto-generate process colors if not provided
+        if process_colors is None:
+            self.process_colors = nhm_process_colors(model)
+        else:
+            self.process_colors = process_colors
         self.node_penwidth = node_penwidth
         self.edge_penwidth = edge_penwidth
         self.edge_arrowsize = edge_arrowsize
@@ -186,29 +193,50 @@ class ModelGraph:
                 )
             )
 
-    def SVG(self, verbose: bool = False, dpi: int = 45) -> None:
+    def SVG(
+        self, verbose: bool = False, dpi: int = 45, show_legend: bool = False
+    ) -> None:
         """Render and display the graph as SVG in a Jupyter notebook.
 
         Args:
             verbose: If True, print the temporary file path
             dpi: Resolution for the SVG output (default: 45)
+            show_legend: If True, display legend for process colors and
+                mass/energy budget terms before the graph
         """
 
         ipdisplay = import_optional_dependency("IPython.display")
 
+        if show_legend:
+            self.display_legend()
+
         tmp_file = pl.Path(tempfile.NamedTemporaryFile().name)
         if self.graph is None:
             self.build_graph()
-        self.graph.write_svg(tmp_file, prog=["dot", f"-Gdpi={dpi}"])
-        if verbose:
-            print(f"Displaying SVG written to temp file: {tmp_file}")
 
-        ipdisplay.display(ipdisplay.SVG(tmp_file))
+        try:
+            self.graph.write_svg(tmp_file, prog=["dot", f"-Gdpi={dpi}"])
+            if verbose:
+                print(f"Displaying SVG written to temp file: {tmp_file}")
+
+            ipdisplay.display(ipdisplay.SVG(tmp_file))
+        except Exception as e:
+            print(
+                "GraphViz rendering failed. This can happen on some "
+                "machines or with certain graph configurations."
+            )
+            print(f"Error details: {e}")
+            print(
+                "\nTip: Try installing or updating GraphViz, or use "
+                "show_legend=True to see the model structure without "
+                "the visualization."
+            )
 
     def _process_node(
         self, process_name: str, process, show_params: bool = False
     ):
-        """Create a node for a process with its inputs, variables, and parameters.
+        """Create a node for a process with its inputs, variables, and
+        parameters.
 
         Args:
             process_name: Name of the process in the model
@@ -231,9 +259,9 @@ class ModelGraph:
         )
 
         category_colors = {
-            "inputs": "lightblue",
-            "params": "orange",
-            "variables": "lightgreen",
+            "inputs": "white",
+            "params": "whitesmoke",
+            "variables": "lightgray",
         }
 
         show_categories = {
@@ -250,8 +278,14 @@ class ModelGraph:
                 for comp, vars in process.get_mass_budget_terms().items()
                 for var in vars
             ]
+            energy_budget_vars = [
+                var
+                for comp, vars in process.get_energy_budget_terms().items()
+                for var in vars
+            ]
         else:
             mass_budget_vars = []
+            energy_budget_vars = []
 
         for varset_name, varset in show_categories.items():
             n_vars = len(varset)
@@ -270,11 +304,15 @@ class ModelGraph:
             label += "    </TR>\n"
 
             for vv in sorted(varset):
-                border_color_str = ""
+                # Determine background color based on budget category
+                bg_color = category_colors[varset_name]
                 if vv in mass_budget_vars:
-                    border_color_str = 'border="1" COLOR="BLUE"'
+                    bg_color = "lightsteelblue"
+                elif vv in energy_budget_vars:
+                    bg_color = "lightcoral"
+
                 label += "    <TR>\n"
-                label += f'        <TD COLSPAN="4" BGCOLOR="{category_colors[varset_name]}" {border_color_str} PORT="{vv}"><FONT POINT-SIZE="9.0">{vv}</FONT></TD>\n'  # noqa: E501
+                label += f'        <TD COLSPAN="4" BGCOLOR="{bg_color}" PORT="{vv}"><FONT POINT-SIZE="9.0">{vv}</FONT></TD>\n'  # noqa: E501
                 label += "    </TR>\n"
 
         label += "</TABLE>>\n"
@@ -322,3 +360,56 @@ class ModelGraph:
             penwidth=f'"{self.node_penwidth}"',
         )
         return node
+
+    def display_legend(self):
+        """Display a complete legend for the ModelGraph visualization.
+
+        Shows:
+        - Process colors (node border colors)
+        - Mass budget variable colors (lightsteelblue background, if present)
+        - Energy budget variable colors (lightcoral background, if present)
+        """
+        ipdisplay = import_optional_dependency("IPython.display")
+
+        legend_parts = []
+
+        # Process colors legend
+        if self.process_colors:
+            legend_parts.append("**Process Colors:**")
+            for process_name, color in self.process_colors.items():
+                legend_parts.append(
+                    f'<span style="font-family: monospace">{process_name}: '
+                    f'<span style="color: {color}">████████</span></span>'
+                )
+            legend_parts.append("")  # Blank line
+
+        # Check if model has mass or energy budget variables
+        has_mass_budget = False
+        has_energy_budget = False
+        for process in self.model.processes.values():
+            if isinstance(process, ConservativeProcess):
+                mass_terms = process.get_mass_budget_terms()
+                if any(mass_terms.values()):
+                    has_mass_budget = True
+                energy_terms = process.get_energy_budget_terms()
+                if any(energy_terms.values()):
+                    has_energy_budget = True
+
+        # Budget terms legend - only show if present
+        budget_items = {}
+        if has_mass_budget:
+            budget_items["Mass budget variables"] = "lightsteelblue"
+        if has_energy_budget:
+            budget_items["Energy budget variables"] = "lightcoral"
+
+        if budget_items:
+            legend_parts.append("**Variable Background Colors:**")
+            for label, color in budget_items.items():
+                legend_parts.append(
+                    f'<span style="font-family: monospace">{label}: '
+                    f'<span style="background-color: {color}; '
+                    f'padding: 2px 8px; border: 1px solid #ccc">'
+                    f"variable</span></span>"
+                )
+
+        ipdisplay.display(ipdisplay.Markdown("<br>".join(legend_parts)))
