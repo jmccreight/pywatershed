@@ -15,28 +15,7 @@ from pywatershed.utils import (
     compare_dynamic_param_files_text,
 )
 
-# =============================================================================
-# REAL FILE PATHS FOR TESTING
-# Set these to actual file paths to test with real dynamic parameter files.
-# Set to None to skip real file tests.
-# =============================================================================
-input_path = pl.Path("../../wu/reanalysis/run_nhm_gsflow/input/")
-REAL_FLOAT_FILE = input_path / "dyn_ag_frac.param"
-REAL_INT_FILE = input_path / "spring_frost.dyn"
 
-# Data type for each real file ("float" or "int")
-REAL_FLOAT_FILE_DTYPE = "float"
-REAL_INT_FILE_DTYPE = "int"
-
-# =============================================================================
-# OUTPUT PERSISTENCE OPTIONS
-# Set PERSIST_OUTPUT_DIR to a directory path to save output files after tests.
-# Set to None to use temporary directories that are cleaned up after tests.
-# =============================================================================
-PERSIST_OUTPUT_DIR = pl.Path("/tmp/dyn_param_test_output")
-
-
-@pytest.mark.domainless
 class TestPrmsDynamicParameter:
     """Tests for PrmsDynamicParameter class."""
 
@@ -375,7 +354,6 @@ class TestPrmsDynamicParameter:
                 np.testing.assert_allclose(vals1, vals2, rtol=1e-5)
 
 
-@pytest.mark.domainless
 class TestRealFiles:
     """Tests using real dynamic parameter files.
 
@@ -386,33 +364,32 @@ class TestRealFiles:
     tests complete. Otherwise, temporary directories are used and cleaned up.
     """
 
+    # List of domains that have the required dynamic parameter files
+    SUPPORTED_DOMAINS = ["fgr_ag_2yr"]
+
     @staticmethod
     def _get_output_dir(subdir: str = None):
-        """Get output directory, either persistent or temporary.
+        """Get output directory using temporary directory.
 
         Args:
             subdir: Optional subdirectory name within the output dir
 
         Returns:
-            tuple: (output_dir_path, context_manager_or_None)
-            If using persistent dir, context manager is None.
-            If using temp dir, context manager should be used with 'with'.
+            tuple: (output_dir_path, context_manager)
+            Context manager should be used with 'with'.
         """
-        if PERSIST_OUTPUT_DIR is not None:
-            output_dir = pl.Path(PERSIST_OUTPUT_DIR)
-            if subdir:
-                output_dir = output_dir / subdir
-            output_dir.mkdir(parents=True, exist_ok=True)
-            return output_dir, None
-        else:
-            return None, tempfile.TemporaryDirectory()
+        return None, tempfile.TemporaryDirectory()
 
-    def test_real_float_file_round_trip(self):
+    def test_real_float_file_round_trip(self, simulation):
         """Test round-trip with a real float dynamic parameter file."""
-        if REAL_FLOAT_FILE is None:
-            pytest.skip("REAL_FLOAT_FILE not set")
+        domain_name = simulation["name"].split(":")[0]
+        if domain_name not in self.SUPPORTED_DOMAINS:
+            pytest.skip(
+                f"test_prms_dyn_params only runs on domains: "
+                f"{self.SUPPORTED_DOMAINS}"
+            )
 
-        file_path = pl.Path(REAL_FLOAT_FILE)
+        file_path = simulation["dir"] / "dyn_ag_frac.param"
         if not file_path.exists():
             pytest.skip(f"Real file not found: {file_path}")
 
@@ -427,9 +404,7 @@ class TestRealFiles:
 
             # Load original
             print(f"Loading real file: {file_path}")
-            dyn_param = PrmsDynamicParameter.load(
-                file_path, dtype=REAL_FLOAT_FILE_DTYPE
-            )
+            dyn_param = PrmsDynamicParameter.load(file_path, dtype="float")
             print(f"  nhru: {dyn_param.nhru}")
             print(f"  n_times: {len(dyn_param.dates)}")
             print(f"  dtype: {dyn_param.dtype}")
@@ -439,9 +414,7 @@ class TestRealFiles:
             print(f"Wrote to: {output_file}")
 
             # Load the written file
-            reloaded = PrmsDynamicParameter.load(
-                output_file, dtype=REAL_FLOAT_FILE_DTYPE
-            )
+            reloaded = PrmsDynamicParameter.load(output_file, dtype="float")
 
             # Compare data values
             assert reloaded.nhru == dyn_param.nhru
@@ -463,19 +436,20 @@ class TestRealFiles:
             )
             print("Text round-trip successful!")
 
-            if PERSIST_OUTPUT_DIR is not None:
-                print(f"Output persisted to: {output_file}")
-
         finally:
             if temp_ctx is not None:
                 temp_ctx.__exit__(None, None, None)
 
-    def test_real_int_file_round_trip(self):
+    def test_real_int_file_round_trip(self, simulation):
         """Test round-trip with a real integer dynamic parameter file."""
-        if REAL_INT_FILE is None:
-            pytest.skip("REAL_INT_FILE not set")
+        domain_name = simulation["name"].split(":")[0]
+        if domain_name not in self.SUPPORTED_DOMAINS:
+            pytest.skip(
+                f"test_prms_dyn_params only runs on domains: "
+                f"{self.SUPPORTED_DOMAINS}"
+            )
 
-        file_path = pl.Path(REAL_INT_FILE)
+        file_path = simulation["dir"] / "spring_frost.dyn"
         if not file_path.exists():
             pytest.skip(f"Real file not found: {file_path}")
 
@@ -490,9 +464,7 @@ class TestRealFiles:
 
             # Load original
             print(f"Loading real file: {file_path}")
-            dyn_param = PrmsDynamicParameter.load(
-                file_path, dtype=REAL_INT_FILE_DTYPE
-            )
+            dyn_param = PrmsDynamicParameter.load(file_path, dtype="int")
             print(f"  nhru: {dyn_param.nhru}")
             print(f"  n_times: {len(dyn_param.dates)}")
             print(f"  dtype: {dyn_param.dtype}")
@@ -502,9 +474,7 @@ class TestRealFiles:
             print(f"Wrote to: {output_file}")
 
             # Load the written file
-            reloaded = PrmsDynamicParameter.load(
-                output_file, dtype=REAL_INT_FILE_DTYPE
-            )
+            reloaded = PrmsDynamicParameter.load(output_file, dtype="int")
 
             # Compare data values
             assert reloaded.nhru == dyn_param.nhru
@@ -524,27 +494,32 @@ class TestRealFiles:
             )
             print("Text round-trip successful!")
 
-            if PERSIST_OUTPUT_DIR is not None:
-                print(f"Output persisted to: {output_file}")
-
         finally:
             if temp_ctx is not None:
                 temp_ctx.__exit__(None, None, None)
 
-    def test_real_file_subset_round_trip(self):
+    def test_real_file_subset_round_trip(self, simulation):
         """Test subset and round-trip with a real file."""
-        # Use whichever real file is available
-        if REAL_FLOAT_FILE is not None:
-            file_path = pl.Path(REAL_FLOAT_FILE)
-            dtype = REAL_FLOAT_FILE_DTYPE
-        elif REAL_INT_FILE is not None:
-            file_path = pl.Path(REAL_INT_FILE)
-            dtype = REAL_INT_FILE_DTYPE
-        else:
-            pytest.skip("No real files configured")
+        domain_name = simulation["name"].split(":")[0]
+        if domain_name not in self.SUPPORTED_DOMAINS:
+            pytest.skip(
+                f"test_prms_dyn_params only runs on domains: "
+                f"{self.SUPPORTED_DOMAINS}"
+            )
 
-        if not file_path.exists():
-            pytest.skip(f"Real file not found: {file_path}")
+        # Try float file first
+        file_path = simulation["dir"] / "dyn_ag_frac.param"
+        if file_path.exists():
+            dtype = "float"
+        else:
+            # Try int file
+            file_path = simulation["dir"] / "spring_frost.dyn"
+            if file_path.exists():
+                dtype = "int"
+            else:
+                pytest.skip(
+                    "No dynamic parameter files found in simulation directory"
+                )
 
         output_dir, temp_ctx = self._get_output_dir("subset_round_trip")
 
@@ -584,9 +559,6 @@ class TestRealFiles:
                 )
 
             print("Subset round-trip successful!")
-
-            if PERSIST_OUTPUT_DIR is not None:
-                print(f"Output persisted to: {output_file}")
 
         finally:
             if temp_ctx is not None:
