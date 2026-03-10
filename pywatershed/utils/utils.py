@@ -1,7 +1,6 @@
 import functools
 import pathlib as pl
 from time import time
-from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -53,23 +52,6 @@ def diff_dicts(dict_a: dict, dict_b: dict, ignore_keys: list = []):
             print("value for b: ")
             print(f"    {val_b}")
             print("")
-
-
-def pyprms_control_no_defaults(
-    control_file: pl.Path,
-    metadata,
-    verbose: Optional[bool] = False,
-):
-    """Get a pyPRMS Control object where no defaults are applied.
-
-    Only necessary until pypRMS PR #40 is merged.
-    """
-    import pyPRMS as pp
-
-    pp_control = pp.ControlFile(
-        filename=control_file, metadata=metadata, verbose=verbose
-    )
-    return pp_control
 
 
 def write_data_file(df: pd.DataFrame, output_file_path: pl.Path) -> None:

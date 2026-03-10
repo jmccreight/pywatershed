@@ -235,8 +235,10 @@ class DomainSubset:
             self._full_control_file, warn_unused_options=False
         )
 
-        control = pws.utils.utils.pyprms_control_no_defaults(
-            self._full_control_file, metadata=pyprms_meta, verbose=False
+        control = pp.ControlFile(
+            filename=self._full_control_file,
+            metadata=pyprms_meta,
+            verbose=False,
         )
         self._full_control_var_names = control.control_variables.keys()
         del control
@@ -630,8 +632,10 @@ class DomainSubset:
         control_dir = self._full_control_file.parent
 
         # Use pyPRMS control to access control variables
-        control = pws.utils.utils.pyprms_control_no_defaults(
-            self._full_control_file, metadata=pyprms_meta, verbose=False
+        control = pp.ControlFile(
+            filename=self._full_control_file,
+            metadata=pyprms_meta,
+            verbose=False,
         )
         control_vars = control.control_variables
 
@@ -764,8 +768,10 @@ class DomainSubset:
                 "output_format not specified on initialization or write."
             )
 
-        self._sub_control = pws.utils.utils.pyprms_control_no_defaults(
-            self._full_control_file, metadata=pyprms_meta, verbose=False
+        self._sub_control = pp.ControlFile(
+            filename=self._full_control_file,
+            metadata=pyprms_meta,
+            verbose=False,
         )
         self._sub_control_file_name = (
             f"{self._full_control_file.stem}_subset.control"
