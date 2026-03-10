@@ -55,23 +55,6 @@ def diff_dicts(dict_a: dict, dict_b: dict, ignore_keys: list = []):
             print("")
 
 
-def get_control_keys(control_file: pl.Path) -> list[str]:
-    # This is to deal with pyPRMS filling all the control defaults until it
-    # merges a PR.
-    with open(control_file, "r") as file:
-        control_keys = []
-        save_next = False
-        for line in file:
-            if save_next:
-                control_keys += [line.strip()]
-            if "####" in line:
-                save_next = True
-            else:
-                save_next = False
-
-    return control_keys
-
-
 def pyprms_control_no_defaults(
     control_file: pl.Path,
     metadata,
@@ -86,11 +69,6 @@ def pyprms_control_no_defaults(
     pp_control = pp.ControlFile(
         filename=control_file, metadata=metadata, verbose=verbose
     )
-    orig_control_keys = get_control_keys(control_file)
-    for cv in list(pp_control.control_variables.keys()):
-        if cv not in orig_control_keys:
-            pp_control.remove(cv)
-
     return pp_control
 
 

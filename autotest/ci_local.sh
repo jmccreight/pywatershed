@@ -185,18 +185,22 @@ if [ -z "${m}" ]; then
     # install conda env for mf6
     cd "${modflow_repo_location}" || exit 1
     env_name=mf64ci
-    # only necessary the first time ?
-    # env_file=environment.yml
-    # mamba remove -y --name $env_name --all || exit 1
-    # mamba create -y --name $env_name || exit 1
-    # mamba env update --name $env_name --file $env_file --prune  || exit 1
+    # only necessary the first time - create env if it doesn't exist
+    if ! conda env list | grep -q "^${env_name} "; then
+        env_file=environment.yml
+        mamba remove -y --name $env_name --all || exit 1
+        mamba create -y --name $env_name || exit 1
+        mamba env update --name $env_name --file $env_file --prune || exit 1
+    fi
 
     conda_dir=$(dirname $CONDA_EXE)
     source $conda_dir/activate $env_name || exit 1
     # putting this here b/c of some issues on macos 26
-    # export SDKROOT=$(xcrun --sdk macosx --show-sdk-path)
-    # export LIBRARY_PATH="$LIBRARY_PATH:$SDKROOT/usr/lib"
-    # only necessary the first time
+    # only necessary on macOS
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        export SDKROOT=$(xcrun --sdk macosx --show-sdk-path)
+        export LIBRARY_PATH="$LIBRARY_PATH:$SDKROOT/usr/lib"
+    fi
     if [ ! -d "buildir" ]; then
         meson setup --prefix=$(pwd) --libdir=bin builddir || exit 11
     fi
