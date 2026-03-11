@@ -43,6 +43,11 @@ jobs:
         run: |
           make html
 
+      - name: Prepare artifact directory
+        run: |
+          mkdir -p artifact/documentation-html
+          cp -r doc/build/html/* artifact/documentation-html/
+
       - name: Check for build warnings
         working-directory: doc
         run: |
@@ -57,7 +62,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: documentation-html
-          path: doc/build/html/
+          path: artifact/
           retention-days: 30
 
       - name: Check documentation coverage
