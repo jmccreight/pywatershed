@@ -1,22 +1,19 @@
 import numpy as np
 import pytest
 from pyPRMS import DataFile as PRMSStreamflowData
-from pyPRMS import MetaData
 
 from pywatershed import PRMSChannel
 from pywatershed.base.adapter import Adapter, AdapterNetcdf, adapter_factory
 from pywatershed.base.control import Control
 from pywatershed.base.flow_graph import FlowGraph
 from pywatershed.base.parameters import Parameters
-from pywatershed.constants import nan, zero
+from pywatershed.constants import nan, pyprms_meta, zero
 from pywatershed.hydrology.obsin_flow_node import ObsInFlowNodeMaker
 from pywatershed.hydrology.prms_channel_flow_graph import (
     HruSegmentFlowAdapter,
     PRMSChannelFlowNodeMaker,
 )
 from pywatershed.parameters import PrmsParameters
-
-pyprms_meta = MetaData(verbose=False).metadata
 
 do_compare_output_files = False
 do_compare_in_memory = True
