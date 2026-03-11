@@ -22,7 +22,7 @@ jobs:
 
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
         with:
           ref: main
 
@@ -32,13 +32,13 @@ jobs:
         run: |
           version=$(cat version.txt | xargs)
           title="pywatershed $version"
-          
+
           # Check if this release already exists
           if gh release view "$version" &> /dev/null; then
             echo "Release $version already exists, skipping"
             exit 0
           fi
-          
+
           gh release create "$version" \
             --target main \
             --title "$title" \
@@ -53,17 +53,17 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-      id-token: write  # mandatory for trusted publishing
+      id-token: write # mandatory for trusted publishing
     environment:
       name: pypi
       url: https://pypi.org/p/pywatershed
 
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: "pip"
@@ -91,4 +91,3 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           verbose: true
-

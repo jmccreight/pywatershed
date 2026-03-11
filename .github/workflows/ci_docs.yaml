@@ -1,0 +1,70 @@
+name: Documentation Build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build_docs:
+    name: Build Documentation
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -l {0}
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v6
+
+      - name: Install Dependencies via Micromamba
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          log-level: debug
+          environment-file: environment.yml
+          cache-environment: true
+          cache-downloads: true
+          create-args: >-
+            python=3.12
+
+      - name: Install pywatershed
+        run: |
+          pip install -e .
+
+      - name: Print environment info
+        run: |
+          which python
+          python --version
+          which sphinx-build
+          sphinx-build --version
+          pip list
+
+      - name: Build HTML documentation
+        working-directory: doc
+        run: |
+          make html
+
+      - name: Check for build warnings
+        working-directory: doc
+        run: |
+          if [ -f build/html/.buildinfo ]; then
+            echo "Documentation built successfully"
+          else
+            echo "Documentation build failed"
+            exit 1
+          fi
+
+      - name: Upload documentation as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: documentation-html
+          path: doc/build/html/
+          retention-days: 30
+
+      - name: Check documentation coverage
+        working-directory: doc
+        run: |
+          make coverage || true
+          if [ -f build/coverage/python.txt ]; then
+            echo "Documentation coverage report:"
+            cat build/coverage/python.txt
+          fi
