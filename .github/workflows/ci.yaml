@@ -221,7 +221,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: Test results for domainless-${{ runner.os }}-${{ matrix.python-version }}
           path: |
@@ -341,7 +341,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: Test results for sagehen_5yr-${{ runner.os }}-${{ matrix.python-version }}
           path: |
@@ -473,7 +473,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: Test results for hru_1-${{ runner.os }}-${{ matrix.python-version }}
           path: |
@@ -692,7 +692,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: Test results for drb_2yr-${{ runner.os }}-${{ matrix.python-version }}
           path: |
@@ -823,7 +823,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: Test results for ucb_2yr_nhm-${{ runner.os }}-${{ matrix.python-version }}
           path: |
@@ -938,7 +938,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: Test results for ucb_2yr_slow_tests-${{ runner.os }}-${{ matrix.python-version }}
           path: |
@@ -1116,7 +1116,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: Test results for fgr_ag_2yr_subset1-${{ runner.os }}-${{ matrix.python-version }}
           path: |
@@ -1289,7 +1289,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: Test results for fgr_ag_2yr_subset2-${{ runner.os }}-${{ matrix.python-version }}
           path: |
