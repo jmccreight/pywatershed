@@ -20,9 +20,8 @@ jobs:
         shell: bash -l {0}
 
     steps:
-
       - name: Checkout version branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -42,5 +41,5 @@ jobs:
             grep -E "${esc_version}" README.md || exit 6
             grep -E "${esc_version}" doc/index.rst || exit 7
           fi
-                    
+
           echo "version=$version" >> $GITHUB_OUTPUT

@@ -28,7 +28,7 @@ jobs:
 
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v2.4.0
+        uses: actions/checkout@v6
 
       - name: Setup gfortran
         uses: fortran-lang/setup-fortran@v1
@@ -37,15 +37,14 @@ jobs:
           version: 11
 
       - name: Setup micromamba
-        uses: mamba-org/setup-micromamba@v1.9.0
+        uses: mamba-org/setup-micromamba@v2
         with:
-          micromamba-version: "1.5.10-0"
           environment-file: environment_w_jupyter.yml
           cache-environment: true
           cache-downloads: true
 
       - name: Checkout MODFLOW 6
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: MODFLOW-USGS/modflow6
           ref: develop

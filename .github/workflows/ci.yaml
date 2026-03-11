@@ -28,10 +28,10 @@ jobs:
         shell: bash
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
@@ -63,10 +63,10 @@ jobs:
         shell: bash
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
@@ -98,10 +98,10 @@ jobs:
         shell: bash
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
@@ -136,7 +136,7 @@ jobs:
 
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup tmate session
         uses: mxschmitt/action-tmate@v3
@@ -153,9 +153,8 @@ jobs:
         run: .github/scripts/symlink_gfortran_mac.sh
 
       - name: Install Dependencies via Micromamba
-        uses: mamba-org/setup-micromamba@v1.9.0
+        uses: mamba-org/setup-micromamba@v2
         with:
-          micromamba-version: "1.5.10-0"
           log-level: debug
           environment-file: environment.yml
           cache-environment: true
@@ -182,7 +181,7 @@ jobs:
           if [[ "$MF6_REMOTE" != "$req_remote" ]]; then echo "bad mf6 remote in .mf6_ci_ref_remote"; exit 1; fi
 
       - name: Checkout MODFLOW 6
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ env.MF6_REMOTE }}
           ref: ${{ env.MF6_REF }}
@@ -222,14 +221,14 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: Test results for domainless-${{ runner.os }}-${{ matrix.python-version }}
           path: |
             ./autotest/pytest_domainless.xml
 
       - name: Upload code coverage to Codecov
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
         with:
           file: ./autotest/coverage.xml
           env_vars: RUNNER_OS,PYTHON_VERSION
@@ -250,7 +249,7 @@ jobs:
 
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup tmate session
         uses: mxschmitt/action-tmate@v3
@@ -267,9 +266,8 @@ jobs:
         run: .github/scripts/symlink_gfortran_mac.sh
 
       - name: Install Dependencies via Micromamba
-        uses: mamba-org/setup-micromamba@v1.9.0
+        uses: mamba-org/setup-micromamba@v2
         with:
-          micromamba-version: "1.5.10-0"
           log-level: debug
           environment-file: environment.yml
           cache-environment: true
@@ -343,14 +341,14 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: Test results for sagehen_5yr-${{ runner.os }}-${{ matrix.python-version }}
           path: |
             ./autotest/pytest_sagehen_5yr_no_cascades.xml
 
       - name: Upload code coverage to Codecov
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
         with:
           file: ./autotest/coverage.xml
           env_vars: RUNNER_OS,PYTHON_VERSION
@@ -371,7 +369,7 @@ jobs:
 
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup tmate session
         uses: mxschmitt/action-tmate@v3
@@ -388,9 +386,8 @@ jobs:
         run: .github/scripts/symlink_gfortran_mac.sh
 
       - name: Install Dependencies via Micromamba
-        uses: mamba-org/setup-micromamba@v1.9.0
+        uses: mamba-org/setup-micromamba@v2
         with:
-          micromamba-version: "1.5.10-0"
           log-level: debug
           environment-file: environment.yml
           cache-environment: true
@@ -476,7 +473,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: Test results for hru_1-${{ runner.os }}-${{ matrix.python-version }}
           path: |
@@ -484,7 +481,7 @@ jobs:
             ./autotest/pytest_hru_1_transp_frost.xml
 
       - name: Upload code coverage to Codecov
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
         with:
           file: ./autotest/coverage.xml
           env_vars: RUNNER_OS,PYTHON_VERSION
@@ -505,7 +502,7 @@ jobs:
 
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup tmate session
         uses: mxschmitt/action-tmate@v3
@@ -527,9 +524,8 @@ jobs:
         run: .github/scripts/symlink_gfortran_mac.sh
 
       - name: Install Dependencies via Micromamba
-        uses: mamba-org/setup-micromamba@v1.9.0
+        uses: mamba-org/setup-micromamba@v2
         with:
-          micromamba-version: "1.5.10-0"
           log-level: debug
           environment-file: environment.yml
           cache-environment: true
@@ -551,7 +547,7 @@ jobs:
           if [[ "$MF6_REMOTE" != "$req_remote" ]]; then echo "bad mf6 remote in .mf6_ci_ref_remote"; exit 1; fi
 
       - name: Checkout MODFLOW 6
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ env.MF6_REMOTE }}
           ref: ${{ env.MF6_REF }}
@@ -696,7 +692,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: Test results for drb_2yr-${{ runner.os }}-${{ matrix.python-version }}
           path: |
@@ -707,7 +703,7 @@ jobs:
             ./autotest/pytest_drb_2yr_stream_temp.xml
 
       - name: Upload code coverage to Codecov
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
         with:
           file: ./autotest/coverage.xml
           env_vars: RUNNER_OS,PYTHON_VERSION
@@ -728,7 +724,7 @@ jobs:
 
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup tmate session
         uses: mxschmitt/action-tmate@v3
@@ -761,9 +757,8 @@ jobs:
         run: .github/scripts/symlink_gfortran_mac.sh
 
       - name: Install Dependencies via Micromamba
-        uses: mamba-org/setup-micromamba@v1.9.0
+        uses: mamba-org/setup-micromamba@v2
         with:
-          micromamba-version: "1.5.10-0"
           log-level: debug
           environment-file: environment.yml
           cache-environment: true
@@ -828,14 +823,14 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: Test results for ucb_2yr_nhm-${{ runner.os }}-${{ matrix.python-version }}
           path: |
             ./autotest/pytest_ucb_2yr_nhm.xml
 
       - name: Upload code coverage to Codecov
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
         with:
           file: ./autotest/coverage.xml
           env_vars: RUNNER_OS,PYTHON_VERSION
@@ -856,7 +851,7 @@ jobs:
 
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup tmate session
         uses: mxschmitt/action-tmate@v3
@@ -873,9 +868,8 @@ jobs:
         run: .github/scripts/symlink_gfortran_mac.sh
 
       - name: Install Dependencies via Micromamba
-        uses: mamba-org/setup-micromamba@v1.9.0
+        uses: mamba-org/setup-micromamba@v2
         with:
-          micromamba-version: "1.5.10-0"
           log-level: debug
           environment-file: environment.yml
           cache-environment: true
@@ -944,7 +938,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: Test results for ucb_2yr_slow_tests-${{ runner.os }}-${{ matrix.python-version }}
           path: |
@@ -952,7 +946,7 @@ jobs:
             ./autotest/pytest_ucb_2yr_transp_frost.xml
 
       - name: Upload code coverage to Codecov
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
         with:
           file: ./autotest/coverage.xml
           env_vars: RUNNER_OS,PYTHON_VERSION
@@ -973,7 +967,7 @@ jobs:
 
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup tmate session
         uses: mxschmitt/action-tmate@v3
@@ -990,9 +984,8 @@ jobs:
         run: .github/scripts/symlink_gfortran_mac.sh
 
       - name: Install Dependencies via Micromamba
-        uses: mamba-org/setup-micromamba@v1.9.0
+        uses: mamba-org/setup-micromamba@v2
         with:
-          micromamba-version: "1.5.10-0"
           log-level: debug
           environment-file: environment.yml
           cache-environment: true
@@ -1123,14 +1116,14 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: Test results for fgr_ag_2yr_subset1-${{ runner.os }}-${{ matrix.python-version }}
           path: |
             ./autotest/pytest_fgr_ag_2yr_subset1.xml
 
       - name: Upload code coverage to Codecov
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
         with:
           file: ./autotest/coverage.xml
           env_vars: RUNNER_OS,PYTHON_VERSION
@@ -1151,7 +1144,7 @@ jobs:
 
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup tmate session
         uses: mxschmitt/action-tmate@v3
@@ -1168,9 +1161,8 @@ jobs:
         run: .github/scripts/symlink_gfortran_mac.sh
 
       - name: Install Dependencies via Micromamba
-        uses: mamba-org/setup-micromamba@v1.9.0
+        uses: mamba-org/setup-micromamba@v2
         with:
-          micromamba-version: "1.5.10-0"
           log-level: debug
           environment-file: environment.yml
           cache-environment: true
@@ -1297,14 +1289,14 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: Test results for fgr_ag_2yr_subset2-${{ runner.os }}-${{ matrix.python-version }}
           path: |
             ./autotest/pytest_fgr_ag_2yr_subset2.xml
 
       - name: Upload code coverage to Codecov
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
         with:
           file: ./autotest/coverage.xml
           env_vars: RUNNER_OS,PYTHON_VERSION
