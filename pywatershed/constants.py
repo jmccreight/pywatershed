@@ -4,6 +4,7 @@ from enum import Enum
 from typing import Union
 
 import numpy as np
+import pyPRMS as pp
 
 # Environment variables
 numba_num_threads = os.getenv("NUMBA_NUM_THREADS")
@@ -158,3 +159,6 @@ cbh_ctl_var_map = {
     "PET_cbh_file": "pet_observed",  # not used in PWS but required for subsetting domains  # noqa: E501
     "rhavg": "rhavg",
 }
+
+# pyPRMS metadata - consolidated in one place
+pyprms_meta = pp.MetaData(verbose=False).metadata

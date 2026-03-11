@@ -1,7 +1,6 @@
 import functools
 import pathlib as pl
 from time import time
-from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -53,45 +52,6 @@ def diff_dicts(dict_a: dict, dict_b: dict, ignore_keys: list = []):
             print("value for b: ")
             print(f"    {val_b}")
             print("")
-
-
-def get_control_keys(control_file: pl.Path) -> list[str]:
-    # This is to deal with pyPRMS filling all the control defaults until it
-    # merges a PR.
-    with open(control_file, "r") as file:
-        control_keys = []
-        save_next = False
-        for line in file:
-            if save_next:
-                control_keys += [line.strip()]
-            if "####" in line:
-                save_next = True
-            else:
-                save_next = False
-
-    return control_keys
-
-
-def pyprms_control_no_defaults(
-    control_file: pl.Path,
-    metadata,
-    verbose: Optional[bool] = False,
-):
-    """Get a pyPRMS Control object where no defaults are applied.
-
-    Only necessary until pypRMS PR #40 is merged.
-    """
-    import pyPRMS as pp
-
-    pp_control = pp.ControlFile(
-        filename=control_file, metadata=metadata, verbose=verbose
-    )
-    orig_control_keys = get_control_keys(control_file)
-    for cv in list(pp_control.control_variables.keys()):
-        if cv not in orig_control_keys:
-            pp_control.remove(cv)
-
-    return pp_control
 
 
 def write_data_file(df: pd.DataFrame, output_file_path: pl.Path) -> None:

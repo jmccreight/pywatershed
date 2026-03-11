@@ -70,11 +70,6 @@ dprst_flag
 1
 0
 ####
-stats_output_file
-1
-4
-stats.out
-####
 et_module
 1
 4
