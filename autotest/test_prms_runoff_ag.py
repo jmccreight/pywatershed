@@ -109,6 +109,8 @@ def test_compare_prms(
             if not ag_frac_dyn_flag:
                 import xarray as xr
 
+                # The ag_frac_static file is 1-D and we use a
+                # 1-D array adapter
                 af_da = xr.load_dataarray(
                     output_dir.parent / "ag_frac_static.nc"
                 )
