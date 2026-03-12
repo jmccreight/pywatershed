@@ -1054,13 +1054,15 @@ class PRMSSoilzoneAgObsET(ConservativeProcess):
         # Initialize iteration variables
         keep_iterating = True
         soil_iter = 1
-        self.ag_irrigation_add[:] = zero
-        self.ag_irrigation_add_vol[:] = zero
-        self.ag_aet_external_vol[:] = zero
 
-        # Compute and validate AET_external from observed values
-        # (per climate_hru_debug.f90 lines 113-127)
+        # Initialize ObsET variables only when iter_aet_flag is True
         if self._iter_aet_flag:
+            self.ag_irrigation_add[:] = zero
+            self.ag_irrigation_add_vol[:] = zero
+            self.ag_aet_external_vol[:] = zero
+
+            # Compute and validate AET_external from observed values
+            # (per climate_hru_debug.f90 lines 113-127)
             # Copy observed values to working variables
             self.AET_external[:] = self.aet_observed
 
@@ -1075,6 +1077,14 @@ class PRMSSoilzoneAgObsET(ConservativeProcess):
                     f"AET_external < 0.0 for {mask.sum()} HRUs; setting to 0.0"
                 )
             self.AET_external[mask] = 0.0
+
+            # Use actual ObsET arrays
+            aet_external_arr = self.AET_external
+            ag_irrigation_add_arr = self.ag_irrigation_add
+        else:
+            # Create dummy zero arrays for non-iterative case
+            aet_external_arr = np.zeros(self.nhru, dtype=float)
+            ag_irrigation_add_arr = np.zeros(self.nhru, dtype=float)
 
         # Fortran: DO WHILE ( keep_iterating==ACTIVE )
         while keep_iterating:
@@ -1137,8 +1147,8 @@ class PRMSSoilzoneAgObsET(ConservativeProcess):
                 transp_on=self.transp_on,
                 snow_evap=self.snow_evap,
                 snowcov_area=self.snowcov_area,
-                aet_external=self.AET_external,
-                ag_irrigation_add=self.ag_irrigation_add,
+                aet_external=aet_external_arr,
+                ag_irrigation_add=ag_irrigation_add_arr,
                 # State variables
                 soil_moist=self.soil_moist,
                 soil_rechr=self.soil_rechr,
@@ -1256,8 +1266,13 @@ class PRMSSoilzoneAgObsET(ConservativeProcess):
         # Calculate volume-based outputs
         self.sroff_vol[:] = self.sroff * self.hru_in_to_cf
         self.ssres_flow_vol[:] = self.ssres_flow * self.hru_in_to_cf
-        self.ag_irrigation_add_vol[:] = self.ag_irrigation_add * self.ag_area
-        self.ag_aet_external_vol[:] = self.ag_actet * self.ag_area
+
+        # Calculate ObsET volume outputs only when iter_aet_flag is True
+        if self._iter_aet_flag:
+            self.ag_irrigation_add_vol[:] = (
+                self.ag_irrigation_add * self.ag_area
+            )
+            self.ag_aet_external_vol[:] = self.ag_actet * self.ag_area
 
         return
 
