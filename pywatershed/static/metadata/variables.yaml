@@ -114,6 +114,18 @@ ag_cap_infil_tot:
     0: nhru
   type: float64
   units: inches
+ag_infil_hru:
+  desc: Infiltration to the agricultural area fraction of each HRU, normalized to HRU area
+  dims:
+    0: nhru
+  type: float64
+  units: inches
+ag_irrigation_hru_source:
+  desc: Irrigation water added to agricultural area as a source term, normalized to HRU area
+  dims:
+    0: nhru
+  type: float64
+  units: inches
 ag_soil_moist:
   desc:
     Water storage for upper portion in the capillary reservoir of the irrigated
@@ -2528,6 +2540,12 @@ perv_actet:
   type: float64
   units: inches
   var_category: mass flux
+perv_infil_hru:
+  desc: Infiltration to the pervious area fraction of each HRU, normalized to HRU area
+  dims:
+    0: nhru
+  type: float64
+  units: inches
 perv_actet_hru:
   desc: Actual ET from the capillary reservoir of each HRU, depth on HRU area
   dims:

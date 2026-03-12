@@ -24,6 +24,7 @@ var_tolerance_exceptions = {
 
 calc_methods = ("numba", "numpy")
 params = ("params_sep", "params_one")
+imbalance_behavior = "error"
 
 
 @pytest.fixture(scope="function")
@@ -138,7 +139,7 @@ def test_compare_prms(
         discretization=discretization,
         parameters=parameters,
         **input_variables,
-        imbalance_behavior="error",
+        imbalance_behavior=imbalance_behavior,
         calc_method=calc_method,
         intcp_changeover_in_net_rain=intcp_changeover_in_net_rain,
     )

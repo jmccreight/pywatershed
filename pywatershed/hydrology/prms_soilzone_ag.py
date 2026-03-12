@@ -165,6 +165,9 @@ class PRMSSoilzoneAg(PRMSSoilzoneAgObsET):
         PRMSSoilzoneAgObsET (the observed ET iteration version).
         """
         return (
+            # Mass budget input terms (whole HRU basis)
+            "perv_infil_hru",
+            "ag_infil_hru",
             # Pervious area variables (whole HRU basis)
             "cap_infil_tot",
             "cap_waterin",
@@ -244,3 +247,36 @@ class PRMSSoilzoneAg(PRMSSoilzoneAgObsET):
             "soil_lower_redistribution",
             "slow_stor_redistribution",
         )
+
+    @staticmethod
+    def get_mass_budget_terms() -> dict:
+        """Return mass budget terms for PRMSSoilzoneAg.
+
+        This overrides the parent class method to exclude
+        ag_irrigation_hru_source since this class does not support
+        irrigation (iter_aet_flag is False/None).
+        """
+        return {
+            "inputs": [
+                "perv_infil_hru",
+                "ag_infil_hru",
+            ],
+            "outputs": [
+                "perv_actet_hru",
+                "hru_ag_actet",
+                "perv_soil_to_gw",
+                "ag_soil_to_gw",
+                "ssr_to_gw",
+                "slow_flow",
+                "dunnian_flow",
+                "pref_flow",
+            ],
+            "storage_changes": [
+                "soil_rechr_change_hru",
+                "soil_lower_change_hru",
+                "slow_stor_change",
+                "pref_flow_stor_change",
+                "ag_soil_rechr_change_hru",
+                "ag_soil_lower_change_hru",
+            ],
+        }

@@ -293,6 +293,10 @@ class PRMSSoilzoneAgObsET(ConservativeProcess):
     @staticmethod
     def get_init_values() -> dict:
         return {
+            # Mass budget input terms (whole HRU basis)
+            "perv_infil_hru": zero,
+            "ag_infil_hru": zero,
+            "ag_irrigation_hru_source": zero,
             # Pervious area variables (whole HRU basis)
             "cap_infil_tot": zero,
             "cap_waterin": zero,
@@ -392,8 +396,9 @@ class PRMSSoilzoneAgObsET(ConservativeProcess):
     def get_mass_budget_terms() -> dict:
         return {
             "inputs": [
-                "cap_infil_tot",
-                "ag_cap_infil_tot",
+                "perv_infil_hru",
+                "ag_infil_hru",
+                "ag_irrigation_hru_source",
             ],
             "outputs": [
                 "perv_actet_hru",
@@ -1273,6 +1278,18 @@ class PRMSSoilzoneAgObsET(ConservativeProcess):
                 self.ag_irrigation_add * self.ag_area
             )
             self.ag_aet_external_vol[:] = self.ag_actet * self.ag_area
+
+        # Calculate mass budget input terms (all on HRU basis)
+        self.perv_infil_hru[:] = self.infil * self.hru_frac_perv
+        self.ag_infil_hru[:] = self.infil_ag * self.ag_frac
+        # Only calculate ag_irrigation_hru_source when iter_aet_flag is set
+        # (PRMSSoilzoneAg doesn't have this variable in get_variables)
+        if self._iter_aet_flag:
+            self.ag_irrigation_hru_source[:] = (
+                self.ag_irrigation_add * self.ag_frac
+            )
+        elif hasattr(self, "ag_irrigation_hru_source"):
+            self.ag_irrigation_hru_source[:] = zero
 
         return
 
