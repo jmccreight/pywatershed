@@ -50,3 +50,4 @@ dependencies:
       - git+https://github.com/jararias/mpsplines.git
       - pyPRMS
       - modflow-devtools[dfn]==1.7.0
+      - pytest-error-for-skips

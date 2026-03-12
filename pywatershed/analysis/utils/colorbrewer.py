@@ -2342,7 +2342,7 @@ def nhm_process_colors(model: Model = None):
         "PRMSRunoffAg": palette[7],
         "PRMSSoilzone": palette[5],
         "PRMSSoilzoneAg": palette[5],
-        "PRMSSoilzoneAgET": palette[5],
+        "PRMSSoilzoneAgObsET": palette[5],
         "PRMSGroundwater": palette[2],
         "PRMSChannel": palette[4],
         "PRMSHydraulicGeometryWidthOnly": palette[9],

@@ -9,8 +9,6 @@ from utils import run_prms
 
 import pywatershed as pws
 
-pyprms_meta = pp.MetaData(verbose=False).metadata
-
 # TODO: can we shorten the length of the ucb_2yr run?
 # TODO: remove test nhm code cheats
 
@@ -87,8 +85,10 @@ def full_control_file(simulation, tmp_path):
     control_parent = control_file.parent.resolve()
     new_control_file = tmp_path / "shortened.control"
 
-    control = pws.utils.utils.pyprms_control_no_defaults(
-        control_file, metadata=pyprms_meta, verbose=False
+    control = pp.ControlFile(
+        filename=control_file,
+        metadata=pws.constants.pyprms_meta,
+        verbose=False,
     )
     cv = control.control_variables
     # edit time
@@ -188,12 +188,6 @@ def output_format(simulation, request):
     return request.param
 
 
-@pytest.mark.xfail(
-    reason=(
-        "Requires pyPRMS with float_format parameter support in "
-        "Cbh.write_ascii()"
-    )
-)
 def test_pws_subset_known_ids_segs(
     full_control_file,
     sub_ids_segs,
@@ -280,8 +274,10 @@ def test_pws_subset_known_ids_segs(
 
     elif output_format.lower() == "prms":
         # full domain
-        control = pws.utils.utils.pyprms_control_no_defaults(
-            full_control_file, metadata=pyprms_meta, verbose=False
+        control = pp.ControlFile(
+            filename=full_control_file,
+            metadata=pws.constants.pyprms_meta,
+            verbose=False,
         )
         cv = control.control_variables
         for ff in [

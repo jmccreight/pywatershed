@@ -1,4 +1,5 @@
 import pathlib as pl
+from copy import deepcopy
 from typing import Literal, Union
 from warnings import warn
 
@@ -9,6 +10,7 @@ import xarray as xr
 import pywatershed as pws
 
 from ..base import meta as pws_meta
+from ..constants import pyprms_meta as _pyprms_meta
 from .segment_from_tracing import (
     get_from_segment_params,
     get_nhm_segs_ids_above_seg,
@@ -22,8 +24,6 @@ cbh_var_ascii_format = {
     "actet": "%0.4f",
     "potet": "%0.4f",
 }
-
-pyprms_meta = pp.MetaData(verbose=False).metadata
 
 cbh_vars_rename = {"actet": "aet_observed", "potet": "pet_observed"}
 cbh_vars_rename_inv = {vv: kk for kk, vv in cbh_vars_rename.items()}
@@ -131,6 +131,8 @@ additional_cbh_meta = {
 }
 
 # TODO move this code in to a global function to be called. like init_module.
+# Make a local deep copy to avoid modifying the shared constants.pyprms_meta
+pyprms_meta = deepcopy(_pyprms_meta)
 pyprms_meta["control"] = pyprms_meta["control"] | additional_cbh_meta
 
 ppmp = pyprms_meta["parameters"]
@@ -233,8 +235,10 @@ class DomainSubset:
             self._full_control_file, warn_unused_options=False
         )
 
-        control = pws.utils.utils.pyprms_control_no_defaults(
-            self._full_control_file, metadata=pyprms_meta, verbose=False
+        control = pp.ControlFile(
+            filename=self._full_control_file,
+            metadata=pyprms_meta,
+            verbose=False,
         )
         self._full_control_var_names = control.control_variables.keys()
         del control
@@ -628,8 +632,10 @@ class DomainSubset:
         control_dir = self._full_control_file.parent
 
         # Use pyPRMS control to access control variables
-        control = pws.utils.utils.pyprms_control_no_defaults(
-            self._full_control_file, metadata=pyprms_meta, verbose=False
+        control = pp.ControlFile(
+            filename=self._full_control_file,
+            metadata=pyprms_meta,
+            verbose=False,
         )
         control_vars = control.control_variables
 
@@ -762,8 +768,10 @@ class DomainSubset:
                 "output_format not specified on initialization or write."
             )
 
-        self._sub_control = pws.utils.utils.pyprms_control_no_defaults(
-            self._full_control_file, metadata=pyprms_meta, verbose=False
+        self._sub_control = pp.ControlFile(
+            filename=self._full_control_file,
+            metadata=pyprms_meta,
+            verbose=False,
         )
         self._sub_control_file_name = (
             f"{self._full_control_file.stem}_subset.control"

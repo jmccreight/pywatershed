@@ -590,7 +590,7 @@ class MmrToMf6Dfw:
         inflow_unit = self._units(inflow_unit)
 
         def read_inflow(vv, start_time, end_time):
-            ff = xr.open_dataset(pl.Path(self._inflow_dir) / f"{vv}.nc")[vv]
+            ff = xr.load_dataset(pl.Path(self._inflow_dir) / f"{vv}.nc")[vv]
             return ff.sel(time=slice(start_time, end_time)).values
 
         inflows = {

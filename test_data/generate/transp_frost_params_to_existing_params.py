@@ -5,6 +5,7 @@ import pandas as pd
 import pyPRMS as pp
 
 import pywatershed as pws
+from pywatershed.constants import pyprms_meta
 
 new_param_names = ["spring_frost", "fall_frost"]
 
@@ -29,8 +30,7 @@ for domain_name in domain_names:
     param_file = domain_dir / "myparam.param"
     frost_param_file = domain_dir / "transp_frost.param"
 
-    prms_meta = pp.MetaData(verbose=False).metadata
-    pfile = pp.ParameterFile(param_file, metadata=prms_meta, verbose=False)
+    pfile = pp.ParameterFile(param_file, metadata=pyprms_meta, verbose=False)
     nhm_ids = pfile.parameters["nhm_id"].data
     wu_sub_data = wu_sub_ds.where(wu_sub_ds.nhm_id.isin(nhm_ids), drop=True)
     assert np.isin(wu_sub_data.nhm_id.values, nhm_ids).all()
