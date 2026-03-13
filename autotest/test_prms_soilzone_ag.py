@@ -198,6 +198,19 @@ def parameters(simulation, control, request):
     return params
 
 
+@pytest.fixture(scope="function")
+def parameters_pref(simulation, control, request):
+    """Parameters fixture with preferential flow enabled."""
+    param_file = simulation["dir"] / "parameters_PRMSSoilzoneAg.nc"
+    params = PrmsParameters.from_netcdf(param_file).to_xr_ds()
+    # Enable preferential flow by directly modifying the underlying array
+    params["pref_flow_den"][:] = 0.07
+    params["pref_flow_infil_frac"][:] = 0.15
+    params = Parameters.from_ds(params)
+
+    return params
+
+
 @pytest.mark.parametrize("calc_method", calc_methods)
 def test_compare_prms(
     simulation,
@@ -422,5 +435,75 @@ def test_compare_prms(
             # fail_after_all_vars=False,
             verbose=True,
         )
+
+    return
+
+
+@pytest.mark.parametrize("calc_method", calc_methods)
+def test_mass_budget_pref_flow(
+    simulation,
+    control,
+    discretization,
+    parameters_pref,
+    SoilzoneAg,
+    calc_method,
+):
+    """Test mass budget with preferential flow enabled.
+
+    This test only checks that the mass budget balances when preferential
+    flow is enabled. It does not compare against Fortran outputs.
+    """
+
+    # sroff is a runoff variable edited by soilzone
+    output_dir = simulation["output_dir"]
+
+    input_variables = {}
+    for key in SoilzoneAg.get_inputs():
+        if key in ["aet_observed"]:
+            nc_path = output_dir.parent / f"{key}.nc"
+
+        elif key == "ag_frac":
+            opts = control.options
+            ag_frac_dyn_flag = opts.get("dyn_ag_frac_flag", [False])[0]
+            ag_frac_dyn_file = opts.get("ag_frac_dynamic", [None])[0]
+            if not ag_frac_dyn_flag:
+                import xarray as xr
+
+                af_da = xr.load_dataarray(
+                    output_dir.parent / "ag_frac_static.nc"
+                )
+                nc_path = adapter_factory(
+                    af_da.values,
+                    key,
+                    control,
+                )
+            else:
+                nc_path = output_dir.parent / ag_frac_dyn_file
+
+        else:
+            nc_path = output_dir / f"{key}.nc"
+            if not nc_path.exists():
+                nc_path = None
+
+        input_variables[key] = nc_path
+
+    soil = SoilzoneAg(
+        control=control,
+        discretization=discretization,
+        parameters=parameters_pref,
+        **input_variables,
+        imbalance_behavior="error",
+        calc_method=calc_method,
+    )
+
+    # Run the simulation - mass budget will be checked automatically
+    # because imbalance_behavior="error"
+    for istep in range(control.n_times):
+        control.advance()
+        soil.advance()
+        soil.calculate(1.0)
+        soil.output()
+
+    soil.finalize()
 
     return
