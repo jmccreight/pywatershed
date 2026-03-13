@@ -233,6 +233,22 @@ ag_soilwater_deficit:
     0: nhru
   type: float64
   units: inches
+iter_count:
+  desc: Number of iterations performed in the AET matching loop (same for all HRUs per timestep)
+  dims:
+    0: nhru
+  type: int32
+  units: none
+iter_end_status:
+  desc: >-
+    Convergence reason code per HRU: -1=Not agricultural HRU, 0=Converged
+    (unsatisfied_ag_et <= soilzone_aet_converge), 1=Soil deficit too small
+    (limited by ag_soilwater_deficit_min), 2=Max iterations reached
+    (non-convergence), 3=No transpiration active
+  dims:
+    0: nhru
+  type: int32
+  units: none
 ai:
   desc: Maximum snowpack for each HRU
   dims:

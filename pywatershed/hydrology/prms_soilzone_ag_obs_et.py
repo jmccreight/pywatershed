@@ -51,6 +51,22 @@ Implementation Notes
 - Only iterates when iter_aet_flag=True and transp_on=True
 - Agricultural area fraction (ag_frac) can be zero for non-agricultural HRUs
 
+Iteration Diagnostics
+---------------------
+The following diagnostic variables track iteration convergence per HRU:
+
+- `iter_count`: Number of iterations performed (same for all HRUs per timestep)
+- `iter_end_status`: Convergence reason code per HRU:
+  * -1 = Not an agricultural HRU or no iteration needed
+  *  0 = Converged (unsatisfied_ag_et <= soilzone_aet_converge)
+  *  1 = Soil deficit too small (limited by ag_soilwater_deficit_min)
+  *  2 = Max iterations reached (non-convergence)
+  *  3 = No transpiration active
+  *  4 = iter_aet_flag disabled
+
+These diagnostics help identify problematic HRUs, understand convergence
+patterns, and validate irrigation requirements across the model domain.
+
 """
 
 import pathlib as pl
@@ -184,7 +200,7 @@ class PRMSSoilzoneAgObsET(ConservativeProcess):
         ag_frac: adaptable,
         aet_observed: adaptable,
         dprst_flag: bool | None = None,
-        iter_aet_flag: Literal[True, False, None] = None,
+        iter_aet_flag: Literal[True, False] = True,
         imbalance_behavior: Literal["defer", None, "warn", "error"] = "defer",
         calc_method: Literal["numpy", None] = None,
         adjust_parameters: Literal["warn", "error", "no"] = "warn",
@@ -206,10 +222,11 @@ class PRMSSoilzoneAgObsET(ConservativeProcess):
         self._set_inputs(locals())
         self._set_options(locals())
 
-        # if iter_aet_flag not in control.options, _set_options  sets None, but
-        # let's be more explicit.
-        if self._iter_aet_flag is None:
-            self._iter_aet_flag = False
+        if hasattr(self, "_iter_aet_flag") and self._iter_aet_flag is False:
+            raise ValueError(
+                "PRMSSoilzoneAgObsET does not support iter_aet_flag=False. "
+                "Use PRMSSoilzoneAg if you do not need observed ET iteration."
+            )
 
         if self._dprst_flag is None:
             self._dprst_flag = True
@@ -379,6 +396,9 @@ class PRMSSoilzoneAgObsET(ConservativeProcess):
             "soil_rechr_redistribution": zero,
             "soil_lower_redistribution": zero,
             "slow_stor_redistribution": zero,
+            # Iteration convergence diagnostics
+            "iter_end_status": zero,
+            "iter_count": zero,
         }
 
     @staticmethod
@@ -1267,6 +1287,42 @@ class PRMSSoilzoneAgObsET(ConservativeProcess):
                     f"non-convergence count: {self._iter_nonconverge}"
                 )
                 warn(msg, UserWarning)
+
+        # Populate iteration convergence diagnostics
+        # Only populate when iter_aet_flag is True
+        if self._iter_aet_flag:
+            # Store final iteration count (same for all HRUs at this timestep)
+            self.iter_count[:] = soil_iter
+
+            # Populate per-HRU convergence diagnostics
+            # Note: unused_ag_et contains the final unsatisfied_ag_et per HRU
+            # ag_soilwater_deficit already contains the final deficit values
+            for ihru in range(self.nhru):
+                # Determine convergence reason for each HRU
+                # Convergence reason codes:
+                # -1 = Not an agricultural HRU or no iteration needed
+                #  0 = Converged (unsatisfied_ag_et <= soilzone_aet_converge)
+                #  1 = Soil deficit too small (limited by
+                #      ag_soilwater_deficit_min)
+                #  2 = Max iterations reached (non-convergence)
+                #  3 = No transpiration active
+                if self.ag_frac[ihru] <= 0.0:
+                    self.iter_end_status[ihru] = -1
+                elif not self.transp_on[ihru]:
+                    self.iter_end_status[ihru] = 3
+                elif self.unused_ag_et[ihru] <= self.soilzone_aet_converge:
+                    self.iter_end_status[ihru] = 0  # Converged
+                elif (
+                    self.ag_soilwater_deficit[ihru]
+                    <= self.ag_soilwater_deficit_min[ihru]
+                ):
+                    # I think this logic is correct but CHECK
+                    self.iter_end_status[ihru] = 1  # Deficit limiting
+                elif soil_iter >= self.max_soilzone_ag_iter:
+                    self.iter_end_status[ihru] = 2  # Max iterations
+                else:
+                    # Necessary as an else?
+                    self.iter_end_status[ihru] = -9  # should never happen?
 
         # Calculate volume-based outputs
         self.sroff_vol[:] = self.sroff * self.hru_in_to_cf
