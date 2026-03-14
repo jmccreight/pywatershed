@@ -44,7 +44,7 @@ class Budget(Accessor):
         basis: Literal["unit", "global"] = "unit",
         imbalance_fatal: bool = False,
         ignore_nans: bool = False,
-        unit_desc: str = "volumes",
+        unit_desc: str = "",
         verbose: bool = True,
     ):
         self.name = "Budget"
@@ -60,6 +60,11 @@ class Budget(Accessor):
         self.imbalance_fatal = imbalance_fatal
         self._ignore_nans = ignore_nans
         self._unit_desc = unit_desc
+        if self._unit_desc != "":
+            self._unit_desc = f" ({self._unit_desc})"
+        else:
+            self._unit_desc = " "
+
         self.verbose = verbose
         self.basis = basis
 
@@ -501,14 +506,14 @@ class Budget(Accessor):
         # Timestep rates
         summary += [""]
         # header
-        summary += ["This timestep, rates:"]
+        summary += ["This timestep:"]
         summary += [
             indent_fill
-            + "input rates".ljust(in_col_width)
+            + "inputs".ljust(in_col_width)
             + col_sep
-            + "output rates".ljust(out_col_width)
+            + "outputs".ljust(out_col_width)
             + col_sep
-            + "storage change rates".ljust(stor_col_width)
+            + "storage changes".ljust(stor_col_width)
         ]
         separator = [
             (indent_fill + "-" * in_col_width + col_sep)
@@ -614,15 +619,15 @@ class Budget(Accessor):
         summary += [""]
         # header
         summary += [
-            f"Accumulated {self._unit_desc} (since {self._accum_start_time}):"
+            f"Accumulations{self._unit_desc} (since {self._accum_start_time}):"
         ]
         summary += [
             indent_fill
-            + f"input {self._unit_desc}".ljust(in_col_width)
+            + f"inputs{self._unit_desc}".ljust(in_col_width)
             + col_sep
-            + f"output {self._unit_desc}".ljust(out_col_width)
+            + f"outputs{self._unit_desc}".ljust(out_col_width)
             + col_sep
-            + f"storage change {self._unit_desc}".ljust(out_col_width)
+            + f"storage changes{self._unit_desc}".ljust(out_col_width)
         ]
         # separator
         summary += separator

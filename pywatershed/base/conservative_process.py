@@ -255,7 +255,7 @@ class ConservativeProcess(Process):
         basis: str = None,
         quantity: Literal["mass", "energy"] = "mass",
         ignore_nans: bool = False,
-        unit_desc: str = "volumes",
+        unit_desc: str = "",
     ):
         """Set up budget(s) for this process.
 

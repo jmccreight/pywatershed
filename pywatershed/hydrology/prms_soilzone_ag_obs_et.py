@@ -1133,6 +1133,7 @@ class PRMSSoilzoneAgObsET(ConservativeProcess):
                 compute_szactet=self._compute_szactet,
                 compute_interflow=self._compute_interflow,
                 compute_gwflow=self._compute_gwflow,
+                max_soilzone_ag_iter=self.max_soilzone_ag_iter,
                 # Parameters
                 cov_type=self.cov_type,
                 ag_cov_type=self.ag_cov_type,
@@ -1316,7 +1317,6 @@ class PRMSSoilzoneAgObsET(ConservativeProcess):
                     self.ag_soilwater_deficit[ihru]
                     <= self.ag_soilwater_deficit_min[ihru]
                 ):
-                    # I think this logic is correct but CHECK
                     self.iter_end_status[ihru] = 1  # Deficit limiting
                 elif soil_iter >= self.max_soilzone_ag_iter:
                     self.iter_end_status[ihru] = 2  # Max iterations
@@ -1359,6 +1359,7 @@ class PRMSSoilzoneAgObsET(ConservativeProcess):
         compute_szactet,
         compute_interflow,
         compute_gwflow,
+        max_soilzone_ag_iter,
         # Parameters
         cov_type,
         ag_cov_type,
@@ -1975,24 +1976,26 @@ class PRMSSoilzoneAgObsET(ConservativeProcess):
                             ag_soilwater_deficit[ihru]
                             > ag_soilwater_deficit_min[ihru]
                         ):
-                            unsatisfied_max = unsatisfied_ag_et
-                            if unsatisfied_ag_et > ag_soil_moist_max[ihru]:
-                                unsatisfied_max = ag_soil_moist_max[ihru]
-                            else:
-                                # Speed up convergence after 20 iterations
-                                if soil_iter > 20:
-                                    unsatisfied_max = (
-                                        unsatisfied_max + unsatisfied_ag_et
-                                    )
-                                add_estimated_irrigation = True
-                                num_hrus_ag_iter += 1
+                            # Only add irrigation if we'll iterate again to apply it
+                            if soil_iter < max_soilzone_ag_iter:
+                                unsatisfied_max = unsatisfied_ag_et
+                                if unsatisfied_ag_et > ag_soil_moist_max[ihru]:
+                                    unsatisfied_max = ag_soil_moist_max[ihru]
+                                else:
+                                    # Speed up convergence after 20 iterations
+                                    if soil_iter > 20:
+                                        unsatisfied_max = (
+                                            unsatisfied_max + unsatisfied_ag_et
+                                        )
+                                    add_estimated_irrigation = True
+                                    num_hrus_ag_iter += 1
 
-                            ag_irrigation_add[ihru] = (
-                                ag_irrigation_add[ihru] + unsatisfied_max
-                            )
+                                ag_irrigation_add[ihru] = (
+                                    ag_irrigation_add[ihru] + unsatisfied_max
+                                )
 
-                            if unsatisfied_max > unsatisfied_big:
-                                unsatisfied_big = unsatisfied_max
+                                if unsatisfied_max > unsatisfied_big:
+                                    unsatisfied_big = unsatisfied_max
 
             # if ihru == 439:
             #     asdf
@@ -2041,6 +2044,7 @@ class PRMSSoilzoneAgObsET(ConservativeProcess):
     def _calculate_numba(
         self,
         soil_iter,
+        max_soilzone_ag_iter,
         iter_aet_flag,
         pref_flow_flag,
         snow_free,
@@ -2177,6 +2181,7 @@ class PRMSSoilzoneAgObsET(ConservativeProcess):
             iter_aet_flag,
             pref_flow_flag,
             snow_free,
+            max_soilzone_ag_iter,
             # Parameters
             cov_type,
             ag_cov_type,
@@ -2761,6 +2766,7 @@ def _calculate_soilzone_ag_numba(
     iter_aet_flag,
     pref_flow_flag,
     snow_free,
+    max_soilzone_ag_iter,
     # Parameters
     cov_type,
     ag_cov_type,
@@ -3297,24 +3303,26 @@ def _calculate_soilzone_ag_numba(
                         ag_soilwater_deficit[ihru]
                         > ag_soilwater_deficit_min[ihru]
                     ):
-                        unsatisfied_max = unsatisfied_ag_et
-                        if unsatisfied_ag_et > ag_soil_moist_max[ihru]:
-                            unsatisfied_max = ag_soil_moist_max[ihru]
-                        else:
-                            # Speed up convergence after 20 iterations
-                            if soil_iter > 20:
-                                unsatisfied_max = (
-                                    unsatisfied_max + unsatisfied_ag_et
-                                )
-                            # Mark this HRU as needing irrigation (thread-safe)
-                            hru_needs_irrigation[ihru] = 1
+                        # Only add irrigation if we'll iterate again to apply it
+                        if soil_iter < max_soilzone_ag_iter:
+                            unsatisfied_max = unsatisfied_ag_et
+                            if unsatisfied_ag_et > ag_soil_moist_max[ihru]:
+                                unsatisfied_max = ag_soil_moist_max[ihru]
+                            else:
+                                # Speed up convergence after 20 iterations
+                                if soil_iter > 20:
+                                    unsatisfied_max = (
+                                        unsatisfied_max + unsatisfied_ag_et
+                                    )
+                                # Mark this HRU as needing irrigation (thread-safe)
+                                hru_needs_irrigation[ihru] = 1
 
-                        ag_irrigation_add[ihru] = (
-                            ag_irrigation_add[ihru] + unsatisfied_max
-                        )
+                            ag_irrigation_add[ihru] = (
+                                ag_irrigation_add[ihru] + unsatisfied_max
+                            )
 
-                        # Store for reduction after loop (thread-safe)
-                        hru_unsatisfied_max[ihru] = unsatisfied_max
+                            # Store for reduction after loop (thread-safe)
+                            hru_unsatisfied_max[ihru] = unsatisfied_max
 
     # End HRU loop
 
