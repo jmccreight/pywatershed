@@ -883,9 +883,9 @@ class HRUComparisonPanel:
         # Create title with smart wrapping
         full_title = f"HRU {hru_id}: {var_name}{desc_str}"
         if len(full_title) > self.title_max_length:
-            # Wrap at a smart location (prefer breaking at ": " or after variable name)
+            # Wrap at smart location (break at ": " or after var name)
             if desc_str and var_meta["desc"]:
-                # Break between variable name and description, then wrap description
+                # Break between var name and description, then wrap
                 prefix = f"HRU {hru_id}: {var_name}"
                 # Wrap the description to fit remaining width
                 wrapped_desc = textwrap.fill(

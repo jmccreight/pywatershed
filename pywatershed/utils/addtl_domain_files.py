@@ -55,7 +55,8 @@ def download(force=False):
 
     if not addtl_domains_dir.exists() or not addtl_domains_file.exists():
         print(
-            f"Downloading {addtl_domains_config['url']} to {addtl_domains_file}"
+            f"Downloading {addtl_domains_config['url']} to "
+            f"{addtl_domains_file}"
         )
         request.urlretrieve(addtl_domains_config["url"], addtl_domains_file)
 

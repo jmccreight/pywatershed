@@ -13,6 +13,7 @@ from typing import Literal
 
 from ..base.adapter import adaptable
 from ..base.control import Control
+from ..constants import nan, zero
 from ..parameters import Parameters
 from .prms_soilzone_ag_obs_et import PRMSSoilzoneAgObsET
 

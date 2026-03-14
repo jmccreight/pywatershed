@@ -1976,7 +1976,7 @@ class PRMSSoilzoneAgObsET(ConservativeProcess):
                             ag_soilwater_deficit[ihru]
                             > ag_soilwater_deficit_min[ihru]
                         ):
-                            # Only add irrigation if we'll iterate again to apply it
+                            # Only add irrigation if we'll iterate again
                             if soil_iter < max_soilzone_ag_iter:
                                 unsatisfied_max = unsatisfied_ag_et
                                 if unsatisfied_ag_et > ag_soil_moist_max[ihru]:
@@ -3303,7 +3303,7 @@ def _calculate_soilzone_ag_numba(
                         ag_soilwater_deficit[ihru]
                         > ag_soilwater_deficit_min[ihru]
                     ):
-                        # Only add irrigation if we'll iterate again to apply it
+                        # Only add irrigation if we'll iterate again
                         if soil_iter < max_soilzone_ag_iter:
                             unsatisfied_max = unsatisfied_ag_et
                             if unsatisfied_ag_et > ag_soil_moist_max[ihru]:
@@ -3314,7 +3314,7 @@ def _calculate_soilzone_ag_numba(
                                     unsatisfied_max = (
                                         unsatisfied_max + unsatisfied_ag_et
                                     )
-                                # Mark this HRU as needing irrigation (thread-safe)
+                                # Mark HRU needs irrigation (thread-safe)
                                 hru_needs_irrigation[ihru] = 1
 
                             ag_irrigation_add[ihru] = (
