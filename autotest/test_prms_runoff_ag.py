@@ -24,6 +24,7 @@ var_tolerance_exceptions = {
 
 calc_methods = ("numba", "numpy")
 params = ("params_sep", "params_one")
+imbalance_behavior = "error"
 
 
 @pytest.fixture(scope="function")
@@ -88,6 +89,7 @@ def test_compare_prms(
     comparison_var_names = set(PRMSRunoffAg.get_variables()) - {
         "dprst_vol_thres_open",  # not output by fortran nor post-processed
         "infil_ag_hru",  # currently not post-processed but infil_ag is
+        "infil_perv_hru",  # new diagnostic variable, not in PRMS output
         "hru_sroff_ag",  # PRMS does can not write this variable
         "sroff_vol",  # errors for large HRUs, rely on sroff
         "intcp_changeover_budget",  # not a PRMS/GSFLOW variable
@@ -108,6 +110,8 @@ def test_compare_prms(
             if not ag_frac_dyn_flag:
                 import xarray as xr
 
+                # The ag_frac_static file is 1-D and we use a
+                # 1-D array adapter
                 af_da = xr.load_dataarray(
                     output_dir.parent / "ag_frac_static.nc"
                 )
@@ -135,7 +139,7 @@ def test_compare_prms(
         discretization=discretization,
         parameters=parameters,
         **input_variables,
-        imbalance_behavior="error",
+        imbalance_behavior=imbalance_behavior,
         calc_method=calc_method,
         intcp_changeover_in_net_rain=intcp_changeover_in_net_rain,
     )

@@ -239,7 +239,7 @@ if [ -z "${t}" ]; then
 
     echo
     echo "Get additional domain files for tests"
-    python pywatershed/utils/addtl_domain_files.py --force || exit 1
+    python pywatershed/utils/addtl_domain_files.py || exit 1
 
     cd autotest
 

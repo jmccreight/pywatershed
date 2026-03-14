@@ -13,6 +13,7 @@ from typing import Literal
 
 from ..base.adapter import adaptable
 from ..base.control import Control
+from ..constants import nan, zero
 from ..parameters import Parameters
 from .prms_soilzone_ag_obs_et import PRMSSoilzoneAgObsET
 
@@ -85,7 +86,6 @@ class PRMSSoilzoneAg(PRMSSoilzoneAgObsET):
         snowcov_area: adaptable,
         ag_frac: adaptable,
         dprst_flag: bool | None = None,
-        iter_aet_flag: Literal[False, None] = None,
         imbalance_behavior: Literal["defer", None, "warn", "error"] = "defer",
         calc_method: Literal["numpy", None] = None,
         adjust_parameters: Literal["warn", "error", "no"] = "warn",
@@ -94,12 +94,6 @@ class PRMSSoilzoneAg(PRMSSoilzoneAgObsET):
         restart_write: pl.Path | bool = False,
         restart_write_freq: Literal["y", "m", "d", "f", False] = False,
     ):
-        # Ensure iter_aet_flag is not True
-        if iter_aet_flag is True:
-            raise ValueError(
-                "PRMSSoilzoneAg does not support iter_aet_flag=True. "
-                "Use PRMSSoilzoneAgObsET if you need observed ET iteration."
-            )
 
         super().__init__(
             control=control,
@@ -120,7 +114,7 @@ class PRMSSoilzoneAg(PRMSSoilzoneAgObsET):
             ag_frac=ag_frac,
             aet_observed=None,
             dprst_flag=dprst_flag,
-            iter_aet_flag=iter_aet_flag,
+            iter_aet_flag=False,
             imbalance_behavior=imbalance_behavior,
             calc_method=calc_method,
             adjust_parameters=adjust_parameters,
@@ -131,6 +125,16 @@ class PRMSSoilzoneAg(PRMSSoilzoneAgObsET):
         )
 
         self.name = "PRMSSoilzoneAg"
+
+        self._iter_aet_flag = False
+        if (
+            "iter_aet_flag" in self.control.options
+            and self.control.options["iter_aet_flag"] is True
+        ):
+            raise ValueError(
+                "PRMSSoilzoneAg does not support iter_aet_flag=True. "
+                "Use PRMSSoilzoneAgObsET if you need observed ET iteration."
+            )
 
         return
 
@@ -156,3 +160,208 @@ class PRMSSoilzoneAg(PRMSSoilzoneAgObsET):
             "snowcov_area",
             "ag_frac",
         )
+
+    @staticmethod
+    def get_variables() -> tuple:
+        """Return the variable names output by this Process.
+
+        Excludes AET_external and related variables that are only used in
+        PRMSSoilzoneAgObsET (the observed ET iteration version).
+        """
+        return (
+            # Mass budget input terms (whole HRU basis)
+            "perv_infil_hru",
+            "ag_infil_hru",
+            # Pervious area variables (whole HRU basis)
+            "cap_infil_tot",
+            "cap_waterin",
+            "dunnian_flow",
+            "hru_actet",
+            "perv_actet",
+            "perv_actet_hru",
+            "potet_lower",
+            "potet_rechr",
+            "pref_flow",
+            "pref_flow_in",
+            "pref_flow_infil",
+            "pref_flow_max",
+            "pref_flow_stor",
+            "pref_flow_stor_change",
+            "pref_flow_stor_prev",
+            "pref_flow_thrsh",
+            "recharge",
+            "slow_flow",
+            "slow_stor",
+            "slow_stor_change",
+            "slow_stor_prev",
+            "soil_lower",
+            "soil_lower_change",
+            "soil_lower_change_hru",
+            "soil_lower_prev",
+            "soil_lower_ratio",
+            "soil_lower_max",
+            "soil_moist",
+            "soil_moist_tot",
+            "soil_rechr",
+            "soil_rechr_change",
+            "soil_rechr_change_hru",
+            "soil_rechr_prev",
+            "soil_saturated",
+            "soil_to_gw",
+            "soil_to_ssr",
+            "soil_zone_max",
+            "ssr_to_gw",
+            "ssres_flow",
+            "ssres_flow_vol",
+            "ssres_in",
+            "ssres_stor",
+            "swale_actet",
+            "unused_potet",
+            "perv_soil_to_gw",
+            "perv_soil_to_gvr",
+            # Agricultural area variables (whole HRU basis)
+            "ag_cap_infil_tot",
+            "ag_soil_moist",
+            "ag_soil_moist_prev",
+            "ag_soil_moist_change",
+            "ag_soil_moist_change_hru",
+            "ag_soil_rechr",
+            "ag_soil_rechr_prev",
+            "ag_soil_rechr_change",
+            "ag_soil_rechr_change_hru",
+            "ag_soil_rechr_max",
+            "ag_soil_lower",
+            "ag_soil_lower_change",
+            "ag_soil_lower_change_hru",
+            "ag_soil_lower_stor_max",
+            "ag_actet",
+            "hru_ag_actet",
+            "ag_potet_rechr",
+            "ag_potet_lower",
+            "ag_soil_to_gw",
+            "ag_soil_to_gvr",
+            "ag_hortonian",
+            "ag_soil_saturated",
+            "unused_ag_et",
+            "ag_soilwater_deficit",
+            # Redistribution tracking (for ag_frac changes)
+            "ag_soil_moist_redistribution",
+            "ag_soil_rechr_redistribution",
+            "soil_rechr_redistribution",
+            "soil_lower_redistribution",
+            "slow_stor_redistribution",
+        )
+
+    @staticmethod
+    def get_mass_budget_terms() -> dict:
+        """Return mass budget terms for PRMSSoilzoneAg."""
+        return {
+            "inputs": [
+                "perv_infil_hru",
+                "ag_infil_hru",
+            ],
+            "outputs": [
+                "perv_actet_hru",
+                "hru_ag_actet",
+                "perv_soil_to_gw",
+                "ag_soil_to_gw",
+                "ssr_to_gw",
+                "slow_flow",
+                "dunnian_flow",
+                "pref_flow",
+            ],
+            "storage_changes": [
+                "soil_rechr_change_hru",
+                "soil_lower_change_hru",
+                "slow_stor_change",
+                "pref_flow_stor_change",
+                "ag_soil_rechr_change_hru",
+                "ag_soil_lower_change_hru",
+            ],
+        }
+
+
+@staticmethod
+def get_init_values() -> dict:
+    return {
+        # Mass budget input terms (whole HRU basis)
+        "perv_infil_hru": zero,
+        "ag_infil_hru": zero,
+        "ag_irrigation_hru_source": zero,
+        # Pervious area variables (whole HRU basis)
+        "cap_infil_tot": zero,
+        "cap_waterin": zero,
+        "dunnian_flow": zero,
+        "hru_actet": zero,
+        "perv_actet": zero,
+        "perv_actet_hru": zero,
+        "potet_lower": zero,
+        "potet_rechr": zero,
+        "pref_flow": zero,
+        "pref_flow_in": zero,
+        "pref_flow_infil": zero,
+        "pref_flow_max": zero,
+        "pref_flow_stor": zero,
+        "pref_flow_stor_change": zero,
+        "pref_flow_stor_prev": nan,
+        "pref_flow_thrsh": zero,
+        "recharge": zero,
+        "slow_flow": zero,
+        "slow_stor": zero,
+        "slow_stor_change": zero,
+        "slow_stor_prev": nan,
+        "soil_lower": zero,
+        "soil_lower_change": zero,
+        "soil_lower_change_hru": zero,
+        "soil_lower_prev": zero,
+        "soil_lower_ratio": zero,
+        "soil_lower_max": nan,
+        "soil_moist": nan,
+        "soil_moist_tot": nan,
+        "soil_rechr": zero,
+        "soil_rechr_change": zero,
+        "soil_rechr_change_hru": zero,
+        "soil_rechr_prev": zero,
+        "soil_saturated": zero,
+        "soil_to_gw": zero,
+        "soil_to_ssr": zero,
+        "soil_zone_max": nan,
+        "ssr_to_gw": zero,
+        "ssres_flow": zero,
+        "ssres_flow_vol": nan,
+        "ssres_in": zero,
+        "ssres_stor": nan,
+        "swale_actet": zero,
+        "unused_potet": zero,
+        "perv_soil_to_gw": zero,
+        "perv_soil_to_gvr": zero,
+        # Agricultural area variables (whole HRU basis)
+        "ag_cap_infil_tot": zero,
+        "ag_soil_moist": zero,
+        "ag_soil_moist_prev": zero,
+        "ag_soil_moist_change": zero,
+        "ag_soil_moist_change_hru": zero,
+        "ag_soil_rechr": zero,
+        "ag_soil_rechr_prev": zero,
+        "ag_soil_rechr_change": zero,
+        "ag_soil_rechr_change_hru": zero,
+        "ag_soil_rechr_max": nan,
+        "ag_soil_lower": nan,
+        "ag_soil_lower_change": zero,
+        "ag_soil_lower_change_hru": zero,
+        "ag_soil_lower_stor_max": nan,
+        "ag_actet": zero,
+        "hru_ag_actet": zero,
+        "ag_potet_rechr": zero,
+        "ag_potet_lower": zero,
+        "ag_soil_to_gw": zero,
+        "ag_soil_to_gvr": zero,
+        "ag_hortonian": zero,
+        "ag_soil_saturated": zero,
+        # Redistribution tracking (for ag_frac changes)
+        "ag_soil_moist_redistribution": zero,
+        "ag_soil_rechr_redistribution": zero,
+        "soil_rechr_redistribution": zero,
+        "soil_lower_redistribution": zero,
+        "slow_stor_redistribution": zero,
+    }

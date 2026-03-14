@@ -9,6 +9,7 @@ with interactive visualization of spatial patterns and timeseries.
 """
 
 import pathlib as pl
+import textwrap
 from typing import Dict, List, Optional, Union
 
 # import geopandas as gpd
@@ -88,8 +89,13 @@ class HRUComparisonPanel:
         Dictionary mapping run names to colors for timeseries plots.
         If None, uses built-in colorblind-friendly palette.
         Example: {"Run1": "#0173B2", "Run2": "#DE8F05"}
+    title_max_length : int, optional
+        Maximum length of timeseries plot titles before wrapping to a new line
+        (default: 80). Titles longer than this will be split intelligently,
+        preferring to break between the variable name and description.
 
-        Custom examples::
+
+        Custom time_aggregations examples::
 
             {
                 "Median": lambda da: da.median(dim="time").values,
@@ -135,6 +141,7 @@ class HRUComparisonPanel:
         simplify_tolerance: int = 300,
         time_aggregations: Optional[Dict] = None,
         run_colors: Optional[Dict[str, str]] = None,
+        title_max_length: int = 80,
         verbose: bool = True,
     ):
         """Initialize the HRU Comparison Panel."""
@@ -211,6 +218,7 @@ class HRUComparisonPanel:
         self.timeseries_height = timeseries_height
         self.default_colormap = colormap
         self.simplify_tolerance = simplify_tolerance
+        self.title_max_length = title_max_length
 
         # Load shapefile
         print(f"Loading shapefile from {self.shapefile_path}...")
@@ -872,9 +880,30 @@ class HRUComparisonPanel:
         # Assign colors based on run names for consistency
         color_list = [self.run_colors[col] for col in df.columns]
 
+        # Create title with smart wrapping
+        full_title = f"HRU {hru_id}: {var_name}{desc_str}"
+        if len(full_title) > self.title_max_length:
+            # Wrap at smart location (break at ": " or after var name)
+            if desc_str and var_meta["desc"]:
+                # Break between var name and description, then wrap
+                prefix = f"HRU {hru_id}: {var_name}"
+                # Wrap the description to fit remaining width
+                wrapped_desc = textwrap.fill(
+                    var_meta["desc"],
+                    width=self.title_max_length,
+                    initial_indent="",
+                    subsequent_indent="",
+                )
+                title = f"{prefix}\n{wrapped_desc}"
+            else:
+                # Simple wrapping at max length using textwrap
+                title = textwrap.fill(full_title, width=self.title_max_length)
+        else:
+            title = full_title
+
         # Create plot with monthly x-axis ticks (month over year)
         plot = df.hvplot.line(
-            title=f"HRU {hru_id}: {var_name}{desc_str}",
+            title=title,
             width=self.timeseries_width,
             height=self.timeseries_height,
             ylabel=ylabel,
