@@ -31,7 +31,6 @@ def test_notebooks(notebook):
         "nbconvert",
         "--to",
         "script",
-        "--no-execute",
         str(notebook),
     ]
     proc = subprocess.run(cmd)
@@ -42,7 +41,7 @@ def test_notebooks(notebook):
     assert nb_py.exists(), f"Expected script does not exists: {nb_py}"
 
     bin_path = pl.Path(sys.executable).parent
-    # On Windows, scripts are in the Scripts subdirectory
+    # On Windows, ipython is in the Scripts subdirectory
     if sys.platform == "win32":
         scripts_path = bin_path / "Scripts"
         ipython = scripts_path / "ipython.exe"
