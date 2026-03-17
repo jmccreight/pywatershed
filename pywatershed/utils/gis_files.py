@@ -8,9 +8,9 @@ import zipfile
 from pathlib import Path
 from shutil import rmtree
 
-import pywatershed as pws
+from pywatershed import constants
 
-pkg_root_dir = pws.constants.__pywatershed_root__
+pkg_root_dir = constants.__pywatershed_root__
 gis_dir = pkg_root_dir / "data/pywatershed_gis"
 
 # URL and MD5 must be updated together when new version is released
@@ -32,7 +32,7 @@ def compute_md5(file_path: Path) -> str:
     return md5_hash.hexdigest()
 
 
-def download(force=False):
+def download(force: bool = False) -> None:
     gis_file = pkg_root_dir / "data/pywatershed_gis.zip"
 
     # Check if zip file exists and verify its MD5
@@ -74,6 +74,26 @@ def download(force=False):
         assert gis_dir.exists()
 
     return
+
+
+def get_gis_dir(domain: str | None = None) -> Path:
+    """Get the path to the GIS directory.
+
+    Args:
+        domain: Optional domain name. If provided, returns the path to the
+                specific domain's GIS directory (e.g., "drb_2yr").
+                If None, returns the root GIS directory.
+
+    Returns:
+        Path to the GIS directory or domain-specific GIS directory.
+
+    Examples:
+        >>> get_gis_dir()  # Returns .../data/pywatershed_gis
+        >>> get_gis_dir("drb_2yr")  # Returns .../data/pywatershed_gis/drb_2yr
+    """
+    if domain is None:
+        return gis_dir
+    return gis_dir / domain
 
 
 if __name__ == "__main__":

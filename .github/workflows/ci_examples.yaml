@@ -23,7 +23,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ["ubuntu-latest"]
+        os: ["windows-latest"]
         python-version: ["3.12"]
 
     steps:
@@ -65,9 +65,9 @@ jobs:
         run: |
           pip install pytest-github-actions-annotate-failures
 
-      - name: Install dependencies and this package
+      - name: Install dependencies and this package (non-editable install)
         run: |
-          pip install -e .
+          pip install .
 
       - name: Version info
         run: |
