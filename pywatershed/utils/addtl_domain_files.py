@@ -91,10 +91,10 @@ def get_addtl_domains_dir(domain: str | None = None) -> Path:
         Path to the additional domains directory or domain-specific directory.
 
     Examples:
-        >>> get_addtl_domains_dir()  # Returns .../data/pywatershed_addtl_domains
+        >>> get_addtl_domains_dir()  # -> .../data/pywatershed_addtl_domains
         >>> get_addtl_domains_dir(
         ...     "fgr_2yr"
-        ... )  # Returns .../data/pywatershed_addtl_domains/fgr_2yr
+        ... )  # -> .../data/pywatershed_addtl_domains/fgr_2yr
     """
     if domain is None:
         return addtl_domains_dir
