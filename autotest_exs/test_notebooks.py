@@ -42,9 +42,11 @@ def test_notebooks(notebook):
 
     bin_path = pl.Path(sys.executable).parent
     ipython = bin_path / "ipython"
+    if sys.platform == "win32":
+        ipython = ipython.with_suffix(".exe")
     assert ipython.exists(), f"ipython not found at: {ipython}"
 
-    cmd = ["ipython", str(nb_py)]
+    cmd = [str(ipython), str(nb_py)]
     proc = subprocess.run(cmd)
     assert proc.returncode == 0, f"Running the notebook failed: {notebook}"
 
