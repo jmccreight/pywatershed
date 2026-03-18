@@ -1,3 +1,4 @@
+import os
 import pathlib as pl
 import subprocess
 import sys
@@ -49,8 +50,12 @@ def test_notebooks(notebook):
         ipython = bin_path / "ipython"
     assert ipython.exists(), f"ipython not found at: {ipython}"
 
+    # Set environment to use non-interactive backend for plots
+    env = os.environ.copy()
+    env["MPLBACKEND"] = "Agg"
+
     cmd = [str(ipython), str(nb_py)]
-    proc = subprocess.run(cmd)
+    proc = subprocess.run(cmd, env=env)
     assert proc.returncode == 0, f"Running the notebook failed: {notebook}"
 
     nb_py.unlink()
