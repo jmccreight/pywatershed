@@ -5,6 +5,7 @@ from .csv_utils import CsvFile
 from .domain_subset import DomainSubset
 from .gis_files import get_gis_dir
 from .netcdf_utils import NetCdfRead, NetCdfWrite
+from .notebook_utils import get_repo_root, get_test_data_dir
 from .prms5_file_util import PrmsFile
 from .prms5util import (
     Soltab,
@@ -36,6 +37,8 @@ __all__ = (
     "get_addtl_domains_dir",
     "get_dynamic_param_files_from_control",
     "get_gis_dir",
+    "get_repo_root",
+    "get_test_data_dir",
     "MakeStarfitParams",
     "NetCdfRead",
     "NetCdfWrite",
