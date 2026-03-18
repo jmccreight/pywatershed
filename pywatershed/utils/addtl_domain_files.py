@@ -53,7 +53,41 @@ def download(force: bool = False) -> None:
         if addtl_domains_file.exists():
             addtl_domains_file.unlink()
 
-    if not addtl_domains_dir.exists() or not addtl_domains_file.exists():
+    if not addtl_domains_dir.exists():
+        # If directory doesn't exist but zip does, extract it
+        if addtl_domains_file.exists():
+            print(
+                f"Extracting {addtl_domains_file} to {pkg_root_dir / 'data'}"
+            )
+            with zipfile.ZipFile(addtl_domains_file, "r") as zz:
+                zz.extractall(pkg_root_dir / "data")
+            assert addtl_domains_dir.exists()
+        else:
+            # Need to download
+            print(
+                f"Downloading {addtl_domains_config['url']} to "
+                f"{addtl_domains_file}"
+            )
+            request.urlretrieve(
+                addtl_domains_config["url"], addtl_domains_file
+            )
+
+            # Verify MD5 checksum after download
+            downloaded_md5 = compute_md5(addtl_domains_file)
+            if downloaded_md5 != addtl_domains_config["md5"]:
+                raise ValueError(
+                    f"Downloaded file MD5 mismatch: "
+                    f"expected {addtl_domains_config['md5']}, "
+                    f"got {downloaded_md5}"
+                )
+
+            # Extract the downloaded file
+            with zipfile.ZipFile(addtl_domains_file, "r") as zz:
+                zz.extractall(pkg_root_dir / "data")
+
+            assert addtl_domains_dir.exists()
+    elif not addtl_domains_file.exists():
+        # Directory exists but zip doesn't - download and re-extract
         print(
             f"Downloading {addtl_domains_config['url']} to "
             f"{addtl_domains_file}"
@@ -68,13 +102,6 @@ def download(force: bool = False) -> None:
                 f"expected {addtl_domains_config['md5']}, "
                 f"got {downloaded_md5}"
             )
-
-        if addtl_domains_dir.exists():
-            rmtree(addtl_domains_dir)
-        with zipfile.ZipFile(addtl_domains_file, "r") as zz:
-            zz.extractall(pkg_root_dir / "data")
-
-        assert addtl_domains_dir.exists()
 
     return
 

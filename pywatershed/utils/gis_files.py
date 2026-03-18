@@ -53,7 +53,34 @@ def download(force: bool = False) -> None:
         if gis_file.exists():
             gis_file.unlink()
 
-    if not gis_dir.exists() or not gis_file.exists():
+    if not gis_dir.exists():
+        # If directory doesn't exist but zip does, extract it
+        if gis_file.exists():
+            print(f"Extracting {gis_file} to {pkg_root_dir / 'data'}")
+            with zipfile.ZipFile(gis_file, "r") as zz:
+                zz.extractall(pkg_root_dir / "data")
+            assert gis_dir.exists()
+        else:
+            # Need to download
+            print(f"Downloading {gis_config['url']} to {gis_file}")
+            request.urlretrieve(gis_config["url"], gis_file)
+
+            # Verify MD5 checksum after download
+            downloaded_md5 = compute_md5(gis_file)
+            if downloaded_md5 != gis_config["md5"]:
+                raise ValueError(
+                    f"Downloaded file MD5 mismatch: "
+                    f"expected {gis_config['md5']}, "
+                    f"got {downloaded_md5}"
+                )
+
+            # Extract the downloaded file
+            with zipfile.ZipFile(gis_file, "r") as zz:
+                zz.extractall(pkg_root_dir / "data")
+
+            assert gis_dir.exists()
+    elif not gis_file.exists():
+        # Directory exists but zip doesn't - download and re-extract
         print(f"Downloading {gis_config['url']} to {gis_file}")
         request.urlretrieve(gis_config["url"], gis_file)
 
@@ -65,13 +92,6 @@ def download(force: bool = False) -> None:
                 f"expected {gis_config['md5']}, "
                 f"got {downloaded_md5}"
             )
-
-        if gis_dir.exists():
-            rmtree(gis_dir)
-        with zipfile.ZipFile(gis_file, "r") as zz:
-            zz.extractall(pkg_root_dir / "data")
-
-        assert gis_dir.exists()
 
     return
 
