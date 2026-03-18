@@ -4,7 +4,7 @@
 
 MMFDIR      = ./mmf
 PRMSDIR     = ./prms
-BINDIR      = ../bin
+BINDIR      = ./bin
 MMFLIB      = .$(MMFDIR)/libmmf.a
 
 #########################################################
@@ -14,7 +14,7 @@ ARC		= LINUX
 #ARC		= WINDOWS
 
 #OPTLEVEL	= -g
-OPTLEVEL	= -O -Bstatic
+OPTLEVEL	= -O
 #for gfortran
 LDFLAGS	=$(OPTLEVEL)
 #for ifort
@@ -49,8 +49,8 @@ CC		= gcc
 MATHLIB		= -lm
 GCLIB		= -lgfortran -lgcc $(MATHLIB)
 #for ifort
-#MATHLIB		= 
-#GCLIB		= 
+#MATHLIB		=
+#GCLIB		=
 FLIBS    = $(GCLIB)
 
 ##########################################################
@@ -64,4 +64,3 @@ MAKE		= make
 LN		= cp
 CD		= cd
 CP		= cp
-

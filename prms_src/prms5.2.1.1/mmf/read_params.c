@@ -96,7 +96,8 @@ char *read_dims (char *param_file_name) {
 */
 	strncpy (file_name, param_file_name, 256);
     param_file = NULL;
-    bp = open_parameter_file (param_file_name);
+    // Uses global file_name set above
+    bp = open_parameter_file ();
 	if (bp != NULL) {
 		return bp;
 	}
