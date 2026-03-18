@@ -16,6 +16,10 @@ jobs:
 
     runs-on: ${{ matrix.os }}
 
+    env:
+      # Force UTF-8 encoding on Windows to avoid cp1252 encoding issues
+      PYTHONUTF8: ${{ matrix.os == 'windows-latest' && '1' || '' }}
+
     defaults:
       run:
         shell: bash -l {0}
@@ -65,9 +69,9 @@ jobs:
         run: |
           pip install pytest-github-actions-annotate-failures
 
-      - name: Install dependencies and this package (non-editable install)
+      - name: Install dependencies and this package (test non-editable on windows)
         run: |
-          pip install .
+          ${{ matrix.os == 'windows-latest' && 'pip install .' || 'pip install -e .' }}
 
       - name: Version info
         run: |
