@@ -8,9 +8,9 @@ import zipfile
 from pathlib import Path
 from shutil import rmtree
 
-import pywatershed as pws
+from pywatershed import constants
 
-pkg_root_dir = pws.constants.__pywatershed_root__
+pkg_root_dir = constants.__pywatershed_root__
 addtl_domains_dir = pkg_root_dir / "data/pywatershed_addtl_domains"
 
 # URL and MD5 must be updated together when new version is released
@@ -32,7 +32,7 @@ def compute_md5(file_path: Path) -> str:
     return md5_hash.hexdigest()
 
 
-def download(force=False):
+def download(force: bool = False) -> None:
     addtl_domains_file = pkg_root_dir / "data/pywatershed_addtl_domains.zip"
 
     # Check if zip file exists and verify its MD5
@@ -53,7 +53,41 @@ def download(force=False):
         if addtl_domains_file.exists():
             addtl_domains_file.unlink()
 
-    if not addtl_domains_dir.exists() or not addtl_domains_file.exists():
+    if not addtl_domains_dir.exists():
+        # If directory doesn't exist but zip does, extract it
+        if addtl_domains_file.exists():
+            print(
+                f"Extracting {addtl_domains_file} to {pkg_root_dir / 'data'}"
+            )
+            with zipfile.ZipFile(addtl_domains_file, "r") as zz:
+                zz.extractall(pkg_root_dir / "data")
+            assert addtl_domains_dir.exists()
+        else:
+            # Need to download
+            print(
+                f"Downloading {addtl_domains_config['url']} to "
+                f"{addtl_domains_file}"
+            )
+            request.urlretrieve(
+                addtl_domains_config["url"], addtl_domains_file
+            )
+
+            # Verify MD5 checksum after download
+            downloaded_md5 = compute_md5(addtl_domains_file)
+            if downloaded_md5 != addtl_domains_config["md5"]:
+                raise ValueError(
+                    f"Downloaded file MD5 mismatch: "
+                    f"expected {addtl_domains_config['md5']}, "
+                    f"got {downloaded_md5}"
+                )
+
+            # Extract the downloaded file
+            with zipfile.ZipFile(addtl_domains_file, "r") as zz:
+                zz.extractall(pkg_root_dir / "data")
+
+            assert addtl_domains_dir.exists()
+    elif not addtl_domains_file.exists():
+        # Directory exists but zip doesn't - download and re-extract
         print(
             f"Downloading {addtl_domains_config['url']} to "
             f"{addtl_domains_file}"
@@ -69,14 +103,29 @@ def download(force=False):
                 f"got {downloaded_md5}"
             )
 
-        if addtl_domains_dir.exists():
-            rmtree(addtl_domains_dir)
-        with zipfile.ZipFile(addtl_domains_file, "r") as zz:
-            zz.extractall(pkg_root_dir / "data")
-
-        assert addtl_domains_dir.exists()
-
     return
+
+
+def get_addtl_domains_dir(domain: str | None = None) -> Path:
+    """Get the path to the additional domains directory.
+
+    Args:
+        domain: Optional domain name. If provided, returns the path to the
+                specific domain directory (e.g., "fgr_2yr").
+                If None, returns the root additional domains directory.
+
+    Returns:
+        Path to the additional domains directory or domain-specific directory.
+
+    Examples:
+        >>> get_addtl_domains_dir()  # -> .../data/pywatershed_addtl_domains
+        >>> get_addtl_domains_dir(
+        ...     "fgr_2yr"
+        ... )  # -> .../data/pywatershed_addtl_domains/fgr_2yr
+    """
+    if domain is None:
+        return addtl_domains_dir
+    return addtl_domains_dir / domain
 
 
 if __name__ == "__main__":

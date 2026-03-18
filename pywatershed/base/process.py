@@ -220,12 +220,22 @@ class Process(Accessor):
         return
 
     def finalize(self) -> None:
-        """Finalizes the Process, including output methods.
+        """Finalize the Process, output methods, and close input adapters.
+
         Returns:
             None
         """
         if self._verbose:
             print(f"finalizing: {self.name}")
+
+        # Close input adapters to release file handles
+        for adapter in self._input_variables_dict.values():
+            if hasattr(adapter, "close"):
+                adapter.close()
+            elif hasattr(adapter, "_nc_read") and hasattr(
+                adapter._nc_read, "close"
+            ):
+                adapter._nc_read.close()
 
         self._finalize_netcdf()
         return
