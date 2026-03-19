@@ -122,7 +122,7 @@
       INTEGER, EXTERNAL :: getparam
       EXTERNAL :: compute_soltab, read_error, PRMS_open_module_file
 ! Local Variables
-      CHARACTER(LEN=12) :: output_path
+      CHARACTER(LEN=20) :: output_path
       INTEGER :: jd, j, n, file_unit, nn
       REAL :: lat
       DOUBLE PRECISION :: basin_cossl
@@ -184,16 +184,18 @@
      &                    Soltab_basinpotsw, basin_sunhrs, 0, 0)
 
       IF ( Print_debug==DEBUG_SOLTAB ) THEN
-        output_path = 'soltab_debug'
+        output_path = 'soltab_debug_5.2.1.1'
         PRINT *, ''
         PRINT *, 'soltab debug data written to: ', output_path
         CALL PRMS_open_module_file(file_unit, output_path)
         DO n = 1, Nhru
           WRITE ( file_unit, * ) 'HRU:', n
           WRITE ( file_unit, * ) '***Soltab_sunhrs***'
-          WRITE ( file_unit, '(13F8.3)' ) (Soltab_sunhrs(j,n), j=1,MAX_DAYS_PER_YEAR)
+          WRITE ( file_unit, '(13F17.10)' ) (Soltab_sunhrs(j,n), j=1,MAX_DAYS_PER_YEAR)
           WRITE ( file_unit, * ) '***Soltab_potsw***'
-          WRITE ( file_unit, '(13F8.3)' ) (Soltab_potsw(j,n), j=1,MAX_DAYS_PER_YEAR)
+          WRITE ( file_unit, '(13F17.10)' ) (Soltab_potsw(j,n), j=1,MAX_DAYS_PER_YEAR)
+          WRITE ( file_unit, * ) '***Soltab_horad_potsw***'
+          WRITE ( file_unit, '(13F17.10)' ) (Soltab_horad_potsw(j,n), j=1,MAX_DAYS_PER_YEAR)
         ENDDO
 !       WRITE ( file_unit, * ) obliquity, Solar_declination
         WRITE ( file_unit, * ) 2.0D0/(obliquity(356)*obliquity(356)), 2.0D0/(obliquity(10)*obliquity(10)), &
