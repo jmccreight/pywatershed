@@ -13,15 +13,16 @@ CFS_TO_CMS = 0.028316847
 class PRMSHydraulicGeometryFull(Process):
     """PRMS hydraulic geometry.
 
-    Computes flow-dependent hydraulic geometry (width, depth, area, velocity)
-    for stream segments using power-law relationships. This implementation is
-    based on the strmflow_character module from PRMS 5.2.1.
+    Computes flow-dependent hydraulic geometry (width, depth, area, velocity,
+    residence time) for stream segments using power-law relationships. This
+    implementation is based on the strmflow_character module from PRMS 5.2.1.
 
     Hydraulic geometry relationships:
     - width = width_alpha * flow^width_m
     - depth = depth_alpha * flow^depth_m
     - area = width * depth
     - velocity = flow / area
+    - residence_time = (area * length) / flow
 
     Args:
         control: a Control object
@@ -62,6 +63,7 @@ class PRMSHydraulicGeometryFull(Process):
             "width_m",
             "depth_alpha",
             "depth_m",
+            "seg_length",
         )
 
     @staticmethod
@@ -75,6 +77,7 @@ class PRMSHydraulicGeometryFull(Process):
             "seg_flow_depth": 0.0,
             "seg_flow_area": 0.0,
             "seg_flow_velocity": 0.0,
+            "seg_res_time": 0.0,
         }
 
     @staticmethod
@@ -84,6 +87,7 @@ class PRMSHydraulicGeometryFull(Process):
             "seg_flow_depth",
             "seg_flow_area",
             "seg_flow_velocity",
+            "seg_res_time",
         )
 
     def _set_initial_conditions(self) -> None:
@@ -110,6 +114,7 @@ class PRMSHydraulicGeometryFull(Process):
         - seg_flow_depth = depth_alpha * flow^depth_m
         - seg_flow_area = seg_flow_width * seg_flow_depth
         - seg_flow_velocity = flow / seg_flow_area
+        - seg_res_time = (seg_flow_area * seg_length) / flow
 
         VECTORIZED: Uses NumPy array operations for all segments at once.
         """
@@ -117,13 +122,14 @@ class PRMSHydraulicGeometryFull(Process):
         flow_cms = self.seg_outflow * CFS_TO_CMS
 
         # Create mask for segments with flow
-        has_flow = flow_cms > NEARZERO
+        has_flow = flow_cms > 0.0
 
         # Initialize all to zero
         self.seg_flow_width[:] = 0.0
         self.seg_flow_depth[:] = 0.0
         self.seg_flow_area[:] = 0.0
         self.seg_flow_velocity[:] = 0.0
+        self.seg_res_time[:] = 0.0
 
         # Compute width and depth from power-law relationships (vectorized)
         # Only for segments with flow
@@ -144,6 +150,12 @@ class PRMSHydraulicGeometryFull(Process):
         self.seg_flow_velocity[has_area] = (
             flow_cms[has_area] / self.seg_flow_area[has_area]
         )
+
+        # Compute residence time (vectorized)
+        # residence_time (seconds) = (area (m²) * length (m)) / flow (m³/s)
+        self.seg_res_time[has_flow] = (
+            self.seg_flow_area[has_flow] * self.seg_length[has_flow]
+        ) / flow_cms[has_flow]
 
         return
 
@@ -198,4 +210,5 @@ class PRMSHydraulicGeometryWidthOnly(PRMSHydraulicGeometryFull):
         return (
             "width_alpha",
             "width_m",
+            "seg_length",
         )

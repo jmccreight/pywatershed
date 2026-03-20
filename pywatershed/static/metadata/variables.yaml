@@ -2952,6 +2952,12 @@ seg_flow_width:
     0: nsegment
   type: float64
   units: meters
+seg_res_time:
+  desc: Mean residence time of water in each segment
+  dims:
+    0: nsegment
+  type: float64
+  units: seconds
 seg_tave_air:
   desc: Area-weighted average air temperature for each segment from HRUs contributing flow to the segment
   dims:
