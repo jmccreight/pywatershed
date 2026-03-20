@@ -2837,6 +2837,18 @@ seg_cum_area:
     - none
   type: F
   units: unknown
+seg_close:
+  default: -1
+  desc: Closest segment index for segments without HRUs
+  dims:
+    0: nsegment
+  help: Index of closest segment for elevation/latitude when segment has no HRUs; -1=auto-assign to segment_up
+  maximum: 9999999
+  minimum: -1
+  modules:
+    - stream_temp
+  type: I
+  units: none
 seg_depth:
   default: 1.0
   desc: Depth of bankfull water in segment

@@ -313,6 +313,7 @@ class Process(Accessor):
         if missing_params:
             if discretization is not None:
                 dis_keys = set(discretization.variables.keys())
+                missing_params = missing_params - dis_keys
                 all_missing_in_dis = (
                     missing_params.intersection(dis_keys) == missing_params
                 )

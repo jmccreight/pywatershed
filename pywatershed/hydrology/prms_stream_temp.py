@@ -240,6 +240,7 @@ class PRMSStreamTemp(ConservativeProcess):
             "seg_slope",
             "seg_lat",
             "seg_elev",
+            "seg_close",
             "ss_tau",
             "gw_tau",
             "melt_temp",
@@ -572,6 +573,40 @@ class PRMSStreamTemp(ConservativeProcess):
         self.albedo = float(self.albedo[0])
         self.melt_temp = float(self.melt_temp[0])
 
+        # Validate and correct seg_length (Fortran lines 428-435)
+        # Check before conversion to km
+        errors = []
+        for i in range(self.nsegment):
+            if self.seg_length[i] < NEARZERO:
+                errors.append(
+                    f"seg_length too small for segment {i}: "
+                    f"{self.seg_length[i]}"
+                )
+            elif self.seg_length[i] < 1.0 and self._verbose:
+                warn(
+                    f"seg_length < 1.0 meters for segment {i}: "
+                    f"{self.seg_length[i]}"
+                )
+        if errors:
+            raise ValueError("\n".join(errors))
+
+        # Convert seg_length from meters to kilometers (Fortran line 441)
+        self.seg_length_km = self.seg_length / 1000.0
+
+        # Validate and correct seg_slope (Fortran lines 436-440)
+        # New minimum is 0.0000001 (was 0.0001 in old version)
+        for i in range(self.nsegment):
+            if self.seg_slope[i] < 0.0000001:
+                if self._verbose:
+                    warn(
+                        f"seg_slope < 0.0000001 for segment {i}, "
+                        f"setting to 0.0000001 (was {self.seg_slope[i]})"
+                    )
+                self.seg_slope[i] = 0.0000001
+
+        # Note: lat_temp_adj units are degrees Celsius (not decimal fraction)
+        # This matches Fortran stream_temp.f90 line 202
+
         # # Handle humidity flag: _set_options already checked __init__ arg
         # # then control.options, so we just need to validate and convert
         # if self._strmtemp_humidity_flag is None:
@@ -649,53 +684,62 @@ class PRMSStreamTemp(ConservativeProcess):
         # aggregation logic)
         self.segment_up = segment_up
 
-        # Compute seg_close for segments without HRUs (matches Fortran
-        # line 529-570)
-        # Initialize seg_close = segment_up (Fortran line 529)
-        self.seg_close = np.copy(segment_up)
+        # Handle seg_close parameter (new in PRMS 5.2.1.1)
+        # Matches Fortran stream_temp.f90 lines 540-576
+        # seg_close is now a parameter that can be:
+        #   -1: auto-set to segment_up (with warning)
+        #   >0: user-specified closest segment for segments without HRUs
 
-        # Now update seg_close for segments without HRUs (Fortran line 530-570)
-        for jj in range(self.nsegment):
-            i = self.segment_order[jj]
+        # Check if seg_close is specified or should default
+        # (Fortran line 542-545)
+        if self.seg_close[0] == -1:
+            # Not specified - use segment_up with warning
+            self.seg_close = np.copy(segment_up)
+            self.seg_close_flag = 0
+            if self._verbose:
+                warn(
+                    "seg_close parameter not specified (value=-1), "
+                    "setting to segment_up or other segment if no segment_up"
+                )
+        else:
+            # User specified - validate that segments without HRUs have
+            # valid seg_close
+            self.seg_close_flag = 1
+            errors = []
+            for i in range(self.nsegment):
+                if self.segment_hruarea[i] <= NEARZERO:
+                    if self.seg_close[i] == 0:
+                        errors.append(
+                            f"segment {i} does not have associated HRUs "
+                            f"but seg_close is 0"
+                        )
+            if errors:
+                raise ValueError("\n".join(errors))
 
-            # Only modify seg_close for segments without HRUs
-            # (Fortran line 539)
-            if self.segment_hruarea[i] <= NEARZERO:
-                # If no upstream segment (Fortran line 541)
-                if self.segment_up[i] == 0:
-                    # Try downstream segment (Fortran line 542-543)
-                    if self.tosegment[i] > 0:
-                        self.seg_close[i] = (
-                            self.tosegment[i] - 1
-                        )  # Convert to 0-based
-                    else:
-                        # No upstream or downstream - use previous/next in
-                        # order (Fortran line 544-549)
+        # For auto-assigned seg_close (seg_close_flag=0), handle special
+        # cases (Fortran lines 563-576)
+        if self.seg_close_flag == 0:
+            for jj in range(self.nsegment):
+                i = self.segment_order[jj]
+
+                if self.segment_hruarea[i] <= NEARZERO:
+                    # If segment_up is 0, need to find alternative
+                    if self.segment_up[i] == 0:
                         if jj > 0:
+                            # Use previous segment in route order
                             self.seg_close[i] = self.segment_order[jj - 1]
+                            if self._verbose:
+                                warn(
+                                    f"segment_up = 0 without associated HRU "
+                                    f"for segment {i}, will use previous "
+                                    f"segment in route order"
+                                )
                         else:
-                            self.seg_close[i] = self.segment_order[jj + 1]
-
-                # Check if seg_close points to invalid segment
-                # (Fortran line 551-563)
-                # If elevation is exactly 30000 (invalid marker), find a
-                # different segment
-                if self.seg_elev[self.seg_close[i]] == 30000.0:
-                    found = False
-                    # Find first segment with HRUs in forward order
-                    # (Fortran line 553-558)
-                    for k in range(jj + 1, self.nsegment):
-                        ii = self.segment_order[k]
-                        if self.segment_hruarea[ii] > NEARZERO:
-                            self.seg_close[i] = ii
-                            found = True
-                            break
-
-                    # If not found, use previous segment in order
-                    # (Fortran line 560-565)
-                    if not found:
-                        if jj > 0:
-                            self.seg_close[i] = self.segment_order[jj - 1]
+                            raise ValueError(
+                                f"Cannot set associated segment for segment "
+                                f"without associated HRU for segment {i}. "
+                                f"Must specify seg_close for this case."
+                            )
 
         # Mark segments with no upstream HRUs as never having flow
         # (matches Fortran initialization around line 648)
@@ -730,9 +774,7 @@ class PRMSStreamTemp(ConservativeProcess):
                 if not has_upstream_hrus:
                     self.seg_tave_water[i] = np.nan
 
-        # Convert seg_length from meters to kilometers
-        # Parameter file has seg_length in meters, but calculations use km
-        self.seg_length = self.seg_length / 1000.0
+        # Note: seg_length conversion to km is done earlier as seg_length_km
 
         # Precompute solar geometry for each day of year
         self._precompute_solar_geometry()
@@ -913,7 +955,7 @@ class PRMSStreamTemp(ConservativeProcess):
             self.seg_flow_width,
             self.seg_slope,
             self.seg_tave_gw,
-            self.seg_length,
+            self.seg_length_km,
             self.albedo,
             int(self.maxiter_sntemp),
             self._track_energy_fluxes,
@@ -1338,7 +1380,9 @@ class PRMSStreamTemp(ConservativeProcess):
         computed vectorially for efficiency.
         """
         # Surface areas (vectorized)
-        surface_area = self.seg_flow_width * self.seg_length  # m²
+        surface_area = (
+            self.seg_flow_width * self.seg_length_km * 1000.0
+        )  # m² (convert km to m)
 
         # Convert flows to m³/s (vectorized)
         q_up_cms = self._upstream_flows * CFS_TO_CMS
@@ -1520,7 +1564,7 @@ class PRMSStreamTemp(ConservativeProcess):
             ak1,
             ak2,
             self.seg_flow_width[seg_idx],
-            self.seg_length[seg_idx],
+            self.seg_length_km[seg_idx],
         )
 
 
