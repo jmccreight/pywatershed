@@ -146,7 +146,7 @@ def shade_init_style(request):
 @pytest.fixture(
     scope="function",
     params=calc_methods,
-    ids=["calc_numba", "calc_numpy"],
+    ids=calc_methods,
 )
 def calc_method(request):
     return request.param

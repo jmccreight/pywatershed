@@ -148,6 +148,7 @@ class PRMSStreamTemp(ConservativeProcess):
         stream_shade_class: Union[type, None] = None,
         stream_shade_parameters: Union[Parameters, Path, None] = None,
         # strmtemp_humidity_flag: Union[int, None] = None,
+        calc_method: Literal["numba", "numpy", None] = None,
         imbalance_behavior: Literal["defer", None, "warn", "error"] = "defer",
         verbose: bool = False,
         use_vectorized_shade: bool = True,
@@ -190,6 +191,7 @@ class PRMSStreamTemp(ConservativeProcess):
 
         self._set_budget(basis="unit", quantity="energy")
         self._initialize_stream_temp()
+        self._init_calc_method()
 
         # Consistency checks for energy flux tracking
         if not self._track_energy_fluxes:
@@ -838,6 +840,35 @@ class PRMSStreamTemp(ConservativeProcess):
 
         return
 
+    def _init_calc_method(self):
+        """Initialize calculation method (numpy or numba)."""
+        if self._calc_method is None:
+            self._calc_method = "numba"
+
+        avail_methods = ["numpy", "numba"]
+        if self._calc_method.lower() not in avail_methods:
+            msg = (
+                f"Invalid calc_method={self._calc_method} for {self.name}. "
+                f"Setting calc_method to 'numba' for {self.name}"
+            )
+            warn(msg)
+            self._calc_method = "numba"
+
+        if self._calc_method.lower() == "numba":
+            numba_msg = f"{self.name} jit compiling with numba"
+            print(numba_msg, flush=True)
+
+            # Wrap methods with numba jit compilation
+            self._update_running_avg_temp = nb.njit(
+                self._update_running_avg_temp
+            )
+            self._compute_lateral_temp = nb.njit(self._compute_lateral_temp)
+            self._compute_water_temp = nb.njit(self._compute_water_temp)
+
+        # else: methods are already available without wrapping
+
+        return
+
     def _advance_variables(self) -> None:
         """Advance variables from current to previous timestep."""
         # No explicit time advancement needed for this module
@@ -867,8 +898,7 @@ class PRMSStreamTemp(ConservativeProcess):
 
         # Compute running average temperatures for groundwater and subsurface
         # Skip segments marked as never having flow (matches Fortran checks)
-        # Use numba-optimized function for performance
-        _update_running_avg_temp_numba(
+        self._update_running_avg_temp(
             self.segment_order,
             self.seg_tave_water,
             self.seginc_swrad,
@@ -887,8 +917,7 @@ class PRMSStreamTemp(ConservativeProcess):
 
         # Compute lateral flow temperatures
         # Skip segments marked as never having flow or data
-        # Use numba-optimized function for performance
-        _compute_lateral_temp_numba(
+        self._compute_lateral_temp(
             self.segment_order,
             self.seg_tave_water,
             self.seginc_swrad,
@@ -903,7 +932,7 @@ class PRMSStreamTemp(ConservativeProcess):
             self.seg_tave_ss,
             self.melt_temp,
             self.lat_temp_adj,
-            nowmonth,
+            self.control.current_month,
             self.seg_tave_lat,
         )
 
@@ -930,9 +959,8 @@ class PRMSStreamTemp(ConservativeProcess):
             if not np.isnan(self.seg_tave_water[jj]):
                 self.seg_tave_water[jj] = -99.9
 
-        # Use numba-optimized function for performance
         # Note: Assumes vectorized shade is being used
-        _compute_water_temp_numba(
+        self._compute_water_temp(
             self.segment_order,
             self.seg_tave_water,
             self.seginc_swrad,
@@ -1068,8 +1096,10 @@ class PRMSStreamTemp(ConservativeProcess):
     # Note: _compute_hydraulic_geometry removed - now handled by
     # PRMSHydraulicGeometryFull process
 
-    def _update_running_avg_temp(self, seg_idx: int, comp_type: str) -> None:
-        """Update running average temperature for groundwater or subsurface.
+    def _update_running_avg_temp_single(
+        self, seg_idx: int, comp_type: str
+    ) -> None:
+        """Update running average temperature for groundwater or subsurface (single segment).
 
         This matches the Fortran PRMS implementation which uses a running sum
         divided by tau, with a circular buffer.
@@ -1114,8 +1144,10 @@ class PRMSStreamTemp(ConservativeProcess):
 
         return
 
-    def _compute_lateral_temp(self, seg_idx: int, nowmonth: int) -> None:
-        """Compute lateral flow temperature for a segment.
+    def _compute_lateral_temp_single(
+        self, seg_idx: int, nowmonth: int
+    ) -> None:
+        """Compute lateral flow temperature for a segment (single segment).
 
         Args:
             seg_idx: Segment index
@@ -1276,8 +1308,8 @@ class PRMSStreamTemp(ConservativeProcess):
 
         return total_inflow
 
-    def _compute_water_temp(self, seg_idx: int, svi: float) -> None:
-        """Compute water temperature for a segment.
+    def _compute_water_temp_single(self, seg_idx: int, svi: float) -> None:
+        """Compute water temperature for a segment (single segment).
 
         Args:
             seg_idx: Segment index
@@ -1565,190 +1597,372 @@ class PRMSStreamTemp(ConservativeProcess):
             self.seg_length_km[seg_idx],
         )
 
+    @staticmethod
+    def _update_running_avg_temp(
+        segment_order,
+        seg_tave_water,
+        seginc_swrad,
+        seg_tave_air,
+        gw_tau,
+        gw_index,
+        gw_silo,
+        gw_sum,
+        seg_tave_gw,
+        ss_tau,
+        ss_index,
+        ss_silo,
+        ss_sum,
+        seg_tave_ss,
+    ):
+        """Update running average temperatures for groundwater and subsurface.
 
-@nb.jit(nopython=True)
-def _update_running_avg_temp_numba(
-    segment_order,
-    seg_tave_water,
-    seginc_swrad,
-    seg_tave_air,
-    gw_tau,
-    gw_index,
-    gw_silo,
-    gw_sum,
-    seg_tave_gw,
-    ss_tau,
-    ss_index,
-    ss_silo,
-    ss_sum,
-    seg_tave_ss,
-):
-    """Update running average temperatures for groundwater and subsurface.
+        This function can be optionally JIT-compiled with numba for performance.
 
-    This numba-optimized function replaces the loop that calls
-    _update_running_avg_temp for each segment.
+        Args:
+            segment_order: Order to process segments (immutable)
+            seg_tave_water: Water temperature array (immutable, for skip checks)
+            seginc_swrad: Solar radiation array (immutable, for skip checks)
+            seg_tave_air: Air temperature array (immutable)
+            gw_tau: Groundwater tau values (immutable)
+            gw_index: Groundwater circular buffer indices (MUTATED)
+            gw_silo: Groundwater circular buffer (MUTATED)
+            gw_sum: Groundwater running sums (MUTATED)
+            seg_tave_gw: Groundwater temperatures (MUTATED - output)
+            ss_tau: Subsurface tau values (immutable)
+            ss_index: Subsurface circular buffer indices (MUTATED)
+            ss_silo: Subsurface circular buffer (MUTATED)
+            ss_sum: Subsurface running sums (MUTATED)
+            seg_tave_ss: Subsurface temperatures (MUTATED - output)
+        """
+        for jj in segment_order:
+            # Skip if marked as permanently invalid (no HRUs upstream/downstream)
+            if seginc_swrad[jj] < -99.0:
+                continue
 
-    Args:
-        segment_order: Order to process segments (immutable)
-        seg_tave_water: Water temperature array (immutable, for skip checks)
-        seginc_swrad: Solar radiation array (immutable, for skip checks)
-        seg_tave_air: Air temperature array (immutable)
-        gw_tau: Groundwater tau values (immutable)
-        gw_index: Groundwater circular buffer indices (MUTATED)
-        gw_silo: Groundwater circular buffer (MUTATED)
-        gw_sum: Groundwater running sums (MUTATED)
-        seg_tave_gw: Groundwater temperatures (MUTATED - output)
-        ss_tau: Subsurface tau values (immutable)
-        ss_index: Subsurface circular buffer indices (MUTATED)
-        ss_silo: Subsurface circular buffer (MUTATED)
-        ss_sum: Subsurface running sums (MUTATED)
-        seg_tave_ss: Subsurface temperatures (MUTATED - output)
-    """
-    for jj in segment_order:
-        # Skip if marked as permanently invalid (no HRUs upstream/downstream)
-        if seginc_swrad[jj] < -99.0:
-            continue
+            # Update groundwater running average
+            idx_gw = gw_index[jj]
+            tau_gw = int(gw_tau[jj])
 
-        # Update groundwater running average
-        idx_gw = gw_index[jj]
-        tau_gw = int(gw_tau[jj])
+            # Add new air temperature to silo
+            gw_silo[jj, idx_gw] = seg_tave_air[jj]
 
-        # Add new air temperature to silo
-        gw_silo[jj, idx_gw] = seg_tave_air[jj]
+            # Recompute sum and count valid entries (matches Fortran)
+            # This handles spin-up period correctly
+            at_sum = 0.0
+            at_cnt = 0
+            for j in range(tau_gw):
+                if gw_silo[jj, j] > -98.0:
+                    at_sum += gw_silo[jj, j]
+                    at_cnt += 1
 
-        # Recompute sum and count valid entries (matches Fortran)
-        # This handles spin-up period correctly
-        at_sum = 0.0
-        at_cnt = 0
-        for j in range(tau_gw):
-            if gw_silo[jj, j] > -98.0:
-                at_sum += gw_silo[jj, j]
-                at_cnt += 1
+            # Compute average as sum / count
+            if at_cnt > 0:
+                seg_tave_gw[jj] = at_sum / at_cnt
+            else:
+                seg_tave_gw[jj] = 0.0
 
-        # Compute average as sum / count
-        if at_cnt > 0:
-            seg_tave_gw[jj] = at_sum / at_cnt
-        else:
-            seg_tave_gw[jj] = 0.0
+            # Update index
+            if idx_gw < tau_gw - 1:
+                gw_index[jj] = idx_gw + 1
+            else:
+                gw_index[jj] = 0
 
-        # Update index
-        if idx_gw < tau_gw - 1:
-            gw_index[jj] = idx_gw + 1
-        else:
-            gw_index[jj] = 0
+            # Update subsurface running average
+            idx_ss = ss_index[jj]
+            tau_ss = int(ss_tau[jj])
 
-        # Update subsurface running average
-        idx_ss = ss_index[jj]
-        tau_ss = int(ss_tau[jj])
+            # Add new air temperature to silo
+            ss_silo[jj, idx_ss] = seg_tave_air[jj]
 
-        # Add new air temperature to silo
-        ss_silo[jj, idx_ss] = seg_tave_air[jj]
+            # Recompute sum and count valid entries (matches Fortran)
+            # This handles spin-up period correctly
+            at_sum = 0.0
+            at_cnt = 0
+            for j in range(tau_ss):
+                if ss_silo[jj, j] > -98.0:
+                    at_sum += ss_silo[jj, j]
+                    at_cnt += 1
 
-        # Recompute sum and count valid entries (matches Fortran)
-        # This handles spin-up period correctly
-        at_sum = 0.0
-        at_cnt = 0
-        for j in range(tau_ss):
-            if ss_silo[jj, j] > -98.0:
-                at_sum += ss_silo[jj, j]
-                at_cnt += 1
+            # Compute average as sum / count
+            if at_cnt > 0:
+                seg_tave_ss[jj] = at_sum / at_cnt
+            else:
+                seg_tave_ss[jj] = 0.0
 
-        # Compute average as sum / count
-        if at_cnt > 0:
-            seg_tave_ss[jj] = at_sum / at_cnt
-        else:
-            seg_tave_ss[jj] = 0.0
+            # Update index
+            if idx_ss < tau_ss - 1:
+                ss_index[jj] = idx_ss + 1
+            else:
+                ss_index[jj] = 0
 
-        # Update index
-        if idx_ss < tau_ss - 1:
-            ss_index[jj] = idx_ss + 1
-        else:
-            ss_index[jj] = 0
+    @staticmethod
+    def _compute_lateral_temp(
+        segment_order,
+        seg_tave_water,
+        seginc_swrad,
+        seg_lateral_inflow,
+        seginc_sroff,
+        seginc_ssflow,
+        seginc_gwflow,
+        seg_melt,
+        seg_rain,
+        seg_tave_gw,
+        seg_tave_air,
+        seg_tave_ss,
+        melt_temp,
+        lat_temp_adj,
+        nowmonth,
+        seg_tave_lat,
+    ):
+        """Compute lateral flow temperatures for all segments.
 
+        This function can be optionally JIT-compiled with numba for performance.
 
-@nb.jit(nopython=True)
-def _compute_lateral_temp_numba(
-    segment_order,
-    seg_tave_water,
-    seginc_swrad,
-    seg_lateral_inflow,
-    seginc_sroff,
-    seginc_ssflow,
-    seginc_gwflow,
-    seg_melt,
-    seg_rain,
-    seg_tave_gw,
-    seg_tave_air,
-    seg_tave_ss,
-    melt_temp,
-    lat_temp_adj,
-    nowmonth,
-    seg_tave_lat,
-):
-    """Compute lateral flow temperatures for all segments.
+        Args:
+            segment_order: Order to process segments (immutable)
+            seg_tave_water: Water temperature array (immutable, for skip checks)
+            seginc_swrad: Solar radiation array (immutable, for skip checks)
+            seg_lateral_inflow: Lateral inflow array (immutable)
+            seginc_sroff: Surface runoff array (immutable)
+            seginc_ssflow: Subsurface flow array (immutable)
+            seginc_gwflow: Groundwater flow array (immutable)
+            seg_melt: Snowmelt array (immutable)
+            seg_rain: Rainfall array (immutable)
+            seg_tave_gw: Groundwater temperature array (immutable)
+            seg_tave_air: Air temperature array (immutable)
+            seg_tave_ss: Subsurface temperature array (immutable)
+            melt_temp: Melt temperature constant (immutable)
+            lat_temp_adj: Monthly lateral temperature adjustment array (immutable)
+            nowmonth: Current month (immutable, 1-based)
+            seg_tave_lat: Lateral temperature array (MUTATED - output)
+        """
+        for jj in segment_order:
+            # Skip if marked as never having flow (NaN = never has flow)
+            if np.isnan(seg_tave_water[jj]):
+                continue
+            # Skip if marked as permanently invalid
+            if seginc_swrad[jj] < -99.0:
+                continue
 
-    This numba-optimized function replaces the loop that calls
-    _compute_lateral_temp for each segment.
+            # Get segment values
+            sroff = seginc_sroff[jj]
+            ssflow = seginc_ssflow[jj]
+            gwflow = seginc_gwflow[jj]
+            melt = seg_melt[jj]
+            rain = seg_rain[jj]
+            tave_gw = seg_tave_gw[jj]
+            tave_air = seg_tave_air[jj]
+            tave_ss = seg_tave_ss[jj]
 
-    Args:
-        segment_order: Order to process segments (immutable)
-        seg_tave_water: Water temperature array (immutable, for skip checks)
-        seginc_swrad: Solar radiation array (immutable, for skip checks)
-        seg_lateral_inflow: Lateral inflow array (immutable)
-        seginc_sroff: Surface runoff array (immutable)
-        seginc_ssflow: Subsurface flow array (immutable)
-        seginc_gwflow: Groundwater flow array (immutable)
-        seg_melt: Snowmelt array (immutable)
-        seg_rain: Rainfall array (immutable)
-        seg_tave_gw: Groundwater temperature array (immutable)
-        seg_tave_air: Air temperature array (immutable)
-        seg_tave_ss: Subsurface temperature array (immutable)
-        melt_temp: Melt temperature constant (immutable)
-        lat_temp_adj: Monthly lateral temperature adjustment array (immutable)
-        nowmonth: Current month (immutable, 1-based)
-        seg_tave_lat: Lateral temperature array (MUTATED - output)
-    """
-    for jj in segment_order:
-        # Skip if marked as never having flow (NaN = never has flow)
-        if np.isnan(seg_tave_water[jj]):
-            continue
-        # Skip if marked as permanently invalid
-        if seginc_swrad[jj] < -99.0:
-            continue
+            # Use lat_inflow function for detailed lateral temperature calculation
+            tl_avg, qlat = _lat_inflow(
+                seg_lateral_inflow[jj],
+                sroff,
+                ssflow,
+                gwflow,
+                melt_temp,
+                tave_gw,
+                tave_air,
+                tave_ss,
+                melt,
+                rain,
+            )
 
-        # Get segment values
-        sroff = seginc_sroff[jj]
-        ssflow = seginc_ssflow[jj]
-        gwflow = seginc_gwflow[jj]
-        melt = seg_melt[jj]
-        rain = seg_rain[jj]
-        tave_gw = seg_tave_gw[jj]
-        tave_air = seg_tave_air[jj]
-        tave_ss = seg_tave_ss[jj]
+            # Apply monthly adjustment
+            if not np.isnan(tl_avg):
+                tl_avg += lat_temp_adj[nowmonth - 1, jj]
 
-        # Use lat_inflow function for detailed lateral temperature calculation
-        tl_avg, qlat = _lat_inflow(
-            seg_lateral_inflow[jj],
-            sroff,
-            ssflow,
-            gwflow,
-            melt_temp,
-            tave_gw,
-            tave_air,
-            tave_ss,
-            melt,
-            rain,
-        )
+            # Ensure non-negative (also converts NaN to 0.0 to match Fortran)
+            if np.isnan(tl_avg) or tl_avg < 0.0:
+                tl_avg = 0.0
 
-        # Apply monthly adjustment
-        if not np.isnan(tl_avg):
-            tl_avg += lat_temp_adj[nowmonth - 1, jj]
+            seg_tave_lat[jj] = tl_avg
 
-        # Ensure non-negative (also converts NaN to 0.0 to match Fortran)
-        if np.isnan(tl_avg) or tl_avg < 0.0:
-            tl_avg = 0.0
+    @staticmethod
+    def _compute_water_temp(
+        segment_order,
+        seg_tave_water,
+        seginc_swrad,
+        seg_outflow,
+        upstream_count,
+        upstream_idx,
+        seg_lateral_inflow,
+        seg_tave_upstream,
+        seg_svi_all,
+        seg_inflow,
+        seg_tave_lat,
+        seginc_swrad_data,
+        seg_humid,
+        seg_elev,
+        seg_potet,
+        seg_shade,
+        seg_ccov,
+        seg_flow_width,
+        seg_slope,
+        seg_tave_gw,
+        seg_length,
+        albedo,
+        maxiter_sntemp,
+        track_energy_fluxes,
+        hs_terms,
+        ha_terms,
+        hf_terms,
+        hv_terms,
+        evap_terms,
+        t_abs4_terms,
+        upstream_flows,
+        lateral_flows,
+    ):
+        """Compute water temperature for all segments.
 
-        seg_tave_lat[jj] = tl_avg
+        This function can be optionally JIT-compiled with numba for performance.
+
+        Args:
+            segment_order: Order to process segments (immutable)
+            seg_tave_water: Water temperature array (MUTATED - input/output)
+            seginc_swrad: Solar radiation array (immutable, for skip checks)
+            seg_outflow: Segment outflow array (immutable)
+            upstream_count: Number of upstream segments for each segment
+                (immutable)
+            upstream_idx: Indices of upstream segments (immutable)
+            seg_lateral_inflow: Lateral inflow array (immutable)
+            seg_tave_upstream: Upstream temperature array (MUTATED - output)
+            seg_svi_all: Pre-computed vegetation shade index array (immutable)
+            seg_inflow: Segment inflow array (MUTATED - output)
+            seg_tave_lat: Lateral temperature array (immutable)
+            seginc_swrad_data: Solar radiation data for energy balance (immutable)
+            seg_humid: Humidity array (immutable)
+            seg_elev: Elevation array (immutable)
+            seg_potet: Potential ET array (immutable)
+            seg_shade: Shade fraction array (immutable)
+            seg_ccov: Cloud cover array (immutable)
+            seg_flow_width: Flow width array (immutable)
+            seg_slope: Slope array (immutable)
+            seg_tave_gw: Groundwater temperature array (immutable)
+            seg_length: Segment length array (immutable)
+            albedo: Albedo value (immutable)
+            maxiter_sntemp: Maximum iterations for temperature solver (immutable)
+            track_energy_fluxes: Whether to track energy flux components
+                (immutable)
+            hs_terms: Solar radiation terms (MUTATED if tracking - output)
+            ha_terms: Atmospheric longwave terms (MUTATED if tracking - output)
+            hf_terms: Friction heat terms (MUTATED if tracking - output)
+            hv_terms: Vegetation longwave terms (MUTATED if tracking - output)
+            evap_terms: Evaporation terms (MUTATED if tracking - output)
+            t_abs4_terms: Temperature^4 terms (MUTATED if tracking - output)
+            upstream_flows: Upstream flow values (MUTATED if tracking - output)
+            lateral_flows: Lateral flow values (MUTATED if tracking - output)
+        """
+        for jj in segment_order:
+            # Skip segments marked as never having flow (NaN = never has flow)
+            if np.isnan(seg_tave_water[jj]):
+                continue
+
+            # Compute upstream temperature and flow in one pass
+            # (consolidates _compute_upstream_temp and _compute_inflow)
+            flow_sum = 0.0
+            temp_sum = 0.0
+            upstream_flow = 0.0
+
+            for kk in range(upstream_count[jj]):
+                up_idx = upstream_idx[jj, kk]
+                if not np.isnan(seg_tave_water[up_idx]):
+                    flow = seg_outflow[up_idx]
+                    temp_sum += seg_tave_water[up_idx] * flow
+                    flow_sum += flow
+                    upstream_flow += flow
+
+            if flow_sum > 0.0:
+                seg_tave_upstream[jj] = temp_sum / flow_sum
+            else:
+                seg_tave_upstream[jj] = NOFLOW_TEMP
+
+            # Get svi from pre-computed array
+            svi = seg_svi_all[jj]
+
+            # Compute total inflow
+            seg_inflow[jj] = upstream_flow + seg_lateral_inflow[jj]
+
+            # Now compute water temperature (logic from _compute_water_temp)
+
+            # Skip if marked as permanently invalid
+            if seginc_swrad[jj] < -99.0:
+                seg_tave_water[jj] = np.nan
+                continue
+
+            # Check for no-flow conditions
+            if seg_outflow[jj] <= 0.0:
+                seg_tave_water[jj] = NOFLOW_TEMP
+                continue
+
+            lateral_flow = seg_lateral_inflow[jj]
+
+            # Check if we have any inflow
+            if upstream_flow < NEARZERO and lateral_flow < NEARZERO:
+                seg_tave_water[jj] = NOFLOW_TEMP
+                continue
+
+            # Compute mixed inlet temperature
+            t_in = _compute_mixed_inlet_temp(
+                upstream_flow,
+                lateral_flow,
+                seg_tave_upstream[jj],
+                seg_tave_lat[jj],
+            )
+
+            if np.isnan(t_in):
+                seg_tave_water[jj] = NOFLOW_TEMP
+                continue
+
+            # Compute equilibrium temperature using full energy balance
+            result = _equilb(
+                t_in,
+                svi,
+                seg_inflow[jj],
+                seginc_swrad_data[jj],
+                seg_humid[jj],
+                seg_elev[jj],
+                seg_potet[jj],
+                seg_shade[jj],
+                seg_ccov[jj],
+                seg_flow_width[jj],
+                seg_slope[jj],
+                seg_tave_gw[jj],
+                albedo,
+                maxiter_sntemp,
+            )
+
+            te = result[0]
+            ak1 = result[1]
+            ak2 = result[2]
+
+            # Store energy flux terms if tracking
+            if track_energy_fluxes:
+                hs_terms[jj] = result[3]
+                ha_terms[jj] = result[4]
+                hf_terms[jj] = result[5]
+                hv_terms[jj] = result[6]
+                evap_terms[jj] = result[7]
+                t_abs4_terms[jj] = result[8]
+                upstream_flows[jj] = upstream_flow
+                lateral_flows[jj] = lateral_flow
+
+            # Compute final temperature using twavg function
+            qlat = lateral_flow * CFS_TO_CMS
+            qup = upstream_flow
+            tl_avg = seg_tave_lat[jj]
+
+            seg_tave_water[jj] = _twavg(
+                qup,
+                t_in,
+                qlat,
+                tl_avg,
+                te,
+                ak1,
+                ak2,
+                seg_flow_width[jj],
+                seg_length[jj],
+            )
 
 
 @nb.jit(nopython=True)
@@ -2064,194 +2278,6 @@ def _compute_seg_potet_numba(
             # Segment has no HRUs - use seg_close
             close_seg = seg_close[i]
             seg_potet[i] = seg_potet[close_seg]
-
-
-@nb.jit(nopython=True)
-def _compute_water_temp_numba(
-    segment_order,
-    seg_tave_water,
-    seginc_swrad,
-    seg_outflow,
-    upstream_count,
-    upstream_idx,
-    seg_lateral_inflow,
-    seg_tave_upstream,
-    seg_svi_all,
-    seg_inflow,
-    seg_tave_lat,
-    seginc_swrad_data,
-    seg_humid,
-    seg_elev,
-    seg_potet,
-    seg_shade,
-    seg_ccov,
-    seg_flow_width,
-    seg_slope,
-    seg_tave_gw,
-    seg_length,
-    albedo,
-    maxiter_sntemp,
-    track_energy_fluxes,
-    hs_terms,
-    ha_terms,
-    hf_terms,
-    hv_terms,
-    evap_terms,
-    t_abs4_terms,
-    upstream_flows,
-    lateral_flows,
-):
-    """Compute water temperature for all segments.
-
-    This numba-optimized function replaces the main water temperature loop,
-    consolidating multiple passes over upstream segments into one.
-
-    Args:
-        segment_order: Order to process segments (immutable)
-        seg_tave_water: Water temperature array (MUTATED - input/output)
-        seginc_swrad: Solar radiation array (immutable, for skip checks)
-        seg_outflow: Segment outflow array (immutable)
-        upstream_count: Number of upstream segments for each segment
-            (immutable)
-        upstream_idx: Indices of upstream segments (immutable)
-        seg_lateral_inflow: Lateral inflow array (immutable)
-        seg_tave_upstream: Upstream temperature array (MUTATED - output)
-        seg_svi_all: Pre-computed vegetation shade index array (immutable)
-        seg_inflow: Segment inflow array (MUTATED - output)
-        seg_tave_lat: Lateral temperature array (immutable)
-        seginc_swrad_data: Solar radiation data for energy balance (immutable)
-        seg_humid: Humidity array (immutable)
-        seg_elev: Elevation array (immutable)
-        seg_potet: Potential ET array (immutable)
-        seg_shade: Shade fraction array (immutable)
-        seg_ccov: Cloud cover array (immutable)
-        seg_flow_width: Flow width array (immutable)
-        seg_slope: Slope array (immutable)
-        seg_tave_gw: Groundwater temperature array (immutable)
-        seg_length: Segment length array (immutable)
-        albedo: Albedo value (immutable)
-        maxiter_sntemp: Maximum iterations for temperature solver (immutable)
-        track_energy_fluxes: Whether to track energy flux components
-            (immutable)
-        hs_terms: Solar radiation terms (MUTATED if tracking - output)
-        ha_terms: Atmospheric longwave terms (MUTATED if tracking - output)
-        hf_terms: Friction heat terms (MUTATED if tracking - output)
-        hv_terms: Vegetation longwave terms (MUTATED if tracking - output)
-        evap_terms: Evaporation terms (MUTATED if tracking - output)
-        t_abs4_terms: Temperature^4 terms (MUTATED if tracking - output)
-        upstream_flows: Upstream flow values (MUTATED if tracking - output)
-        lateral_flows: Lateral flow values (MUTATED if tracking - output)
-    """
-    for jj in segment_order:
-        # Skip segments marked as never having flow (NaN = never has flow)
-        if np.isnan(seg_tave_water[jj]):
-            continue
-
-        # Compute upstream temperature and flow in one pass
-        # (consolidates _compute_upstream_temp and _compute_inflow)
-        flow_sum = 0.0
-        temp_sum = 0.0
-        upstream_flow = 0.0
-
-        for kk in range(upstream_count[jj]):
-            up_idx = upstream_idx[jj, kk]
-            if not np.isnan(seg_tave_water[up_idx]):
-                flow = seg_outflow[up_idx]
-                temp_sum += seg_tave_water[up_idx] * flow
-                flow_sum += flow
-                upstream_flow += flow
-
-        if flow_sum > 0.0:
-            seg_tave_upstream[jj] = temp_sum / flow_sum
-        else:
-            seg_tave_upstream[jj] = NOFLOW_TEMP
-
-        # Get svi from pre-computed array
-        svi = seg_svi_all[jj]
-
-        # Compute total inflow
-        seg_inflow[jj] = upstream_flow + seg_lateral_inflow[jj]
-
-        # Now compute water temperature (logic from _compute_water_temp)
-
-        # Skip if marked as permanently invalid
-        if seginc_swrad[jj] < -99.0:
-            seg_tave_water[jj] = np.nan
-            continue
-
-        # Check for no-flow conditions
-        if seg_outflow[jj] <= 0.0:
-            seg_tave_water[jj] = NOFLOW_TEMP
-            continue
-
-        lateral_flow = seg_lateral_inflow[jj]
-
-        # Check if we have any inflow
-        if upstream_flow < NEARZERO and lateral_flow < NEARZERO:
-            seg_tave_water[jj] = NOFLOW_TEMP
-            continue
-
-        # Compute mixed inlet temperature
-        t_in = _compute_mixed_inlet_temp(
-            upstream_flow,
-            lateral_flow,
-            seg_tave_upstream[jj],
-            seg_tave_lat[jj],
-        )
-
-        if np.isnan(t_in):
-            seg_tave_water[jj] = NOFLOW_TEMP
-            continue
-
-        # Compute equilibrium temperature using full energy balance
-        result = _equilb(
-            t_in,
-            svi,
-            seg_inflow[jj],
-            seginc_swrad_data[jj],
-            seg_humid[jj],
-            seg_elev[jj],
-            seg_potet[jj],
-            seg_shade[jj],
-            seg_ccov[jj],
-            seg_flow_width[jj],
-            seg_slope[jj],
-            seg_tave_gw[jj],
-            albedo,
-            maxiter_sntemp,
-        )
-
-        te = result[0]
-        ak1 = result[1]
-        ak2 = result[2]
-
-        # Store energy flux terms if tracking
-        if track_energy_fluxes:
-            hs_terms[jj] = result[3]
-            ha_terms[jj] = result[4]
-            hf_terms[jj] = result[5]
-            hv_terms[jj] = result[6]
-            evap_terms[jj] = result[7]
-            t_abs4_terms[jj] = result[8]
-            upstream_flows[jj] = upstream_flow
-            lateral_flows[jj] = lateral_flow
-
-        # Compute final temperature using twavg function
-        qlat = lateral_flow * CFS_TO_CMS
-        qup = upstream_flow
-        tl_avg = seg_tave_lat[jj]
-
-        seg_tave_water[jj] = _twavg(
-            qup,
-            t_in,
-            qlat,
-            tl_avg,
-            te,
-            ak1,
-            ak2,
-            seg_flow_width[jj],
-            seg_length[jj],
-        )
 
 
 @nb.jit(nopython=True)
