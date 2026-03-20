@@ -1605,10 +1605,7 @@ def _update_running_avg_temp_numba(
         seg_tave_ss: Subsurface temperatures (MUTATED - output)
     """
     for jj in segment_order:
-        # Skip if marked as never having flow (NaN = never has flow)
-        if np.isnan(seg_tave_water[jj]):
-            continue
-        # Skip if marked as permanently invalid
+        # Skip if marked as permanently invalid (no HRUs upstream/downstream)
         if seginc_swrad[jj] < -99.0:
             continue
 
