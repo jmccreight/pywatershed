@@ -544,10 +544,10 @@ class PRMSStreamTemp(ConservativeProcess):
         self.gw_index = np.zeros(self.nsegment, dtype=np.int32)
         self.ss_index = np.zeros(self.nsegment, dtype=np.int32)
 
-        # Initialize circular buffers with 0.0 to match Fortran PRMS
-        # The running sum will gradually build up as air temps are added
-        self.gw_silo[:, :] = 0.0
-        self.ss_silo[:, :] = 0.0
+        # Initialize circular buffers with -99.9 (invalid marker) to match Fortran PRMS
+        # Values will be filled as air temps are added over time
+        self.gw_silo[:, :] = -99.9
+        self.ss_silo[:, :] = -99.9
         self.gw_index[:] = 0
         self.ss_index[:] = 0
 
@@ -1614,41 +1614,59 @@ def _update_running_avg_temp_numba(
 
         # Update groundwater running average
         idx_gw = gw_index[jj]
-        tau_gw = gw_tau[jj]
-
-        # Remove old value from sum (circular buffer behavior)
-        gw_sum[jj] -= gw_silo[jj, idx_gw]
+        tau_gw = int(gw_tau[jj])
 
         # Add new air temperature to silo
         gw_silo[jj, idx_gw] = seg_tave_air[jj]
 
-        # Add new value to sum
-        gw_sum[jj] += gw_silo[jj, idx_gw]
+        # Recompute sum and count valid entries (matches Fortran)
+        # This handles spin-up period correctly
+        at_sum = 0.0
+        at_cnt = 0
+        for j in range(tau_gw):
+            if gw_silo[jj, j] > -98.0:
+                at_sum += gw_silo[jj, j]
+                at_cnt += 1
 
-        # Compute average as sum / tau
-        seg_tave_gw[jj] = gw_sum[jj] / tau_gw
+        # Compute average as sum / count
+        if at_cnt > 0:
+            seg_tave_gw[jj] = at_sum / at_cnt
+        else:
+            seg_tave_gw[jj] = 0.0
 
         # Update index
-        gw_index[jj] = (idx_gw + 1) % int(tau_gw)
+        if idx_gw < tau_gw - 1:
+            gw_index[jj] = idx_gw + 1
+        else:
+            gw_index[jj] = 0
 
         # Update subsurface running average
         idx_ss = ss_index[jj]
-        tau_ss = ss_tau[jj]
-
-        # Remove old value from sum (circular buffer behavior)
-        ss_sum[jj] -= ss_silo[jj, idx_ss]
+        tau_ss = int(ss_tau[jj])
 
         # Add new air temperature to silo
         ss_silo[jj, idx_ss] = seg_tave_air[jj]
 
-        # Add new value to sum
-        ss_sum[jj] += ss_silo[jj, idx_ss]
+        # Recompute sum and count valid entries (matches Fortran)
+        # This handles spin-up period correctly
+        at_sum = 0.0
+        at_cnt = 0
+        for j in range(tau_ss):
+            if ss_silo[jj, j] > -98.0:
+                at_sum += ss_silo[jj, j]
+                at_cnt += 1
 
-        # Compute average as sum / tau
-        seg_tave_ss[jj] = ss_sum[jj] / tau_ss
+        # Compute average as sum / count
+        if at_cnt > 0:
+            seg_tave_ss[jj] = at_sum / at_cnt
+        else:
+            seg_tave_ss[jj] = 0.0
 
         # Update index
-        ss_index[jj] = (idx_ss + 1) % int(tau_ss)
+        if idx_ss < tau_ss - 1:
+            ss_index[jj] = idx_ss + 1
+        else:
+            ss_index[jj] = 0
 
 
 @nb.jit(nopython=True)
