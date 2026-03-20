@@ -169,11 +169,13 @@ def test_compare_prms(
         # Case 1: Pass a pre-instantiated stream_shade object
         if stream_temp_shade_flag == 0:
             stream_shade = PRMSStreamShadeDynamic(
-                parameters_shade, discretization.dims["nsegment"]
+                parameters_shade,
+                discretization,
             )
         else:
             stream_shade = PRMSStreamShadeConstant(
-                parameters_shade, discretization.dims["nsegment"]
+                parameters_shade,
+                discretization,
             )
         stream_shade_class = None
         stream_shade_parameters = None

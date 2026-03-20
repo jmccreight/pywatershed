@@ -381,8 +381,6 @@ class PRMSStreamTemp(ConservativeProcess):
         Returns:
             PRMSStreamShade instance
         """
-        nsegment = parameters.dims["nsegment"]
-
         # Case 1: stream_shade provided directly
         if stream_shade is not None:
             if not isinstance(stream_shade, PRMSStreamShade):
@@ -412,7 +410,7 @@ class PRMSStreamTemp(ConservativeProcess):
                 # Use the main parameters if no separate shade params provided
                 shade_params = parameters
 
-            return stream_shade_class(shade_params, nsegment)
+            return stream_shade_class(shade_params, discretization)
 
         # zero is the PRMS default value for this option
         stream_temp_shade_flag = self.control.options.get(
@@ -431,7 +429,7 @@ class PRMSStreamTemp(ConservativeProcess):
         # Case 3: All None - default to PRMSStreamShadeConstant
         # Try to instantiate using the main parameters
         try:
-            return stream_shade_class(parameters, nsegment)
+            return stream_shade_class(parameters, discretization)
         except (KeyError, AttributeError) as e:
             raise ValueError(
                 "stream_shade not provided and could not initialize "
@@ -1919,8 +1917,10 @@ def _compute_segment_aggregates_numba(
                 this_seg = upstream_seg
 
                 if segment_hruarea[this_seg] > NEARZERO:
-                    # Found segment with HRUs - copy values (already averaged)
-                    seginc_swrad[i] = seginc_swrad[this_seg]
+                    # Found segment with HRUs - compute average from accumulated value
+                    seginc_swrad[i] = (
+                        seginc_swrad[this_seg] / segment_hruarea[this_seg]
+                    )
                     found = True
                     break
 
@@ -1944,9 +1944,10 @@ def _compute_segment_aggregates_numba(
                     this_seg = downstream_seg - 1
 
                     if segment_hruarea[this_seg] > NEARZERO:
-                        # Found segment with HRUs - copy values
-                        # (already averaged)
-                        seginc_swrad[i] = seginc_swrad[this_seg]
+                        # Found segment with HRUs - compute average from accumulated value
+                        seginc_swrad[i] = (
+                            seginc_swrad[this_seg] / segment_hruarea[this_seg]
+                        )
                         found = True
                         break
 
