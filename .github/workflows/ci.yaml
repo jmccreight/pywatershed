@@ -582,8 +582,10 @@ jobs:
         run: |
           which gfortran
           gfortran --version
-          make clean
-          make DBL_PREC=true FC=gfortran CC=gcc
+          which make
+          export MAKE=$(which make)
+          $MAKE clean
+          $MAKE DBL_PREC=true FC=gfortran CC=gcc
           if [ "$RUNNER_OS" == "Windows" ]; then
             cp bin/prms ../../bin/prms_5.2.1.1_gfort_win_dbl_prec.exe
           elif [ "$RUNNER_OS" == "macOS" ]; then
