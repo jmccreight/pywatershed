@@ -1687,8 +1687,8 @@ class PRMSSoilzoneAgObsET(ConservativeProcess):
         """Numba-optimized calculation for agricultural soilzone.
 
         This implements the soil water balance for both pervious and
-        agricultural areas of each HRU with significant performance improvements
-        through numba JIT compilation.
+        agricultural areas of each HRU with significant performance
+        improvements through numba JIT compilation.
         """
         nhru = len(hru_type)
 
@@ -1734,7 +1734,8 @@ class PRMSSoilzoneAgObsET(ConservativeProcess):
         hru_unsatisfied_max = np.empty(nhru, dtype=np.float64)
         hru_unsatisfied_max[:] = 0.0
 
-        # HRU loop - uses prange for parallel execution when numba_num_threads > 1
+        # HRU loop - uses prange for parallel execution when
+        # numba_num_threads > 1
         for ihru in nb.prange(nhru):
             # Skip inactive HRUs
             if hru_type[ihru] == 0:  # INACTIVE

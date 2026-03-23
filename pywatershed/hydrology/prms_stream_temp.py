@@ -546,7 +546,8 @@ class PRMSStreamTemp(ConservativeProcess):
         self.gw_index = np.zeros(self.nsegment, dtype=np.int32)
         self.ss_index = np.zeros(self.nsegment, dtype=np.int32)
 
-        # Initialize circular buffers with -99.9 (invalid marker) to match Fortran PRMS
+        # Initialize circular buffers with -99.9 (invalid marker) to
+        # match Fortran PRMS
         # Values will be filled as air temps are added over time
         self.gw_silo[:, :] = -99.9
         self.ss_silo[:, :] = -99.9
@@ -878,7 +879,6 @@ class PRMSStreamTemp(ConservativeProcess):
         """Calculate stream temperature for all segments."""
 
         # Get current month (1-based) and day of year
-        nowmonth = self.control.current_month
         doy = self.control.current_doy - 1
 
         # Get declination for current day
@@ -1099,7 +1099,8 @@ class PRMSStreamTemp(ConservativeProcess):
     def _update_running_avg_temp_single(
         self, seg_idx: int, comp_type: str
     ) -> None:
-        """Update running average temperature for groundwater or subsurface (single segment).
+        """Update running average temperature for groundwater or
+        subsurface (single segment).
 
         This matches the Fortran PRMS implementation which uses a running sum
         divided by tau, with a circular buffer.
@@ -1616,11 +1617,13 @@ class PRMSStreamTemp(ConservativeProcess):
     ):
         """Update running average temperatures for groundwater and subsurface.
 
-        This function can be optionally JIT-compiled with numba for performance.
+        This function can be optionally JIT-compiled with numba for
+        performance.
 
         Args:
             segment_order: Order to process segments (immutable)
-            seg_tave_water: Water temperature array (immutable, for skip checks)
+            seg_tave_water: Water temperature array (immutable, for skip
+                checks)
             seginc_swrad: Solar radiation array (immutable, for skip checks)
             seg_tave_air: Air temperature array (immutable)
             gw_tau: Groundwater tau values (immutable)
@@ -1635,7 +1638,8 @@ class PRMSStreamTemp(ConservativeProcess):
             seg_tave_ss: Subsurface temperatures (MUTATED - output)
         """
         for jj in segment_order:
-            # Skip if marked as permanently invalid (no HRUs upstream/downstream)
+            # Skip if marked as permanently invalid (no HRUs
+            # upstream/downstream)
             if seginc_swrad[jj] < -99.0:
                 continue
 
@@ -1716,11 +1720,13 @@ class PRMSStreamTemp(ConservativeProcess):
     ):
         """Compute lateral flow temperatures for all segments.
 
-        This function can be optionally JIT-compiled with numba for performance.
+        This function can be optionally JIT-compiled with numba for
+        performance.
 
         Args:
             segment_order: Order to process segments (immutable)
-            seg_tave_water: Water temperature array (immutable, for skip checks)
+            seg_tave_water: Water temperature array (immutable, for skip
+                checks)
             seginc_swrad: Solar radiation array (immutable, for skip checks)
             seg_lateral_inflow: Lateral inflow array (immutable)
             seginc_sroff: Surface runoff array (immutable)
@@ -1732,7 +1738,8 @@ class PRMSStreamTemp(ConservativeProcess):
             seg_tave_air: Air temperature array (immutable)
             seg_tave_ss: Subsurface temperature array (immutable)
             melt_temp: Melt temperature constant (immutable)
-            lat_temp_adj: Monthly lateral temperature adjustment array (immutable)
+            lat_temp_adj: Monthly lateral temperature adjustment array
+                (immutable)
             nowmonth: Current month (immutable, 1-based)
             seg_tave_lat: Lateral temperature array (MUTATED - output)
         """
@@ -1754,7 +1761,8 @@ class PRMSStreamTemp(ConservativeProcess):
             tave_air = seg_tave_air[jj]
             tave_ss = seg_tave_ss[jj]
 
-            # Use lat_inflow function for detailed lateral temperature calculation
+            # Use lat_inflow function for detailed lateral temperature
+            # calculation
             tl_avg, qlat = _lat_inflow(
                 seg_lateral_inflow[jj],
                 sroff,
@@ -1815,7 +1823,8 @@ class PRMSStreamTemp(ConservativeProcess):
     ):
         """Compute water temperature for all segments.
 
-        This function can be optionally JIT-compiled with numba for performance.
+        This function can be optionally JIT-compiled with numba for
+        performance.
 
         Args:
             segment_order: Order to process segments (immutable)
@@ -1830,7 +1839,8 @@ class PRMSStreamTemp(ConservativeProcess):
             seg_svi_all: Pre-computed vegetation shade index array (immutable)
             seg_inflow: Segment inflow array (MUTATED - output)
             seg_tave_lat: Lateral temperature array (immutable)
-            seginc_swrad_data: Solar radiation data for energy balance (immutable)
+            seginc_swrad_data: Solar radiation data for energy balance
+                (immutable)
             seg_humid: Humidity array (immutable)
             seg_elev: Elevation array (immutable)
             seg_potet: Potential ET array (immutable)
@@ -1841,7 +1851,8 @@ class PRMSStreamTemp(ConservativeProcess):
             seg_tave_gw: Groundwater temperature array (immutable)
             seg_length: Segment length array (immutable)
             albedo: Albedo value (immutable)
-            maxiter_sntemp: Maximum iterations for temperature solver (immutable)
+            maxiter_sntemp: Maximum iterations for temperature solver
+                (immutable)
             track_energy_fluxes: Whether to track energy flux components
                 (immutable)
             hs_terms: Solar radiation terms (MUTATED if tracking - output)
@@ -2146,7 +2157,8 @@ def _compute_segment_aggregates_numba(
                 this_seg = upstream_seg
 
                 if segment_hruarea[this_seg] > NEARZERO:
-                    # Found segment with HRUs - compute average from accumulated value
+                    # Found segment with HRUs - compute average from
+                    # accumulated value
                     seginc_swrad[i] = (
                         seginc_swrad[this_seg] / segment_hruarea[this_seg]
                     )
@@ -2173,7 +2185,8 @@ def _compute_segment_aggregates_numba(
                     this_seg = downstream_seg - 1
 
                     if segment_hruarea[this_seg] > NEARZERO:
-                        # Found segment with HRUs - compute average from accumulated value
+                        # Found segment with HRUs - compute average from
+                        # accumulated value
                         seginc_swrad[i] = (
                             seginc_swrad[this_seg] / segment_hruarea[this_seg]
                         )
