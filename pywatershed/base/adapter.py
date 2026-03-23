@@ -115,6 +115,12 @@ class AdapterNetcdf(Adapter):
         # TODO JLM: seems like we'd want to cache this data if we invoke once
         return self._nc_read.all_time(self._variable).data
 
+    def close(self):
+        """Close the underlying NetCDF file."""
+        if hasattr(self, "_nc_read"):
+            self._nc_read.close()
+        return
+
 
 class AdapterOnedarray(Adapter):
     """Adapter subclass for an invariant 1-D numpy.array
