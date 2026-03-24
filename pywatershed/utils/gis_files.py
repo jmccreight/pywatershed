@@ -8,9 +8,9 @@ import zipfile
 from pathlib import Path
 from shutil import rmtree
 
-import pywatershed as pws
+from pywatershed import constants
 
-pkg_root_dir = pws.constants.__pywatershed_root__
+pkg_root_dir = constants.__pywatershed_root__
 gis_dir = pkg_root_dir / "data/pywatershed_gis"
 
 # URL and MD5 must be updated together when new version is released
@@ -32,7 +32,7 @@ def compute_md5(file_path: Path) -> str:
     return md5_hash.hexdigest()
 
 
-def download(force=False):
+def download(force: bool = False) -> None:
     gis_file = pkg_root_dir / "data/pywatershed_gis.zip"
 
     # Check if zip file exists and verify its MD5
@@ -53,7 +53,34 @@ def download(force=False):
         if gis_file.exists():
             gis_file.unlink()
 
-    if not gis_dir.exists() or not gis_file.exists():
+    if not gis_dir.exists():
+        # If directory doesn't exist but zip does, extract it
+        if gis_file.exists():
+            print(f"Extracting {gis_file} to {pkg_root_dir / 'data'}")
+            with zipfile.ZipFile(gis_file, "r") as zz:
+                zz.extractall(pkg_root_dir / "data")
+            assert gis_dir.exists()
+        else:
+            # Need to download
+            print(f"Downloading {gis_config['url']} to {gis_file}")
+            request.urlretrieve(gis_config["url"], gis_file)
+
+            # Verify MD5 checksum after download
+            downloaded_md5 = compute_md5(gis_file)
+            if downloaded_md5 != gis_config["md5"]:
+                raise ValueError(
+                    f"Downloaded file MD5 mismatch: "
+                    f"expected {gis_config['md5']}, "
+                    f"got {downloaded_md5}"
+                )
+
+            # Extract the downloaded file
+            with zipfile.ZipFile(gis_file, "r") as zz:
+                zz.extractall(pkg_root_dir / "data")
+
+            assert gis_dir.exists()
+    elif not gis_file.exists():
+        # Directory exists but zip doesn't - download and re-extract
         print(f"Downloading {gis_config['url']} to {gis_file}")
         request.urlretrieve(gis_config["url"], gis_file)
 
@@ -66,14 +93,27 @@ def download(force=False):
                 f"got {downloaded_md5}"
             )
 
-        if gis_dir.exists():
-            rmtree(gis_dir)
-        with zipfile.ZipFile(gis_file, "r") as zz:
-            zz.extractall(pkg_root_dir / "data")
-
-        assert gis_dir.exists()
-
     return
+
+
+def get_gis_dir(domain: str | None = None) -> Path:
+    """Get the path to the GIS directory.
+
+    Args:
+        domain: Optional domain name. If provided, returns the path to the
+                specific domain's GIS directory (e.g., "drb_2yr").
+                If None, returns the root GIS directory.
+
+    Returns:
+        Path to the GIS directory or domain-specific GIS directory.
+
+    Examples:
+        >>> get_gis_dir()  # Returns .../data/pywatershed_gis
+        >>> get_gis_dir("drb_2yr")  # Returns .../data/pywatershed_gis/drb_2yr
+    """
+    if domain is None:
+        return gis_dir
+    return gis_dir / domain
 
 
 if __name__ == "__main__":
