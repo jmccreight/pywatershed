@@ -98,6 +98,89 @@ echo ""
 
 start_dir=$(pwd)
 
+# Function to compile PRMS 5.2.1.1 if binary doesn't exist
+compile_prms_5211_if_needed() {
+    # Determine the binary name based on platform
+    case "$OSTYPE" in
+    darwin*)
+        binary_name="prms_5.2.1.1_gfortran_apple_silicon_dbl_prec"
+        ;;
+    linux*)
+        binary_name="prms_5.2.1.1_gfort_linux_dbl_prec"
+        ;;
+    msys* | cygwin* | win32)
+        binary_name="prms_5.2.1.1_gfort_win_dbl_prec.exe"
+        ;;
+    *)
+        echo "Unknown OS type: $OSTYPE"
+        return 1
+        ;;
+    esac
+
+    binary_path="../bin/$binary_name"
+
+    # Check if binary exists
+    if [ -f "$binary_path" ]; then
+        echo "PRMS 5.2.1.1 binary exists: $binary_path"
+        return 0
+    fi
+
+    echo ""
+    echo "******************************"
+    echo "Compiling PRMS 5.2.1.1"
+    echo "******************************"
+    echo "Binary not found: $binary_path"
+    echo "Compiling from source..."
+    echo ""
+
+    # Save current directory
+    orig_dir=$(pwd)
+
+    # Navigate to PRMS source directory
+    cd ../prms_src/prms5.2.1.1 || return 1
+
+    # Get make path
+    MAKE_PATH=$(which make)
+    if [ -z "$MAKE_PATH" ]; then
+        echo "Error: make not found in PATH"
+        cd "$orig_dir"
+        return 1
+    fi
+
+    # Compile
+    echo "Using make: $MAKE_PATH"
+    echo "Using gfortran: $(which gfortran)"
+    gfortran --version
+
+    $MAKE_PATH clean MAKE="$MAKE_PATH" || {
+        cd "$orig_dir"
+        return 1
+    }
+    $MAKE_PATH DBL_PREC=true FC=gfortran CC=gcc MAKE="$MAKE_PATH" || {
+        cd "$orig_dir"
+        return 1
+    }
+
+    # Copy binary to bin directory
+    if [ -f "bin/prms" ]; then
+        cp bin/prms "../../bin/$binary_name" || {
+            cd "$orig_dir"
+            return 1
+        }
+        echo "Successfully compiled and copied binary to ../../bin/$binary_name"
+    else
+        echo "Error: Compilation succeeded but bin/prms not found"
+        cd "$orig_dir"
+        return 1
+    fi
+
+    # Return to original directory
+    cd "$orig_dir" || return 1
+
+    echo ""
+    return 0
+}
+
 # name: Set environment variables
 export PYWS_FORTRAN=false
 export SETUPTOOLS_ENABLE_FEATURES="legacy-editable"
@@ -399,6 +482,10 @@ if [ -z "${t}" ]; then
         echo "DOMAIN: drb_2yr"
         echo "===================="
         echo
+
+        # Compile PRMS 5.2.1.1 if binary doesn't exist
+        compile_prms_5211_if_needed || exit 1
+
         if [ -z "${g}" ]; then
             echo
             echo ".........."
