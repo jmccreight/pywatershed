@@ -150,7 +150,7 @@ def exe(simulation, request):
             exe_name = "prms_5.2.1.1_gfort_win_dbl_prec.exe"
         elif platform == "darwin":
             if processor() == "arm":
-                exe_name = "prms_5.2.1.1_ifort_apple_silicon_dbl_prec"
+                exe_name = "prms_5.2.1.1_gfortran_apple_silicon_dbl_prec"
             else:
                 pytest.skip(
                     "PRMS 5.2.1.1 binary not yet provided for "
