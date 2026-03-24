@@ -35,6 +35,9 @@ rtol = atol = 5.0e-3
 # TODO: use both parameter schemes again
 params = ("params_sep", "params_one")
 
+# Parametrize calc_method: test both numpy and numba implementations
+calc_methods = ("numba", "numpy")
+
 # Parametrize energy flux tracking: (track_energy_fluxes, imbalance_behavior)
 energy_flux_options = (
     (True, "error"),  # Track fluxes with strict budget checking
@@ -140,6 +143,15 @@ def shade_init_style(request):
     return request.param
 
 
+@pytest.fixture(
+    scope="function",
+    params=calc_methods,
+    ids=calc_methods,
+)
+def calc_method(request):
+    return request.param
+
+
 def test_compare_prms(
     simulation,
     control,
@@ -148,6 +160,7 @@ def test_compare_prms(
     parameters_shade,
     energy_flux_config,
     shade_init_style,
+    calc_method,
     tmp_path,
 ):
     tmp_path = pl.Path(tmp_path)
@@ -169,11 +182,13 @@ def test_compare_prms(
         # Case 1: Pass a pre-instantiated stream_shade object
         if stream_temp_shade_flag == 0:
             stream_shade = PRMSStreamShadeDynamic(
-                parameters_shade, discretization.dims["nsegment"]
+                parameters_shade,
+                discretization,
             )
         else:
             stream_shade = PRMSStreamShadeConstant(
-                parameters_shade, discretization.dims["nsegment"]
+                parameters_shade,
+                discretization,
             )
         stream_shade_class = None
         stream_shade_parameters = None
@@ -248,6 +263,7 @@ def test_compare_prms(
         stream_shade=stream_shade,
         stream_shade_class=stream_shade_class,
         stream_shade_parameters=stream_shade_parameters,
+        calc_method=calc_method,
         imbalance_behavior=imbalance_behavior,
         track_energy_fluxes=track_energy_fluxes,
     )

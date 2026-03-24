@@ -72,23 +72,74 @@ class PRMSStreamShade:
         svis: Array of vegetation shade index
     """
 
-    def __init__(self, parameters: Parameters, nsegment: int):
+    def __init__(
+        self,
+        parameters: Parameters,
+        discretization: Parameters = None,
+    ):
         """Initialize shade computer.
 
         Args:
             parameters: Parameters object containing shade parameters
-            nsegment: Number of stream segments
+            discretization: Optional discretization parameters
         """
-        self.nsegment = nsegment
-        self._load_parameters(parameters)
+        # Merge parameters and discretization (following Process pattern)
+        self._set_params(parameters, discretization)
+        # Get nsegment from merged parameters
+        self.nsegment = self._params.dims["nsegment"]
+        self._load_parameters()
 
-    def _load_parameters(self, parameters: Parameters) -> None:
-        """Load parameters from Parameters object.
+    def _set_params(
+        self, parameters: Parameters, discretization: Parameters = None
+    ) -> None:
+        """Merge parameters and discretization into self._params.
 
-        Subclasses should override this to load their specific parameters.
+        Follows the same pattern as Process._set_params().
 
         Args:
-            parameters: Parameters object
+            parameters: Parameters object containing shade parameters
+            discretization: Optional discretization parameters
+        """
+        if hasattr(self, "_params"):
+            return
+
+        param_keys = set(parameters.variables.keys())
+        required_params = set(self.get_parameters())
+        missing_params = required_params.difference(param_keys)
+
+        if missing_params:
+            if discretization is not None:
+                dis_keys = set(discretization.variables.keys())
+                missing_params = missing_params - dis_keys
+                all_missing_in_dis = (
+                    missing_params.intersection(dis_keys) == missing_params
+                )
+            else:
+                all_missing_in_dis = False
+
+            if not all_missing_in_dis:
+                raise ValueError(
+                    "The following required parameters were not found in the "
+                    f"parameter file: {missing_params}"
+                )
+
+            merged = type(parameters).merge(parameters, discretization)
+            # merge() returns a DatasetDict, wrap it back as Parameters
+            # by passing the component dicts from the merged DatasetDict
+            self._params = type(parameters)(
+                dims=merged.dims,
+                coords=merged.coords,
+                data_vars=merged.data_vars,
+                metadata=merged.metadata,
+                encoding=merged.encoding,
+            )
+        else:
+            self._params = parameters.subset(required_params)
+
+    def _load_parameters(self) -> None:
+        """Load parameters from self._params.
+
+        Subclasses should override this to load their specific parameters.
         """
         raise NotImplementedError("Subclasses must implement _load_parameters")
 
@@ -138,16 +189,10 @@ class PRMSStreamShadeConstant(PRMSStreamShade):
 
     """
 
-    def _load_parameters(self, parameters: Parameters) -> None:
-        """Load constant shade parameters.
-
-        Args:
-            parameters: Parameters object
-        """
-        self.segshade_sum = parameters.get_param_values("segshade_sum")
-        self.segshade_win = parameters.get_param_values("segshade_win")
-        self.seg_lat = parameters.get_param_values("seg_lat")
-        self._seg_lat_rad = np.deg2rad(self.seg_lat)
+    def _load_parameters(self) -> None:
+        """Load constant shade parameters from self._params."""
+        self.segshade_sum = self._params.get_param_values("segshade_sum")
+        self.segshade_win = self._params.get_param_values("segshade_win")
 
     @staticmethod
     def get_parameters() -> tuple:
@@ -228,28 +273,27 @@ class PRMSStreamShadeDynamic(PRMSStreamShade):
         svis: Array of vegetation shade index
     """
 
-    def _load_parameters(self, parameters: Parameters) -> None:
-        """Load topography and vegetation parameters.
+    def _load_parameters(self) -> None:
+        """Load topography and vegetation parameters from self._params."""
+        self.azrh = self._params.get_param_values("azrh")
+        self.alte = self._params.get_param_values("alte")
+        self.altw = self._params.get_param_values("altw")
+        self.vce = self._params.get_param_values("vce")
+        self.vdemx = self._params.get_param_values("vdemx")
+        self.vdemn = self._params.get_param_values("vdemn")
+        self.vhe = self._params.get_param_values("vhe")
+        self.voe = self._params.get_param_values("voe")
+        self.vcw = self._params.get_param_values("vcw")
+        self.vdwmx = self._params.get_param_values("vdwmx")
+        self.vdwmn = self._params.get_param_values("vdwmn")
+        self.vhw = self._params.get_param_values("vhw")
+        self.vow = self._params.get_param_values("vow")
+        self.maxiter_sntemp = self._params.get_param_values("maxiter_sntemp")
 
-        Args:
-            parameters: Parameters object
-        """
-        self.azrh = parameters.get_param_values("azrh")
-        self.alte = parameters.get_param_values("alte")
-        self.altw = parameters.get_param_values("altw")
-        self.vce = parameters.get_param_values("vce")
-        self.vdemx = parameters.get_param_values("vdemx")
-        self.vdemn = parameters.get_param_values("vdemn")
-        self.vhe = parameters.get_param_values("vhe")
-        self.voe = parameters.get_param_values("voe")
-        self.vcw = parameters.get_param_values("vcw")
-        self.vdwmx = parameters.get_param_values("vdwmx")
-        self.vdwmn = parameters.get_param_values("vdwmn")
-        self.vhw = parameters.get_param_values("vhw")
-        self.vow = parameters.get_param_values("vow")
-        self.maxiter_sntemp = parameters.get_param_values("maxiter_sntemp")
-        # Dynamic shade: zero latitude to matches Fortran
-        self._seg_lat_rad = np.zeros(self.nsegment, dtype=np.float64)
+        # Load segment latitude and convert from degrees to radians
+        # seg_lat is a discretization parameter (topology/geometry)
+        seg_lat_deg = self._params.get_param_values("seg_lat")
+        self._seg_lat_rad = seg_lat_deg * (np.pi / 180.0)
 
     @staticmethod
     def get_parameters() -> tuple:
@@ -268,6 +312,7 @@ class PRMSStreamShadeDynamic(PRMSStreamShade):
             "vdwmn",  # Minimum west bank vegetation density
             "vhw",  # West bank vegetation height
             "vow",  # West bank vegetation offset
+            "seg_lat",  # Segment latitude (discretization parameter)
             "maxiter_sntemp",
         )
 

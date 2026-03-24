@@ -14,7 +14,9 @@ dependencies:
   - folium
   - geopandas
   - geoviews
+  - gfortran>=15.2.0
   - git
+  - make
   - holoviews<=1.20.0
   - hvplot
   - ipython
