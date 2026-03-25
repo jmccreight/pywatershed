@@ -24,7 +24,7 @@ jobs:
           cache-environment: true
           cache-downloads: true
           create-args: >-
-            python=3.12
+            python=3.13
 
       - name: Install pywatershed
         run: |

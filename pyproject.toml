@@ -19,9 +19,10 @@ classifiers = [
     "License :: CC0 1.0 Universal (CC0 1.0) Public Domain Dedication",
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering :: Hydrology",
 ]
-requires-python = ">=3.12,<3.13"
+requires-python = ">=3.12,<3.14"
 dependencies = [
     "contextily",
     "numpy>=2.0.0",
@@ -109,7 +110,7 @@ include = ["pywatershed", "pywatershed.*"]
 
 [tool.ruff]
 line-length = 79
-target-version = "py312"
+target-version = "py313"
 include = [
     "pyproject.toml",
     "pywatershed/**/*.py",
@@ -129,4 +130,4 @@ ignore = [
 # that dont yet support ruff
 [tool.black]
 line-length = 79
-target_version = ["py312"]
+target_version = ["py313"]
