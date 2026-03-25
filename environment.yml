@@ -34,7 +34,7 @@ dependencies:
   - pytest-env
   - pytest-order
   - pytest-xdist
-  - python=3.12
+  - python=3.13
   - pyyaml
   - pyvis
   - ruff
