@@ -46,6 +46,8 @@ jobs:
           environment-file: environment_w_jupyter.yml
           cache-environment: true
           cache-downloads: true
+          create-args: >-
+            python=${{matrix.python-version}}
 
       - name: Checkout MODFLOW 6
         uses: actions/checkout@v6
