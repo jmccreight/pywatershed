@@ -1,12 +1,11 @@
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
-**Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
 - [PRMS Humidity Bug Documentation](#prms-humidity-bug-documentation)
   - [Summary](#summary)
   - [Relevant Control Parameters](#relevant-control-parameters)
   - [A Red Herring: `humidity_cbh_flag` Default Value](#a-red-herring-humidity_cbh_flag-default-value)
-  - [The Actual Bug: Inverted `ierr=2` Logic](#the-actual-bug-inverted-ierr2-logic)
+  - [The Actual Bug: Flawed `ierr=2` Logic](#the-actual-bug-flawed-ierr2-logic)
     - [What Actually Happens](#what-actually-happens)
     - [The Intended Design](#the-intended-design)
   - [Test Case: drb_2yr](#test-case-drb_2yr)
@@ -18,7 +17,7 @@
 
 ## Summary
 
-PRMS 5.2.1.1 contains a bug that prevents humidity data from being read when the stream temperature module is enabled with `strmtemp_humidity_flag=0` (indicating humidity should come from HRU-level CBH data). This results in stream temperature calculations using zero humidity values, which is physically unrealistic. The problem can easily be verified by looking at the output values of `Seg_humid` for PRMS, which are all zero.
+PRMS 5.2.1.1 contains a bug that prevents humidity data from being read when the stream temperature module is enabled with `strmtemp_humidity_flag=0` (indicating humidity should come from HRU-level CBH data). This results in stream temperature calculations using zero humidity values, which is physically unrealistic. The problem can easily be verified by looking at the output values of `Humidity_hru` and `Seg_humid` for PRMS, which are all zero.
 
 ## Relevant Control Parameters
 
@@ -63,9 +62,9 @@ IF ( Et_flag==potet_pm_module .OR. Et_flag==potet_pt_module .OR. &
 
 When `Stream_temp_flag==ACTIVE` and `Strmtemp_humidity_flag==OFF` (confusing use of this `OFF` variable meaning "0", i.e., humidity should come from CBH), line 721 correctly sets `Humidity_cbh_flag = ACTIVE`. At the end of `call_modules.f90`, the flag is properly enabled. The bug occurs later.
 
-## The Actual Bug: Inverted `ierr=2` Logic
+## The Actual Bug: Flawed `ierr=2` Logic
 
-The real bug is in `climate_hru.f90` where a signaling mechanism using `ierr=2` has inverted logic.
+The real bug is in `climate_hru.f90` where a signaling mechanism using `ierr=2` has flawed logic.
 
 ### What Actually Happens
 
@@ -115,7 +114,7 @@ ELSE
 ENDIF
 ```
 
-We see that `Iret` is the passed `ierr`, which was hard-coded to `2` before the call. The file opens successfully, so `ios==0`. Because `Iret` remains at `2`, we wind up in the ELSE block. The ELSE block only reads the CBH file headers and does not change `Iret` unless there's an issue reading the file. It does not read the data — that would happen later in the RUN phase (lines 161-167) if `Humidity_cbh_flag` remained `ACTIVE`. So `find_header_end()` returns `Iret` to `ierr` unchanged, still `2`. Back in `climate_hru.f90`, `ELSEIF (ierr==2)` triggers, setting `Humidity_cbh_flag = 0`.
+We see that `Iret` is the passed `ierr`, which was hard-coded to `2` before the call. The file opens successfully, so `ios==0`. Because `Iret` remains at `2`, we wind up in the ELSE block. The ELSE block only reads the CBH file headers and does not change `Iret` unless there's an issue reading the file. It also does not read the data — that would happen later in the RUN phase (lines 161-167) if `Humidity_cbh_flag` remained `ACTIVE`. So `find_header_end()` returns `Iret` to `ierr` unchanged, still `2`. Back in `climate_hru.f90` (in the previous code block), `ELSEIF (ierr==2)` triggers, setting `Humidity_cbh_flag = 0`.
 
 **Successfully finding and opening the humidity file causes humidity reading to be disabled.**
 
@@ -185,8 +184,8 @@ Configuration:
 - `humidity_day = ./rhavg.cbh` (file path specified and exists)
 - `humidity_cbh_flag` (NOT in control file — irrelevant due to line 721 override)
 
-Expected: Read humidity from `rhavg.cbh`  
-Actual: Humidity data is NOT read, `Humidity_hru` remains 0.0
+Expected: Read humidity from `rhavg.cbh`.
+Actual: Humidity data is NOT read, `Humidity_hru` and `seg_humid` remain 0.0.
 
 ## pywatershed Handling
 
