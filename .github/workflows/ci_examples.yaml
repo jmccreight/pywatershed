@@ -28,7 +28,7 @@ jobs:
       fail-fast: false
       matrix:
         os: ["ubuntu-latest", "macos-latest", "windows-latest"]
-        python-version: ["3.12"]
+        python-version: ["3.13"]
 
     steps:
       - name: Checkout repo
@@ -46,6 +46,8 @@ jobs:
           environment-file: environment_w_jupyter.yml
           cache-environment: true
           cache-downloads: true
+          create-args: >-
+            python=${{matrix.python-version}}
 
       - name: Checkout MODFLOW 6
         uses: actions/checkout@v6
