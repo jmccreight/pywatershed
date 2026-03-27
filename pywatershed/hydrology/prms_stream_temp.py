@@ -2123,7 +2123,7 @@ def _compute_seg_humid_cbh_numba(
     seg_close,
     seg_humid,
 ):
-    """Compute seg_humid from CBH humidity_hru input (strmtemp_humidity_flag=0).
+    """Compute seg_humid from CBH humidity_hru input.
 
     Implements the flag==0 path from PRMS 5.2.1.1 stream_temp.f90:
     - Reset seg_humid to 0 (ELSE branch, reinstated fix)
@@ -2198,7 +2198,7 @@ def _compute_segment_aggregates_numba(
     seg_rain,
     seg_ccov,
 ):
-    """Compute segment aggregate variables from HRU inputs (excluding humidity).
+    """Compute segment aggregate variables from HRU inputs.
 
     Humidity (seg_humid) is handled separately by _compute_seg_humid_cbh_numba
     (flag==0) or set directly from a parameter (flag==1).
