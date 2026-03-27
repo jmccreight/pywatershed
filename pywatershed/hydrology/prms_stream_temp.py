@@ -972,9 +972,10 @@ class PRMSStreamTempHumidityCBH(ConservativeProcess):
         This implements the aggregation calculations from PRMS stream_temp.f90
         around line 699-850. Computes:
         - seginc_sroff, seginc_ssflow, seginc_gwflow, seginc_swrad (flow/rad)
-        - seg_tave_air, seg_melt, seg_rain, seg_ccov, seg_humid (met vars)
+        - seg_tave_air, seg_melt, seg_rain, seg_ccov (met vars, non-humidity)
+        - seg_humid via _compute_seg_humid_cbh_numba (CBH humidity path)
         """
-        # Use numba-optimized function for performance
+        # Compute all segment aggregates except humidity
         _compute_segment_aggregates_numba(
             self.nhru,
             self.nsegment,
@@ -991,20 +992,29 @@ class PRMSStreamTempHumidityCBH(ConservativeProcess):
             self.seginc_ssflow,
             self.seginc_gwflow,
             self.seginc_swrad,
-            # New inputs for meteorological aggregation
             self.tavgc,
             self.snowmelt,
             self.hru_rain,
             self.soltab_potsw,
             self._hru_cossl,
-            self.humidity_hru,
             self.segment_order,
             self.seg_close,
-            # Output arrays for meteorological variables
             self.seg_tave_air,
             self.seg_melt,
             self.seg_rain,
             self.seg_ccov,
+        )
+
+        # Compute seg_humid from CBH humidity_hru input (flag==0 path)
+        _compute_seg_humid_cbh_numba(
+            self.nhru,
+            self.nsegment,
+            self.hru_segment,
+            self.hru_area,
+            self.humidity_hru,
+            self.segment_hruarea,
+            self.segment_order,
+            self.seg_close,
             self.seg_humid,
         )
 
@@ -1915,6 +1925,62 @@ class PRMSStreamTempHumidityCBH(ConservativeProcess):
 
 
 @nb.jit(nopython=True)
+def _compute_seg_humid_cbh_numba(
+    nhru,
+    nsegment,
+    hru_segment,
+    hru_area,
+    humidity_hru,
+    segment_hruarea,
+    segment_order,
+    seg_close,
+    seg_humid,
+):
+    """Compute seg_humid from CBH humidity_hru input (strmtemp_humidity_flag=0).
+
+    Implements the flag==0 path from PRMS 5.2.1.1 stream_temp.f90:
+    - Reset seg_humid to 0 (ELSE branch, reinstated fix)
+    - Accumulate area-weighted humidity from HRUs, converting percent->fraction
+    - Normalise by segment HRU area in a single segment_order pass, copying
+      from seg_close for segments with no HRUs (matching PRMS single-pass).
+
+    Args:
+        nhru: Number of HRUs (immutable)
+        nsegment: Number of segments (immutable)
+        hru_segment: HRU to segment mapping (immutable, 1-based)
+        hru_area: HRU areas in acres (immutable)
+        humidity_hru: HRU relative humidity in percent 0-100 (immutable)
+        segment_hruarea: Total HRU area per segment (immutable)
+        segment_order: Order to process segments (immutable)
+        seg_close: Closest segment with HRUs for each segment (immutable)
+        seg_humid: Segment humidity in decimal fraction (MUTATED - output)
+    """
+    # Reset before accumulation — matches corrected PRMS 5.2.1.1 ELSE branch.
+    # See humidity_bug_prms_fix.md "Secondary Bug" for full rationale.
+    seg_humid[:] = 0.0
+
+    # Accumulate area-weighted humidity from HRUs.
+    # *0.01 applied during accumulation (percent -> decimal fraction) so units
+    # are consistent throughout (stream_temp.f90 line 807):
+    #   Seg_humid(i) = Seg_humid(i) + Humidity_hru(j) * 0.01 * harea
+    for j in range(nhru):
+        seg_idx = hru_segment[j]
+        if seg_idx > 0:
+            i = seg_idx - 1
+            seg_humid[i] += humidity_hru[j] * 0.01 * hru_area[j]
+
+    # Normalise in a single segment_order pass (matches PRMS single-pass).
+    # For no-HRU segments, copy from seg_close in the same pass so that the
+    # ordering matches PRMS exactly (stream_temp.f90 lines 829-844).
+    for jj in range(nsegment):
+        i = segment_order[jj]
+        if segment_hruarea[i] > NEARZERO:
+            seg_humid[i] /= segment_hruarea[i]
+        else:
+            seg_humid[i] = seg_humid[seg_close[i]]
+
+
+@nb.jit(nopython=True)
 def _compute_segment_aggregates_numba(
     nhru,
     nsegment,
@@ -1931,27 +1997,24 @@ def _compute_segment_aggregates_numba(
     seginc_ssflow,
     seginc_gwflow,
     seginc_swrad,
-    # Meteorological aggregation inputs
+    # Meteorological aggregation inputs (excluding humidity)
     tavgc,
     snowmelt,
     hru_rain,
     soltab_potsw,
     hru_cossl,
-    humidity_hru,
     segment_order,
     seg_close,
-    # Output arrays for meteorological variables
+    # Output arrays for meteorological variables (excluding seg_humid)
     seg_tave_air,
     seg_melt,
     seg_rain,
     seg_ccov,
-    seg_humid,
 ):
-    """Compute segment aggregate variables from HRU inputs.
+    """Compute segment aggregate variables from HRU inputs (excluding humidity).
 
-    This numba-optimized function replaces _compute_segment_aggregates.
-    Now includes meteorological variable aggregation from stream_temp.f90
-    lines ~699-850.
+    Humidity (seg_humid) is handled separately by _compute_seg_humid_cbh_numba
+    (flag==0) or set directly from a parameter (flag==1).
 
     Args:
         nhru: Number of HRUs (immutable)
@@ -1974,14 +2037,12 @@ def _compute_segment_aggregates_numba(
         hru_rain: HRU rainfall (immutable)
         soltab_potsw: Potential shortwave radiation for current day (immutable)
         hru_cossl: Cosine of HRU slope (immutable)
-        humidity_hru: HRU humidity in percent (immutable)
         segment_order: Order to process segments (immutable)
         seg_close: Closest segment with HRUs for each segment (immutable)
         seg_tave_air: Segment air temperature (MUTATED - output)
         seg_melt: Segment snowmelt (MUTATED - output)
         seg_rain: Segment rainfall (MUTATED - output)
         seg_ccov: Segment cloud cover (MUTATED - output)
-        seg_humid: Segment humidity (MUTATED - output)
     """
     # Initialize segment aggregate variables
     seginc_sroff[:] = 0.0
@@ -1994,12 +2055,6 @@ def _compute_segment_aggregates_numba(
     seg_melt[:] = 0.0
     seg_rain[:] = 0.0
     seg_ccov[:] = 0.0
-    # Reset seg_humid to 0.0 before HRU accumulation each timestep.
-    # This matches the corrected PRMS 5.2.1.1 stream_temp.f90 (ELSE branch
-    # reinstated) and the original 5.2.1 design: flags 1 and 2 set Seg_humid
-    # directly; flag 0 (CBH) accumulates from HRUs and requires a clean start.
-    # See humidity_bug_prms_fix.md "Secondary Bug" section for full rationale.
-    seg_humid[:] = 0.0
 
     # Constants (from PRMS_SET_TIME)
     # Cfs_conv converts acre-inches/day to cfs
@@ -2048,14 +2103,6 @@ def _compute_segment_aggregates_numba(
             seg_ccov[i] += ccov * harea
             seg_melt[i] += snowmelt[j] * harea
             seg_rain[i] += hru_rain[j] * harea
-
-            # Accumulate area-weighted humidity from HRU CBH data.
-            # Apply *0.01 (percent -> decimal fraction) during accumulation,
-            # matching PRMS 5.2.1.1 stream_temp.f90 line 807:
-            #   Seg_humid(i) = Seg_humid(i) + Humidity_hru(j) * 0.01 * harea
-            # This keeps units consistent with the carry-over value from the
-            # previous timestep (both in decimal fraction).
-            seg_humid[i] += humidity_hru[j] * 0.01 * harea
 
     # Process seginc_swrad in numerical order first (matches original logic)
     # Divide radiation by segment HRU area to get averages
@@ -2140,10 +2187,6 @@ def _compute_segment_aggregates_numba(
     # seg_close. Note: seg_close may point to upstream/downstream segments
     # not yet processed in some edge cases, but this matches the Fortran
     # single-pass behavior (stream_temp.f90 lines 820-844).
-    # For seg_humid specifically: if seg_close comes LATER in segment_order,
-    # PRMS copies the still-un-divided accumulated value (carry-over +
-    # new sum), not the finalised decimal fraction. We replicate that here
-    # by handling seg_humid in this same single pass rather than a second pass.
     for jj in range(nsegment):
         i = segment_order[jj]
 
@@ -2153,10 +2196,6 @@ def _compute_segment_aggregates_numba(
             seg_ccov[i] /= segment_hruarea[i]
             seg_melt[i] /= segment_hruarea[i]
             seg_rain[i] /= segment_hruarea[i]
-
-            # Division only — *0.01 was already applied during accumulation
-            # (stream_temp.f90: Humidity_hru(j) * 0.01 * harea)
-            seg_humid[i] /= segment_hruarea[i]
         else:
             # Segment has no HRUs - use values from seg_close
             # (stream_temp.f90 lines 832-844)
@@ -2165,9 +2204,6 @@ def _compute_segment_aggregates_numba(
             seg_ccov[i] = seg_ccov[close_seg]
             seg_melt[i] = seg_melt[close_seg]
             seg_rain[i] = seg_rain[close_seg]
-            # Copy seg_humid in the same pass — matches PRMS single-pass:
-            #   Seg_humid(i) = Seg_humid(iseg)  ! stream_temp.f90 line 840
-            seg_humid[i] = seg_humid[close_seg]
 
 
 @nb.jit(nopython=True)
