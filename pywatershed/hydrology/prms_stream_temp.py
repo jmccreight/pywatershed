@@ -242,7 +242,6 @@ class PRMSStreamTempHumidityCBH(ConservativeProcess):
             "melt_temp",
             "maxiter_sntemp",
             "stream_tave_init",
-            "seg_humidity",
         )
 
     @staticmethod
@@ -1922,6 +1921,194 @@ class PRMSStreamTempHumidityCBH(ConservativeProcess):
                 seg_flow_width[jj],
                 seg_length[jj],
             )
+
+
+class PRMSStreamTemp(PRMSStreamTempHumidityCBH):
+    """PRMS stream temperature using monthly segment humidity parameter.
+
+    Corresponds to ``strmtemp_humidity_flag=1``. Humidity is supplied via the
+    ``seg_humidity`` parameter (12 monthly values per segment) rather than a
+    time-varying CBH input.  All other behaviour is identical to
+    :class:`PRMSStreamTempHumidityCBH`.
+
+    Args:
+        control: a Control object
+        discretization: a discretization of class Parameters
+        parameters: a parameter object of class Parameters — must include
+            ``seg_humidity`` with shape ``(nmonth, nsegment)``
+        seg_outflow: Streamflow leaving each segment (from PRMSChannel)
+        seg_lateral_inflow: Lateral inflow entering each segment
+        swrad: Solar radiation for each HRU
+        potet: Potential ET for each HRU
+        sroff: Surface runoff for each HRU
+        ssres_flow: Subsurface flow for each HRU
+        gwres_flow: Groundwater flow for each HRU
+        tavgc: Average air temperature for each HRU in Celsius
+        snowmelt: Snowmelt for each HRU
+        hru_rain: Rainfall for each HRU
+        soltab_potsw: Potential shortwave radiation table for current day
+        seg_flow_width: Flow-dependent width from PRMSHydraulicGeometryFull
+        seg_flow_depth: Flow-dependent depth from PRMSHydraulicGeometryFull
+        seg_flow_area: Flow-dependent cross-sectional area
+        seg_flow_velocity: Flow-dependent velocity
+        stream_shade: PRMSStreamShade instance
+        stream_shade_class: Class to use for stream shade computation
+        stream_shade_parameters: Parameters for stream shade computation
+        imbalance_behavior: one of ["defer", None, "warn", "error"]
+        verbose: Print extra information or not?
+        use_vectorized_shade: Use vectorized shade computation
+        track_energy_fluxes: Track energy flux terms for budget analysis
+    """
+
+    def __init__(
+        self,
+        control: Control,
+        discretization: Parameters,
+        parameters: Parameters,
+        seg_outflow: adaptable,
+        seg_lateral_inflow: adaptable,
+        swrad: adaptable,
+        potet: adaptable,
+        sroff: adaptable,
+        ssres_flow: adaptable,
+        gwres_flow: adaptable,
+        tavgc: adaptable,
+        snowmelt: adaptable,
+        hru_rain: adaptable,
+        soltab_potsw: adaptable,
+        seg_flow_width: adaptable = None,
+        seg_flow_depth: adaptable = None,
+        seg_flow_area: adaptable = None,
+        seg_flow_velocity: adaptable = None,
+        stream_shade: Union[PRMSStreamShade, None] = None,
+        stream_shade_class: Union[type, None] = None,
+        stream_shade_parameters: Union[Parameters, Path, None] = None,
+        calc_method: Literal["numba", "numpy", None] = None,
+        imbalance_behavior: Literal["defer", None, "warn", "error"] = "defer",
+        verbose: bool = False,
+        use_vectorized_shade: bool = True,
+        track_energy_fluxes: bool = True,
+    ) -> None:
+        super().__init__(
+            control=control,
+            discretization=discretization,
+            parameters=parameters,
+            seg_outflow=seg_outflow,
+            seg_lateral_inflow=seg_lateral_inflow,
+            swrad=swrad,
+            potet=potet,
+            sroff=sroff,
+            ssres_flow=ssres_flow,
+            gwres_flow=gwres_flow,
+            tavgc=tavgc,
+            snowmelt=snowmelt,
+            hru_rain=hru_rain,
+            soltab_potsw=soltab_potsw,
+            humidity_hru=None,
+            seg_flow_width=seg_flow_width,
+            seg_flow_depth=seg_flow_depth,
+            seg_flow_area=seg_flow_area,
+            seg_flow_velocity=seg_flow_velocity,
+            stream_shade=stream_shade,
+            stream_shade_class=stream_shade_class,
+            stream_shade_parameters=stream_shade_parameters,
+            calc_method=calc_method,
+            imbalance_behavior=imbalance_behavior,
+            verbose=verbose,
+            use_vectorized_shade=use_vectorized_shade,
+            track_energy_fluxes=track_energy_fluxes,
+        )
+        self.name = "PRMSStreamTemp"
+
+    @staticmethod
+    def get_dimensions() -> tuple:
+        return ("nhru", "nsegment", "nmonth", "ndoy")
+
+    @staticmethod
+    def get_parameters() -> tuple:
+        return (
+            "doy",
+            "hru_segment",
+            "hru_area",
+            "hru_slope",
+            "tosegment",
+            "albedo",
+            "lat_temp_adj",
+            "seg_length",
+            "seg_slope",
+            "seg_lat",
+            "seg_elev",
+            "seg_close",
+            "ss_tau",
+            "gw_tau",
+            "melt_temp",
+            "maxiter_sntemp",
+            "stream_tave_init",
+            "seg_humidity",
+        )
+
+    @staticmethod
+    def get_inputs() -> tuple:
+        return (
+            "seg_outflow",
+            "seg_lateral_inflow",
+            "seg_flow_width",
+            "seg_flow_depth",
+            "seg_flow_area",
+            "seg_flow_velocity",
+            "swrad",
+            "potet",
+            "sroff",
+            "ssres_flow",
+            "gwres_flow",
+            "tavgc",
+            "snowmelt",
+            "hru_rain",
+            "soltab_potsw",
+        )
+
+    def _compute_segment_aggregates(self) -> None:
+        """Compute segment aggregates using monthly seg_humidity parameter.
+
+        Calls _compute_segment_aggregates_numba for all non-humidity variables,
+        then sets seg_humid directly from the seg_humidity parameter for the
+        current month (strmtemp_humidity_flag=1 path).
+        """
+        _compute_segment_aggregates_numba(
+            self.nhru,
+            self.nsegment,
+            self.hru_segment,
+            self.hru_area,
+            self.sroff,
+            self.ssres_flow,
+            self.gwres_flow,
+            self.swrad,
+            self.segment_hruarea,
+            self.segment_up,
+            self.tosegment,
+            self.seginc_sroff,
+            self.seginc_ssflow,
+            self.seginc_gwflow,
+            self.seginc_swrad,
+            self.tavgc,
+            self.snowmelt,
+            self.hru_rain,
+            self.soltab_potsw,
+            self._hru_cossl,
+            self.segment_order,
+            self.seg_close,
+            self.seg_tave_air,
+            self.seg_melt,
+            self.seg_rain,
+            self.seg_ccov,
+        )
+
+        # Set seg_humid from monthly parameter.
+        # seg_humidity has dims (nmonth, nsegment); Nowmonth is 1-based.
+        # Matches PRMS stream_temp.f90 flag==1 path:
+        #   Seg_humid(i) = Seg_humidity(i, Nowmonth)
+        nowmonth = self.control.current_month
+        self.seg_humid[:] = self.seg_humidity[nowmonth - 1, :]
 
 
 @nb.jit(nopython=True)
