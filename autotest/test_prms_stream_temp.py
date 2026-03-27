@@ -139,7 +139,16 @@ def parameters(parameter_style, simulation, control, request):
                 simulation["dir"] / "parameters_PRMSStreamTempHumidityCBH.nc"
             )
         else:
-            param_file = simulation["dir"] / "parameters_PRMSStreamTemp.nc"
+            # Two flag==1 simulations use different param files and therefore
+            # different nc files for params_sep.
+            prms_param_file = control.options["parameter_file"]
+            if "seg_humid_matrix" in str(prms_param_file):
+                param_file = (
+                    simulation["dir"]
+                    / "parameters_PRMSStreamTempSegHumidMatrix.nc"
+                )
+            else:
+                param_file = simulation["dir"] / "parameters_PRMSStreamTemp.nc"
         params = Parameters.from_netcdf(param_file)
 
     return params
