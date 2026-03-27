@@ -28,7 +28,7 @@ from .prms_stream_shade import (
     PRMSStreamShadeConstant,
     PRMSStreamShadeDynamic,
 )
-from .prms_stream_temp import PRMSStreamTemp
+from .prms_stream_temp import PRMSStreamTempHumidityCBH
 
 __all__ = (
     "prms_channel_flow_graph_postprocess",
@@ -55,5 +55,5 @@ __all__ = (
     "PRMSStreamShade",
     "PRMSStreamShadeConstant",
     "PRMSStreamShadeDynamic",
-    "PRMSStreamTemp",
+    "PRMSStreamTempHumidityCBH",
 )

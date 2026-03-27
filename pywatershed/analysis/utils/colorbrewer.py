@@ -2346,7 +2346,7 @@ def nhm_process_colors(model: Model = None):
         "PRMSGroundwater": palette[2],
         "PRMSChannel": palette[4],
         "PRMSHydraulicGeometryWidthOnly": palette[9],
-        "PRMSStreamTemp": palette[3],
+        "PRMSStreamTempHumidityCBH": palette[3],
     }
     if not model:
         return process_colors

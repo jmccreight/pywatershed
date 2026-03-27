@@ -1,6 +1,5 @@
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
-**Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
 - [PRMS Humidity Bug Fix](#prms-humidity-bug-fix)
   - [Summary](#summary)
@@ -8,13 +7,24 @@
   - [Fix Details](#fix-details)
   - [Diff](#diff)
   - [Result](#result)
+  - [Secondary Bug: `Seg_humid` Accumulation Reset Missing in v5.2.1.1](#secondary-bug-seg_humid-accumulation-reset-missing-in-v5211)
+    - [Background: How `Seg_humid` is computed](#background-how-seg_humid-is-computed)
+    - [The 5.2.1 design](#the-521-design)
+    - [What changed in v5.2.1.1](#what-changed-in-v5211)
+    - [Evidence this is an oversight](#evidence-this-is-an-oversight)
+    - [Numeric effect](#numeric-effect)
+    - [Proposed fix](#proposed-fix)
   - [pywatershed Changes](#pywatershed-changes)
+    - [Background: `strmtemp_humidity_flag` Options](#background-strmtemp_humidity_flag-options)
+    - [Class Structure](#class-structure)
+    - [Design Rationale](#design-rationale)
+    - [Implementation Steps](#implementation-steps)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
 # PRMS Humidity Bug Fix
 
-This document describes the fix for the PRMS 5.2.1.1 humidity bug documented in [humidity_bug_prms.md](humidity_bug_prms.md).
+This document describes the fix for the PRMS v5.2.1.1 humidity bug documented in [humidity_bug_prms.md](humidity_bug_prms.md).
 
 ## Summary
 
@@ -71,10 +81,216 @@ After this fix:
 - `Seg_humid` receives real humidity values for stream temperature calculations
 - If the humidity CBH file is missing, PRMS raises an error (correct behavior)
 
+## Secondary Bug: `Seg_humid` Accumulation Reset Missing in v5.2.1.1
+
+Fixing the CBH input bug (above) caused `Seg_humid` to receive real humidity values
+for the first time. This in turn revealed a second, independent bug in
+`stream_temp.f90`: the daily accumulation reset for `Seg_humid` under
+`strmtemp_humidity_flag=0` (CBH mode) was silently dropped during the 5.2.1 →
+5.2.1.1 refactor.
+
+### Background: How `Seg_humid` is computed
+
+`stream_temp.f90` supports three sources for segment humidity, selected by
+`strmtemp_humidity_flag`:
+
+| Flag | Source                                                  | How set each timestep                                                                        |
+| ---- | ------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `0`  | CBH file — daily per-HRU values (`humidity_hru`)        | Accumulated from HRUs in a loop, then divided by total HRU area to get area-weighted average |
+| `1`  | Parameter — monthly per-segment values (`seg_humidity`) | Set directly from parameter array at start of timestep                                       |
+| `2`  | Observation station data (`seg_humidity_sta`)           | Set directly from station array at start of timestep                                         |
+
+For flags 1 and 2 the segment value is assigned outright each day — there is no
+accumulation. For flag 0, `Seg_humid` must be zeroed before the HRU loop so
+that area-weighted accumulation starts fresh every timestep, just like every other
+accumulated variable (`Seg_ccov`, `Seg_melt`, `Seg_rain`, `Seg_tave_air`,
+`hru_area_sum`).
+
+### The 5.2.1 design
+
+PRMS 5.2.1 handled this correctly with an `IF / ELSEIF / ELSE / ENDIF` block at
+the top of the RUN section, immediately before all other variable resets:
+
+```fortran
+! Humidity info come from parameter file when Strmtemp_humidity_flag==1
+! Otherwise it comes as daily values per HRU from CBH. Code for this is
+! down in the HRU loop.
+      IF ( Strmtemp_humidity_flag==1 ) THEN
+         DO i = 1, Nsegment
+            Seg_humid(i) = Seg_humidity(i, Nowmonth)
+         ENDDO
+      ELSEIF ( Strmtemp_humidity_flag==2 ) THEN ! use station data
+         DO i = 1, Nsegment
+            Seg_humid(i) = Humidity(Seg_humidity_sta(i))
+         ENDDO
+      ELSE
+         Seg_humid = 0.0          ! <-- flag==0: zero before HRU accumulation
+      ENDIF
+
+      Seg_potet = 0.0D0
+      Seg_ccov = 0.0
+      Seg_melt = 0.0
+      Seg_rain = 0.0
+      hru_area_sum = 0.0
+```
+
+The `ELSE` branch is the reset for flag 0. The comment above the block explicitly
+states the design intent: flags 1 and 2 are handled up front; flag 0 ("the CBH
+case") is handled "down in the HRU loop" — meaning the loop only accumulates,
+it does not initialise. The `ELSE` reset is what makes that work.
+
+### What changed in v5.2.1.1
+
+In v5.2.1.1 the block was restructured to handle the new `* 0.01` unit scaling for
+flag 2. The `ELSE` branch was dropped, turning the block from
+`IF / ELSEIF / ELSE / ENDIF` into `IF / ELSEIF / ENDIF`:
+
+```fortran
+! Humidity info come from parameter file when Strmtemp_humidity_flag==1
+! Otherwise it comes as daily values per HRU from CBH. Code for this is
+! down in the HRU loop.
+      IF ( Strmtemp_humidity_flag==1 ) THEN
+         DO i = 1, Nsegment
+            Seg_humid(i) = Seg_humidity(i, Nowmonth)
+         ENDDO
+      ELSEIF ( Strmtemp_humidity_flag==2 ) THEN ! use station data
+         DO i = 1, Nsegment
+            Seg_humid(i) = Humidity(Seg_humidity_sta(i)) * 0.01
+         ENDDO
+      ENDIF                       ! <-- ELSE branch gone; no reset for flag==0
+
+      Seg_potet = 0.0D0
+      Seg_ccov = 0.0
+      Seg_melt = 0.0
+      Seg_rain = 0.0
+      hru_area_sum = 0.0
+```
+
+The comment is **word-for-word identical** in both versions. The intent was not
+changed — only the code was, and only because of the restructuring. The reset for
+flag 0 was collateral damage.
+
+### Evidence this is an oversight
+
+1. **The comment was not updated.** It still says _"Code for this is down in the
+   HRU loop"_ — i.e., flag 0 accumulates in the loop. An intentional carry-over
+   design would have updated or removed that comment.
+
+2. **Every other accumulated variable is reset.** `Seg_ccov`, `Seg_melt`,
+   `Seg_rain`, `Seg_tave_air`, and `hru_area_sum` are all explicitly zeroed
+   immediately after this block in both 5.2.1 and v5.2.1.1. `Seg_humid` under
+   flag 0 follows exactly the same accumulation pattern and should be treated
+   identically.
+
+3. **The bug was latent.** Prior to the CBH input fix, `Humidity_hru` was always
+   zero (due to the `ierr=2` bug in `climate_hru.f90`), so `Seg_humid` was zero
+   every timestep regardless of whether it was reset. The missing reset only
+   became observable once real CBH data started flowing in.
+
+4. **The diff is a pure deletion.** The only change to this block in v5.2.1.1 was
+   removing the `ELSE` branch. There is no added comment, no replacement logic,
+   no indication that carry-over was a deliberate choice.
+
+### Numeric effect
+
+Without the reset, each timestep's computation for segments with HRUs is:
+
+```
+Seg_humid(i) = (Seg_humid_prev(i) + sum(Humidity_hru * 0.01 * area)) / hru_area_sum
+```
+
+where `Seg_humid_prev` is the previous timestep's finalised decimal-fraction value
+(~0.6). The correct formula is:
+
+```
+Seg_humid(i) = sum(Humidity_hru * 0.01 * area) / hru_area_sum
+```
+
+The error per timestep is `Seg_humid_prev / hru_area_sum`. For large-area segments
+(many or large HRUs) this is negligible; for small-area segments it can be
+significant. In a 2-year DRB simulation (333,336 valid data points) the effect is:
+
+- RMSE relative to the correct (reset) computation: **~0.030** decimal fraction
+- R²: **0.918**
+
+This is a systematic bias, not random noise, and it compounds over time.
+
+### Proposed fix
+
+In `prms_src/prms5.2.1.1/prms/stream_temp.f90`, reinstate the `ELSE` branch:
+
+```diff
+       IF ( Strmtemp_humidity_flag==1 ) THEN
+          DO i = 1, Nsegment
+             Seg_humid(i) = Seg_humidity(i, Nowmonth)
+          ENDDO
+       ELSEIF ( Strmtemp_humidity_flag==2 ) THEN ! use station data
+          DO i = 1, Nsegment
+             Seg_humid(i) = Humidity(Seg_humidity_sta(i)) * 0.01
+          ENDDO
++      ELSE
++         Seg_humid = 0.0
+       ENDIF
+```
+
+This restores the original 5.2.1 design, is consistent with all other accumulated
+variables, and matches the stated intent of the comment above the block.
+
+---
+
 ## pywatershed Changes
 
-See the pywatershed section below for corresponding changes needed to use actual humidity data instead of reproducing the bug.
+The pywatershed implementation requires a class restructuring to support different humidity sources. Because inputs are not optional in pywatershed, different humidity sources are handled by separate classes.
 
-_TODO: Document pywatershed changes once implemented._
+### Background: `strmtemp_humidity_flag` Options
 
-_TODO: Compare the impact of the change on the drb\\\_2yr simulations._
+PRMS supports three humidity sources for stream temperature:
+
+- `0` = CBH File (time-varying `humidity_hru` input)
+- `1` = Parameter `seg_humidity` (monthly values by segment)
+- `2` = Data File with `seg_humidity_sta` (not implemented in pywatershed)
+
+### Class Structure
+
+**`PRMSStreamTempHumidityCBH`** (superclass, renamed from current `PRMSStreamTemp`):
+
+- Corresponds to `strmtemp_humidity_flag=0`
+- **Input**: `humidity_hru` — time-varying humidity data from CBH file
+- Contains the full implementation details
+
+**`PRMSStreamTemp`** (subclass, new):
+
+- Corresponds to `strmtemp_humidity_flag=1`
+- **Parameter**: `seg_humidity` — monthly humidity values by segment (12 values per segment)
+- **No** `humidity_hru` input
+- Calls into superclass methods with the parameter-based humidity values
+
+### Design Rationale
+
+1. **Inputs are not optional**: pywatershed class contracts require explicit inputs. A class cannot sometimes take an input and sometimes not.
+
+2. **Superclass has full details**: The CBH case (`PRMSStreamTempHumidityCBH`) has the more complex, time-varying input and contains the full implementation.
+
+3. **Subclass specializes**: `PRMSStreamTemp` inherits from `PRMSStreamTempHumidityCBH` and provides humidity via a static monthly parameter instead of a dynamic input.
+
+4. **Simple name for common case**: The base name `PRMSStreamTemp` is used for the parameter-based case, which may be more common for users who don't have CBH humidity data.
+
+### Implementation Steps
+
+Much of the implementation is already in place in the Python source but commented out. The steps below should be completed in order, with the superclass working and tested before proceeding to the subclass.
+
+1. **`PRMSStreamTempHumidityCBH`** (superclass):
+   - Rename current `PRMSStreamTemp` → `PRMSStreamTempHumidityCBH`
+   - Uncomment existing humidity handling code in `pywatershed/hydrology/prms_stream_temp.py`
+   - Add `rhavg` as an actual input (instead of hardcoded zeros) where humidity_hru is commented as an input.
+   - Update `autotest/test_prms_stream_temp.py` to use actual humidity data from `rhavg.nc`
+   - Verify tests pass with real humidity values
+
+2. **`PRMSStreamTemp`** (subclass):
+   - Create new `PRMSStreamTemp` class that inherits from `PRMSStreamTempHumidityCBH`
+   - Add `seg_humidity` parameter (monthly values by segment)
+   - Remove `humidity_hru` input from class contract
+   - Convert monthly parameter to the format expected by superclass methods
+   - Add tests for `PRMSStreamTemp` with `seg_humidity` parameter
+
+_TODO: Compare the impact of the change on the drb_2yr simulations._

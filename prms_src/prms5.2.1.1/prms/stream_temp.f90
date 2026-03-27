@@ -762,6 +762,8 @@
          DO i = 1, Nsegment
             Seg_humid(i) = Humidity(Seg_humidity_sta(i)) * 0.01
          ENDDO
+      ELSE
+         Seg_humid = 0.0  ! flag==0 (CBH): zero before HRU accumulation each timestep
       ENDIF
 
       Seg_potet = 0.0D0

@@ -5,14 +5,14 @@ import numpy as np
 import pytest
 from utils_compare import compare_in_memory, compare_netcdfs
 
-from pywatershed.base.adapter import adapter_factory
+from pywatershed.base.adapter import AdapterNetcdf, adapter_factory
 from pywatershed.base.control import Control
 from pywatershed.base.parameters import Parameters
 from pywatershed.hydrology.prms_stream_shade import (
     PRMSStreamShadeConstant,
     PRMSStreamShadeDynamic,
 )
-from pywatershed.hydrology.prms_stream_temp import PRMSStreamTemp
+from pywatershed.hydrology.prms_stream_temp import PRMSStreamTempHumidityCBH
 from pywatershed.parameters import PrmsParameters
 
 # Define sentinel values that should be treated as NaN for
@@ -227,35 +227,26 @@ def test_compare_prms(
             # a Parameters object to which we need to add shade parameters.
             parameters = Parameters.merge(parameters, parameters_shade)
 
-    # Step 2: Prepare inputs for PRMSStreamTemp
+    # Step 2: Prepare inputs for PRMSStreamTempHumidityCBH
     # Most inputs come from PRMS output files, but some need special handling
     stream_temp_inputs = {}
-    for key in PRMSStreamTemp.get_inputs():
+    for key in PRMSStreamTempHumidityCBH.get_inputs():
         if key == "humidity_hru":
-            pass
-            # The following is a soluation that reproduces PRMS behavior where
-            # multiple bugs result in humidity_hru being zero. The code after
-            # it would hopefully be adopted once some clarity is had around the
-            # bugs in PRMS.
-            stream_temp_inputs[key] = adapter_factory(
-                np.zeros(parameters.dimensions["nhru"], dtype=np.float64),
-                variable_name=key,
-                control=control,
+            # humidity_hru comes from rhavg.nc in the simulation directory.
+            # The file variable is named "rhavg" (percent, 0-100); the *0.01
+            # scaling to decimal fraction is applied inside the class.
+            stream_temp_inputs[key] = AdapterNetcdf(
+                simulation["dir"] / "rhavg.nc",
+                "rhavg",
+                control,
             )
-            # # humidity_hru comes from rhavg.nc in the simulation directory
-            # # Use AdapterNetcdf directly to specify variable name in the file
-            # stream_temp_inputs[key] = AdapterNetcdf(
-            #     simulation["dir"] / "rhavg.nc",
-            #     variable="rhavg",
-            #     control=control,
-            # )
         else:
             # Most inputs come from PRMS output files
             nc_path = output_dir / f"{key}.nc"
             stream_temp_inputs[key] = nc_path
 
-    # Step 3: Instantiate PRMSStreamTemp with the appropriate shade init style
-    stream_temp = PRMSStreamTemp(
+    # Step 3: Instantiate PRMSStreamTempHumidityCBH with the appropriate shade init style
+    stream_temp = PRMSStreamTempHumidityCBH(
         control,
         discretization,
         parameters,
@@ -268,8 +259,8 @@ def test_compare_prms(
         track_energy_fluxes=track_energy_fluxes,
     )
 
-    # Compare all PRMSStreamTemp variables
-    compare_vars = set(PRMSStreamTemp.get_variables()) - set(
+    # Compare all PRMSStreamTempHumidityCBH variables
+    compare_vars = set(PRMSStreamTempHumidityCBH.get_variables()) - set(
         [
             "heat_upstream",
             "heat_lateral",

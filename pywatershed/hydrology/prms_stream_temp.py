@@ -37,7 +37,7 @@ SPECIFIC_HEAT_WATER = 4182.0  # J/(kg·°C)
 LATENT_HEAT_VAPORIZATION = 2495.0e06  # J/m³
 
 
-class PRMSStreamTemp(ConservativeProcess):
+class PRMSStreamTempHumidityCBH(ConservativeProcess):
     """PRMS stream temperature.
 
     A representation of stream temperature from PRMS. with two structural
@@ -91,9 +91,8 @@ class PRMSStreamTemp(ConservativeProcess):
         hru_rain: Rainfall for each HRU (from PRMSAtmosphere)
         soltab_potsw: Potential shortwave radiation table for current day
             (from PRMSSolarGeometry or Adapter)
-        # humidity_hru: Humidity for each HRU (from CBH via Adapter), optional.
-        #     Required when strmtemp_humidity_flag=0. If None,
-        #     strmtemp_humidity_flag must be 1.
+        humidity_hru: Humidity for each HRU (from CBH via Adapter).
+            Values are relative humidity in percent (0-100).
         seg_flow_width: Flow-dependent width from PRMSHydraulicGeometryFull
         seg_flow_depth: Flow-dependent depth from PRMSHydraulicGeometryFull
         seg_flow_area: Flow-dependent cross-sectional area from
@@ -110,11 +109,7 @@ class PRMSStreamTemp(ConservativeProcess):
             Can be a Parameters object or a Path to a parameter file.
             Only used if stream_shade is None and stream_shade_class is
             provided.
-        # strmtemp_humidity_flag: Flag to select humidity source. 0=use
-        #     humidity_hru input (HRU-level from CBH), 1=use seg_humidity
-        #     parameter (monthly values by segment). If None, defers to
-        #     control.options["strmtemp_humidity_flag"]. If not found in
-        #     either, raises ValueError.
+
         imbalance_behavior: one of ["defer", None, "warn", "error"]
         verbose: Print extra information or not?
         use_vectorized_shade: Use vectorized shade computation for all
@@ -139,7 +134,7 @@ class PRMSStreamTemp(ConservativeProcess):
         snowmelt: adaptable,
         hru_rain: adaptable,
         soltab_potsw: adaptable,
-        # humidity_hru: adaptable = None,
+        humidity_hru: adaptable,
         seg_flow_width: adaptable = None,
         seg_flow_depth: adaptable = None,
         seg_flow_area: adaptable = None,
@@ -147,7 +142,6 @@ class PRMSStreamTemp(ConservativeProcess):
         stream_shade: Union[PRMSStreamShade, None] = None,
         stream_shade_class: Union[type, None] = None,
         stream_shade_parameters: Union[Parameters, Path, None] = None,
-        # strmtemp_humidity_flag: Union[int, None] = None,
         calc_method: Literal["numba", "numpy", None] = None,
         imbalance_behavior: Literal["defer", None, "warn", "error"] = "defer",
         verbose: bool = False,
@@ -160,7 +154,7 @@ class PRMSStreamTemp(ConservativeProcess):
             parameters=parameters,
             imbalance_behavior=imbalance_behavior,
         )
-        self.name = "PRMSStreamTemp"
+        self.name = "PRMSStreamTempHumidityCBH"
 
         # Handle stream_shade initialization before _set_inputs
         # This resolves the stream_shade from multiple possible input styles
@@ -269,7 +263,7 @@ class PRMSStreamTemp(ConservativeProcess):
             "snowmelt",
             "hru_rain",
             "soltab_potsw",
-            # "humidity_hru",
+            "humidity_hru",
         )
 
     @staticmethod
@@ -607,35 +601,6 @@ class PRMSStreamTemp(ConservativeProcess):
 
         # Note: lat_temp_adj units are degrees Celsius (not decimal fraction)
         # This matches Fortran stream_temp.f90 line 202
-
-        # # Handle humidity flag: _set_options already checked __init__ arg
-        # # then control.options, so we just need to validate and convert
-        # if self._strmtemp_humidity_flag is None:
-        #     msg = (
-        #         "strmtemp_humidity_flag must be provided either as an "
-        #         "__init__ argument or in control.options. "
-        #         "Use 0 for HRU humidity from CBH (humidity_hru input), "
-        #         "or 1 for monthly segment humidity parameter (seg_humidity)."
-        #     )
-        #     raise ValueError(msg)
-
-        # # Convert to int if it's an array (e.g., from control file)
-        # flag_val = self._strmtemp_humidity_flag
-        # if hasattr(flag_val, "__len__"):
-        #     flag_val = flag_val[0]
-        # self._strmtemp_humidity_flag = int(flag_val)
-
-        # # Validate humidity input based on flag
-        # if self._strmtemp_humidity_flag == 0:
-        #     # Check if humidity_hru is provided (optional input)
-        #     if self._input_variables_dict.get("humidity_hru") is None:
-        #         msg = (
-        #             "humidity_hru input is required when "
-        #             "strmtemp_humidity_flag=0. "
-        #             "Either provide humidity_hru or set "
-        #             "strmtemp_humidity_flag=1 to use seg_humidity parameter."
-        #         )
-        #         raise ValueError(msg)
 
         # Compute hru_cossl from hru_slope (matches Fortran/PRMSSolarGeometry)
         self._hru_cossl = np.cos(np.arctan(self.hru_slope))
@@ -1009,26 +974,6 @@ class PRMSStreamTemp(ConservativeProcess):
         - seginc_sroff, seginc_ssflow, seginc_gwflow, seginc_swrad (flow/rad)
         - seg_tave_air, seg_melt, seg_rain, seg_ccov, seg_humid (met vars)
         """
-        # nowmonth = self.control.current_month
-
-        # # Handle humidity based on flag
-        # if self._strmtemp_humidity_flag == 1:
-        #     # Use monthly parameter seg_humidity
-        #     # seg_humidity has dims [nsegment, nmonth]
-        #     humidity_hru_data = None
-        #     seg_humidity_month = self.seg_humidity[:, nowmonth - 1]
-        # else:
-        #     # Use HRU humidity from CBH (flag == 0)
-        #     # TEMPORARY: multiply by 0 to match buggy Fortran that doesn't
-        #     # read humidity CBH, see prms_5.2.1.1/prms/utils_prms.f90 ln 176
-        #     # CORRECT eventually: humidity_hru_data = self.humidity_hru
-        #     humidity_hru_data = self.humidity_hru * 0.0
-        #     seg_humidity_month = None
-        # Hardcode to use HRU humidity (flag == 0) with zeros for now
-        humidity_hru_data = np.zeros(self.nhru)
-        seg_humidity_month = np.zeros(self.nsegment)
-        strmtemp_humidity_flag = 0
-
         # Use numba-optimized function for performance
         _compute_segment_aggregates_numba(
             self.nhru,
@@ -1052,14 +997,7 @@ class PRMSStreamTemp(ConservativeProcess):
             self.hru_rain,
             self.soltab_potsw,
             self._hru_cossl,
-            humidity_hru_data,
-            # if humidity_hru_data is not None
-            # else np.zeros(self.nhru),
-            # self._strmtemp_humidity_flag,
-            strmtemp_humidity_flag,
-            seg_humidity_month,
-            # if seg_humidity_month is not None
-            # else np.zeros(self.nsegment),
+            self.humidity_hru,
             self.segment_order,
             self.seg_close,
             # Output arrays for meteorological variables
@@ -1993,15 +1931,13 @@ def _compute_segment_aggregates_numba(
     seginc_ssflow,
     seginc_gwflow,
     seginc_swrad,
-    # New inputs for meteorological aggregation
+    # Meteorological aggregation inputs
     tavgc,
     snowmelt,
     hru_rain,
     soltab_potsw,
     hru_cossl,
     humidity_hru,
-    strmtemp_humidity_flag,
-    seg_humidity_month,
     segment_order,
     seg_close,
     # Output arrays for meteorological variables
@@ -2038,9 +1974,7 @@ def _compute_segment_aggregates_numba(
         hru_rain: HRU rainfall (immutable)
         soltab_potsw: Potential shortwave radiation for current day (immutable)
         hru_cossl: Cosine of HRU slope (immutable)
-        humidity_hru: HRU humidity (immutable, used if flag==0)
-        strmtemp_humidity_flag: Humidity source flag (0=HRU, 1=param)
-        seg_humidity_month: Monthly segment humidity parameter (immutable)
+        humidity_hru: HRU humidity in percent (immutable)
         segment_order: Order to process segments (immutable)
         seg_close: Closest segment with HRUs for each segment (immutable)
         seg_tave_air: Segment air temperature (MUTATED - output)
@@ -2060,6 +1994,11 @@ def _compute_segment_aggregates_numba(
     seg_melt[:] = 0.0
     seg_rain[:] = 0.0
     seg_ccov[:] = 0.0
+    # Reset seg_humid to 0.0 before HRU accumulation each timestep.
+    # This matches the corrected PRMS 5.2.1.1 stream_temp.f90 (ELSE branch
+    # reinstated) and the original 5.2.1 design: flags 1 and 2 set Seg_humid
+    # directly; flag 0 (CBH) accumulates from HRUs and requires a clean start.
+    # See humidity_bug_prms_fix.md "Secondary Bug" section for full rationale.
     seg_humid[:] = 0.0
 
     # Constants (from PRMS_SET_TIME)
@@ -2067,12 +2006,6 @@ def _compute_segment_aggregates_numba(
     # FT2_PER_ACRE / INCHES_PER_FOOT / SECS_PER_DAY
     # = 43560 / 12 / 86400
     cfs_conv = 43560.0 / 12.0 / 86400.0
-
-    # Handle humidity flag == 1 case (monthly parameter by segment)
-    # Set seg_humid from parameter before HRU loop
-    if strmtemp_humidity_flag == 1:
-        for i in range(nsegment):
-            seg_humid[i] = seg_humidity_month[i]
 
     # Aggregate HRU values to segments
     for j in range(nhru):
@@ -2116,9 +2049,13 @@ def _compute_segment_aggregates_numba(
             seg_melt[i] += snowmelt[j] * harea
             seg_rain[i] += hru_rain[j] * harea
 
-            # Accumulate humidity from HRU if using CBH (flag == 0)
-            if strmtemp_humidity_flag == 0:
-                seg_humid[i] += humidity_hru[j] * harea
+            # Accumulate area-weighted humidity from HRU CBH data.
+            # Apply *0.01 (percent -> decimal fraction) during accumulation,
+            # matching PRMS 5.2.1.1 stream_temp.f90 line 807:
+            #   Seg_humid(i) = Seg_humid(i) + Humidity_hru(j) * 0.01 * harea
+            # This keeps units consistent with the carry-over value from the
+            # previous timestep (both in decimal fraction).
+            seg_humid[i] += humidity_hru[j] * 0.01 * harea
 
     # Process seginc_swrad in numerical order first (matches original logic)
     # Divide radiation by segment HRU area to get averages
@@ -2198,11 +2135,15 @@ def _compute_segment_aggregates_numba(
             if not found:
                 seginc_swrad[i] = -99.9
 
-    # Process meteorological variables in single pass (matches Fortran)
+    # Process meteorological variables in single pass (matches Fortran).
     # Process in segment_order - for segments without HRUs, copy from
     # seg_close. Note: seg_close may point to upstream/downstream segments
     # not yet processed in some edge cases, but this matches the Fortran
-    # behavior for most variables. Exception: seg_humid uses two-pass.
+    # single-pass behavior (stream_temp.f90 lines 820-844).
+    # For seg_humid specifically: if seg_close comes LATER in segment_order,
+    # PRMS copies the still-un-divided accumulated value (carry-over +
+    # new sum), not the finalised decimal fraction. We replicate that here
+    # by handling seg_humid in this same single pass rather than a second pass.
     for jj in range(nsegment):
         i = segment_order[jj]
 
@@ -2213,34 +2154,20 @@ def _compute_segment_aggregates_numba(
             seg_melt[i] /= segment_hruarea[i]
             seg_rain[i] /= segment_hruarea[i]
 
-            if strmtemp_humidity_flag == 0:
-                seg_humid[i] /= segment_hruarea[i]
-                # Convert humidity from percent to decimal fraction
-                # (stream_temp.f90 line 827)
-                seg_humid[i] *= 0.01
+            # Division only — *0.01 was already applied during accumulation
+            # (stream_temp.f90: Humidity_hru(j) * 0.01 * harea)
+            seg_humid[i] /= segment_hruarea[i]
         else:
             # Segment has no HRUs - use values from seg_close
-            # (stream_temp.f90 line 829-848)
+            # (stream_temp.f90 lines 832-844)
             close_seg = seg_close[i]
             seg_tave_air[i] = seg_tave_air[close_seg]
             seg_ccov[i] = seg_ccov[close_seg]
             seg_melt[i] = seg_melt[close_seg]
             seg_rain[i] = seg_rain[close_seg]
-            # Note: seg_humid is handled in a separate pass below
-
-    # Second pass for seg_humid only: handle segments without HRUs
-    # FORTRAN BUG (PRMS 5.2.1 stream_temp.f90 lines 840-841):
-    #   Seg_humid(i) = Seg_humid(iseg)*Seg_carea_inv(iseg)
-    #   Seg_humid(i) = Seg_humid(i) * 0.01
-    # The variable Seg_carea_inv is allocated but never initialized, so it
-    # contains uninitialized memory (typically 0.0 from compiler defaults).
-    # This results in seg_humid = 0.0 for all segments without HRUs.
-    # We replicate this behavior to match Fortran output.
-    # This is currently moot as seg_humid is all zero.
-    if strmtemp_humidity_flag == 0:
-        for i in range(nsegment):
-            if segment_hruarea[i] <= NEARZERO:
-                seg_humid[i] = seg_humid[seg_close[i]]
+            # Copy seg_humid in the same pass — matches PRMS single-pass:
+            #   Seg_humid(i) = Seg_humid(iseg)  ! stream_temp.f90 line 840
+            seg_humid[i] = seg_humid[close_seg]
 
 
 @nb.jit(nopython=True)

@@ -30,7 +30,7 @@ process_order_nhm = [
     "PRMSGroundwaterNoDprst",
     "PRMSChannel",
     "PRMSHydraulicGeometryWidthOnly",
-    "PRMSStreamTemp",
+    "PRMSStreamTempHumidityCBH",
 ]
 
 

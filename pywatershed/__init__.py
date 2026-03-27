@@ -49,7 +49,7 @@ from .hydrology.prms_soilzone_no_dprst import PRMSSoilzoneNoDprst
 from .hydrology.prms_stream_shade import (
     PRMSStreamShadeDynamic,
 )
-from .hydrology.prms_stream_temp import PRMSStreamTemp
+from .hydrology.prms_stream_temp import PRMSStreamTempHumidityCBH
 from .hydrology.source_sink_flow_node import (
     SourceSinkFlowNode,
     SourceSinkFlowNodeMaker,
@@ -127,7 +127,7 @@ __all__ = (
     "PRMSSoilzoneAgObsET",
     "PRMSSoilzoneNoDprst",
     "PRMSStreamShadeDynamic",
-    "PRMSStreamTemp",
+    "PRMSStreamTempHumidityCBH",
     "Starfit",
     "ControlVariables",
     "MakeStarfitParams",
