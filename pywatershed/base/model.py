@@ -293,6 +293,7 @@ class Model:
         find_input_files: bool = True,
         write_control: Union[bool, str, pl.Path] = False,
         output_obj_kwargs_dict: dict = None,
+        input_aliases: dict = None,
     ):
         self.control = control
         self.parameters = parameters
@@ -311,6 +312,7 @@ class Model:
             #     proc_param_file
             # )
 
+            self._input_aliases = input_aliases or {}
             self.model_dict = {}
             model_dict = self.model_dict
             model_dict["control"] = self.control
@@ -328,6 +330,13 @@ class Model:
             assert control is None, msg
             assert parameters is None, msg
             self.model_dict = process_list_or_model_dict
+            # Extract input_aliases from model_dict before _categorize_model_dict
+            # (any dict-valued top-level key would be mis-classified as a process)
+            model_dict_aliases = self.model_dict.pop("input_aliases", {}) or {}
+            self._input_aliases = {
+                **model_dict_aliases,
+                **(input_aliases or {}),
+            }
 
         else:
             raise ValueError("Invalid type of process_list_or_model_dict")
@@ -535,10 +544,24 @@ class Model:
                 process_inputs[input] = None
 
             proc_specs = proc_specs | process_inputs
-            not_args = ["class", "dis"]
+            not_args = ["class", "dis", "input_aliases"]
             proc_args = {
                 kk: vv for kk, vv in proc_specs.items() if kk not in not_args
             }
+
+            # Merge model-level aliases (filtered to this process's inputs)
+            # with any process-level aliases from the proc spec.
+            # Process-level takes precedence over model-level.
+            proc_inputs = set(self._proc_dict[proc_name].get_inputs())
+            merged_aliases = {
+                k: v
+                for k, v in self._input_aliases.items()
+                if k in proc_inputs
+            }
+            proc_level_aliases = proc_specs.get("input_aliases") or {}
+            merged_aliases.update(proc_level_aliases)
+            if merged_aliases:
+                proc_args["input_aliases"] = merged_aliases
 
             self.processes[proc_name] = self._proc_dict[proc_name](**proc_args)
 
@@ -583,18 +606,28 @@ class Model:
         return
 
     def _find_input_files(self) -> None:
+        # Build a combined alias map from all processes for file lookup.
+        # Process-level aliases take precedence over model-level.
+        alias_map = dict(self._input_aliases)
+        for proc_name in self.process_order:
+            proc_aliases = getattr(
+                self.processes[proc_name], "_input_aliases", {}
+            )
+            alias_map.update(proc_aliases)
+
         input_adapters = {}
         for name in self._input_names:
+            file_var_name = alias_map.get(name, name)
             if self._input_path.is_dir():
-                nc_path = self._input_path / f"{name}.nc"
+                nc_path = self._input_path / f"{file_var_name}.nc"
                 # currently netcdf files or dynamic parameter files accepted
                 if not nc_path.exists():
-                    nc_path = self._input_path / f"{name}.param"
+                    nc_path = self._input_path / f"{file_var_name}.param"
             else:
                 nc_path = self._input_path
             input_adapters[name] = adapter_factory(
                 nc_path,
-                name,
+                file_var_name,
                 control=self.control,
             )
         for process in self.process_order:

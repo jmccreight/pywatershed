@@ -38,12 +38,14 @@ class PRMSHydraulicGeometryFull(Process):
         discretization: Parameters,
         parameters: Parameters,
         seg_outflow: adaptable,
+        input_aliases: dict = None,
         verbose: bool = False,
     ) -> None:
         super().__init__(
             control=control,
             discretization=discretization,
             parameters=parameters,
+            input_aliases=input_aliases,
         )
         self.name = "PRMSHydraulicGeometryFull"
 
@@ -188,6 +190,7 @@ class PRMSHydraulicGeometryWidthOnly(PRMSHydraulicGeometryFull):
         discretization: Parameters,
         parameters: Parameters,
         seg_outflow: adaptable,
+        input_aliases: dict = None,
         verbose: bool = False,
     ) -> None:
         # Call parent init
@@ -196,6 +199,7 @@ class PRMSHydraulicGeometryWidthOnly(PRMSHydraulicGeometryFull):
             discretization=discretization,
             parameters=parameters,
             seg_outflow=seg_outflow,
+            input_aliases=input_aliases,
             verbose=verbose,
         )
         self.name = "PRMSHydraulicGeometryWidthOnly"

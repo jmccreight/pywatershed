@@ -144,6 +144,7 @@ class PRMSStreamTempHumidityCBH(ConservativeProcess):
         stream_shade_parameters: Union[Parameters, Path, None] = None,
         calc_method: Literal["numba", "numpy", None] = None,
         imbalance_behavior: Literal["defer", None, "warn", "error"] = "defer",
+        input_aliases: dict = None,
         verbose: bool = False,
         use_vectorized_shade: bool = True,
         track_energy_fluxes: bool = True,
@@ -153,6 +154,7 @@ class PRMSStreamTempHumidityCBH(ConservativeProcess):
             discretization=discretization,
             parameters=parameters,
             imbalance_behavior=imbalance_behavior,
+            input_aliases=input_aliases,
         )
         self.name = "PRMSStreamTempHumidityCBH"
 
@@ -1985,6 +1987,7 @@ class PRMSStreamTemp(PRMSStreamTempHumidityCBH):
         stream_shade_parameters: Union[Parameters, Path, None] = None,
         calc_method: Literal["numba", "numpy", None] = None,
         imbalance_behavior: Literal["defer", None, "warn", "error"] = "defer",
+        input_aliases: dict = None,
         verbose: bool = False,
         use_vectorized_shade: bool = True,
         track_energy_fluxes: bool = True,
@@ -2014,6 +2017,7 @@ class PRMSStreamTemp(PRMSStreamTempHumidityCBH):
             stream_shade_parameters=stream_shade_parameters,
             calc_method=calc_method,
             imbalance_behavior=imbalance_behavior,
+            input_aliases=input_aliases,
             verbose=verbose,
             use_vectorized_shade=use_vectorized_shade,
             track_energy_fluxes=track_energy_fluxes,

@@ -515,6 +515,7 @@ class HruNodeFlowExchange(ConservativeProcess):
         ssres_flow_vol: adaptable,
         gwres_flow_vol: adaptable,
         imbalance_behavior: Literal["defer", None, "warn", "error"] = "defer",
+        input_aliases: dict = None,
         verbose: bool = None,
     ) -> None:
         """Instantiate a HruNodeFlowExchange.
@@ -540,6 +541,7 @@ class HruNodeFlowExchange(ConservativeProcess):
             control=control,
             discretization=discretization,
             parameters=parameters,
+            input_aliases=input_aliases,
         )
         self.name = "HruNodeFlowExchange"
 

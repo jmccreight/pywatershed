@@ -344,6 +344,7 @@ class FlowGraph(ConservativeProcess):
         imbalance_behavior: Literal["defer", None, "warn", "error"] = "defer",
         allow_disconnected_nodes: bool = False,
         type_check_nodes: bool = False,
+        input_aliases: dict = None,
         verbose: bool = None,
     ):
         """Initialize a FlowGraph.
@@ -405,6 +406,7 @@ class FlowGraph(ConservativeProcess):
             control=control,
             discretization=discretization,
             parameters=parameters,
+            input_aliases=input_aliases,
         )
         self.name = "FlowGraph"
 
@@ -803,6 +805,7 @@ def inflow_exchange_factory(
             discretization: Parameters,
             parameters: Parameters,
             imbalance_behavior: Literal[None, "warn", "error"] = None,
+            input_aliases: dict = None,
             verbose: bool = None,
             budget_basis="global",
             **kwargs,
@@ -811,6 +814,7 @@ def inflow_exchange_factory(
                 control=control,
                 discretization=discretization,
                 parameters=parameters,
+                input_aliases=input_aliases,
             )
             self.name = "InflowExchange"
 

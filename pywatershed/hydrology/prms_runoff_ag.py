@@ -85,6 +85,7 @@ class PRMSRunoffAg(PRMSRunoff):
         intcp_changeover_in_net_rain: bool | None = None,
         imbalance_behavior: Literal["defer", None, "warn", "error"] = "defer",
         calc_method: Literal["numba", "numpy", None] = None,
+        input_aliases: dict = None,
         verbose: Union[bool, None] = None,
         restart_read: Union[pl.Path, bool] = False,
         restart_write: Union[pl.Path, bool] = False,
@@ -103,6 +104,7 @@ class PRMSRunoffAg(PRMSRunoff):
             restart_read=restart_read,
             restart_write=restart_write,
             restart_write_freq=restart_write_freq,
+            input_aliases=input_aliases,
         )
 
         self.name = "PRMSRunoffAg"
