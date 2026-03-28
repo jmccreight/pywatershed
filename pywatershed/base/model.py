@@ -330,8 +330,9 @@ class Model:
             assert control is None, msg
             assert parameters is None, msg
             self.model_dict = process_list_or_model_dict
-            # Extract input_aliases from model_dict before _categorize_model_dict
-            # (any dict-valued top-level key would be mis-classified as a process)
+            # Extract input_aliases from model_dict before
+            # _categorize_model_dict (any dict-valued top-level key
+            # would be mis-classified as a process)
             model_dict_aliases = self.model_dict.pop("input_aliases", {}) or {}
             self._input_aliases = {
                 **model_dict_aliases,

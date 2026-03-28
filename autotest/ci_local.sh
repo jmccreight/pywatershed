@@ -584,7 +584,7 @@ if [ -z "${t}" ]; then
             -rs \
             -n=$pytest_n \
             --domain=drb_2yr \
-            --control_pattern=nhm_stream_temp.control \
+            --control_pattern=nhm_stream_temp \
             --durations=0 \
             --error-for-skips \
             test_prms_hydraulic_geometry.py \
