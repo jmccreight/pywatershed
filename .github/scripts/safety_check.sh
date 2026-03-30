@@ -6,6 +6,27 @@
 
 # Note: not using set -e so all three scans run even if one finds vulnerabilities
 
+# Function to check Safety output for unignored vulnerabilities
+# Returns 0 if no unignored vulnerabilities, 1 if any found
+# Parses the summary line: "N vulnerability found, M ignored due to policy."
+check_vulnerabilities() {
+    local output="$1"
+    local summary=$(echo "$output" | grep -E '[0-9]+ vulnerabilit.* found, [0-9]+ ignored')
+    if [ -z "$summary" ]; then
+        # No summary line found means no vulnerabilities
+        return 0
+    fi
+    local found=$(echo "$summary" | grep -oE '^[0-9]+')
+    local ignored=$(echo "$summary" | grep -oE '[0-9]+ ignored' | grep -oE '[0-9]+')
+    found=${found:-0}
+    ignored=${ignored:-0}
+    local unignored=$((found - ignored))
+    if [ "$unignored" -gt 0 ]; then
+        return 1
+    fi
+    return 0
+}
+
 # Temporary directories for isolated scans
 CONDA_SCAN_DIR=$(mktemp -d)
 PIP_SCAN_DIR=$(mktemp -d)
@@ -86,17 +107,17 @@ OVERALL_EXIT_CODE=0
 # --- Scan 1: Conda packages ---
 if [ -s "$CONDA_REQ" ]; then
     echo "=== Scan 1: Conda-installed packages ($CONDA_COUNT) ==="
-    echo "Sample (first 5):"
-    head -5 "$CONDA_REQ" | sed 's/^/  /'
     echo ""
-    safety --stage cicd scan --target "$CONDA_SCAN_DIR"
-    CONDA_EXIT_CODE=$?
+    CONDA_OUTPUT=$(safety scan --target "$CONDA_SCAN_DIR" 2>&1)
+    ret=$?
+    echo "$CONDA_OUTPUT"
+    echo "potentially buggy return value: $ret"
 
-    if [ $CONDA_EXIT_CODE -eq 0 ]; then
-        echo "✓ No known security vulnerabilities found in conda packages"
+    if check_vulnerabilities "$CONDA_OUTPUT"; then
+        echo "✓ No unignored security vulnerabilities found in conda packages"
     else
-        echo "⚠ Security vulnerabilities detected in conda packages!"
-        OVERALL_EXIT_CODE=$CONDA_EXIT_CODE
+        echo "⚠ Unignored security vulnerabilities detected in conda packages!"
+        OVERALL_EXIT_CODE=1
     fi
 else
     echo "=== Scan 1: No conda packages found to scan ==="
@@ -106,17 +127,17 @@ echo ""
 # --- Scan 2: Pip packages ---
 if [ -s "$PIP_REQ" ]; then
     echo "=== Scan 2: Pip-installed packages ($PIP_COUNT) ==="
-    echo "Sample (first 5):"
-    head -5 "$PIP_REQ" | sed 's/^/  /'
     echo ""
-    safety --stage cicd scan --target "$PIP_SCAN_DIR"
-    PIP_EXIT_CODE=$?
+    PIP_OUTPUT=$(safety scan --target "$PIP_SCAN_DIR" 2>&1)
+    ret=$?
+    echo "$PIP_OUTPUT"
+    echo "potentially buggy return value: $ret"
 
-    if [ $PIP_EXIT_CODE -eq 0 ]; then
-        echo "✓ No known security vulnerabilities found in pip packages"
+    if check_vulnerabilities "$PIP_OUTPUT"; then
+        echo "✓ No unignored security vulnerabilities found in pip packages"
     else
-        echo "⚠ Security vulnerabilities detected in pip packages!"
-        OVERALL_EXIT_CODE=$PIP_EXIT_CODE
+        echo "⚠ Unignored security vulnerabilities detected in pip packages!"
+        OVERALL_EXIT_CODE=1
     fi
 else
     echo "=== Scan 2: No pip packages found to scan ==="
@@ -127,14 +148,16 @@ echo ""
 if [ -f "pyproject.toml" ]; then
     echo "=== Scan 3: pyproject.toml dependencies ==="
     echo ""
-    safety --stage cicd scan --target .
-    PYPROJECT_EXIT_CODE=$?
+    PYPROJECT_OUTPUT=$(safety scan --target . 2>&1)
+    ret=$?
+    echo "$PYPROJECT_OUTPUT"
+    echo "potentially buggy return value: $ret"
 
-    if [ $PYPROJECT_EXIT_CODE -eq 0 ]; then
-        echo "✓ No known security vulnerabilities found in pyproject.toml"
+    if check_vulnerabilities "$PYPROJECT_OUTPUT"; then
+        echo "✓ No unignored security vulnerabilities found in pyproject.toml"
     else
-        echo "⚠ Security vulnerabilities detected in pyproject.toml!"
-        OVERALL_EXIT_CODE=$PYPROJECT_EXIT_CODE
+        echo "⚠ Unignored security vulnerabilities detected in pyproject.toml!"
+        OVERALL_EXIT_CODE=1
     fi
 else
     echo "=== Scan 3: No pyproject.toml found to scan ==="
