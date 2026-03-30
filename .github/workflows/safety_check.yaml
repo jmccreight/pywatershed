@@ -33,7 +33,7 @@ jobs:
 
       - name: Run safety check
         env:
-          api-key: ${{ secrets.SAFETY_API_KEY }}
+          SAFETY_API_KEY: ${{ secrets.SAFETY_API_KEY }}
         run: |
           ./.github/scripts/safety_check.sh
 
