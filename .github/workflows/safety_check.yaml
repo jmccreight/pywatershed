@@ -28,18 +28,6 @@ jobs:
         uses: mamba-org/setup-micromamba@v2
         with:
           environment-file: environment_w_jupyter.yml
-          cache-environment: true
-          cache-downloads: true
-
-      - name: Check API key availability
-        env:
-          SAFETY_API_KEY: ${{ secrets.SAFETY_API_KEY }}
-        run: |
-          if [ -n "$SAFETY_API_KEY" ]; then
-            echo "SAFETY_API_KEY is set (length: ${#SAFETY_API_KEY})"
-          else
-            echo "SAFETY_API_KEY is empty"
-          fi
 
       - name: Run safety check
         env:
@@ -49,7 +37,7 @@ jobs:
 
       - name: Upload safety report as artifact (on failure)
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: safety-report
           path: |
