@@ -31,6 +31,16 @@ jobs:
           cache-environment: true
           cache-downloads: true
 
+      - name: Check API key availability
+        env:
+          SAFETY_API_KEY: ${{ secrets.SAFETY_API_KEY }}
+        run: |
+          if [ -n "$SAFETY_API_KEY" ]; then
+            echo "SAFETY_API_KEY is set (length: ${#SAFETY_API_KEY})"
+          else
+            echo "SAFETY_API_KEY is empty"
+          fi
+
       - name: Run safety check
         env:
           SAFETY_API_KEY: ${{ secrets.SAFETY_API_KEY }}
