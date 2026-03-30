@@ -118,6 +118,7 @@ class Process(Accessor):
         control: Control,
         discretization: Parameters,
         parameters: Parameters,
+        input_aliases: dict = None,
         metadata_patches: dict[dict] = None,
         metadata_patch_conflicts: Literal["left", "warn", "error"] = "error",
         restart_read: Union[pl.Path, bool] = False,
@@ -125,6 +126,11 @@ class Process(Accessor):
         restart_write_freq: Literal["y", "m", "d", "f", False] = False,
     ):
         self.name = "Process"
+        # Maps internal input variable names to the variable name in the
+        # source file. E.g. {"humidity_hru": "rhavg"} means the input
+        # known internally as humidity_hru is stored as "rhavg" in the
+        # netCDF file.  Can be supplied at Process or Model level.
+        self._input_aliases = input_aliases or {}
         self.control = control
 
         self._set_params(parameters, discretization)
@@ -427,9 +433,10 @@ class Process(Accessor):
             if len([mm for mm in check_list if mm in ii_dims[0]]):
                 ii_dims = ii_dims[1:]
 
+            file_var_name = self._input_aliases.get(ii, ii)
             self._input_variables_dict[ii] = adapter_factory(
                 args[ii],
-                variable_name=ii,
+                variable_name=file_var_name,
                 control=args["control"],
             )
             if self._input_variables_dict[ii]:

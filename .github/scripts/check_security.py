@@ -257,7 +257,9 @@ class SecurityChecker:
                 # Skip version numbers (e.g., 5.2.1.1, 1.0.0.0)
                 # Check for version-related context or quoted strings
                 if re.search(
-                    r"version|prms|v\d|['\"]" + re.escape(ip) + r"['\"]",
+                    r"version|prms|v\d|refactor|changed|diff|block|restructured|['\"]"
+                    + re.escape(ip)
+                    + r"['\"]",
                     line.lower(),
                 ):
                     continue

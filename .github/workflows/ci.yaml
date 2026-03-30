@@ -698,7 +698,7 @@ jobs:
           -n=auto
           -m "not domainless"
           --domain=drb_2yr
-          --control_pattern=nhm_stream_temp.control
+          --control_pattern=nhm_stream_temp
           --durations=0
           --error-for-skips
           --cov=pywatershed

@@ -5,14 +5,17 @@ import numpy as np
 import pytest
 from utils_compare import compare_in_memory, compare_netcdfs
 
-from pywatershed.base.adapter import adapter_factory
+from pywatershed.base.adapter import AdapterNetcdf, adapter_factory
 from pywatershed.base.control import Control
 from pywatershed.base.parameters import Parameters
 from pywatershed.hydrology.prms_stream_shade import (
     PRMSStreamShadeConstant,
     PRMSStreamShadeDynamic,
 )
-from pywatershed.hydrology.prms_stream_temp import PRMSStreamTemp
+from pywatershed.hydrology.prms_stream_temp import (
+    PRMSStreamTemp,
+    PRMSStreamTempHumidityCBH,
+)
 from pywatershed.parameters import PrmsParameters
 
 # Define sentinel values that should be treated as NaN for
@@ -128,7 +131,24 @@ def parameters(parameter_style, simulation, control, request):
         param_file = simulation["dir"] / control.options["parameter_file"]
         params = PrmsParameters.load(param_file)
     else:
-        param_file = simulation["dir"] / "parameters_PRMSStreamTemp.nc"
+        strmtemp_humidity_flag = control.options.get(
+            "strmtemp_humidity_flag", np.array([0])
+        )[0]
+        if strmtemp_humidity_flag == 0:
+            param_file = (
+                simulation["dir"] / "parameters_PRMSStreamTempHumidityCBH.nc"
+            )
+        else:
+            # Two flag==1 simulations use different param files and therefore
+            # different nc files for params_sep.
+            prms_param_file = control.options["parameter_file"]
+            if "seg_humid_matrix" in str(prms_param_file):
+                param_file = (
+                    simulation["dir"]
+                    / "parameters_PRMSStreamTempSegHumidMatrix.nc"
+                )
+            else:
+                param_file = simulation["dir"] / "parameters_PRMSStreamTemp.nc"
         params = Parameters.from_netcdf(param_file)
 
     return params
@@ -165,6 +185,10 @@ def test_compare_prms(
 ):
     tmp_path = pl.Path(tmp_path)
     output_dir = simulation["output_dir"]
+
+    strmtemp_humidity_flag = control.options.get(
+        "strmtemp_humidity_flag", np.array([0])
+    )[0]
 
     # Unpack energy flux configuration
     track_energy_fluxes, imbalance_behavior = energy_flux_config
@@ -227,35 +251,32 @@ def test_compare_prms(
             # a Parameters object to which we need to add shade parameters.
             parameters = Parameters.merge(parameters, parameters_shade)
 
-    # Step 2: Prepare inputs for PRMSStreamTemp
-    # Most inputs come from PRMS output files, but some need special handling
-    stream_temp_inputs = {}
-    for key in PRMSStreamTemp.get_inputs():
-        if key == "humidity_hru":
-            pass
-            # The following is a soluation that reproduces PRMS behavior where
-            # multiple bugs result in humidity_hru being zero. The code after
-            # it would hopefully be adopted once some clarity is had around the
-            # bugs in PRMS.
-            stream_temp_inputs[key] = adapter_factory(
-                np.zeros(parameters.dimensions["nhru"], dtype=np.float64),
-                variable_name=key,
-                control=control,
-            )
-            # # humidity_hru comes from rhavg.nc in the simulation directory
-            # # Use AdapterNetcdf directly to specify variable name in the file
-            # stream_temp_inputs[key] = AdapterNetcdf(
-            #     simulation["dir"] / "rhavg.nc",
-            #     variable="rhavg",
-            #     control=control,
-            # )
-        else:
-            # Most inputs come from PRMS output files
-            nc_path = output_dir / f"{key}.nc"
-            stream_temp_inputs[key] = nc_path
+    # Step 2: Select class and prepare inputs based on humidity flag.
+    # flag==0: PRMSStreamTempHumidityCBH — daily CBH humidity_hru input
+    # flag==1: PRMSStreamTemp — monthly seg_humidity parameter
+    if strmtemp_humidity_flag == 0:
+        stream_temp_cls = PRMSStreamTempHumidityCBH
+        stream_temp_inputs = {}
+        for key in PRMSStreamTempHumidityCBH.get_inputs():
+            if key == "humidity_hru":
+                # humidity_hru from rhavg.nc; variable named "rhavg" (percent,
+                # 0-100); *0.01 scaling applied inside the class.
+                stream_temp_inputs[key] = AdapterNetcdf(
+                    simulation["dir"] / "rhavg.nc",
+                    "rhavg",
+                    control,
+                )
+            else:
+                stream_temp_inputs[key] = output_dir / f"{key}.nc"
+    else:
+        stream_temp_cls = PRMSStreamTemp
+        stream_temp_inputs = {
+            key: output_dir / f"{key}.nc"
+            for key in PRMSStreamTemp.get_inputs()
+        }
 
-    # Step 3: Instantiate PRMSStreamTemp with the appropriate shade init style
-    stream_temp = PRMSStreamTemp(
+    # Step 3: Instantiate with the appropriate shade init style
+    stream_temp = stream_temp_cls(
         control,
         discretization,
         parameters,
@@ -268,8 +289,7 @@ def test_compare_prms(
         track_energy_fluxes=track_energy_fluxes,
     )
 
-    # Compare all PRMSStreamTemp variables
-    compare_vars = set(PRMSStreamTemp.get_variables()) - set(
+    compare_vars = set(stream_temp_cls.get_variables()) - set(
         [
             "heat_upstream",
             "heat_lateral",

@@ -31,6 +31,7 @@ class PRMSEt(Process):
         snow_evap: adaptable,
         dprst_evap_hru: adaptable,
         perv_actet: adaptable,
+        input_aliases: dict = None,
         verbose: bool = False,
         imbalance_behavior: Literal["defer", None, "warn", "error"] = "defer",
     ) -> "PRMSEt":
@@ -38,6 +39,7 @@ class PRMSEt(Process):
             control=control,
             discretization=discretization,
             parameters=parameters,
+            input_aliases=input_aliases,
         )
         self.name = "PRMSEt"
 

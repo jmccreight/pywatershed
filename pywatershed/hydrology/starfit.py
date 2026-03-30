@@ -85,6 +85,7 @@ class Starfit(ConservativeProcess):
         parameters: Parameters,
         lake_inflow: adaptable,
         imbalance_behavior: Literal["defer", None, "warn", "error"] = "defer",
+        input_aliases: dict = None,
         verbose: bool = False,
         load_n_time_batches: int = 1,
         io_in_cfs: bool = True,
@@ -101,6 +102,7 @@ class Starfit(ConservativeProcess):
             parameters=parameters,
             metadata_patches=metadata_patches,
             metadata_patch_conflicts=metadata_patch_conflicts,
+            input_aliases=input_aliases,
         )
         del metadata_patches, metadata_patch_conflicts
         self.name = "Starfit"
