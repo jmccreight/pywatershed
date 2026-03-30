@@ -1,4 +1,6 @@
+#
 # Makefile for mmf
+#
 
 # Choose if all floats should be promoted to doubles
 ifeq (, $(DBL_PREC))

@@ -7,7 +7,7 @@
 # Arguments
 #   FC: name of fortran compiler
 #   CC: name of C compiler
-#   DBL_PREC: [True|False] if doudble precision build is requested
+#   DBL_PREC: [True|False] if double precision build is requested
 #
 # Example:
 #   make FC=ifort CC=icc DBL_PREC=true
@@ -23,7 +23,9 @@ else
      $(error      Argument DBL_PREC must be "true" or "false")
 endif
 
+#
 # Standard Targets for Users
+#
 
 all: directories standard
 

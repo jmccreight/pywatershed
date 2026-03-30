@@ -173,10 +173,6 @@
               EXIT
             ENDIF
             IF ( Orad_flag==1 .AND. Paramname(:5)=='swrad' ) READ ( Iunit, FMT='(A4)' ) dum ! read again as swrad CBH file contains orad as last column
-            ! This should be implemented to get meaningful seg_humid, currently the lack
-            ! of the following line short circuits reading of the CBH file
-            ! resulting in humidity_hru remaining zero.
-            ! Iret = 0  ! Fix: explicitly set success on successful header parsing (commented out for testing)
             i = 1
           ENDIF
         ENDDO

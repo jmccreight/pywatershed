@@ -14,7 +14,9 @@ dependencies:
   - folium
   - geopandas
   - geoviews
+  - gfortran>=15.2.0
   - git
+  - make
   - holoviews<=1.20.0
   - hvplot
   - ipython
@@ -38,7 +40,7 @@ dependencies:
   - pytest-env
   - pytest-order
   - pytest-xdist
-  - python=3.12
+  - python=3.13
   - pyyaml
   - pyvis
   - ruff

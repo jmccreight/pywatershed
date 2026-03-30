@@ -9,15 +9,13 @@ from utils import run_prms
 
 import pywatershed as pws
 
-# TODO: can we shorten the length of the ucb_2yr run?
 # TODO: remove test nhm code cheats
 
-# NHM domain section for some preliminary testing cheating (to be removed)
-full_domain_dir = pl.Path(
-    "/Users/jamesmcc/usgs/wu/science_base/irrigation_reanalysis/NHM"
-)
-full_control_file_nhm = full_domain_dir / "nhm_dynamic_2000_2020.control"
-full_cbh_dir_nhm = full_domain_dir / "input"
+full_domain_dir = pl.Path("../test_data/ucb_2yr")
+full_control_file_nhm = full_domain_dir / "nhm.control"
+full_cbh_dir_nhm = full_domain_dir
+
+
 full_cbh_nc_file_dict_nhm = {
     kk: full_cbh_dir_nhm / vv
     for kk, vv in {
@@ -99,18 +97,6 @@ def full_control_file(simulation, tmp_path):
         if not file_name.is_absolute():
             cv[ff].values = str(control_parent / file_name)
     # cbh file paths
-    # This is such a mess. Because pyPRMS loads defaults into unpopulated
-    # fields, it's a very difficult proposition to tell if any CBH file is
-    # actually active. Because a cbh file being active in PRMS could be
-    # indicated a flag or a module choice, the logic for detecting what files
-    # are actually active is a mess. pyPRMS pull #40 (which dosent insert
-    # default values when none are supplied) would hugely simplify this but
-    # it is not merged let alone on pypi. What we'll do is test if the file
-    # exists, if it does not we'll delete it from the control. But this is
-    # will cause input errors to propigate by dropping the files rather than
-    # being caught by FileNotFound-like errors down the line.
-    # The other option would be map from cbh file keys to flags or modules
-    # to test... something for another day.
     for kk, vv in pws.constants.cbh_ctl_var_map.items():
         if kk in cv.keys() and cv[kk].values:
             cbh_file_name = pl.Path(cv[kk].values)
@@ -263,14 +249,19 @@ def test_pws_subset_known_ids_segs(
                 continue
             var_name = nc_file.with_suffix("").name
             file_name = f"{var_name}.nc"
-            full_var = xr.open_dataset(full_run_dir / file_name).to_dataframe()
-            sub_var = xr.open_dataset(sub_run_dir / file_name).to_dataframe()
-            var_name = full_var.columns[0]
-            mg = sub_var.join(
-                full_var, how="left", lsuffix="_sub", rsuffix="_full"
-            )
-            if not (mg[f"{var_name}_sub"] == mg[f"{var_name}_full"]).all():
-                raise ValueError(f"Comparison failed for {var_name=}")
+            sub_var = xr.load_dataarray(sub_run_dir / file_name)
+            full_var = xr.load_dataarray(full_run_dir / file_name)
+            if "nhm_id" in sub_var.dims:
+                full_var = full_var.sel(nhm_id=sub_var.nhm_id)
+            elif "nhm_seg" in sub_var.dims:
+                full_var = full_var.sel(nhm_seg=sub_var.nhm_seg)
+            xr.testing.assert_allclose(full_var, sub_var)
+            # var_name = full_var.columns[0]
+            # mg = sub_var.join(
+            #     full_var, how="left", lsuffix="_sub", rsuffix="_full"
+            # )
+            # if not (mg[f"{var_name}_sub"] == mg[f"{var_name}_full"]).all():
+            #     raise ValueError(f"Comparison failed for {var_name=}")
 
     elif output_format.lower() == "prms":
         # full domain
@@ -317,25 +308,13 @@ def test_pws_subset_known_ids_segs(
 
         for vv in vars_compare:
             file_name = f"{vv}.nc"
-            full_var = xr.open_dataset(
-                full_output_dir / file_name
-            ).to_dataframe()
-            sub_var = xr.open_dataset(
-                sub_output_dir / file_name
-            ).to_dataframe()
-            var_name = full_var.columns[0]
-            mg = sub_var.join(
-                full_var, how="left", lsuffix="_sub", rsuffix="_full"
-            )
-            if not (mg[f"{var_name}_sub"] == mg[f"{var_name}_full"]).all():
-                full_var = mg[f"{vv}_full"].values
-                sub_var = mg[f"{vv}_sub"].values
-                try:
-                    np.testing.assert_allclose(
-                        full_var, sub_var, atol=1e-7, rtol=1e-7
-                    )
-                except AssertionError:
-                    raise ValueError(f"Comparison failed for {vv=}")
+            sub_var = xr.load_dataarray(sub_output_dir / file_name)
+            full_var = xr.load_dataarray(full_output_dir / file_name)
+            if "nhm_id" in sub_var.dims:
+                full_var = full_var.sel(nhm_id=sub_var.nhm_id)
+            elif "nhm_seg" in sub_var.dims:
+                full_var = full_var.sel(nhm_seg=sub_var.nhm_seg)
+            xr.testing.assert_allclose(full_var, sub_var)
 
     else:
         raise ValueError("How'd we get here?")

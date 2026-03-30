@@ -17,7 +17,7 @@
 
 /***  mmf.c  **************************************************/
 extern long setdims_ (void);
-extern long call_modules_ (char *,ftnlen);
+extern long call_modules_ (char *, ftnlen);
 
 /***  alloc_space.c  **************************************************/
 #undef EXTERN

@@ -65,6 +65,7 @@ class PRMSSolarGeometry(Process):
         control: Control,
         discretization: Parameters,
         parameters: Parameters,
+        input_aliases: dict = None,
         verbose: bool = False,
         from_prms_file: [str, pl.Path] = None,
         from_nc_files_dir: [str, pl.Path] = None,
@@ -86,6 +87,7 @@ class PRMSSolarGeometry(Process):
             control=control,
             discretization=discretization,
             parameters=parameters,
+            input_aliases=input_aliases,
         )
         self._set_inputs(locals())
         self._set_options(locals())

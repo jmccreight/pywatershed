@@ -75,11 +75,17 @@ New Features
   is a simplified version without the observed ET iteration, suitable when ET observations are
   not available. See notebook ``examples/10_ag_irrigation_use.ipynb`` for examples.
   (:pull:`362`) By `James McCreight <https://github.com/jmccreight>`_.
+- Bug fixes for PRMS 5.2.1.1: 1) errant code skipped humidity CBH files entirely when they were
+  selected to be used, 2. code deletion resulted in seg_humid not being zeroed each timestep and
+  and erroneously accumulating. Both fixes is extensively documented. The PRMS code modified
+  (compared to the released 5.2.1.1) and the pywatershed code was made to match PRMS stream
+  temperature when using humidity inputs from 1. CBH, 2. scalar parameter, and 3. monthly spatially
+  distributed parameters.
+  (:pull:`386`) By `James McCreight <https://github.com/jmccreight>`_.
 - Add a weekly security scan using Safety CLI in a GitHub Actions workflow
   (``.github/workflows/security_check.yaml``): checks conda-installed packages,
   pip-installed packages, and ``pyproject.toml`` dependencies separately.
   (:pull:`387`) By `James McCreight <https://github.com/jmccreight>`_.
-
 
 Breaking Changes
 ~~~~~~~~~~~~~~~~

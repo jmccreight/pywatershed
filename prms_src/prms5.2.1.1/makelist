@@ -38,7 +38,6 @@ endif
 $(info    ----------------)
 $(info    FC is $(FC))
 $(info    CC is $(CC))
-$(info    DBL_PREC is false)
 $(info    ----------------)
 $(info    )
 
@@ -76,13 +75,11 @@ endif
 # set the fortran flags
 ifeq ($(detected_OS), Windows)
 	ifeq ($(FC), gfortran)
-		FFLAGS = $(OPTLEVEL) -fbounds-check -fno-second-underscore
-		# -fallow-argument-mismatch
+		FFLAGS = $(OPTLEVEL) -fbounds-check -fno-second-underscore -fallow-argument-mismatch
 	endif
 else
 	ifeq ($(FC), gfortran)
-		FFLAGS = $(OPTLEVEL) -fno-second-underscore
-		# -fallow-argument-mismatch
+		FFLAGS = $(OPTLEVEL) -fno-second-underscore -fallow-argument-mismatch
 	endif
 	ifeq ($(FC), $(filter $(FC), ifort mpiifort))
 		FFLAGS = -fp-model source
