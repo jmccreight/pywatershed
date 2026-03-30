@@ -6,6 +6,12 @@
 
 # Note: not using set -e so all three scans run even if one finds vulnerabilities
 
+# Build --key flag if SAFETY_API_KEY is set
+SAFETY_KEY_FLAG=""
+if [ -n "$SAFETY_API_KEY" ]; then
+    SAFETY_KEY_FLAG="--key $SAFETY_API_KEY"
+fi
+
 # Temporary directories for isolated scans
 CONDA_SCAN_DIR=$(mktemp -d)
 PIP_SCAN_DIR=$(mktemp -d)
@@ -89,7 +95,7 @@ if [ -s "$CONDA_REQ" ]; then
     echo "Sample (first 5):"
     head -5 "$CONDA_REQ" | sed 's/^/  /'
     echo ""
-    safety scan --target "$CONDA_SCAN_DIR"
+    safety $SAFETY_KEY_FLAG scan --target "$CONDA_SCAN_DIR"
     CONDA_EXIT_CODE=$?
 
     if [ $CONDA_EXIT_CODE -eq 0 ]; then
@@ -109,7 +115,7 @@ if [ -s "$PIP_REQ" ]; then
     echo "Sample (first 5):"
     head -5 "$PIP_REQ" | sed 's/^/  /'
     echo ""
-    safety scan --target "$PIP_SCAN_DIR"
+    safety $SAFETY_KEY_FLAG scan --target "$PIP_SCAN_DIR"
     PIP_EXIT_CODE=$?
 
     if [ $PIP_EXIT_CODE -eq 0 ]; then
@@ -127,7 +133,7 @@ echo ""
 if [ -f "pyproject.toml" ]; then
     echo "=== Scan 3: pyproject.toml dependencies ==="
     echo ""
-    safety scan --target .
+    safety $SAFETY_KEY_FLAG scan --target .
     PYPROJECT_EXIT_CODE=$?
 
     if [ $PYPROJECT_EXIT_CODE -eq 0 ]; then
