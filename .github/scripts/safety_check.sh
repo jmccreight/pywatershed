@@ -116,7 +116,7 @@ if [ -s "$CONDA_REQ" ]; then
     if check_vulnerabilities "$CONDA_OUTPUT"; then
         echo "✓ No unignored security vulnerabilities found in conda packages"
     else
-        echo "⚠ Unignored security vulnerabilities detected in conda packages!"
+        echo "::error::⚠ Unignored security vulnerabilities detected in conda packages!"
         OVERALL_EXIT_CODE=1
     fi
 else
@@ -136,7 +136,7 @@ if [ -s "$PIP_REQ" ]; then
     if check_vulnerabilities "$PIP_OUTPUT"; then
         echo "✓ No unignored security vulnerabilities found in pip packages"
     else
-        echo "⚠ Unignored security vulnerabilities detected in pip packages!"
+        echo "::error::⚠ Unignored security vulnerabilities detected in pip packages!"
         OVERALL_EXIT_CODE=1
     fi
 else
@@ -156,7 +156,7 @@ if [ -f "pyproject.toml" ]; then
     if check_vulnerabilities "$PYPROJECT_OUTPUT"; then
         echo "✓ No unignored security vulnerabilities found in pyproject.toml"
     else
-        echo "⚠ Unignored security vulnerabilities detected in pyproject.toml!"
+        echo "::error::⚠ Unignored security vulnerabilities detected in pyproject.toml!"
         OVERALL_EXIT_CODE=1
     fi
 else
