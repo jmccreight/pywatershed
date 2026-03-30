@@ -75,6 +75,11 @@ New Features
   is a simplified version without the observed ET iteration, suitable when ET observations are
   not available. See notebook ``examples/10_ag_irrigation_use.ipynb`` for examples.
   (:pull:`362`) By `James McCreight <https://github.com/jmccreight>`_.
+- Add a weekly security scan using Safety CLI in a GitHub Actions workflow
+  (``.github/workflows/security_check.yaml``): checks conda-installed packages,
+  pip-installed packages, and ``pyproject.toml`` dependencies separately.
+  (:pull:`387`) By `James McCreight <https://github.com/jmccreight>`_.
+
 
 Breaking Changes
 ~~~~~~~~~~~~~~~~

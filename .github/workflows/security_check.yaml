@@ -31,13 +31,9 @@ jobs:
           cache-environment: true
           cache-downloads: true
 
-      - name: Authenticate Safety CLI
+      - name: Run safety check
         env:
           SAFETY_API_KEY: ${{ secrets.SAFETY_API_KEY }}
-        run: |
-          safety auth login --token $SAFETY_API_KEY
-
-      - name: Run safety check
         run: |
           ./.github/scripts/safety_check.sh
 
