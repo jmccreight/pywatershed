@@ -315,19 +315,29 @@ class PRMSStreamTempHumidityCBH(ConservativeProcess):
         """Get energy budget terms for stream temperature.
 
         Returns:
-            Dictionary with inputs, outputs, and storage_changes for
-            energy budget.
+            Dictionary with inputs, outputs, exchanges, and storage_changes
+            for energy budget.
 
         Notes:
             Energy fluxes are computed in Watts (J/s). The budget tracks:
             - Advective heat transport (upstream, lateral, outflow)
             - Surface energy exchange (solar, longwave, evaporation)
             - Internal sources (friction, groundwater conduction)
+            - Bi-directional exchanges that can be gains or losses
 
             Storage changes are empty because the kinematic wave assumption
             means water storage is constant - only temperature (and thus
             heat content) changes, which is captured by the balance of
             inputs and outputs.
+
+            Exchanges are net fluxes that can be positive (heat gain) or
+            negative (heat loss) depending on temperature gradients:
+            - convective_exchange: depends on air vs water temperature
+            While it seems that the following could be exchanges, their current
+            formulation restricts their sign and they have been categorized
+            to match that pre-determined sign:
+            - longwave_vegetation: net longwave exchange with vegetation
+            - groundwater_conduction: depends on groundwater vs water temp
         """
         return {
             "inputs": [
@@ -338,12 +348,14 @@ class PRMSStreamTempHumidityCBH(ConservativeProcess):
                 "friction_heat",  # Friction heating (W)
                 "groundwater_conduction",  # Heat from groundwater (W)
             ],
+            "exchanges": [
+                "convective_exchange",  # Sensible heat exchange (W, ±)
+            ],
             "outputs": [
                 "heat_outflow",  # Advective heat leaving (W)
                 "longwave_emission",  # LW radiation emitted (W)
                 "longwave_vegetation",  # LW from vegetation (W)
                 "evaporative_cooling",  # Latent heat loss (W)
-                "convective_exchange",  # Sensible heat exchange (W)
             ],
             "storage_changes": [
                 # Empty - kinematic wave assumption (no storage change)
@@ -1440,15 +1452,26 @@ class PRMSStreamTempHumidityCBH(ConservativeProcess):
         )
 
         # Total outputs (excluding convection)
-        total_outputs_no_conv = (
+        total_outputs = (
             self.heat_outflow
             + self.longwave_emission
             + self.longwave_vegetation
             + self.evaporative_cooling
         )
 
+        # If the other potential exchanges could change sign, we'd need
+        # something like thisand the code below to calculate convective
+        # exchange as the residual
+        # total_exchanges = (
+        #     self.groundwater_conduction + self.longwave_vegetation
+        # )
+
         # Convection closes the balance (can be positive or negative)
-        self.convective_exchange[:] = total_inputs - total_outputs_no_conv
+        self.convective_exchange[:] = total_outputs - total_inputs
+        # Sign flipped to be an exchange: positive = gain, negative = loss
+        # self.convective_exchange[:] = (
+        #     total_outputs - total_inputs - total_exchanges
+        # )
 
         return
 
