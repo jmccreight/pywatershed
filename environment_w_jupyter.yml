@@ -24,6 +24,7 @@ dependencies:
   - jupyter>=1.1.1
   - jupyter-black
   - jupyterlab>=4.5.5
+  - nbdime
   - nbconvert
   - netCDF4
   - networkx
@@ -43,6 +44,7 @@ dependencies:
   - pyyaml
   - pyvis
   - ruff
+  - safety
   - shapely
   - sphinx
   - sphinx-book-theme>=0.3.3
