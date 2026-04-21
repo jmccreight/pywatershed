@@ -165,6 +165,16 @@ class PRMSSoilzone(ConservativeProcess):
         self._set_budget()
         self._init_calc_method()
 
+        if (
+            "iter_aet_flag" in self.control.options
+            and self.control.options["iter_aet_flag"]
+        ):
+            raise ValueError(
+                "iter_aet_flag=True in the control file is inconsistent "
+                "with PRMSSoilzone, which requires iter_aet_flag=False. "
+                "Use PRMSSoilzoneAgObsET if you need observed ET iteration."
+            )
+
         return
 
     @staticmethod

@@ -53,8 +53,7 @@ class PRMSSoilzoneAg(PRMSSoilzoneAgObsET):
             sublimation unless snowpack
         ag_frac: Fraction of HRU area that is agricultural/irrigated
         dprst_flag: Boolean flag to enable depression storage. Default is True.
-        iter_aet_flag: Must be False or None for this class (no observed ET
-            iteration)
+
         imbalance_behavior: one of ["defer", None, "warn", "error"] with
             "defer" being the default and deferring to
             control.options["imbalance_behavior"] when available.
@@ -115,7 +114,6 @@ class PRMSSoilzoneAg(PRMSSoilzoneAgObsET):
             ag_frac=ag_frac,
             aet_observed=None,
             dprst_flag=dprst_flag,
-            iter_aet_flag=False,
             imbalance_behavior=imbalance_behavior,
             calc_method=calc_method,
             adjust_parameters=adjust_parameters,
@@ -131,7 +129,7 @@ class PRMSSoilzoneAg(PRMSSoilzoneAgObsET):
         self._iter_aet_flag = False
         if (
             "iter_aet_flag" in self.control.options
-            and self.control.options["iter_aet_flag"] is True
+            and self.control.options["iter_aet_flag"]
         ):
             raise ValueError(
                 "PRMSSoilzoneAg does not support iter_aet_flag=True. "

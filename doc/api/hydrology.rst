@@ -24,5 +24,8 @@ Hydrologic model components.
    PRMSChannel
    PRMSHydraulicGeometryFull
    PRMSHydraulicGeometryWidthOnly
+   PRMSStreamTempHumidityCBH
    PRMSStreamTemp
+   PRMSStreamShadeConstant
+   PRMSStreamShadeDynamic
    Starfit
