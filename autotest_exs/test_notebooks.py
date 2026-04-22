@@ -56,7 +56,7 @@ def test_notebooks(notebook):
     env["MPLBACKEND"] = "Agg"
 
     cmd = [str(ipython), str(nb_py)]
-    proc = subprocess.run(cmd, env=env)
+    proc = subprocess.run(cmd, env=env, cwd=examples_dir)
     assert proc.returncode == 0, f"Running the notebook failed: {notebook}"
 
     nb_py.unlink()
