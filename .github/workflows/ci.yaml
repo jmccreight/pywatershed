@@ -180,23 +180,23 @@ jobs:
           echo $MF6_REMOTE
           if [[ "$MF6_REMOTE" != "$req_remote" ]]; then echo "bad mf6 remote in .mf6_ci_ref_remote"; exit 1; fi
 
-      - name: Checkout MODFLOW 6
-        uses: actions/checkout@v6
-        with:
-          repository: ${{ env.MF6_REMOTE }}
-          ref: ${{ env.MF6_REF }}
-          path: modflow6
+      # - name: Checkout MODFLOW 6
+      #   uses: actions/checkout@v6
+      #   with:
+      #     repository: ${{ env.MF6_REMOTE }}
+      #     ref: ${{ env.MF6_REF }}
+      #     path: modflow6
 
-      - name: Update flopy MODFLOW 6 classes
-        working-directory: modflow6/autotest
-        run: |
-          # requires flopy[codgen] install option
-          python -m flopy.mf6.utils.generate_classes
+      # - name: Update flopy MODFLOW 6 classes
+      #   working-directory: modflow6/autotest
+      #   run: |
+      #     # requires flopy[codgen] install option
+      #     python -m flopy.mf6.utils.generate_classes
 
-      - name: Install mf6 nightly build binaries
-        uses: modflowpy/install-modflow-action@v1
-        with:
-          repo: modflow6-nightly-build
+      # - name: Install mf6 nightly build binaries
+      #   uses: modflowpy/install-modflow-action@v1
+      #   with:
+      #     repo: modflow6-nightly-build
 
       - name: Install pywatershed
         run: |
