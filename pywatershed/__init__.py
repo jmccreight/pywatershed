@@ -47,6 +47,7 @@ from .hydrology.prms_soilzone_ag import PRMSSoilzoneAg
 from .hydrology.prms_soilzone_ag_obs_et import PRMSSoilzoneAgObsET
 from .hydrology.prms_soilzone_no_dprst import PRMSSoilzoneNoDprst
 from .hydrology.prms_stream_shade import (
+    PRMSStreamShadeConstant,
     PRMSStreamShadeDynamic,
 )
 from .hydrology.prms_stream_temp import (
@@ -129,6 +130,7 @@ __all__ = (
     "PRMSSoilzoneAg",
     "PRMSSoilzoneAgObsET",
     "PRMSSoilzoneNoDprst",
+    "PRMSStreamShadeConstant",
     "PRMSStreamShadeDynamic",
     "PRMSStreamTemp",
     "PRMSStreamTempHumidityCBH",

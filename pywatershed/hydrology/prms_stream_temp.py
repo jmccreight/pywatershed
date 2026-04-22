@@ -148,6 +148,7 @@ class PRMSStreamTempHumidityCBH(ConservativeProcess):
         verbose: bool = False,
         use_vectorized_shade: bool = True,
         track_energy_fluxes: bool = True,
+        atmos_exchange_factor: float = 1.0,
     ) -> None:
         super().__init__(
             control=control,
@@ -177,6 +178,9 @@ class PRMSStreamTempHumidityCBH(ConservativeProcess):
 
         self._set_inputs(input_locals)
         self._set_options(input_locals)
+
+        # Store atmospheric exchange factor for sensitivity testing
+        self._atmos_exchange_factor = atmos_exchange_factor
 
         # Just the names without the catergorization, in one list.
         self._energy_flux_vars = [
@@ -971,6 +975,7 @@ class PRMSStreamTempHumidityCBH(ConservativeProcess):
             self._t_abs4_terms if self._track_energy_fluxes else np.zeros(1),
             self._upstream_flows if self._track_energy_fluxes else np.zeros(1),
             self._lateral_flows if self._track_energy_fluxes else np.zeros(1),
+            self._atmos_exchange_factor,
         )
 
         # Compute energy fluxes for all segments (vectorized)
@@ -1540,6 +1545,7 @@ class PRMSStreamTempHumidityCBH(ConservativeProcess):
         ak1,
         ak2,
         seg_idx,
+        atmos_exchange_factor=None,
     ):
         """Compute average water temperature with lateral inflows.
 
@@ -1558,6 +1564,8 @@ class PRMSStreamTempHumidityCBH(ConservativeProcess):
         Returns:
             tw: Average water temperature (degC)
         """
+        if atmos_exchange_factor is None:
+            atmos_exchange_factor = self._atmos_exchange_factor
         return _twavg(
             qup,
             t0,
@@ -1567,7 +1575,8 @@ class PRMSStreamTempHumidityCBH(ConservativeProcess):
             ak1,
             ak2,
             self.seg_flow_width[seg_idx],
-            self.seg_length_km[seg_idx],
+            self.seg_length[seg_idx],
+            atmos_exchange_factor,
         )
 
     @staticmethod
@@ -1792,6 +1801,7 @@ class PRMSStreamTempHumidityCBH(ConservativeProcess):
         t_abs4_terms,
         upstream_flows,
         lateral_flows,
+        atmos_exchange_factor=1.0,
     ):
         """Compute water temperature for all segments.
 
@@ -1835,6 +1845,8 @@ class PRMSStreamTempHumidityCBH(ConservativeProcess):
             t_abs4_terms: Temperature^4 terms (MUTATED if tracking - output)
             upstream_flows: Upstream flow values (MUTATED if tracking - output)
             lateral_flows: Lateral flow values (MUTATED if tracking - output)
+            atmos_exchange_factor: Factor to amplify atmospheric exchange
+                (immutable, default=1.0)
         """
         for jj in segment_order:
             # Skip segments marked as never having flow (NaN = never has flow)
@@ -1945,6 +1957,7 @@ class PRMSStreamTempHumidityCBH(ConservativeProcess):
                 ak2,
                 seg_flow_width[jj],
                 seg_length[jj],
+                atmos_exchange_factor,
             )
 
 
@@ -2014,6 +2027,7 @@ class PRMSStreamTemp(PRMSStreamTempHumidityCBH):
         verbose: bool = False,
         use_vectorized_shade: bool = True,
         track_energy_fluxes: bool = True,
+        atmos_exchange_factor: float = 1.0,
     ) -> None:
         super().__init__(
             control=control,
@@ -2044,6 +2058,7 @@ class PRMSStreamTemp(PRMSStreamTempHumidityCBH):
             verbose=verbose,
             use_vectorized_shade=use_vectorized_shade,
             track_energy_fluxes=track_energy_fluxes,
+            atmos_exchange_factor=atmos_exchange_factor,
         )
         self.name = "PRMSStreamTemp"
 
@@ -2643,6 +2658,7 @@ def _twavg(
     ak2,
     seg_flow_width,
     seg_length,
+    atmos_exchange_factor=1.0,
 ):
     """Compute average water temperature with lateral inflows.
 
@@ -2658,6 +2674,8 @@ def _twavg(
         ak2: Second-order thermal exchange coefficient (immutable)
         seg_flow_width: Flow width (immutable)
         seg_length: Segment length (immutable)
+        atmos_exchange_factor: Factor to amplify atmospheric exchange effects
+            (immutable, default=1.0)
 
     Returns:
         tw: Average water temperature (degC)
@@ -2680,28 +2698,29 @@ def _twavg(
     if ql <= NEARZERO:
         # Zero lateral flow
         tep = te
-        b = (ak1 * width) / 4182.0e03
+        b = (ak1 * atmos_exchange_factor * width) / 4182.0e03
         rexp = -1.0 * (b * length) / q_init
         r = np.exp(rexp)
 
     elif ql < 0.0:
         # Losing stream (should not happen in PRMS)
         tep = te
-        b = (ql / length) + ((ak1 * width) / 4182.0e03)
+        b = (ql / length) + ((ak1 * atmos_exchange_factor * width) / 4182.0e03)
         rexp = (ql - (b * length)) / ql
         r = 1.0 + (ql / q_init)
         r = r**rexp
 
     elif ql > NEARZERO and q_init <= NEARZERO:
         tep = te
-        b = (ak1 * width) / 4182.0e03
+        b = (ak1 * atmos_exchange_factor * width) / 4182.0e03
         rexp = -1.0 * (b * length) / ql
         r = np.exp(rexp)
 
     else:
-        b = (ql / length) + ((ak1 * width) / 4182.0e03)
+        b = (ql / length) + ((ak1 * atmos_exchange_factor * width) / 4182.0e03)
         tep = (
-            ((ql / length) * tl_avg) + (((ak1 * width) / (4182.0e03)) * te)
+            ((ql / length) * tl_avg)
+            + (((ak1 * atmos_exchange_factor * width) / (4182.0e03)) * te)
         ) / b
 
         if ql > 0.0:

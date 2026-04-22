@@ -18,7 +18,8 @@ if not examples_dir.exists():
     )
 
 # "Official" notebooks are numbered
-notebooks = sorted(examples_dir.glob("[0-9]*.ipynb"))
+# notebooks = sorted(examples_dir.glob("[0-9]*.ipynb"))
+notebooks = sorted(examples_dir.glob("05_*.ipynb"))
 
 notebook_ids = [nb.name for nb in notebooks]
 

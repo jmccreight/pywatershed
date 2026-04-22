@@ -24,7 +24,6 @@ from .prms_soilzone_ag import PRMSSoilzoneAg
 from .prms_soilzone_ag_obs_et import PRMSSoilzoneAgObsET
 from .prms_soilzone_no_dprst import PRMSSoilzoneNoDprst
 from .prms_stream_shade import (
-    PRMSStreamShade,
     PRMSStreamShadeConstant,
     PRMSStreamShadeDynamic,
 )
@@ -52,7 +51,6 @@ __all__ = (
     "PRMSSoilzoneAg",
     "PRMSSoilzoneAgObsET",
     "PRMSSoilzoneNoDprst",
-    "PRMSStreamShade",
     "PRMSStreamShadeConstant",
     "PRMSStreamShadeDynamic",
     "PRMSStreamTemp",

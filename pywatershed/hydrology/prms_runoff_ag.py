@@ -55,8 +55,72 @@ class PRMSRunoffAg(PRMSRunoff):
     inherited from the parent class and properly saved/restored during restart.
 
     Args:
-        Same as PRMSRunoff, but ag_soil_moist_prev and ag_soil_rechr_prev
-        are required (not optional).
+        control: a Control object
+        discretization: a discretization of class Parameters
+        parameters: a parameter object of class Parameters
+        soil_lower_prev: Previous storage of lower reservoir for each HRU
+        soil_rechr_prev: Previous storage of recharge reservoir for each HRU
+        net_ppt: Precipitation (rain and/or snow) that falls through the
+            canopy for each HRU
+        net_rain: Rain that falls through canopy for each HRU
+        net_snow: Snow that falls through canopy for each HRU
+        potet: Potential ET for each HRU
+        snowmelt: Snowmelt from snowpack on each HRU
+        snow_evap: Evaporation and sublimation from snowpack on each HRU
+        pkwater_equiv: Snowpack water equivalent on each HRU
+        pptmix_nopack: Flag indicating that a mixed precipitation event has
+            occurred with no snowpack
+        snowcov_area: Snow-covered area on each HRU prior to melt and
+            sublimation unless snowpack
+        through_rain: Rain that passes through snow when no snow present
+        hru_intcpevap: HRU area-weighted average evaporation from the
+            canopy for each HRU
+        intcp_changeover: Canopy throughfall caused by canopy density
+            change from winter to summer
+        ag_soil_moist_prev: Previous timestep water storage for upper portion
+            in the capillary reservoir of the irrigated area for each HRU.
+        ag_soil_rechr_prev: Previous timestep water storage for upper portion
+            in the capillary reservoir of the irrigated area for each HRU that
+            is available for both evaporation and transpiration.
+        dprst_flag: use depression storage or not? None uses value in control
+            file, which otherwise defaults to True.
+        intcp_changeover_in_net_rain: Boolean flag indicating whether
+            intcp_changeover is included in net rain (GSFLOW 4.2.0 and PRMS
+            6.0.0) or not (pywatershed and PRMS < 6.0.0).
+        imbalance_behavior: one of ["defer", None, "warn", "error"]
+            with "defer" being the default and defering to
+            control.options["imbalance_behavior"] when available. When
+            control.options["imbalance_behavior"] is not avaiable,
+            imbalance_behavior is set to "warn".
+        calc_method: one of ["numba", "numpy"]. None defaults to
+            "numba".
+        verbose: Print extra information or not?
+        restart_read:
+            May be boolean or a Pathlib.Path. If False, control.options
+            will be examined for this key. If True, the working
+            directory is searched for restart files. If a Pathlib.Path, this
+            specifies an alternative directory to search for restart files.
+            Files searched for are of the pattern YYYY-mm-dd-varname.nc where
+            the date is the control.init_time. The timestamp on the file is the
+            valid time of the states in the file with the exception of
+            processes with sub-daily timesteps. For example, the outflow_ts
+            variable of PRMSChannel is instantaneous and valid at the 23rd hour
+            of the timestampped day whereas its variable seg_outflow is the
+            daily averge value over the timestampped day.
+        restart_write:
+            As for restart_read but for writing. The directory in either
+            case will be attempted to be created if it does not exist.
+        restart_write_freq:
+            If False, then control.options is examined for this key. The
+            follwing values set the frequency of restart output with "y" for
+            yearly, "m" for monthly, "d" for daily, or "f" for final. "Final"
+            means that restart files are written with the states at
+            control.end_time to files timestampped with control.end_time.
+            Yearly and monthly restart options write files with timestamps on
+            the last day of each year or month during the run. If daily,
+            restarts are written every day. If restart_write is not False and
+            restart_write_freq is False, the default of "f" is used.
+
     """
 
     def __init__(
