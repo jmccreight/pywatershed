@@ -232,13 +232,23 @@ if [ -z "${l}" ]; then
     cd $start_dir || exit 1
 fi
 
-# if [ -z "${m}" ]; then
-#     echo
-#     echo
-#     echo "******************************"
-#     echo "Modflow6 Update and Build"
-#     echo "******************************"
-#     echo
+if [ -z "${m}" ]; then
+    echo
+    echo
+    echo "******************************"
+    echo "Modflow6 Update from nighly build"
+    echo "******************************"
+    echo
+
+    python -m flopy.mf6.utils.generate_classes --ref develop
+    get-modflow ../bin --repo modflow6-nightly-build
+    export PATH=$PATH:../bin
+
+    # The above uses flopy tools to get the nightly build binary and
+    # to generate flopy classes against develop. There's a remote possibility
+    # those could be out of sync.
+    #
+    # I'm leaving everything below in case an MF6 local build is desired.
 
 #     # name: Enforce MF6 ref and remote merge to main
 #     req_ref=develop # if not develop, submit an issue
@@ -291,20 +301,9 @@ fi
 #     conda deactivate
 
 #     cd $start_dir
+#     export PATH=$PATH:$modflow_repo_location/bin
 
-# fi
-
-# export PATH=$PATH:$modflow_repo_location/bin
-
-# Use the installation above if performed, else use an existing installation
-# - name: Install pywatershed
-#   run: |
-#     pip install .
-
-# - name: Version info
-#   run: |
-#     pip -V
-#     pip list
+fi
 
 if [ -z "${t}" ]; then
     echo
