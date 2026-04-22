@@ -312,16 +312,23 @@ class SecurityChecker:
                 ):
                     continue
 
-                # Skip Python code patterns (e.g., dict.items, list.keys, pytest.main)
+                # Skip Python code patterns
+                # (e.g., dict.items, list.keys, pytest.main)
                 # Common Python attributes, methods, and testing patterns
                 python_patterns = [
-                    r"\.(items|keys|values|get|pop|append|extend|update|copy)\b",  # dict/list methods
-                    r"\.(main|raises|mark|fixture|skip|warns|exitcode|fail|exit)\b",  # pytest
-                    r"\.(assert|testing\.assert|allclose|array_equal)\b",  # numpy/xarray testing
-                    r"(np|xr|pd)\.testing\.",  # numpy/xarray/pandas testing modules
+                    # dict/list methods
+                    r"\.(items|keys|values|get|pop|append|extend|update|copy)\b",
+                    # pytest
+                    r"\.(main|raises|mark|fixture|skip"
+                    r"|warns|exitcode|fail|xfail|exit)\b",
+                    # numpy/xarray testing
+                    r"\.(assert|testing\.assert|allclose|array_equal)\b",
+                    # numpy/xarray/pandas testing modules
+                    r"(np|xr|pd)\.testing\.",
                     r"\.(dev|pre|post|local)\b",  # version attributes
                     r"version\.",  # version object attributes
-                    r"\.(stdev|average|repeat|mean|median|std|var)\b",  # statistics attributes
+                    # statistics attributes
+                    r"\.(stdev|average|repeat|mean|median|std|var)\b",
                 ]
                 if any(
                     re.search(pattern, hostname) for pattern in python_patterns
@@ -332,9 +339,10 @@ class SecurityChecker:
                 # Look at the broader context in the line
                 is_in_allowed_url = False
                 for domain in self.allowed_domains:
-                    # Check if this match is part of a URL containing an allowed domain
+                    # Check if this match is part of a URL with an allowed
+                    # domain
                     if domain in line.lower():
-                        # If allowed domain is in the line, likely the whole URL is safe
+                        # Allowed domain in line means the URL is likely safe
                         is_in_allowed_url = True
                         break
 
@@ -347,7 +355,8 @@ class SecurityChecker:
                 )
 
                 # Flag if it looks like an internal server (not in allowlist)
-                # and has suspicious patterns, or contains usgs/doi but isn't in allowlist
+                # and has suspicious patterns, or contains usgs/doi but not
+                # in allowlist
                 if not is_allowed and any(
                     pattern in hostname
                     for pattern in [
@@ -380,10 +389,18 @@ class SecurityChecker:
 
         # Patterns for credentials
         patterns = {
-            "password": r"(?i)(password|passwd|pwd)\s*[:=]\s*['\"]?[^\s'\"]{8,}",
-            "api_key": r"(?i)(api[_-]?key|apikey)\s*[:=]\s*['\"]?[a-zA-Z0-9]{16,}",
-            "token": r"(?i)(token|auth[_-]?token)\s*[:=]\s*['\"]?[a-zA-Z0-9]{16,}",
-            "secret": r"(?i)(secret|client[_-]?secret)\s*[:=]\s*['\"]?[a-zA-Z0-9]{16,}",
+            "password": (
+                r"(?i)(password|passwd|pwd)\s*[:=]\s*['\"]?[^\s'\"]{8,}"
+            ),
+            "api_key": (
+                r"(?i)(api[_-]?key|apikey)\s*[:=]\s*['\"]?[a-zA-Z0-9]{16,}"
+            ),
+            "token": (
+                r"(?i)(token|auth[_-]?token)\s*[:=]\s*['\"]?[a-zA-Z0-9]{16,}"
+            ),
+            "secret": (
+                r"(?i)(secret|client[_-]?secret)\s*[:=]\s*['\"]?[a-zA-Z0-9]{16,}"
+            ),
             "aws_key": r"(?i)AKIA[0-9A-Z]{16}",  # AWS access key pattern
         }
 
@@ -506,7 +523,8 @@ def format_results(
 
         for issue_type, issues in sorted(file_results.items()):
             output.append(
-                f"  {issue_type.replace('_', ' ').title()}: {len(issues)} issue(s)"
+                f"  {issue_type.replace('_', ' ').title()}: "
+                f"{len(issues)} issue(s)"
             )
 
             if verbose:

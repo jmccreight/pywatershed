@@ -29,6 +29,11 @@ notebook_ids = [nb.name for nb in notebooks]
 
 @pytest.mark.parametrize("notebook", notebooks, ids=notebook_ids)
 def test_notebooks(notebook):
+    if sys.platform == "win32" and "05_" in notebook.name:
+        pytest.xfail(
+            "Notebook 05 uses fork multiprocessing context which is not "
+            "available on Windows"
+        )
     # Convert the notebook to a .py version of itself using jupyter nbconvert
     # this formats magics in a way that ipython can run
     cmd = [
