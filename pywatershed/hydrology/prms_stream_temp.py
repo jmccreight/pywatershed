@@ -38,24 +38,49 @@ LATENT_HEAT_VAPORIZATION = 2495.0e06  # J/m³
 
 
 class PRMSStreamTempHumidityCBH(ConservativeProcess):
-    """PRMS stream temperature.
+    """PRMS stream temperature with time-varying humidity input.
 
-    A representation of stream temperature from PRMS. with two structural
-    differences. This class uses:
+    PRMSStreamTemp and PRMSStreamTempHumidityCBH model stream temperature
+    following PRMS 5.2.1.1. The class :class:`PRMSStreamTemp` covers the
+    situation where humidity is supplied by the parameter files
+    (``strmtemp_humidity_flag=1``) and :class:`PRMSStreamTempHumidityCBH`
+    covers the case of when humidity is supplied by time-varying input files
+    (NetCDF CBH equivalents, e.g. ``strmtemp_humidity_flag=0``. Note there is
+    not currently an implementation for the PRMS case
+    ``strmtemp_humidity_flag=2``). This documentation provides general
+    background for both classes.
 
-    - PRMSHydraulicGeometryFull as an upstream process to get the hydraulic
-      geometry variables (which were renamed seg_flow_*)
-    - PRMSStreamShade as a shade representation to be passed/composed on
-      initialization.
+    The stream temperature classes use:
 
-    Implementation based on PRMS 5.2.1.1 with theoretical documentation given
-    by:
+    - :class:`PRMSHydraulicGeometryFull` and
+      :class:`PRMSHydraulicGeometryWidthOnly` as upstream processes which
+      provide the hydraulic geometry variables (and are renamed seg_flow_*
+      compared to the PRMS seg_* variables)
+    - :class:`PRMSStreamShadeConstant` and :class:`PRMSStreamShadeDynamic`
+      as models of stream shade. These are to be passed to or "composed" into
+      the stream temperature on initialization.
+
+    See the example notebooks
+    `examples/01_multi-process_models.ipynb
+    <https://github.com/DOI-USGS/pywatershed/blob/develop/examples/01_multi-process_models.ipynb>`__
+    and
+    `examples/02_prms_legacy_models.ipynb
+    <https://github.com/DOI-USGS/pywatershed/blob/develop/examples/02_prms_legacy_models.ipynb>`__
+    for worked examples.
+
+    This implementation is based on PRMS 5.2.1.1 with theoretical documentation
+    given by:
 
     `Markstrom, Steven L. P2S -- Coupled simulation with the
     Precipitation-Runoff Modeling System (PRMS) and the Stream Temperature
     Network (SNTemp) Models.
     No. 2012-1116. US Geological Survey, 2012.
     <https://pubs.usgs.gov/publication/ofr20121116>`__
+
+    `Sanders, M.J., Markstrom, S.L., Regan, R.S., and Atkinson, R.D., 2017,
+    Documentation of a daily mean stream temperature module — An enhancement to
+    the Precipitation-Runoff Modeling System: U.S. Geological Survey Techniques
+    and Methods, book 6, chap. D4, 18 p. <https://doi.org/10.3133/tm6D4>`__
 
     The stream temperature module computes daily mean water temperature for
     each stream segment using an energy balance approach. The module accounts
@@ -1962,11 +1987,11 @@ class PRMSStreamTempHumidityCBH(ConservativeProcess):
 
 
 class PRMSStreamTemp(PRMSStreamTempHumidityCBH):
-    """PRMS stream temperature using monthly segment humidity parameter.
+    """PRMS stream temperature with monthly segment humidity parameter.
 
-    Corresponds to ``strmtemp_humidity_flag=1``. Humidity is supplied via the
-    ``seg_humidity`` parameter (12 monthly values per segment) rather than a
-    time-varying CBH input.  All other behaviour is identical to
+    Corresponds to ``strmtemp_humidity_flag=1`` where humidity is supplied via
+    the ``seg_humidity`` parameter (12 monthly values per segment) rather than
+    a time-varying CBH input. All other behaviour is identical to
     :class:`PRMSStreamTempHumidityCBH`.
 
     Args:
