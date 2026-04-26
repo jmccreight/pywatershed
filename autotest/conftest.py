@@ -1,4 +1,5 @@
 import pathlib as pl
+from warnings import warn
 
 import pywatershed as pws
 
@@ -63,9 +64,17 @@ def collect_simulations(
     simulations = {}
     for dom_dir in all_domain_dirs:
         # ensure this is a self-contained run (all files in repo)
+        if dom_dir.name not in domain_list:
+            continue
 
-        if not (dom_dir / "prcp.cbh").exists():
+        if not (
+            (dom_dir / "prcp.cbh").exists()
+            or (dom_dir / "prcp.day").exists()
+            or (dom_dir / "precip.cbh").exists()
+            or (dom_dir / "precip.day").exists()
+        ):
             # this is kind of a silly check... until something better needed
+            warn(f"prcp/precip.cbh/day not found in {dom_dir}, skipping")
             continue
 
         # filter selected domains

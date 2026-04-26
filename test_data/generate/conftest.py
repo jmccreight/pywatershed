@@ -1,9 +1,7 @@
 import os
 import pathlib as pl
-import sys
 import warnings
 from fnmatch import fnmatch
-from platform import processor
 from typing import List
 from warnings import warn
 
@@ -129,50 +127,11 @@ def exe(simulation, request):
             pytest.fail(f"Executable not found: {exe_pth}")
         return exe_pth
 
-    # Otherwise, determine exe based on platform and control file
     exe_desc = get_ctl_exe_desc(simulation["control_file"])
-    platform = sys.platform.lower()
-    if "gsflow" in exe_desc:
-        if platform == "win32":
-            exe_name = "gsflow_2.4.0_gfortran_windows_dbl_prec.exe"
-        elif platform == "darwin":
-            if processor() == "arm":
-                exe_name = "gsflow_2.4.0_ifort_apple_silicon_dbl_prec"
-            else:
-                pytest.skip(
-                    f"GSFLOW binary not yet provided for {platform}:intel"
-                )
-        elif platform == "linux":
-            exe_name = "gsflow_2.4.0_gfortran_linux_dbl_prec"
-
-    elif "5.2.1.1" in exe_desc:
-        if platform == "win32":
-            exe_name = "prms_5.2.1.1_gfort_win_dbl_prec.exe"
-        elif platform == "darwin":
-            if processor() == "arm":
-                exe_name = "prms_5.2.1.1_gfortran_apple_silicon_dbl_prec"
-            else:
-                pytest.skip(
-                    "PRMS 5.2.1.1 binary not yet provided for "
-                    f"{platform}:intel"
-                )
-        elif platform == "linux":
-            exe_name = "prms_5.2.1.1_gfort_linux_dbl_prec"
-    else:
-        if platform == "win32":
-            exe_name = "prms_win_gfort_dbl_prec.exe"
-        elif platform == "darwin":
-            if processor() == "arm":
-                exe_name = "prms_mac_m1_ifort_dbl_prec"
-            else:
-                exe_name = "prms_mac_intel_gfort_dbl_prec"
-        elif platform == "linux":
-            exe_name = "prms_linux_gfort_dbl_prec"
-
-    # <<
-    exe_pth = pl.Path(f"../../bin/{exe_name}").resolve()
-
-    return exe_pth
+    try:
+        return pws.utils.get_prms_exe_path(exe_desc)
+    except NotImplementedError as e:
+        pytest.skip(str(e))
 
 
 def scheduler_active():
@@ -217,9 +176,18 @@ def collect_simulations(
 ):
     simulations = {}
     for dom_dir in all_domain_dirs:
+        if dom_dir.name not in domain_list:
+            continue
+
         # ensure this is a self-contained run (all files in repo)
-        if not (dom_dir / "prcp.cbh").exists():
+        if not (
+            (dom_dir / "prcp.cbh").exists()
+            or (dom_dir / "prcp.day").exists()
+            or (dom_dir / "precip.cbh").exists()
+            or (dom_dir / "precip.day").exists()
+        ):
             # this is kind of a silly check... until something better needed
+            warn(f"prcp/precip.cbh/day not found in {dom_dir}, skipping")
             continue
 
         # filter selected domains

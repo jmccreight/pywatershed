@@ -808,10 +808,13 @@ class PRMSStreamTempHumidityCBH(ConservativeProcess):
         """
         # Build connectivity list (tosegment is 1-based, convert to 0-based)
         connectivity = []
+        self._outflow_mask = np.full((len(self.tosegment)), False)
         for iseg in range(self.nsegment):
             toseg = self.tosegment[iseg] - 1  # Convert to 0-based
             if toseg >= 0:  # -1 means outlet in 0-based indexing
                 connectivity.append((iseg, toseg))
+            else:
+                self._outflow_mask[iseg] = True
 
         # Use NetworkX for topological sort
         if self.nsegment > 1 and len(connectivity) > 0:
@@ -820,6 +823,19 @@ class PRMSStreamTempHumidityCBH(ConservativeProcess):
             segment_order = list(nx.topological_sort(graph))
         else:
             segment_order = list(range(self.nsegment))
+
+        # if the domain contains links with no upstream or
+        # downstream reaches, we just throw these back at the
+        # top of the order since networkx wont handle such nonsense
+        wh_mask_set = set(np.where(self._outflow_mask)[0])
+        seg_ord_set = set(segment_order)
+        mask_not_seg_ord = list(wh_mask_set - seg_ord_set)
+        if len(mask_not_seg_ord):
+            segment_order = mask_not_seg_ord + segment_order
+            for pp in mask_not_seg_ord:
+                assert ((self.tosegment[pp] - 1) == -1) and (
+                    pp not in (self.tosegment - 1)
+                )
 
         self.segment_order = np.array(segment_order, dtype=np.int32)
 
@@ -1916,9 +1932,10 @@ class PRMSStreamTempHumidityCBH(ConservativeProcess):
                 continue
 
             lateral_flow = seg_lateral_inflow[jj]
+            qlat = lateral_flow * CFS_TO_CMS
 
-            # Check if we have any inflow
-            if upstream_flow < NEARZERO and lateral_flow < NEARZERO:
+            # Match Fortran: check qlat in CMS (not lateral_flow in CFS)
+            if upstream_flow * CFS_TO_CMS <= NEARZERO and qlat <= NEARZERO:
                 seg_tave_water[jj] = NOFLOW_TEMP
                 continue
 
@@ -1968,7 +1985,6 @@ class PRMSStreamTempHumidityCBH(ConservativeProcess):
                 lateral_flows[jj] = lateral_flow
 
             # Compute final temperature using twavg function
-            qlat = lateral_flow * CFS_TO_CMS
             qup = upstream_flow
             tl_avg = seg_tave_lat[jj]
 
@@ -2763,8 +2779,8 @@ def _twavg(
     delt = tep - t0
     denom = 1.0 + (ak2 / ak1) * delt * (1.0 - r)
 
-    if denom < 0.0:
-        denom = np.abs(denom)
+    if np.abs(denom) < NEARZERO:
+        denom = np.sign(denom) * NEARZERO if denom != 0.0 else NEARZERO
 
     tw = tep - (delt * r / denom)
     if tw < 0.0:

@@ -38,7 +38,7 @@ def test_run_prms(simulation, exe):
     # exe control_file -MAXDATALNLEN 60000
     success, buff = run_model(
         exe,
-        control_file,
+        control_file.name,
         model_ws=ws,
         cargs=["-MAXDATALNLEN", "60000"],
         report=True,
