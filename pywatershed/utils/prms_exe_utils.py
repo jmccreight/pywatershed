@@ -11,11 +11,19 @@ import sys
 from platform import processor
 from typing import Optional
 
-# Repo root is 3 levels up from this file:
-# pywatershed/utils/prms_exe_utils.py -> utils -> pywatershed -> repo root
-_REPO_ROOT = pl.Path(__file__).resolve().parent.parent.parent
-_BIN_DIR = _REPO_ROOT / "bin"
-_SRC_DIR = _REPO_ROOT / "prms_src"
+
+def _get_repo_root() -> pl.Path:
+    from pywatershed.utils.notebook_utils import get_repo_root
+
+    return get_repo_root()
+
+
+def _get_bin_dir() -> pl.Path:
+    return _get_repo_root() / "bin"
+
+
+def _get_src_dir() -> pl.Path:
+    return _get_repo_root() / "prms_src"
 
 
 def get_prms_exe_name(exe_desc: str = "prms") -> str:
@@ -103,7 +111,7 @@ def get_prms_exe_path(exe_desc: str = "prms") -> pl.Path:
     pathlib.Path
         Absolute path to the binary (may or may not exist yet).
     """
-    return (_BIN_DIR / get_prms_exe_name(exe_desc)).resolve()
+    return (_get_bin_dir() / get_prms_exe_name(exe_desc)).resolve()
 
 
 def compile_prms(
@@ -142,7 +150,7 @@ def compile_prms(
         )
 
     binary_path = get_prms_exe_path(source)
-    src_dir = _SRC_DIR / "prms5.2.1.1"
+    src_dir = _get_src_dir() / "prms5.2.1.1"
 
     if binary_path.exists() and not force:
         print(f"PRMS {source} binary already exists: {binary_path}")
@@ -187,7 +195,7 @@ def compile_prms(
                 f"bin/prms not found in {src_dir}"
             )
 
-        _BIN_DIR.mkdir(parents=True, exist_ok=True)
+        _get_bin_dir().mkdir(parents=True, exist_ok=True)
         shutil.copy(compiled_bin, binary_path)
         print(f"Successfully compiled and installed to {binary_path}")
 
