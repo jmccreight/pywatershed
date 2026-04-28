@@ -1255,7 +1255,10 @@ class PRMSStreamTempHumidityCBH(ConservativeProcess):
 
         for kk in range(self.upstream_count[seg_idx]):
             up_idx = self.upstream_idx[seg_idx, kk]
-            if not np.isnan(self.seg_tave_water[up_idx]):
+            if (
+                not np.isnan(self.seg_tave_water[up_idx])
+                and self.seg_tave_water[up_idx] > NOFLOW_TEMP
+            ):
                 flow = self.seg_outflow[up_idx]
                 temp_sum += self.seg_tave_water[up_idx] * flow
                 flow_sum += flow
@@ -1902,7 +1905,10 @@ class PRMSStreamTempHumidityCBH(ConservativeProcess):
 
             for kk in range(upstream_count[jj]):
                 up_idx = upstream_idx[jj, kk]
-                if not np.isnan(seg_tave_water[up_idx]):
+                if (
+                    not np.isnan(seg_tave_water[up_idx])
+                    and seg_tave_water[up_idx] > NOFLOW_TEMP
+                ):
                     flow = seg_outflow[up_idx]
                     temp_sum += seg_tave_water[up_idx] * flow
                     flow_sum += flow
