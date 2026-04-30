@@ -144,7 +144,9 @@ class PRMSSoilzoneAgObsET(ConservativeProcess):
             sublimation unless snowpack
         ag_frac: Fraction of HRU that is agricultural/irrigated area
         aet_observed: Observed actual ET from CBH file for each HRU (when
-            iter_aet_flag is True). Used to calculate AET_external.
+            iter_aet_flag is True). Used to calculate AET_external. Negative
+            values are considered missing and set to zero, diabling AET
+            matching.
         dprst_flag: use depression storage or not? None uses value in control
             file, which otherwise defaults to True.
         iter_aet_flag: Flag to enable iterative AET matching. If None,

@@ -22,17 +22,30 @@ New Features
   explicit access to each budget type. The legacy ``budget`` property is deprecated
   and will be removed in the next major release - use ``mass_budget`` instead.
   (:pull:`343`) By `James McCreight <https://github.com/jmccreight>`_.
-- The new :class:`PRMSStreamTemp` class provides stream temperature simulation using the PRMS
-  stream temperature methodology, computing water temperatures based on energy balance
-  in stream segments. The class supports optional energy flux tracking and budgeting via the
-  ``track_energy_fluxes`` parameter (default: True). When enabled, it computes and tracks 11
-  energy flux components including advective heat transport (upstream, lateral, outflow),
-  surface energy exchange (solar radiation, longwave emission/absorption, evaporative cooling,
-  convective exchange), and internal sources (friction heating, groundwater conduction). These
-  fluxes are available as output variables and included in the energy budget. When disabled
-  (``track_energy_fluxes=False``), energy flux variables are set to None and excluded from
-  NetCDF output, with ``imbalance_behavior`` required to be None. PRMSStreamTemp requires
-  PRMSHydraulicGeometryFull or PRMSHydraulicGeometryWidthOnly as an upstream process to provide
+- The new :class:`PRMSStreamTemp` and :class:`PRMSStreamTempHumidityCBH` classes provide
+  stream temperature simulation using the PRMS stream temperature methodology, computing
+  water temperatures based on energy balance in stream segments. The later class accepts
+  time-varying humidity inputs on the HRUs while the former accepts a mean monthly
+  humidity for each segment.
+  The classes support optional energy flux tracking and budgeting via the
+  ``track_energy_fluxes`` parameter (default: True). When enabled, it computes and
+  tracks 11 energy flux components including advective heat transport (upstream,
+  lateral, outflow), surface energy exchange (solar radiation, longwave
+  emission/absorption, evaporative cooling, convective exchange), and internal sources
+  (friction heating, groundwater conduction). These fluxes are available as output
+  variables and included in the energy budget. When disabled
+  (``track_energy_fluxes=False``), energy flux variables are set to None and excluded
+  from NetCDF output, with ``imbalance_behavior`` required to be None.
+  The classes :class:`PRMSStreamTemp` and :class:`PRMSStreamTempHumidityCBH` take a stream shade
+  class as input on initialization. Two stream shade classes have been implemented
+  :class:`PRMSStreamConstant` and :class:`PRMSStreamShadeDynamic`. The former summer
+  works based on 3 parameters: shade fraction, winter shade fraction, and segment
+  latitude. The later class computes shade dynamically based on topographic and
+  vegetation parameters using solar geometry calculations. This is the default PRMS
+  behavior when stream_temp_shade_flag = 0 and requires 13 parameters describing topography
+  and vegetation characteristics for each stream segment.
+  The classes :class:`PRMSStreamTemp` and :class:`PRMSStreamTempHumidityCBH` also require one of
+  :class:`PRMSHydraulicGeometryFull` or :class:`PRMSHydraulicGeometryWidthOnly` as an upstream process to provide
   hydraulic geometry variables needed for energy balance calculations. :class:`PRMSHydraulicGeometryFull`
   computes flow-dependent hydraulic geometry (width, depth, area, velocity) using power-law
   relationships when all parameters are provided, while :class:`PRMSHydraulicGeometryWidthOnly`

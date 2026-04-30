@@ -181,7 +181,8 @@ class PRMSStreamShadeConstant(PRMSStreamShade):
     Uses pre-specified constant shade values for summer and winter seasons.
     This is used when stream_temp_shade_flag = 1.
 
-    Requires 2 parameters: summer shade and winter shade fractions.
+    Requires 3 parameters: summer shade fraction, winter shade fraction, and
+    segment latitude.
 
     The compute() method returns a tuple of (shades, svis) where:
         shades: Array of shade fractions (0-1) for all segments
