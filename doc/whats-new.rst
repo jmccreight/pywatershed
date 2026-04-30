@@ -24,7 +24,7 @@ New Features
   (:pull:`343`) By `James McCreight <https://github.com/jmccreight>`_.
 - The new :class:`PRMSStreamTemp` and :class:`PRMSStreamTempHumidityCBH` classes provide
   stream temperature simulation using the PRMS stream temperature methodology, computing
-  water temperatures based on energy balance in stream segments. The later class accepts
+  water temperatures based on energy balance in stream segments. The latter class accepts
   time-varying humidity inputs on the HRUs while the former accepts a mean monthly
   humidity for each segment.
   The classes support optional energy flux tracking and budgeting via the
@@ -37,12 +37,12 @@ New Features
   (``track_energy_fluxes=False``), energy flux variables are set to None and excluded
   from NetCDF output, with ``imbalance_behavior`` required to be None.
   The classes :class:`PRMSStreamTemp` and :class:`PRMSStreamTempHumidityCBH` take a stream shade
-  class as input on initialization. Two stream shade classes have been implemented
-  :class:`PRMSStreamConstant` and :class:`PRMSStreamShadeDynamic`. The former summer
-  works based on 3 parameters: shade fraction, winter shade fraction, and segment
-  latitude. The later class computes shade dynamically based on topographic and
+  class as input on initialization. Two stream shade classes have been implemented,
+  :class:`PRMSStreamShadeConstant` and :class:`PRMSStreamShadeDynamic`. The former
+  works based on 3 parameters: summer shade fraction, winter shade fraction, and segment
+  latitude. The latter class computes shade dynamically based on topographic and
   vegetation parameters using solar geometry calculations. This is the default PRMS
-  behavior when stream_temp_shade_flag = 0 and requires 13 parameters describing topography
+  behavior when ``stream_temp_shade_flag = 0`` and requires 13 parameters describing topography
   and vegetation characteristics for each stream segment.
   The classes :class:`PRMSStreamTemp` and :class:`PRMSStreamTempHumidityCBH` also require one of
   :class:`PRMSHydraulicGeometryFull` or :class:`PRMSHydraulicGeometryWidthOnly` as an upstream process to provide
@@ -82,7 +82,7 @@ New Features
   data writing (~6x faster than NetCDF). See notebook ``examples/09_model_output.ipynb`` for examples.
   (:pull:`363`) By `James McCreight <https://github.com/jmccreight>`_.
 - New agricultural water use classes enable simulation of irrigated agriculture based on GSFLOW.
-  :class:`PRMSRunoffAg` extends PRMSRunoff to calculate infiltration separately for pervious
+  :class:`PRMSRunoffAg` extends :class:`PRMSRunoff` to calculate infiltration separately for pervious
   and agricultural areas. :class:`PRMSSoilzoneAgObsET` provides dual-area soil moisture accounting
   with iterative adjustment of irrigation to match observed actual ET. :class:`PRMSSoilzoneAg`
   is a simplified version without the observed ET iteration, suitable when ET observations are
@@ -93,8 +93,8 @@ New Features
   credentials. See .github/scripts/check_security.py.
   (:pull:`384`) By `James McCreight <https://github.com/jmccreight>`_.
 - Bug fixes for PRMS 5.2.1.1: 1) errant code skipped humidity CBH files entirely when they were
-  selected to be used, 2. code deletion resulted in seg_humid not being zeroed each timestep and
-  and erroneously accumulating. Both fixes is extensively documented. The PRMS code modified
+  selected to be used, 2) code deletion resulted in ``seg_humid`` not being zeroed each timestep and
+  erroneously accumulating. Both fixes are extensively documented. The PRMS code was modified
   (compared to the released 5.2.1.1) and the pywatershed code was made to match PRMS stream
   temperature when using humidity inputs from 1. CBH, 2. scalar parameter, and 3. monthly spatially
   distributed parameters.
@@ -109,7 +109,7 @@ Breaking Changes
   :class:`base.ConservativeProcess` and all its subclasses, in :class:`base.FlowGraph`, and in
   control options. Update all ``budget_type`` references to ``imbalance_behavior`` in
   your code and configuration files. This breaking change clarifies what the parameter does
-  and is intentionally distinct from the from budget quantity parameter.
+  and is intentionally distinct from the budget quantity parameter.
   (:pull:`343`) By `James McCreight <https://github.com/jmccreight>`_.
 - Budget netcdf output filenames have changed to include the quantity type.
   Mass budgets are now named ``ProcessName_mass_budget.nc`` instead of
@@ -118,10 +118,10 @@ Breaking Changes
 
 Bug fixes
 ~~~~~~~~~
-- PRMS 5.2.1.1 had a bug in stream where division by hru area was repeated
-  multiple times. In the old code this ocurred in routing.f90 on lines 764 and
-  765 and then again on 789 and 790, where seginc_swrad and seginc_potet were
-  divided despite this having already occured on lines 744 and 744. Comments
+- PRMS 5.2.1.1 had a bug in stream temperature where division by HRU area was repeated
+  multiple times. In the old code this occurred in routing.f90 on lines 764 and
+  765 and then again on 789 and 790, where ``seginc_swrad`` and ``seginc_potet`` were
+  divided despite this having already occurred on lines 744 and 745. Comments
   regarding the fix are found on lines 764 and 793 in the fixed code.
   (:pull:`XXX`) By `Author Name <https://github.com/username>`_.
 
@@ -130,7 +130,7 @@ Internal changes
 - The :class:`base.ConservativeProcess` class now uses ``_mass_budget`` and
   ``_energy_budget`` attributes internally instead of ``budget``. The ``budget``
   property remains as a deprecated alias for ``_mass_budget`` for backward compatibility.
-- Refactor of test_data/generate/convert_prms_output_to_nc.py to put final variables into
+- Refactor of ``test_data/generate/convert_prms_output_to_nc.py`` to put final variables into
   a separate file to run by pytests both after all other variables are generated and
   so the final variables are run serially.
   (:pull:`331`) By `James McCreight <https://github.com/jmccreight>`_.
