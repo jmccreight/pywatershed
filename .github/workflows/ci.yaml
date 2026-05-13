@@ -153,7 +153,7 @@ jobs:
         run: .github/scripts/symlink_gfortran_mac.sh
 
       - name: Install Dependencies via Micromamba
-        uses: mamba-org/setup-micromamba@v2
+        uses: mamba-org/setup-micromamba@v3
         with:
           log-level: debug
           environment-file: environment.yml
@@ -266,7 +266,7 @@ jobs:
         run: .github/scripts/symlink_gfortran_mac.sh
 
       - name: Install Dependencies via Micromamba
-        uses: mamba-org/setup-micromamba@v2
+        uses: mamba-org/setup-micromamba@v3
         with:
           log-level: debug
           environment-file: environment.yml
@@ -386,7 +386,7 @@ jobs:
         run: .github/scripts/symlink_gfortran_mac.sh
 
       - name: Install Dependencies via Micromamba
-        uses: mamba-org/setup-micromamba@v2
+        uses: mamba-org/setup-micromamba@v3
         with:
           log-level: debug
           environment-file: environment.yml
@@ -524,7 +524,7 @@ jobs:
         run: .github/scripts/symlink_gfortran_mac.sh
 
       - name: Install Dependencies via Micromamba
-        uses: mamba-org/setup-micromamba@v2
+        uses: mamba-org/setup-micromamba@v3
         with:
           log-level: debug
           environment-file: environment.yml
@@ -774,7 +774,7 @@ jobs:
         run: .github/scripts/symlink_gfortran_mac.sh
 
       - name: Install Dependencies via Micromamba
-        uses: mamba-org/setup-micromamba@v2
+        uses: mamba-org/setup-micromamba@v3
         with:
           log-level: debug
           environment-file: environment.yml
@@ -885,7 +885,7 @@ jobs:
         run: .github/scripts/symlink_gfortran_mac.sh
 
       - name: Install Dependencies via Micromamba
-        uses: mamba-org/setup-micromamba@v2
+        uses: mamba-org/setup-micromamba@v3
         with:
           log-level: debug
           environment-file: environment.yml
@@ -1001,7 +1001,7 @@ jobs:
         run: .github/scripts/symlink_gfortran_mac.sh
 
       - name: Install Dependencies via Micromamba
-        uses: mamba-org/setup-micromamba@v2
+        uses: mamba-org/setup-micromamba@v3
         with:
           log-level: debug
           environment-file: environment.yml
@@ -1178,7 +1178,7 @@ jobs:
         run: .github/scripts/symlink_gfortran_mac.sh
 
       - name: Install Dependencies via Micromamba
-        uses: mamba-org/setup-micromamba@v2
+        uses: mamba-org/setup-micromamba@v3
         with:
           log-level: debug
           environment-file: environment.yml

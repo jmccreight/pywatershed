@@ -209,6 +209,11 @@ class HRUComparisonPanel:
             # User-provided custom aggregations
             self.time_aggregations = time_aggregations
 
+        # Unit transforms for aggregations that change units
+        self.aggregation_unit_transforms = {
+            "Trend": lambda units: f"{units}/day" if units else "1/day",
+        }
+
         self.aggregation_names = list(self.time_aggregations.keys())
 
         # Visual parameters
@@ -638,7 +643,17 @@ class HRUComparisonPanel:
         # Get variable metadata
         var_meta = self.get_variable_metadata(var_name)
         desc_str = f": {var_meta['desc']}" if var_meta["desc"] else ""
-        units_str = f" ({var_meta['units']})" if var_meta["units"] else ""
+        raw_units = var_meta["units"]
+        unit_transform = self.aggregation_unit_transforms.get(aggregation)
+        display_units = (
+            unit_transform(raw_units) if unit_transform else raw_units
+        )
+        agg_units_str = f" ({display_units})" if display_units else ""
+        raw_units_str = (
+            f" ({raw_units})"
+            if raw_units and raw_units != display_units
+            else ""
+        )
 
         # Determine which runs to use based on availability
         available_runs = self.var_availability.get(var_name, [])
@@ -676,8 +691,8 @@ class HRUComparisonPanel:
                 var_name, actual_left, aggregation
             )
             title = (
-                f"{actual_left}: Temporal {aggregation}\n{var_name}"
-                f"{desc_str}{units_str}"
+                f"{actual_left}: Temporal {aggregation}{agg_units_str}\n"
+                f"{var_name}{desc_str}{raw_units_str}"
             )
         else:
             values = self.compute_difference(
@@ -685,7 +700,8 @@ class HRUComparisonPanel:
             )
             title = (
                 f"{actual_left} - {actual_right}: Difference of temporal "
-                f"{aggregation}s\n{var_name}{desc_str}{units_str}"
+                f"{aggregation}s{agg_units_str}\n"
+                f"{var_name}{desc_str}{raw_units_str}"
             )
 
         # Handle case where data could not be loaded

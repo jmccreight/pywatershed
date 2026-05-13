@@ -38,24 +38,49 @@ LATENT_HEAT_VAPORIZATION = 2495.0e06  # J/m³
 
 
 class PRMSStreamTempHumidityCBH(ConservativeProcess):
-    """PRMS stream temperature.
+    """PRMS stream temperature with time-varying humidity input.
 
-    A representation of stream temperature from PRMS. with two structural
-    differences. This class uses:
+    PRMSStreamTemp and PRMSStreamTempHumidityCBH model stream temperature
+    following PRMS 5.2.1.1. The class :class:`PRMSStreamTemp` covers the
+    situation where humidity is supplied by the parameter files
+    (``strmtemp_humidity_flag=1``) and :class:`PRMSStreamTempHumidityCBH`
+    covers the case of when humidity is supplied by time-varying input files
+    (NetCDF CBH equivalents, e.g. ``strmtemp_humidity_flag=0``. Note there is
+    not currently an implementation for the PRMS case
+    ``strmtemp_humidity_flag=2``). This documentation provides general
+    background for both classes.
 
-    - PRMSHydraulicGeometryFull as an upstream process to get the hydraulic
-      geometry variables (which were renamed seg_flow_*)
-    - PRMSStreamShade as a shade representation to be passed/composed on
-      initialization.
+    The stream temperature classes use:
 
-    Implementation based on PRMS 5.2.1.1 with theoretical documentation given
-    by:
+    - :class:`PRMSHydraulicGeometryFull` and
+      :class:`PRMSHydraulicGeometryWidthOnly` as upstream processes which
+      provide the hydraulic geometry variables (and are renamed seg_flow_*
+      compared to the PRMS seg_* variables)
+    - :class:`PRMSStreamShadeConstant` and :class:`PRMSStreamShadeDynamic`
+      as models of stream shade. These are to be passed to or "composed" into
+      the stream temperature on initialization.
+
+    See the example notebooks
+    `examples/01_multi-process_models.ipynb
+    <https://github.com/DOI-USGS/pywatershed/blob/develop/examples/01_multi-process_models.ipynb>`__
+    and
+    `examples/02_prms_legacy_models.ipynb
+    <https://github.com/DOI-USGS/pywatershed/blob/develop/examples/02_prms_legacy_models.ipynb>`__
+    for worked examples.
+
+    This implementation is based on PRMS 5.2.1.1 with theoretical documentation
+    given by:
 
     `Markstrom, Steven L. P2S -- Coupled simulation with the
     Precipitation-Runoff Modeling System (PRMS) and the Stream Temperature
     Network (SNTemp) Models.
     No. 2012-1116. US Geological Survey, 2012.
     <https://pubs.usgs.gov/publication/ofr20121116>`__
+
+    `Sanders, M.J., Markstrom, S.L., Regan, R.S., and Atkinson, R.D., 2017,
+    Documentation of a daily mean stream temperature module — An enhancement to
+    the Precipitation-Runoff Modeling System: U.S. Geological Survey Techniques
+    and Methods, book 6, chap. D4, 18 p. <https://doi.org/10.3133/tm6D4>`__
 
     The stream temperature module computes daily mean water temperature for
     each stream segment using an energy balance approach. The module accounts
@@ -148,6 +173,7 @@ class PRMSStreamTempHumidityCBH(ConservativeProcess):
         verbose: bool = False,
         use_vectorized_shade: bool = True,
         track_energy_fluxes: bool = True,
+        atmos_exchange_factor: float = 1.0,
     ) -> None:
         super().__init__(
             control=control,
@@ -177,6 +203,9 @@ class PRMSStreamTempHumidityCBH(ConservativeProcess):
 
         self._set_inputs(input_locals)
         self._set_options(input_locals)
+
+        # Store atmospheric exchange factor for sensitivity testing
+        self._atmos_exchange_factor = atmos_exchange_factor
 
         # Just the names without the catergorization, in one list.
         self._energy_flux_vars = [
@@ -779,10 +808,13 @@ class PRMSStreamTempHumidityCBH(ConservativeProcess):
         """
         # Build connectivity list (tosegment is 1-based, convert to 0-based)
         connectivity = []
+        self._outflow_mask = np.full((len(self.tosegment)), False)
         for iseg in range(self.nsegment):
             toseg = self.tosegment[iseg] - 1  # Convert to 0-based
             if toseg >= 0:  # -1 means outlet in 0-based indexing
                 connectivity.append((iseg, toseg))
+            else:
+                self._outflow_mask[iseg] = True
 
         # Use NetworkX for topological sort
         if self.nsegment > 1 and len(connectivity) > 0:
@@ -791,6 +823,19 @@ class PRMSStreamTempHumidityCBH(ConservativeProcess):
             segment_order = list(nx.topological_sort(graph))
         else:
             segment_order = list(range(self.nsegment))
+
+        # if the domain contains links with no upstream or
+        # downstream reaches, we just throw these back at the
+        # top of the order since networkx wont handle such nonsense
+        wh_mask_set = set(np.where(self._outflow_mask)[0])
+        seg_ord_set = set(segment_order)
+        mask_not_seg_ord = list(wh_mask_set - seg_ord_set)
+        if len(mask_not_seg_ord):
+            segment_order = mask_not_seg_ord + segment_order
+            for pp in mask_not_seg_ord:
+                assert ((self.tosegment[pp] - 1) == -1) and (
+                    pp not in (self.tosegment - 1)
+                )
 
         self.segment_order = np.array(segment_order, dtype=np.int32)
 
@@ -971,6 +1016,7 @@ class PRMSStreamTempHumidityCBH(ConservativeProcess):
             self._t_abs4_terms if self._track_energy_fluxes else np.zeros(1),
             self._upstream_flows if self._track_energy_fluxes else np.zeros(1),
             self._lateral_flows if self._track_energy_fluxes else np.zeros(1),
+            self._atmos_exchange_factor,
         )
 
         # Compute energy fluxes for all segments (vectorized)
@@ -1209,7 +1255,10 @@ class PRMSStreamTempHumidityCBH(ConservativeProcess):
 
         for kk in range(self.upstream_count[seg_idx]):
             up_idx = self.upstream_idx[seg_idx, kk]
-            if not np.isnan(self.seg_tave_water[up_idx]):
+            if (
+                not np.isnan(self.seg_tave_water[up_idx])
+                and self.seg_tave_water[up_idx] > NOFLOW_TEMP
+            ):
                 flow = self.seg_outflow[up_idx]
                 temp_sum += self.seg_tave_water[up_idx] * flow
                 flow_sum += flow
@@ -1540,6 +1589,7 @@ class PRMSStreamTempHumidityCBH(ConservativeProcess):
         ak1,
         ak2,
         seg_idx,
+        atmos_exchange_factor=None,
     ):
         """Compute average water temperature with lateral inflows.
 
@@ -1558,6 +1608,8 @@ class PRMSStreamTempHumidityCBH(ConservativeProcess):
         Returns:
             tw: Average water temperature (degC)
         """
+        if atmos_exchange_factor is None:
+            atmos_exchange_factor = self._atmos_exchange_factor
         return _twavg(
             qup,
             t0,
@@ -1567,7 +1619,8 @@ class PRMSStreamTempHumidityCBH(ConservativeProcess):
             ak1,
             ak2,
             self.seg_flow_width[seg_idx],
-            self.seg_length_km[seg_idx],
+            self.seg_length[seg_idx],
+            atmos_exchange_factor,
         )
 
     @staticmethod
@@ -1792,6 +1845,7 @@ class PRMSStreamTempHumidityCBH(ConservativeProcess):
         t_abs4_terms,
         upstream_flows,
         lateral_flows,
+        atmos_exchange_factor=1.0,
     ):
         """Compute water temperature for all segments.
 
@@ -1835,6 +1889,8 @@ class PRMSStreamTempHumidityCBH(ConservativeProcess):
             t_abs4_terms: Temperature^4 terms (MUTATED if tracking - output)
             upstream_flows: Upstream flow values (MUTATED if tracking - output)
             lateral_flows: Lateral flow values (MUTATED if tracking - output)
+            atmos_exchange_factor: Factor to amplify atmospheric exchange
+                (immutable, default=1.0)
         """
         for jj in segment_order:
             # Skip segments marked as never having flow (NaN = never has flow)
@@ -1849,7 +1905,10 @@ class PRMSStreamTempHumidityCBH(ConservativeProcess):
 
             for kk in range(upstream_count[jj]):
                 up_idx = upstream_idx[jj, kk]
-                if not np.isnan(seg_tave_water[up_idx]):
+                if (
+                    not np.isnan(seg_tave_water[up_idx])
+                    and seg_tave_water[up_idx] > NOFLOW_TEMP
+                ):
                     flow = seg_outflow[up_idx]
                     temp_sum += seg_tave_water[up_idx] * flow
                     flow_sum += flow
@@ -1879,9 +1938,10 @@ class PRMSStreamTempHumidityCBH(ConservativeProcess):
                 continue
 
             lateral_flow = seg_lateral_inflow[jj]
+            qlat = lateral_flow * CFS_TO_CMS
 
-            # Check if we have any inflow
-            if upstream_flow < NEARZERO and lateral_flow < NEARZERO:
+            # Match Fortran: check qlat in CMS (not lateral_flow in CFS)
+            if upstream_flow * CFS_TO_CMS <= NEARZERO and qlat <= NEARZERO:
                 seg_tave_water[jj] = NOFLOW_TEMP
                 continue
 
@@ -1931,7 +1991,6 @@ class PRMSStreamTempHumidityCBH(ConservativeProcess):
                 lateral_flows[jj] = lateral_flow
 
             # Compute final temperature using twavg function
-            qlat = lateral_flow * CFS_TO_CMS
             qup = upstream_flow
             tl_avg = seg_tave_lat[jj]
 
@@ -1945,15 +2004,16 @@ class PRMSStreamTempHumidityCBH(ConservativeProcess):
                 ak2,
                 seg_flow_width[jj],
                 seg_length[jj],
+                atmos_exchange_factor,
             )
 
 
 class PRMSStreamTemp(PRMSStreamTempHumidityCBH):
-    """PRMS stream temperature using monthly segment humidity parameter.
+    """PRMS stream temperature with monthly segment humidity parameter.
 
-    Corresponds to ``strmtemp_humidity_flag=1``. Humidity is supplied via the
-    ``seg_humidity`` parameter (12 monthly values per segment) rather than a
-    time-varying CBH input.  All other behaviour is identical to
+    Corresponds to ``strmtemp_humidity_flag=1`` where humidity is supplied via
+    the ``seg_humidity`` parameter (12 monthly values per segment) rather than
+    a time-varying CBH input. All other behaviour is identical to
     :class:`PRMSStreamTempHumidityCBH`.
 
     Args:
@@ -2014,6 +2074,7 @@ class PRMSStreamTemp(PRMSStreamTempHumidityCBH):
         verbose: bool = False,
         use_vectorized_shade: bool = True,
         track_energy_fluxes: bool = True,
+        atmos_exchange_factor: float = 1.0,
     ) -> None:
         super().__init__(
             control=control,
@@ -2044,6 +2105,7 @@ class PRMSStreamTemp(PRMSStreamTempHumidityCBH):
             verbose=verbose,
             use_vectorized_shade=use_vectorized_shade,
             track_energy_fluxes=track_energy_fluxes,
+            atmos_exchange_factor=atmos_exchange_factor,
         )
         self.name = "PRMSStreamTemp"
 
@@ -2643,6 +2705,7 @@ def _twavg(
     ak2,
     seg_flow_width,
     seg_length,
+    atmos_exchange_factor=1.0,
 ):
     """Compute average water temperature with lateral inflows.
 
@@ -2658,6 +2721,8 @@ def _twavg(
         ak2: Second-order thermal exchange coefficient (immutable)
         seg_flow_width: Flow width (immutable)
         seg_length: Segment length (immutable)
+        atmos_exchange_factor: Factor to amplify atmospheric exchange effects
+            (immutable, default=1.0)
 
     Returns:
         tw: Average water temperature (degC)
@@ -2680,28 +2745,29 @@ def _twavg(
     if ql <= NEARZERO:
         # Zero lateral flow
         tep = te
-        b = (ak1 * width) / 4182.0e03
+        b = (ak1 * atmos_exchange_factor * width) / 4182.0e03
         rexp = -1.0 * (b * length) / q_init
         r = np.exp(rexp)
 
     elif ql < 0.0:
         # Losing stream (should not happen in PRMS)
         tep = te
-        b = (ql / length) + ((ak1 * width) / 4182.0e03)
+        b = (ql / length) + ((ak1 * atmos_exchange_factor * width) / 4182.0e03)
         rexp = (ql - (b * length)) / ql
         r = 1.0 + (ql / q_init)
         r = r**rexp
 
     elif ql > NEARZERO and q_init <= NEARZERO:
         tep = te
-        b = (ak1 * width) / 4182.0e03
+        b = (ak1 * atmos_exchange_factor * width) / 4182.0e03
         rexp = -1.0 * (b * length) / ql
         r = np.exp(rexp)
 
     else:
-        b = (ql / length) + ((ak1 * width) / 4182.0e03)
+        b = (ql / length) + ((ak1 * atmos_exchange_factor * width) / 4182.0e03)
         tep = (
-            ((ql / length) * tl_avg) + (((ak1 * width) / (4182.0e03)) * te)
+            ((ql / length) * tl_avg)
+            + (((ak1 * atmos_exchange_factor * width) / (4182.0e03)) * te)
         ) / b
 
         if ql > 0.0:
@@ -2719,8 +2785,8 @@ def _twavg(
     delt = tep - t0
     denom = 1.0 + (ak2 / ak1) * delt * (1.0 - r)
 
-    if denom < 0.0:
-        denom = np.abs(denom)
+    if np.abs(denom) < NEARZERO:
+        denom = np.sign(denom) * NEARZERO if denom != 0.0 else NEARZERO
 
     tw = tep - (delt * r / denom)
     if tw < 0.0:

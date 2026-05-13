@@ -32,6 +32,11 @@ previous_vars = prev_vars_both | {
 previous_vars_obs_et = previous_vars | {
     "ag_soil_moist": pws.PRMSSoilzoneAgObsET,
     "ag_soil_rechr": pws.PRMSSoilzoneAgObsET,
+    "pref_flow_stor": pws.PRMSSoilzoneAgObsET,
+    "slow_stor": pws.PRMSSoilzoneAgObsET,
+    "soil_lower": pws.PRMSSoilzoneAgObsET,
+    "soil_rechr": pws.PRMSSoilzoneAgObsET,
+    "ssres_stor": pws.PRMSSoilzoneAgObsET,
 }
 
 previous_vars_no_dprst = prev_vars_both | {

@@ -252,8 +252,10 @@ def test_compare_prms(
             parameters = Parameters.merge(parameters, parameters_shade)
 
     # Step 2: Select class and prepare inputs based on humidity flag.
-    # flag==0: PRMSStreamTempHumidityCBH — daily CBH humidity_hru input
-    # flag==1: PRMSStreamTemp — monthly seg_humidity parameter
+    # strmtemp_humidity_flag==0: PRMSStreamTempHumidityCBH — daily CBH
+    #                            humidity_hru input
+    # strmtemp_humidity_flag==1: PRMSStreamTemp — monthly seg_humidity
+    #                            parameter
     if strmtemp_humidity_flag == 0:
         stream_temp_cls = PRMSStreamTempHumidityCBH
         stream_temp_inputs = {}

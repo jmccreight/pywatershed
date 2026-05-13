@@ -36,8 +36,14 @@ prms_src/prms5.3.0/msvs/x64/Release/
 prms_src/prms5.3.0/builddir/
 
 # prms binaries
+gsflow_src/
 prms_src/prms5.2.1/bin
+prms_src/prms5.2.1.1/bin
 prms_src/prms5.3.0/bin
+bin/libmf6.dylib
+bin/mf5to6
+bin/mf6
+bin/zbud6
 
 # prms output files
 *.out
@@ -103,7 +109,7 @@ PRMS*.so
 starfit_minimal/
 
 # asv
-.asv
+*.asv
 
 # environment files
-.env
+*.env

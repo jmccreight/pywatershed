@@ -150,7 +150,7 @@ ag_soil_moist_change_hru:
   units: inches
 ag_soil_moist_prev:
   desc: Previous timestep water storage for upper portion in the capillary
-    reservoir of the irrigated area for each HRU that.
+    reservoir of the irrigated area for each HRU.
   dims:
     0: nhru
   type: float64

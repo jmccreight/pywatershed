@@ -11,7 +11,7 @@
 # local configuration
 pytest_n=8
 # should probably clone mf6 locally and checkout latest develop
-modflow_repo_location=../../modflow6_for_pws_ci
+# modflow_repo_location=../../modflow6_for_pws_ci
 
 # options
 # all "no data" options. if passed, these turn OFF sections of the tests.
@@ -185,8 +185,8 @@ compile_prms_5211_if_needed() {
 export PYWS_FORTRAN=false
 export SETUPTOOLS_ENABLE_FEATURES="legacy-editable"
 export PYNHM_FORTRAN=false
-export $(head -n1 ../.mf6_ci_ref_remote)
-export $(tail -n1 ../.mf6_ci_ref_remote)
+# export $(head -n1 ../.mf6_ci_ref_remote)
+# export $(tail -n1 ../.mf6_ci_ref_remote)
 
 if [ -z "${i}" ]; then
     echo
@@ -236,75 +236,74 @@ if [ -z "${m}" ]; then
     echo
     echo
     echo "******************************"
-    echo "Modflow6 Update and Build"
+    echo "Modflow6 Update from nighly build"
     echo "******************************"
     echo
 
-    # name: Enforce MF6 ref and remote merge to main
-    req_ref=develop # if not develop, submit an issue
-    echo $MF6_REF
-    if [[ "$MF6_REF" != "$req_ref" ]]; then exit 1; fi
-    req_remote=MODFLOW-USGS/modflow6
-    echo $MF6_REMOTE
-    if [[ "$MF6_REMOTE" != "$req_remote" ]]; then
-        echo "bad mf6 remote in .mf6_ci_ref_remote"
-        exit 1
-    fi
+    python -m flopy.mf6.utils.generate_classes --ref develop
+    get-modflow ../bin --repo modflow6-nightly-build
+    export PATH=$PATH:../bin
 
-    # Checkout MODFLOW 6 (from $start_dir)
-    if [ ! -d $modflow_repo_location ]; then
-        git clone git@github.com:$req_remote $modflow_repo_location || exit 1
-    fi
-    cd "${modflow_repo_location}" || exit 1
-    git checkout $req_ref || exit 1
-    git fetch origin || exit 1
-    git merge origin/$req_ref || exit 1
+    # The above uses flopy tools to get the nightly build binary and
+    # to generate flopy classes against develop. There's a remote possibility
+    # those could be out of sync.
+    #
+    # I'm leaving everything below in case an MF6 local build is desired.
 
-    # Update flopy MODFLOW 6 classes in the current environment
-    cd autotest || exit 1
-    python -m flopy.mf6.utils.generate_classes || exit 8
+#     # name: Enforce MF6 ref and remote merge to main
+#     req_ref=develop # if not develop, submit an issue
+#     echo $MF6_REF
+#     if [[ "$MF6_REF" != "$req_ref" ]]; then exit 1; fi
+#     req_remote=MODFLOW-USGS/modflow6
+#     echo $MF6_REMOTE
+#     if [[ "$MF6_REMOTE" != "$req_remote" ]]; then
+#         echo "bad mf6 remote in .mf6_ci_ref_remote"
+#         exit 1
+#     fi
 
-    # Build mf6 locally instead of installing mf6 nightly build
-    # install conda env for mf6
-    cd "${modflow_repo_location}" || exit 1
-    env_name=mf64ci
-    # only necessary the first time - create env if it doesn't exist
-    if ! conda env list | grep -q "^${env_name} "; then
-        env_file=environment.yml
-        mamba remove -y --name $env_name --all || exit 1
-        mamba create -y --name $env_name || exit 1
-        mamba env update --name $env_name --file $env_file --prune || exit 1
-    fi
+#     # Checkout MODFLOW 6 (from $start_dir)
+#     if [ ! -d $modflow_repo_location ]; then
+#         git clone git@github.com:$req_remote $modflow_repo_location || exit 1
+#     fi
+#     cd "${modflow_repo_location}" || exit 1
+#     git checkout $req_ref || exit 1
+#     git fetch origin || exit 1
+#     git merge origin/$req_ref || exit 1
 
-    conda_dir=$(dirname $CONDA_EXE)
-    source $conda_dir/activate $env_name || exit 1
-    # putting this here b/c of some issues on macos 26
-    # only necessary on macOS
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        export SDKROOT=$(xcrun --sdk macosx --show-sdk-path)
-        export LIBRARY_PATH="$LIBRARY_PATH:$SDKROOT/usr/lib"
-    fi
-    if [ ! -d "buildir" ]; then
-        meson setup --prefix=$(pwd) --libdir=bin builddir || exit 11
-    fi
-    meson install -C builddir || exit 12
-    conda deactivate
+#     # Update flopy MODFLOW 6 classes in the current environment
+#     cd autotest || exit 1
+#     python -m flopy.mf6.utils.generate_classes || exit 8
 
-    cd $start_dir
+#     # Build mf6 locally instead of installing mf6 nightly build
+#     # install conda env for mf6
+#     cd "${modflow_repo_location}" || exit 1
+#     env_name=mf64ci
+#     # only necessary the first time - create env if it doesn't exist
+#     if ! conda env list | grep -q "^${env_name} "; then
+#         env_file=environment.yml
+#         mamba remove -y --name $env_name --all || exit 1
+#         mamba create -y --name $env_name || exit 1
+#         mamba env update --name $env_name --file $env_file --prune || exit 1
+#     fi
+
+#     conda_dir=$(dirname $CONDA_EXE)
+#     source $conda_dir/activate $env_name || exit 1
+#     # putting this here b/c of some issues on macos 26
+#     # only necessary on macOS
+#     if [[ "$OSTYPE" == "darwin"* ]]; then
+#         export SDKROOT=$(xcrun --sdk macosx --show-sdk-path)
+#         export LIBRARY_PATH="$LIBRARY_PATH:$SDKROOT/usr/lib"
+#     fi
+#     if [ ! -d "buildir" ]; then
+#         meson setup --prefix=$(pwd) --libdir=bin builddir || exit 11
+#     fi
+#     meson install -C builddir || exit 12
+#     conda deactivate
+
+#     cd $start_dir
+#     export PATH=$PATH:$modflow_repo_location/bin
 
 fi
-
-export PATH=$PATH:$modflow_repo_location/bin
-
-# Use the installation above if performed, else use an existing installation
-# - name: Install pywatershed
-#   run: |
-#     pip install .
-
-# - name: Version info
-#   run: |
-#     pip -V
-#     pip list
 
 if [ -z "${t}" ]; then
     echo

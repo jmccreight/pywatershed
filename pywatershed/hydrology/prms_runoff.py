@@ -66,6 +66,9 @@ class PRMSRunoff(ConservativeProcess):
             change from winter to summer
         dprst_flag: use depression storage or not? None uses value in control
             file, which otherwise defaults to True.
+        intcp_changeover_in_net_rain: Boolean flag indicating whether
+            intcp_changeover is included in net rain (GSFLOW 4.2.0 and PRMS
+            6.0.0) or not (pywatershed and PRMS < 6.0.0).
         imbalance_behavior: one of ["defer", None, "warn", "error"]
             with "defer" being the default and defering to
             control.options["imbalance_behavior"] when available. When

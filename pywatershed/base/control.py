@@ -30,12 +30,9 @@ pws_control_options_avail = [
     "imbalance_behavior",
     "calc_method",
     "dprst_flag",
-    # "restart",
     "input_dir",  #
     "input_file",
     "intcp_changeover_in_net_rain",
-    "iter_aet_flag",
-    # "load_n_time_batches",
     "netcdf_output_dir",
     "netcdf_output_var_names",
     "netcdf_output_separate_files",
@@ -63,7 +60,6 @@ prms_legacy_options_avail = [
     "dprst_flag",
     "end_time",
     "initial_deltat",
-    "iter_aet_flag",
     "nhruOutBaseFileName",
     "nhruOutVar_names",
     "nsegmentOutBaseFileName",
@@ -328,7 +324,7 @@ class Control(Accessor):
             if oo == "dprst_flag":
                 opts[oo] = bool(opts[oo][0])
             if oo == "iter_aet_flag":
-                opts[oo] = opts[oo][0].tolist()
+                opts[oo] = bool(opts[oo][0])
 
         start_time = control.control["start_time"]
         end_time = control.control["end_time"]

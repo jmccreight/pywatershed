@@ -144,7 +144,9 @@ class PRMSSoilzoneAgObsET(ConservativeProcess):
             sublimation unless snowpack
         ag_frac: Fraction of HRU that is agricultural/irrigated area
         aet_observed: Observed actual ET from CBH file for each HRU (when
-            iter_aet_flag is True). Used to calculate AET_external.
+            iter_aet_flag is True). Used to calculate AET_external. Negative
+            values are considered missing and set to zero, diabling AET
+            matching.
         dprst_flag: use depression storage or not? None uses value in control
             file, which otherwise defaults to True.
         iter_aet_flag: Flag to enable iterative AET matching. If None,
@@ -200,7 +202,6 @@ class PRMSSoilzoneAgObsET(ConservativeProcess):
         ag_frac: adaptable,
         aet_observed: adaptable,
         dprst_flag: bool | None = None,
-        iter_aet_flag: Literal[True, False] = True,
         imbalance_behavior: Literal["defer", None, "warn", "error"] = "defer",
         calc_method: Literal["numpy", None] = None,
         adjust_parameters: Literal["warn", "error", "no"] = "warn",
@@ -223,12 +224,19 @@ class PRMSSoilzoneAgObsET(ConservativeProcess):
 
         self._set_inputs(locals())
         self._set_options(locals())
+        self._iter_aet_flag = True
 
-        if hasattr(self, "_iter_aet_flag") and self._iter_aet_flag is False:
-            raise ValueError(
-                "PRMSSoilzoneAgObsET does not support iter_aet_flag=False. "
-                "Use PRMSSoilzoneAg if you do not need observed ET iteration."
-            )
+        if type(self) is PRMSSoilzoneAgObsET:
+            if (
+                "iter_aet_flag" in self.control.options
+                and not self.control.options["iter_aet_flag"]
+            ):
+                raise ValueError(
+                    "iter_aet_flag=False in the control file is inconsistent "
+                    "with PRMSSoilzoneAgObsET, which requires "
+                    "iter_aet_flag=True. Use PRMSSoilzoneAg if you do not "
+                    "need observed ET iteration."
+                )
 
         if self._dprst_flag is None:
             self._dprst_flag = True
