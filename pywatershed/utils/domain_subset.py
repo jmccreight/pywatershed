@@ -483,10 +483,14 @@ class DomainSubset:
 
         # bit of a silly pipeline, dont see another way to rename dim
         # independently of the coordinate with a dataarray
-        self._sub_cbh_files_dict = {
-            kk: xr.load_dataset(vv).rename_dims(nhm_id="nhru")
-            for kk, vv in self._full_cbh_nc_files_dict.items()
-        }
+        self._sub_cbh_files_dict = {}
+        for kk, vv in self._full_cbh_nc_files_dict.items():
+            dstmp = xr.load_dataset(vv)
+            if 'nhm_id' in dstmp.dims:
+                dstmp = dstmp.rename_dims(nhm_id="nhru")
+            # <
+            self._sub_cbh_files_dict[kk] = dstmp
+
         for kk in self._sub_cbh_files_dict.keys():
             self._sub_cbh_files_dict[kk] = self._sub_cbh_files_dict[kk].isel(
                 nhru=self._sub_nhm_ids_mask
