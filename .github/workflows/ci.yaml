@@ -142,16 +142,6 @@ jobs:
         uses: mxschmitt/action-tmate@v3
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}
 
-      - name: Setup gfortran
-        uses: fortran-lang/setup-fortran@v1
-        with:
-          compiler: gcc
-          version: 11
-
-      - name: Link gfortran dylibs on Mac
-        if: runner.os == 'macOS'
-        run: .github/scripts/symlink_gfortran_mac.sh
-
       - name: Install Dependencies via Micromamba
         uses: mamba-org/setup-micromamba@v3
         with:
@@ -161,6 +151,10 @@ jobs:
           cache-downloads: true
           create-args: >-
             python=${{matrix.python-version}}
+
+      - name: Link conda gfortran dylibs on Mac
+        if: runner.os == 'macOS'
+        run: .github/scripts/symlink_gfortran_mac.sh
 
       - name: Set environment variables
         run: |
@@ -255,16 +249,6 @@ jobs:
         uses: mxschmitt/action-tmate@v3
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}
 
-      - name: Setup gfortran
-        uses: fortran-lang/setup-fortran@v1
-        with:
-          compiler: gcc
-          version: 11
-
-      - name: Link gfortran dylibs on Mac
-        if: runner.os == 'macOS'
-        run: .github/scripts/symlink_gfortran_mac.sh
-
       - name: Install Dependencies via Micromamba
         uses: mamba-org/setup-micromamba@v3
         with:
@@ -274,6 +258,10 @@ jobs:
           cache-downloads: true
           create-args: >-
             python=${{matrix.python-version}}
+
+      - name: Link conda gfortran dylibs on Mac
+        if: runner.os == 'macOS'
+        run: .github/scripts/symlink_gfortran_mac.sh
 
       - name: Install pywatershed
         run: |
@@ -375,16 +363,6 @@ jobs:
         uses: mxschmitt/action-tmate@v3
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}
 
-      - name: Setup gfortran
-        uses: fortran-lang/setup-fortran@v1
-        with:
-          compiler: gcc
-          version: 11
-
-      - name: Link gfortran dylibs on Mac
-        if: runner.os == 'macOS'
-        run: .github/scripts/symlink_gfortran_mac.sh
-
       - name: Install Dependencies via Micromamba
         uses: mamba-org/setup-micromamba@v3
         with:
@@ -394,6 +372,10 @@ jobs:
           cache-downloads: true
           create-args: >-
             python=${{matrix.python-version}}
+
+      - name: Link conda gfortran dylibs on Mac
+        if: runner.os == 'macOS'
+        run: .github/scripts/symlink_gfortran_mac.sh
 
       - name: Install pywatershed
         run: |
@@ -513,16 +495,6 @@ jobs:
           echo "PYTHON_VERSION=${{ matrix.python-version }}" >> $GITHUB_ENV
           cat .mf6_ci_ref_remote  >> $GITHUB_ENV
 
-      - name: Setup gfortran
-        uses: fortran-lang/setup-fortran@v1
-        with:
-          compiler: gcc
-          version: 11
-
-      - name: Link gfortran dylibs on Mac
-        if: runner.os == 'macOS'
-        run: .github/scripts/symlink_gfortran_mac.sh
-
       - name: Install Dependencies via Micromamba
         uses: mamba-org/setup-micromamba@v3
         with:
@@ -532,6 +504,10 @@ jobs:
           cache-downloads: true
           create-args: >-
             python=${{matrix.python-version}}
+
+      - name: Link conda gfortran dylibs on Mac
+        if: runner.os == 'macOS'
+        run: .github/scripts/symlink_gfortran_mac.sh
 
       - name: Enforce MF6 ref and remote merge to main
         # need the code to update flopy but can get the binary
@@ -763,16 +739,6 @@ jobs:
           echo $MF6_REMOTE
           if [[ "$MF6_REMOTE" != "$req_remote" ]]; then echo "bad mf6 remote in .mf6_ci_ref_remote"; exit 1; fi
 
-      - name: Setup gfortran
-        uses: fortran-lang/setup-fortran@v1
-        with:
-          compiler: gcc
-          version: 11
-
-      - name: Link gfortran dylibs on Mac
-        if: runner.os == 'macOS'
-        run: .github/scripts/symlink_gfortran_mac.sh
-
       - name: Install Dependencies via Micromamba
         uses: mamba-org/setup-micromamba@v3
         with:
@@ -782,6 +748,10 @@ jobs:
           cache-downloads: true
           create-args: >-
             python=${{matrix.python-version}}
+
+      - name: Link conda gfortran dylibs on Mac
+        if: runner.os == 'macOS'
+        run: .github/scripts/symlink_gfortran_mac.sh
 
       - name: Install pywatershed
         run: |
@@ -874,16 +844,6 @@ jobs:
         uses: mxschmitt/action-tmate@v3
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}
 
-      - name: Setup gfortran
-        uses: fortran-lang/setup-fortran@v1
-        with:
-          compiler: gcc
-          version: 11
-
-      - name: Link gfortran dylibs on Mac
-        if: runner.os == 'macOS'
-        run: .github/scripts/symlink_gfortran_mac.sh
-
       - name: Install Dependencies via Micromamba
         uses: mamba-org/setup-micromamba@v3
         with:
@@ -893,6 +853,10 @@ jobs:
           cache-downloads: true
           create-args: >-
             python=${{matrix.python-version}}
+
+      - name: Link conda gfortran dylibs on Mac
+        if: runner.os == 'macOS'
+        run: .github/scripts/symlink_gfortran_mac.sh
 
       - name: Install pywatershed
         run: |
@@ -990,16 +954,6 @@ jobs:
         uses: mxschmitt/action-tmate@v3
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}
 
-      - name: Setup gfortran
-        uses: fortran-lang/setup-fortran@v1
-        with:
-          compiler: gcc
-          version: 11
-
-      - name: Link gfortran dylibs on Mac
-        if: runner.os == 'macOS'
-        run: .github/scripts/symlink_gfortran_mac.sh
-
       - name: Install Dependencies via Micromamba
         uses: mamba-org/setup-micromamba@v3
         with:
@@ -1009,6 +963,10 @@ jobs:
           cache-downloads: true
           create-args: >-
             python=${{matrix.python-version}}
+
+      - name: Link conda gfortran dylibs on Mac
+        if: runner.os == 'macOS'
+        run: .github/scripts/symlink_gfortran_mac.sh
 
       - name: Install pywatershed
         run: |
@@ -1167,16 +1125,6 @@ jobs:
         uses: mxschmitt/action-tmate@v3
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}
 
-      - name: Setup gfortran
-        uses: fortran-lang/setup-fortran@v1
-        with:
-          compiler: gcc
-          version: 11
-
-      - name: Link gfortran dylibs on Mac
-        if: runner.os == 'macOS'
-        run: .github/scripts/symlink_gfortran_mac.sh
-
       - name: Install Dependencies via Micromamba
         uses: mamba-org/setup-micromamba@v3
         with:
@@ -1186,6 +1134,10 @@ jobs:
           cache-downloads: true
           create-args: >-
             python=${{matrix.python-version}}
+
+      - name: Link conda gfortran dylibs on Mac
+        if: runner.os == 'macOS'
+        run: .github/scripts/symlink_gfortran_mac.sh
 
       - name: Install pywatershed
         run: |
