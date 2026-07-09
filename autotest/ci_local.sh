@@ -729,6 +729,21 @@ if [ -z "${t}" ]; then
             test_prms_runoff_soilzone_ag.py \
             test_prms_dyn_params.py || exit 1
 
+        echo ".........."
+        echo "fgr_ag_2yr_analysis transp_frost_dynamic - pywatershed tests"
+        echo ".........."
+        echo
+        # analysis.control only: these tests skip without dynamic frost dates
+        pytest \
+            -vv \
+            -rs \
+            -n=$pytest_n \
+            --domain=fgr_ag_2yr \
+            --control_pattern=analysis.control \
+            --durations=0 \
+            --error-for-skips \
+            test_prms_atmosphere_transp_frost_dynamic.py || exit 1
+
     fi
 fi
 
