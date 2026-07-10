@@ -53,4 +53,4 @@ dependencies:
       - pyPRMS
       - modflow-devtools[dfn]==1.7.0
       - pytest-error-for-skips
-      - "flopy[codegen]" @ git+https://github.com/modflowpy/flopy.git
+      - "flopy[codegen] @ git+https://github.com/modflowpy/flopy.git"
