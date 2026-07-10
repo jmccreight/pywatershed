@@ -1,22 +1,26 @@
 #!/usr/bin/env bash
 
-# get full gfortran version string
-# assumes installed via brew as by
-# https://github.com/fortran-lang/setup-fortran
+# Symlink gfortran runtime libraries from the active conda environment
+# (gfortran is provided by environment.yml) into /usr/local/lib, which is
+# on dyld's default fallback search path. This lets the prebuilt binaries
+# in bin/ resolve @rpath/libgfortran.5.dylib etc. regardless of the rpaths
+# they were built with.
 #
-# sed not head for first line, avoid ruby broken pipe issues
-# (https://stackoverflow.com/a/2845541/6514033)
-full_version=$(brew info gfortran | sed -n 1p | cut -d' ' -f 4)
+# Requires the micromamba environment to be activated (CONDA_PREFIX set),
+# so this must run after the setup-micromamba step.
 
-# get major version
-version=$(echo "$full_version" | cut -d'.' -f 1)
-
-# symlink gfortran libraries
-old_libdir="/usr/local/opt/gcc/lib/gcc/${version}"
-new_libdir="/usr/local/lib/"
-mkdir -p "$new_libdir"
-if [ -d "$old_libdir" ]
-then
-  sudo ln -fs "$old_libdir/libgfortran.5.dylib" "$new_libdir/libgfortran.5.dylib"
-  sudo ln -fs "$old_libdir/libquadmath.0.dylib" "$new_libdir/libquadmath.0.dylib"
+if [ -z "${CONDA_PREFIX}" ]; then
+    echo "CONDA_PREFIX is not set: activate the conda environment first"
+    exit 1
 fi
+
+new_libdir="/usr/local/lib"
+sudo mkdir -p "$new_libdir"
+for lib in libgfortran.5.dylib libquadmath.0.dylib; do
+    src="${CONDA_PREFIX}/lib/${lib}"
+    if [ ! -f "$src" ]; then
+        echo "Not found: $src"
+        exit 1
+    fi
+    sudo ln -fs "$src" "${new_libdir}/${lib}"
+done
