@@ -16,6 +16,13 @@ v3.0.0 (Unreleased)
 
 New Features
 ~~~~~~~~~~~~~~~~
+- The new staticmethod :meth:`Model.solve_inputs` determines where each process
+  input comes from — another process or a file — from a process list or model
+  dictionary, without instantiating a Model or requiring any files to exist.
+  Useful for determining the file inputs a model configuration requires, e.g.
+  when forcing a sub-model from another model's outputs. Model construction
+  uses the same implementation internally.
+  (:pull:`XXX`) By `James McCreight <https://github.com/jmccreight>`_.
 - The :class:`base.ConservativeProcess` class now supports both mass and energy budgets.
   Processes can specify which quantity to budget using the ``quantity`` parameter in
   ``_set_budget()``. The new ``mass_budget`` and ``energy_budget`` properties provide
