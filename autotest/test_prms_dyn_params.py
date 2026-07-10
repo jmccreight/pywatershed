@@ -142,6 +142,66 @@ class TestPrmsDynamicParameter:
             # Check data values (exact match for integers)
             np.testing.assert_array_equal(dyn_param.data, expected["data"])
 
+    def test_daily_data_array_forward_fill_mid_window(self):
+        """Forward-fill when daily_start_date falls between file dates.
+
+        The values in effect at daily_start_date come from the most recent
+        file date at or before it, as PRMS applies dynamic updates.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir = pl.Path(tmpdir)
+            file_path = tmpdir / "test_int.dyn"
+            expected = self.create_sample_dyn_param_file(
+                file_path, dtype="int"
+            )
+
+            # start between the first (2020-01-15) and second (2020-06-01)
+            # file dates
+            dyn_param = PrmsDynamicParameter.load(file_path, dtype="int")
+            dyn_param.daily_start_date = "2020-03-01"
+            dyn_param.daily_end_date = "2020-06-02"
+            daily = dyn_param.daily_data_array
+
+            assert daily.shape == (94, expected["nhru"])
+            # 2020-03-01 through 2020-05-31 (92 days) forward-fill the
+            # 2020-01-15 values from before the window
+            np.testing.assert_array_equal(
+                daily.values[:92, :],
+                np.tile(expected["data"][0, :], (92, 1)),
+            )
+            # 2020-06-01 and after take the second entry
+            np.testing.assert_array_equal(
+                daily.values[92:, :],
+                np.tile(expected["data"][1, :], (2, 1)),
+            )
+
+    def test_daily_data_array_fill_before_first_date(self):
+        """Days before the first date in the file remain fill values."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir = pl.Path(tmpdir)
+            file_path = tmpdir / "test_int.dyn"
+            expected = self.create_sample_dyn_param_file(
+                file_path, dtype="int"
+            )
+
+            # start two days before the first file date (2020-01-15)
+            dyn_param = PrmsDynamicParameter.load(file_path, dtype="int")
+            dyn_param.daily_start_date = "2020-01-13"
+            dyn_param.daily_end_date = "2020-01-16"
+            daily = dyn_param.daily_data_array
+
+            assert daily.shape == (4, expected["nhru"])
+            # 2020-01-13 and 2020-01-14 precede all file dates: fill values
+            np.testing.assert_array_equal(
+                daily.values[:2, :],
+                np.full((2, expected["nhru"]), -999, dtype=np.int32),
+            )
+            # 2020-01-15 and 2020-01-16 take the first entry
+            np.testing.assert_array_equal(
+                daily.values[2:, :],
+                np.tile(expected["data"][0, :], (2, 1)),
+            )
+
     def test_round_trip_float(self):
         """Test reading and writing a float file produces identical results."""
         with tempfile.TemporaryDirectory() as tmpdir:
