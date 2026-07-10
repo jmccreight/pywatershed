@@ -289,27 +289,69 @@ Divergence observed between GSFLOW and pywatershed is **dominated by
   - Note: the analysis phase emits many non-fatal `soil_lower exceeds
     soil_lower_stor_max` mass-balance messages (GSFLOW continues) — check
     whether pywatershed reproduces this.
-- **Run 2 (pywatershed): driver written, not yet run.** `02_pywatershed/run.py`
-  — two chained phases reusing run 1's controls, full-model restart via
+- **Run 2 (pywatershed): EXECUTED (2026-07-10), all three phases.**
+  Verification of transpiration against GSFLOW (2001, exact 0-mismatch
+  both ways): `analysis_dynamic_frost` `transp_on` == GSFLOW's
+  dynamic-frost output (`test_data/fgr_ag_2yr/output_analysis`), and
+  `analysis_static_frost` `transp_on` == GSFLOW's static output
+  (`.../output_spinup`); the variants differ from each other at 17,481
+  day-hru values (155 days), matching the standalone autotest. **Effect
+  of dynamic frost on 2001 results** (annual sums, dynamic vs static):
+  `ag_irrigation_add` **+14.2%** (volume +5.4%), `ag_actet` +10.3%,
+  `hru_actet` +3.7%, recharge −1.4%, sroff −3.7%, `seg_outflow` −1.25%.
+  Direction coherent: dynamic 2001 frost dates extend the transpiration
+  season and irrigation is only added while `transp_on` is true.
+  Driver details: `02_pywatershed/run.py`
+  — a year-1 spinup plus **two year-2 analysis variants**, all reusing run 1's
+  controls, with full-model restart via
   `control.options["restart_write"/"restart_read"]` (freq `"y"` → writes
   `2000-12-31-*.nc`; year-2 `init_time = start - 1 step = 2000-12-31` reads
-  them). Based on `examples/10_ag_irrigation_use.ipynb` (OL/Analysis process
-  lists, ag_frac handling) but with two corrections vs. the notebook:
-  - Uses **`PRMSAtmosphereTranspFrost`** (not plain `PRMSAtmosphere`) to match
-    GSFLOW's `transp_module=transp_frost`. It inherits restart variables
-    `["tmax_sum", "transp_on"]` from `PRMSAtmosphere`, so transpiration state
-    carries across the restart boundary. PRMS-legacy params come from
-    `myparam.param` (has `fall_frost`/`spring_frost`/`tmax_index`), so the
-    absent `parameters_PRMSAtmosphereTranspFrost.nc` isn't needed.
-  - **Fidelity gap to resolve:** `PRMSAtmosphereTranspFrost.calc_transp_frost`
-    uses **static** `fall_frost`/`spring_frost` (tiled over time). GSFLOW's
-    year-2 analysis used **dynamic** frost (`dyn_*frost_flag=1`,
-    `fall_frost.dyn`/`spring_frost.dyn`). Year-1 spinup is static in both, but
-    2001 transp_on timing may diverge. pywatershed appears to have no dynamic
-    frost support — TODO confirm and decide how to handle.
+  them). Both analysis variants read the same year-1 restart (spinup is
+  static-frost in GSFLOW and pywatershed alike):
+  - `analysis_dynamic_frost` → `output_analysis_dynamic_frost/`. Uses
+    `PRMSAtmosphereTranspFrostDynamic` with the domain's
+    `fall_frost.dyn`/`spring_frost.dyn`. This is the **GSFLOW-faithful**
+    configuration (GSFLOW's analysis sets `dyn_*frost_flag=1`) and the
+    primary comparison against run 1.
+  - `analysis_static_frost` → `output_analysis_static_frost/`. Static
+    `PRMSAtmosphereTranspFrost`, otherwise identical. Quantifies the effect
+    of the dynamic-frost fix on results (2001 `transp_on` timing and
+    everything downstream of transpiration).
+  Notes:
+  - The former **fidelity gap is RESOLVED**: `PRMSAtmosphereTranspFrostDynamic`
+    (developed on `feat_frost_dyn`, merged here) reproduces GSFLOW's
+    dynamic-frost `transp_on` **exactly** on fgr_ag_2yr analysis; see
+    `autotest/test_prms_atmosphere_transp_frost_dynamic.py` (the static class
+    mismatches GSFLOW at 17,481 day-hru values there, so the variant pair is
+    expected to show real differences).
+  - Uses the TranspFrost classes (not plain `PRMSAtmosphere`) to match
+    GSFLOW's `transp_module=transp_frost`; restart variables
+    `["tmax_sum", "transp_on"]` are inherited, so transpiration state carries
+    across the restart boundary. PRMS-legacy params come from `myparam.param`
+    (has `fall_frost`/`spring_frost`/`tmax_index`), so the absent
+    `parameters_PRMSAtmosphereTranspFrost.nc` isn't needed.
+  - The driver uses the **model-dict form** of `Model`, for two reasons: the
+    process-list form orders classes via `pws.base.model.process_order_nhm`,
+    which does not contain the TranspFrost class names (they are silently
+    dropped from the model order — latent bug in the original driver), and
+    the dict form is how `fall_frost_dyn`/`spring_frost_dyn` reach the
+    process init (extra keys in a process spec pass through to `__init__`).
+  - Phases are selectable on the command line so they can be run one at a
+    time: `python run.py [spinup analysis_dynamic_frost analysis_static_frost]`
+    (default: all three, in that order).
 - **Run 3 (pywatershed below snow):** not started.
 
 ## Open questions / TODO (to confirm with James)
+
+- **PRMSRunoffAg mass-balance warnings (James: "should not be happening").**
+  Both run-2 phases emit `budget.py` warnings that the flux balance does not
+  equal the storage change for `PRMSRunoffAg_mass` on a handful of days
+  (spinup: 2000-07-02, 2000-09-18; dynamic-frost analysis: 2001-08-12 one
+  HRU, then widespread 2001-09-17..19). Mid/late-summer clustering suggests
+  an ag-irrigation or dprst term missing from the budget definition rather
+  than roundoff. Investigate later; note GSFLOW's analysis emitted its own
+  non-fatal `soil_lower exceeds soil_lower_stor_max` messages (soilzone, not
+  runoff) — possibly related, possibly not.
 
 - **Run 1 first-run check.** Verify GSFLOW writes the restart to exactly
   `output_spinup/gsflow_ic_2000-12-31.ic`; if GSFLOW derives the name from
