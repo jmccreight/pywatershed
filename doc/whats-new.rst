@@ -69,6 +69,11 @@ New Features
   (:pull:`349`, :pull:`362`) By `James McCreight <https://github.com/jmccreight>`_.
 - The :class:`PRMSAtmosphereTranspFrost` implements the transp_frost module of PRMS.
   (:pull:`354`) By `James McCreight <https://github.com/jmccreight>`_.
+- The :class:`PRMSAtmosphereTranspFrostDynamic` extends :class:`PRMSAtmosphereTranspFrost`
+  to accept dynamic (time-varying) fall_frost and spring_frost dates from PRMS dynamic
+  parameter files, reproducing PRMS/GSFLOW runs with ``dyn_fallfrost_flag`` and/or
+  ``dyn_springfrost_flag`` set.
+  By `James McCreight <https://github.com/jmccreight>`_.
 - The `load()` method of :class:`parameters.PrmsParameters` now supports reading multiple parameter
   files which are treated as addenda to the first parameter file in the list which
   contains the dimension information.
