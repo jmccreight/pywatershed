@@ -7,6 +7,9 @@ diffs/
 */output_analysis*/
 */restart/
 
+# Run 3: GSFLOW outputs converted to NetCDF model inputs (regenerated)
+*/gsflow_nc_*/
+
 # Domain input files symlinked into run dirs from test_data/fgr_ag_2yr
 # (downloaded via addtl_domain_files; not committed here)
 *.cbh

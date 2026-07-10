@@ -339,7 +339,32 @@ Divergence observed between GSFLOW and pywatershed is **dominated by
   - Phases are selectable on the command line so they can be run one at a
     time: `python run.py [spinup analysis_dynamic_frost analysis_static_frost]`
     (default: all three, in that order).
-- **Run 3 (pywatershed below snow):** not started.
+- **Run 3 (pywatershed below snow): EXECUTED (2026-07-10), all phases.**
+  Mass-balance warnings identical to run 2's (see TODO above) — the
+  imbalance is intrinsic to PRMSRunoffAg. **Bottom-line R²/NSE table and
+  findings: `README.md` (regenerate with `python compare_runs.py`).**
+  Headlines: dynamic frost is decisive for `ag_irrigation_add` (static
+  r²=0.24 vs dynamic 0.993); with frost fixed, full pywatershed nearly
+  matches the GSFLOW-forced run for irrigation (0.9930 vs 0.9934), so
+  the residual is below-snow/iteration, not snow; for spinup AET the
+  snow-dominance hypothesis holds (0.996 → 0.999996 below snow).
+  Driver details:
+  `03_pywatershed_below_snow/run.py` — phases `convert`, `spinup`,
+  `analysis` (selectable; default all). The below-snow chain
+  (`PRMSRunoffAg`, `PRMSSoilzoneAg`/`ObsET`, `PRMSGroundwater`,
+  `PRMSChannel`) is forced by run 1's GSFLOW outputs. File inputs were
+  enumerated with the new `pws.Model.solve_inputs` (developed on
+  `feat_model_input_solve`, merged here): per phase, 12 GSFLOW output
+  variables plus derived `through_rain` (needing `pk_ice_change`/
+  `freeh2o_change`, chained across the phase boundary for the analysis
+  initial previous values), plus `ag_frac` (static/dynamic as in run 2)
+  and `aet_observed` for analysis. The `convert` phase reuses the
+  test-data generation machinery (`convert_csv_to_nc`,
+  `diagnose_final_vars_to_nc`) and writes each phase a self-contained
+  input dir `gsflow_nc_{phase}/` (git-ignored), leaving the domain dir
+  untouched. No frost/transpiration classes in run 3: `transp_on` is an
+  input from GSFLOW (analysis carries GSFLOW's dynamic frost). Restart
+  chaining as in run 2.
 
 ## Open questions / TODO (to confirm with James)
 
@@ -352,6 +377,12 @@ Divergence observed between GSFLOW and pywatershed is **dominated by
   than roundoff. Investigate later; note GSFLOW's analysis emitted its own
   non-fatal `soil_lower exceeds soil_lower_stor_max` messages (soilzone, not
   runoff) — possibly related, possibly not.
+  **Evidence from run 3 (2026-07-10):** the run-3 spinup (forced by
+  GSFLOW outputs) emits *identical* warnings to run 2's spinup — same
+  dates, same HRU arrays element-for-element — so the imbalance is
+  intrinsic to the PRMSRunoffAg budget accounting, not caused by
+  upstream pywatershed inputs. (Incidentally this also implies
+  pywatershed's above-snow outputs closely match GSFLOW's.)
 
 - **Run 1 first-run check.** Verify GSFLOW writes the restart to exactly
   `output_spinup/gsflow_ic_2000-12-31.ic`; if GSFLOW derives the name from
