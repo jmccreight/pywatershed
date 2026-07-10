@@ -6,6 +6,10 @@ on:
       - reopened
       - synchronize
       - closed
+    # base branch filter: the workflow only exists for PRs targeting
+    # main, so no skipped release checks appear on ordinary PRs
+    branches:
+      - main
   release:
     types:
       - published
