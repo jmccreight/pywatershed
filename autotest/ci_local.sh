@@ -385,6 +385,7 @@ if [ -z "${t}" ]; then
             --ignore=test_output.py \
             --ignore=test_pass_through_flow_graph.py \
             --ignore=test_prms_atmosphere_transp_frost.py \
+            --ignore=test_prms_atmosphere_transp_frost_dynamic.py \
             --ignore=test_prms_channel.py \
             --ignore=test_prms_channel_flow_graph.py \
             --ignore=test_prms_et.py \
@@ -445,6 +446,7 @@ if [ -z "${t}" ]; then
             --ignore=test_output.py \
             --ignore=test_pass_through_flow_graph.py \
             --ignore=test_prms_atmosphere_transp_frost.py \
+            --ignore=test_prms_atmosphere_transp_frost_dynamic.py \
             --ignore=test_prms_channel_flow_graph.py \
             --ignore=test_prms_hydraulic_geometry.py \
             --ignore=test_prms_runoff_ag.py \
@@ -513,6 +515,7 @@ if [ -z "${t}" ]; then
             --ignore=test_obsin_flow_node.py \
             --ignore=test_prms_dyn_params.py \
             --ignore=test_prms_atmosphere_transp_frost.py \
+            --ignore=test_prms_atmosphere_transp_frost_dynamic.py \
             --ignore=test_prms_hydraulic_geometry.py \
             --ignore=test_prms_stream_temp.py \
             --ignore=test_domain_subset.py \
@@ -632,6 +635,7 @@ if [ -z "${t}" ]; then
             --ignore=test_output.py \
             --ignore=test_pass_through_flow_graph.py \
             --ignore=test_prms_atmosphere_transp_frost.py \
+            --ignore=test_prms_atmosphere_transp_frost_dynamic.py \
             --ignore=test_mmr_to_mf6_dfw.py \
             --ignore=test_prms_hydraulic_geometry.py \
             --ignore=test_prms_stream_temp.py \
