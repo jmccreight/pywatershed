@@ -10,7 +10,6 @@ dependencies:
   - contextily
   - epiweeks4cf
   - filelock
-  - flopy[codegen]
   - folium
   - geopandas
   - geoviews
@@ -54,3 +53,4 @@ dependencies:
       - pyPRMS
       - modflow-devtools[dfn]==1.7.0
       - pytest-error-for-skips
+      - "flopy[codegen]" @ git+https://github.com/modflowpy/flopy.git
