@@ -527,8 +527,18 @@ class PrmsDynamicParameter:
         full_data = np.full((n_days, self.nhru), fill_value, dtype=data_dtype)
 
         # Fill in data where we have it, forward-filling between known dates
-        # First, find which data index applies to each day (forward-fill logic)
+        # First, find which data index applies to each day (forward-fill
+        # logic). Seed with the most recent date at or before start_date so
+        # that days preceding the first in-window date are forward-filled
+        # from earlier data, as PRMS applies the most recent update at or
+        # before the current date.
         current_data_idx = None
+        for idx, date in enumerate(dates_as_datetime):
+            if date <= start_date:
+                current_data_idx = idx
+            else:
+                break
+
         for i, date in enumerate(all_dates):
             if date in date_to_index:
                 # We have data for this date, use it

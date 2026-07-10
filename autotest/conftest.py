@@ -19,8 +19,8 @@ def pytest_addoption(parser):
         default=[],
         help=(
             "Domain(s) to run (name of domain dir and NOT path to it). "
-            "You can pass multiples of this argument. If not used, "
-            "defaults to drb_2yr."
+            "You can pass multiples of this argument. Required for tests "
+            "using the simulation fixture (unless --all_domains is used)."
         ),
     )
 
@@ -148,8 +148,6 @@ def pytest_generate_tests(metafunc):
     if all_domains_option:
         # This is somewhat arbitrary
         domain_list = ["hru_1", "drb_2yr", "ucb_2yr"]
-    elif not all_domains_option and not len(domain_list):
-        domain_list = ["drb_2yr"]
 
     control_pattern_list = metafunc.config.getoption("control_pattern")
 
@@ -157,6 +155,11 @@ def pytest_generate_tests(metafunc):
         return
 
     if "simulation" in metafunc.fixturenames:
+        if not len(domain_list):
+            raise ValueError(
+                "Tests using the simulation fixture require --domain "
+                "(may be repeated) or --all_domains."
+            )
         simulations = collect_simulations(domain_list, control_pattern_list)
 
         # Put --print_ans in the domain fixture as it applies only to the
