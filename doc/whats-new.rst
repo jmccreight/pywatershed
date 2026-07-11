@@ -16,6 +16,13 @@ v3.0.0 (Unreleased)
 
 New Features
 ~~~~~~~~~~~~~~~~
+- The new staticmethod :meth:`Model.solve_inputs` determines where each process
+  input comes from — another process or a file — from a process list or model
+  dictionary, without instantiating a Model or requiring any files to exist.
+  Useful for determining the file inputs a model configuration requires, e.g.
+  when forcing a sub-model from another model's outputs. Model construction
+  uses the same implementation internally.
+  (:pull:`XXX`) By `James McCreight <https://github.com/jmccreight>`_.
 - The :class:`base.ConservativeProcess` class now supports both mass and energy budgets.
   Processes can specify which quantity to budget using the ``quantity`` parameter in
   ``_set_budget()``. The new ``mass_budget`` and ``energy_budget`` properties provide
@@ -69,6 +76,11 @@ New Features
   (:pull:`349`, :pull:`362`) By `James McCreight <https://github.com/jmccreight>`_.
 - The :class:`PRMSAtmosphereTranspFrost` implements the transp_frost module of PRMS.
   (:pull:`354`) By `James McCreight <https://github.com/jmccreight>`_.
+- The :class:`PRMSAtmosphereTranspFrostDynamic` extends :class:`PRMSAtmosphereTranspFrost`
+  to accept dynamic (time-varying) fall_frost and spring_frost dates from PRMS dynamic
+  parameter files, reproducing PRMS/GSFLOW runs with ``dyn_fallfrost_flag`` and/or
+  ``dyn_springfrost_flag`` set.
+  By `James McCreight <https://github.com/jmccreight>`_.
 - The `load()` method of :class:`parameters.PrmsParameters` now supports reading multiple parameter
   files which are treated as addenda to the first parameter file in the list which
   contains the dimension information.

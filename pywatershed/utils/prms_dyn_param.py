@@ -825,8 +825,8 @@ def get_dynamic_param_files_from_control(
         flag_name = config["flag_name"]
 
         # Check if the flag is set and enabled (value = 1)
-        flag_value = getattr(control.options, flag_name, 0)
-        if isinstance(flag_value, list):
+        flag_value = control.options.get(flag_name, 0)
+        if isinstance(flag_value, (list, np.ndarray)):
             flag_value = flag_value[0]
         flag_value = int(flag_value)
 
@@ -834,11 +834,11 @@ def get_dynamic_param_files_from_control(
             continue
 
         # Check if the file path is specified
-        if not hasattr(control.options, param_name):
+        if param_name not in control.options.keys():
             continue
 
-        file_path = getattr(control.options, param_name)
-        if isinstance(file_path, list):
+        file_path = control.options[param_name]
+        if isinstance(file_path, (list, np.ndarray)):
             file_path = file_path[0]
 
         # Resolve the path relative to control directory

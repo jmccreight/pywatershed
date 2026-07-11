@@ -311,6 +311,7 @@ jobs:
           --ignore=test_output.py
           --ignore=test_pass_through_flow_graph.py
           --ignore=test_prms_atmosphere_transp_frost.py
+          --ignore=test_prms_atmosphere_transp_frost_dynamic.py
           --ignore=test_prms_channel.py
           --ignore=test_prms_channel_flow_graph.py
           --ignore=test_prms_et.py
@@ -426,6 +427,7 @@ jobs:
           --ignore=test_output.py
           --ignore=test_pass_through_flow_graph.py
           --ignore=test_prms_atmosphere_transp_frost.py
+          --ignore=test_prms_atmosphere_transp_frost_dynamic.py
           --ignore=test_prms_channel_flow_graph.py
           --ignore=test_prms_hydraulic_geometry.py
           --ignore=test_prms_runoff_ag.py
@@ -599,6 +601,7 @@ jobs:
           --ignore=test_obsin_flow_node.py
           --ignore=test_prms_dyn_params.py
           --ignore=test_prms_atmosphere_transp_frost.py
+          --ignore=test_prms_atmosphere_transp_frost_dynamic.py
           --ignore=test_prms_hydraulic_geometry.py
           --ignore=test_prms_stream_temp.py
           --ignore=test_domain_subset.py
@@ -797,6 +800,7 @@ jobs:
           --ignore=test_output.py
           --ignore=test_pass_through_flow_graph.py
           --ignore=test_prms_atmosphere_transp_frost.py
+          --ignore=test_prms_atmosphere_transp_frost_dynamic.py
           --ignore=test_mmr_to_mf6_dfw.py
           --ignore=test_prms_hydraulic_geometry.py
           --ignore=test_prms_stream_temp.py
@@ -1089,6 +1093,22 @@ jobs:
           test_prms_soilzone_ag_restart.py
           test_prms_dyn_params.py
 
+      # analysis.control only: these tests skip without dynamic frost dates
+      - name: fgr_ag_2yr_analysis transp_frost_dynamic - pywatershed tests
+        working-directory: autotest
+        run: pytest
+          -vv
+          -rs
+          -n=auto
+          --domain=fgr_ag_2yr
+          --control_pattern=analysis.control
+          --durations=0
+          --error-for-skips
+          --cov=pywatershed
+          --cov-report=xml
+          --junitxml=pytest_fgr_ag_2yr_transp_frost_dynamic.xml
+          test_prms_atmosphere_transp_frost_dynamic.py
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v6
@@ -1096,6 +1116,7 @@ jobs:
           name: Test results for fgr_ag_2yr_subset1-${{ runner.os }}-${{ matrix.python-version }}
           path: |
             ./autotest/pytest_fgr_ag_2yr_subset1.xml
+            ./autotest/pytest_fgr_ag_2yr_transp_frost_dynamic.xml
 
       - name: Upload code coverage to Codecov
         uses: codecov/codecov-action@v5

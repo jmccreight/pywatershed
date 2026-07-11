@@ -11,6 +11,7 @@ from ..base.adapter import adaptable
 from ..base.control import Control
 from ..constants import inch2cm, nan, nearzero, one, zero
 from ..parameters import Parameters
+from ..utils.prms_dyn_param import PrmsDynamicParameter
 from ..utils.time_utils import (
     datetime_day_of_month,
     datetime_jsol,
@@ -1035,6 +1036,146 @@ class PRMSAtmosphereTranspFrost(PRMSAtmosphere):
         )  # (time)
         spring_frost = tile_space_to_time(self.spring_frost, self.ntime)
         fall_frost = tile_space_to_time(self.fall_frost, self.ntime)
+
+        self.transp_on.data[:, :] = np.where(
+            (self._jsol >= spring_frost) & (self._jsol <= fall_frost), 1, 0
+        )
+
+        return
+
+
+class PRMSAtmosphereTranspFrostDynamic(PRMSAtmosphereTranspFrost):
+    """PRMSAtmosphereTranspFrost with dynamic (time-varying) frost dates.
+
+    In this subclass, the fall_frost and spring_frost solar dates bounding
+    the transpiration period may each be supplied as a PRMS dynamic parameter
+    file (or PrmsDynamicParameter object) instead of the static parameters
+    used by PRMSAtmosphereTranspFrost. This reproduces PRMS/GSFLOW runs with
+    dyn_fallfrost_flag and/or dyn_springfrost_flag set (dynamic_param_read.f90
+    updating transp_frost.f90).
+
+    The sparse (typically annual) updates in a dynamic parameter file are
+    forward-filled to daily values, starting from the first date in the file,
+    exactly as PRMS applies updates: values from dates at or before the model
+    start time are in effect at the start, then each new date in the file
+    takes effect on that day. The model time window must begin at or after
+    the first date in each dynamic parameter file.
+
+    When neither dynamic argument is supplied, behavior is identical to
+    PRMSAtmosphereTranspFrost using the static fall_frost and spring_frost
+    parameters. When only one is supplied, the other uses its static
+    parameter.
+
+    Args:
+        fall_frost_dyn: a PRMS dynamic parameter file (e.g. fall_frost.dyn)
+            or a PrmsDynamicParameter object giving time-varying solar dates
+            of the first killing frost of the fall. If None (default), the
+            static fall_frost parameter is used.
+        spring_frost_dyn: as for fall_frost_dyn but for the solar date of
+            the last killing frost of the spring, using the static
+            spring_frost parameter if None.
+
+    See PRMSAtmosphereTranspFrost and PRMSAtmosphere for all other arguments.
+
+    See Also
+    --------
+    PRMSAtmosphereTranspFrost
+
+    """
+
+    def __init__(
+        self,
+        control: Control,
+        discretization: Parameters,
+        parameters: Parameters,
+        prcp: Union[str, pl.Path],
+        tmax: Union[str, pl.Path],
+        tmin: Union[str, pl.Path],
+        soltab_potsw: adaptable,
+        soltab_horad_potsw: adaptable,
+        fall_frost_dyn: Union[str, pl.Path, PrmsDynamicParameter] = None,
+        spring_frost_dyn: Union[str, pl.Path, PrmsDynamicParameter] = None,
+        input_aliases: dict = None,
+        verbose: bool = False,
+        restart_read: Union[pl.Path, bool] = False,
+        restart_write: Union[pl.Path, bool] = False,
+        restart_write_freq: Literal["y", "m", "d", False] = False,
+    ) -> None:
+        super().__init__(
+            control=control,
+            discretization=discretization,
+            parameters=parameters,
+            prcp=prcp,
+            tmax=tmax,
+            tmin=tmin,
+            soltab_potsw=soltab_potsw,
+            soltab_horad_potsw=soltab_horad_potsw,
+            input_aliases=input_aliases,
+            verbose=verbose,
+            restart_read=restart_read,
+            restart_write=restart_write,
+            restart_write_freq=restart_write_freq,
+        )
+
+        self._dyn_frost = {}
+        dyn_args = {
+            "fall_frost": fall_frost_dyn,
+            "spring_frost": spring_frost_dyn,
+        }
+        for name, arg in dyn_args.items():
+            if arg is None:
+                continue
+            if isinstance(arg, (str, pl.Path)):
+                arg = PrmsDynamicParameter.load(arg, dtype="int")
+            if not isinstance(arg, PrmsDynamicParameter):
+                msg = (
+                    f"{name}_dyn must be a path to a PRMS dynamic parameter "
+                    f"file or a PrmsDynamicParameter, got {type(arg)}"
+                )
+                raise TypeError(msg)
+            self._dyn_frost[name] = arg
+
+        return
+
+    def _frost_all_time(self, name: str) -> np.ndarray:
+        """Frost dates over all model time, (ntime, nhru).
+
+        From the dynamic source when supplied, forward-filled to daily from
+        the first date in the dynamic parameter file and subset to model
+        time. Otherwise the static parameter tiled over time.
+        """
+        if name not in self._dyn_frost:
+            return tile_space_to_time(self[name], self.ntime)
+
+        dyn = self._dyn_frost[name]
+        dyn.daily_start_date = None  # daily data start at first file date
+        dyn.daily_end_date = self._time[-1]
+        window = dyn.daily_data_array.sel(
+            time=slice(self._time[0], self._time[-1])
+        )
+        window_time = window["time"].values.astype("datetime64[s]")
+        if (window_time.shape != self._time.shape) or (
+            window_time != self._time
+        ).any():
+            if len(window_time):
+                data_range = f"{window_time[0]} to {window_time[-1]}"
+            else:
+                data_range = "empty"
+            msg = (
+                f"Dynamic {name} data do not cover the model time window: "
+                f"model is {self._time[0]} to {self._time[-1]} but "
+                f"daily-filled dynamic data are {data_range}"
+            )
+            raise ValueError(msg)
+
+        return window.values
+
+    def calc_transp_frost(self) -> None:
+        self._jsol = tile_time_to_space(
+            datetime_jsol(self._time), self.nhru
+        )  # (time)
+        spring_frost = self._frost_all_time("spring_frost")
+        fall_frost = self._frost_all_time("fall_frost")
 
         self.transp_on.data[:, :] = np.where(
             (self._jsol >= spring_frost) & (self._jsol <= fall_frost), 1, 0

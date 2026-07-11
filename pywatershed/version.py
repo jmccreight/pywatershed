@@ -1,5 +1,6 @@
-__version__ = "2.1.0.dev0"
+# pywatershed version file automatically created using update_version.py on July 10, 2026 11:13:59  #noqa: E501
 
+__version__ = "3.0.0.dev0"
 __pakname__ = "pywatershed"
 
 author_dict = {

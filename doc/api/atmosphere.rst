@@ -13,3 +13,4 @@ Atmospheric process models.
    PRMSSolarGeometry
    PRMSAtmosphere
    PRMSAtmosphereTranspFrost
+   PRMSAtmosphereTranspFrostDynamic
