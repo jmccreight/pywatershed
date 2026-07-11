@@ -146,6 +146,11 @@ All on the `v3.0.0` branch:
   `CITATION.cff` and the top-level `README.md`.
 - `README.md`: if the release is USGS-approved, put the approved-release
   disclaimer at the top level; otherwise keep the provisional disclaimer.
+- `code.json`: update `version:`, `downloadURL:` (the release archive,
+  e.g. `.../archive/refs/tags/3.0.0.zip`), and `metadataLastUpdated:`;
+  check `status:` still reflects the release's USGS approval status.
+  Nothing automated verifies this file, so it goes stale silently if
+  skipped.
 
 When done, check your work from the repository root (the version is
 taken from the branch name):

@@ -26,6 +26,43 @@ automation it describes).
   `develop`. Merge commits only; this keeps `main` and `develop` from
   diverging.
 
+## Pre-release content review (before RELEASE.md's steps)
+
+Before starting the numbered RELEASE.md steps, review the release
+*content* on the source branch. These are patterns that have actually
+gone stale in past releases:
+
+- **whats-new.rst placeholders**: grep the unreleased section for
+  ``:pull:`XXX``` and `Author Name`/`username` stubs; fill real PR
+  numbers (`curl -s "https://api.github.com/repos/DOI-USGS/pywatershed/pulls?state=closed&base=develop&per_page=50"`
+  maps branches to numbers). Check every entry has a `(:pull:...)`.
+- **whats-new.rst completeness**: compare merged PRs since the last
+  release against the entries; flag merged PRs with no entry (CI-only
+  changes may be skipped deliberately — ask).
+- **whats-new.rst anchor**: the new section needs a
+  `.. _whats-new.X.Y.Z:` label above its heading, matching prior
+  sections.
+- **API doc coverage**: every new public class/function exported from
+  `pywatershed/__init__.py` should appear in a hand-written
+  `doc/api/*.rst` autosummary (grep, excluding `doc/api/generated/`,
+  which is gitignored build output and often stale locally).
+- **Packaging consistency**: reconcile `pyproject.toml` dependencies
+  vs `environment.yml`/`environment_w_jupyter.yml` (conda names may
+  differ, e.g. `epiweeks4cf`); check python version pins vs
+  `requires-python` and classifiers.
+- **No development pins at release**: `git+...` URLs or unreleased
+  branches in `environment.yml`/`pyproject.toml` (e.g. a temporary
+  `flopy @ git+...develop` workaround) will be captured in the frozen
+  release envs — confirm each is intentional or replace with a
+  released version.
+- **CITATION.cff**: `cff-version:` is the CFF *schema* version and
+  must stay `1.2.0` — do not bump it with the package; `version:` and
+  `date-released:` are updated in RELEASE.md step 4 (preflight checks
+  them).
+- **code.json**: updated in RELEASE.md step 4 (`version`,
+  `downloadURL`, `metadataLastUpdated`, `status`), but verify — no
+  automated check covers this file and it goes stale silently.
+
 ## Protocol
 
 1. **Establish the release**: the version (from the invocation or ask),

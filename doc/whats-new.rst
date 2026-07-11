@@ -11,6 +11,8 @@ What's New
 
     np.random.seed(123456)
 
+.. _whats-new.3.0.0:
+
 v3.0.0 (Unreleased)
 ---------------------
 
@@ -22,7 +24,7 @@ New Features
   Useful for determining the file inputs a model configuration requires, e.g.
   when forcing a sub-model from another model's outputs. Model construction
   uses the same implementation internally.
-  (:pull:`XXX`) By `James McCreight <https://github.com/jmccreight>`_.
+  (:pull:`396`) By `James McCreight <https://github.com/jmccreight>`_.
 - The :class:`base.ConservativeProcess` class now supports both mass and energy budgets.
   Processes can specify which quantity to budget using the ``quantity`` parameter in
   ``_set_budget()``. The new ``mass_budget`` and ``energy_budget`` properties provide
@@ -80,7 +82,7 @@ New Features
   to accept dynamic (time-varying) fall_frost and spring_frost dates from PRMS dynamic
   parameter files, reproducing PRMS/GSFLOW runs with ``dyn_fallfrost_flag`` and/or
   ``dyn_springfrost_flag`` set.
-  By `James McCreight <https://github.com/jmccreight>`_.
+  (:pull:`392`) By `James McCreight <https://github.com/jmccreight>`_.
 - The `load()` method of :class:`parameters.PrmsParameters` now supports reading multiple parameter
   files which are treated as addenda to the first parameter file in the list which
   contains the dimension information.
@@ -135,19 +137,38 @@ Bug fixes
   instead of forward-filling from the most recent date at or before ``daily_start_date``
   as PRMS applies dynamic updates. Only runs starting between dynamic parameter dates
   were affected.
-  (:pull:`XXX`) By `James McCreight <https://github.com/jmccreight>`_.
+  (:pull:`393`) By `James McCreight <https://github.com/jmccreight>`_.
 - PRMS 5.2.1.1 had a bug in stream temperature where division by HRU area was repeated
   multiple times. In the old code this occurred in routing.f90 on lines 764 and
   765 and then again on 789 and 790, where ``seginc_swrad`` and ``seginc_potet`` were
   divided despite this having already occurred on lines 744 and 745. Comments
   regarding the fix are found on lines 764 and 793 in the fixed code.
-  (:pull:`XXX`) By `Author Name <https://github.com/username>`_.
+  (:pull:`383`) By `James McCreight <https://github.com/jmccreight>`_.
 
 Internal changes
 ~~~~~~~~~~~~~~~~
 - The :class:`base.ConservativeProcess` class now uses ``_mass_budget`` and
   ``_energy_budget`` attributes internally instead of ``budget``. The ``budget``
   property remains as a deprecated alias for ``_mass_budget`` for backward compatibility.
+- Release procedures were revamped: ``.github/RELEASE.md`` rewritten as a
+  concrete step-by-step guide with a running example, guarded release
+  automation jobs (checks, package build/publish, frozen conda environment
+  exports per platform), a preflight script shared between local use and CI,
+  and a version-consistency test.
+  (:pull:`395`) By `James McCreight <https://github.com/jmccreight>`_.
+- CI no longer uses ``fortran-lang/setup-fortran``; gfortran is provided by
+  the conda environment.
+  (:pull:`394`) By `James McCreight <https://github.com/jmccreight>`_.
+- CI and the conda environments temporarily install flopy from its develop
+  branch (with codegen options) to accommodate a flopy API change, until the
+  next flopy release.
+  (:pull:`397`) By `James McCreight <https://github.com/jmccreight>`_.
+- The autotests now require an explicit ``--domain`` option; the silent
+  ``drb_2yr`` default was removed.
+  (:pull:`393`) By `James McCreight <https://github.com/jmccreight>`_.
+- ``autotest/ci_local.sh`` keeps previously downloaded mf6 binaries on PATH
+  so mf6-dependent tests run even when the modflow section is skipped.
+  (:pull:`398`) By `James McCreight <https://github.com/jmccreight>`_.
 - Refactor of ``test_data/generate/convert_prms_output_to_nc.py`` to put final variables into
   a separate file to run by pytests both after all other variables are generated and
   so the final variables are run serially.
