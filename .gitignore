@@ -113,3 +113,6 @@ starfit_minimal/
 
 # environment files
 *.env
+
+# claude code: personal settings stay untracked
+.claude/settings.local.json
