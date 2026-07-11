@@ -3,6 +3,7 @@ from .analysis.utils.colorbrewer import ColorBrewer
 from .atmosphere.prms_atmosphere import (
     PRMSAtmosphere,
     PRMSAtmosphereTranspFrost,
+    PRMSAtmosphereTranspFrostDynamic,
 )
 from .atmosphere.prms_solar_geometry import PRMSSolarGeometry
 from .base import meta
@@ -89,6 +90,7 @@ __all__ = (
     "ColorBrewer",
     "PRMSAtmosphere",
     "PRMSAtmosphereTranspFrost",
+    "PRMSAtmosphereTranspFrostDynamic",
     "PRMSSolarGeometry",
     "meta",
     "Adapter",
