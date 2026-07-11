@@ -1,5 +1,4 @@
 import pathlib as pl
-from copy import deepcopy
 from datetime import datetime
 from typing import Type, Union
 
@@ -444,78 +443,139 @@ class Model:
 
         return
 
-    def _solve_inputs(self):
-        """What processes supply inputs to others, what files are needed?
+    @staticmethod
+    def solve_inputs(process_list_or_model_dict) -> dict:
+        """Determine where each process input comes from, per class.
 
-        TODO: this does not currently take order into account, which could
-              be important and is now possible with order specified.
-        """
+        Answers, without instantiating a Model (or requiring any files to
+        exist): which inputs are supplied by other processes and which
+        must come from file. All information required is class-level.
+
+        Args:
+            process_list_or_model_dict: as for Model. Either a list of
+                Process classes, or a model dictionary whose process
+                specifications are dicts with a "class" key (non-dict and
+                class-less entries, e.g. control or discretizations, are
+                ignored). In the dictionary form, a specification key
+                naming an input that is also in the class's ``__init__``
+                signature counts as a passed input, satisfied by the
+                specification itself (e.g. ``ag_frac``).
+
+        Returns:
+            A dict with keys:
+
+            - ``"inputs_from"``: ``{process_name: {input_name: source}}``
+              where source is the producing process's name, or None if
+              the input must come from file. Passed inputs are omitted.
+            - ``"from_file"``: sorted list of the input names that must
+              come from file (the union of the None-sourced inputs).
+
+        Notes:
+            - Process order is not considered (matching Model
+              construction; a later process can supply an earlier one).
+            - input_aliases are not considered; names are variable names.
+
+        Examples:
+            >>> import pywatershed as pws
+            >>> below_soil = [pws.PRMSGroundwater, pws.PRMSChannel]
+            >>> pws.Model.solve_inputs(below_soil)["from_file"]
+            ['dprst_seep_hru', 'soil_to_gw', 'sroff_vol', 'ssr_to_gw', 'ssres_flow_vol']
+        """  # noqa: E501
         import inspect
 
-        proc_dict = {
-            proc_name: self.model_dict[proc_name]["class"]
-            for proc_name in self._category_key_dict["process"]
-        }
+        if isinstance(process_list_or_model_dict, (list, tuple)):
+            specs = {
+                cls.__name__: {"class": cls}
+                for cls in process_list_or_model_dict
+            }
+        else:
+            specs = {
+                kk: vv
+                for kk, vv in process_list_or_model_dict.items()
+                if isinstance(vv, dict) and "class" in vv.keys()
+            }
 
+        proc_dict = {kk: vv["class"] for kk, vv in specs.items()}
         proc_inputs = {kk: vv.get_inputs() for kk, vv in proc_dict.items()}
         proc_vars = {kk: vv.get_variables() for kk, vv in proc_dict.items()}
 
         def get_passed_args(
             proc_class: Type, proc_passed_arg_names: list
-        ) -> list:
+        ) -> set:
             signature_args = set(
                 inspect.signature(proc_class.__init__).parameters.keys()
             )
-            passed_args = (
+            return (
                 signature_args
                 & set(proc_passed_arg_names)
                 & set(proc_class.get_inputs())
             )
-            return list(passed_args)
 
         proc_passed_inputs = {
-            proc_name: get_passed_args(
-                proc_dict[proc_name], self.model_dict[proc_name].keys()
-            )
-            for proc_name in self._category_key_dict["process"]
+            kk: get_passed_args(proc_dict[kk], specs[kk].keys())
+            for kk in proc_dict.keys()
         }
 
         # Solve where inputs come from
         inputs_from = {}
         for comp in proc_dict.keys():
-            inputs = deepcopy(proc_inputs)
-            vars = deepcopy(proc_vars)
-            c_inputs = inputs.pop(comp)
-            _ = vars.pop(comp)
-
             inputs_from[comp] = {}
-            for input in c_inputs:
-                inputs_ptr = inputs_from
+            for input in proc_inputs[comp]:
                 if input in proc_passed_inputs[comp]:
                     continue
-                inputs_ptr[comp][input] = []  # could use None
-                for other in inputs.keys():
-                    if input in vars[other]:
-                        inputs_ptr[comp][input] += [other]
-                        # this should be a list of length one
-                        # check?
+                producers = [
+                    other
+                    for other in proc_dict.keys()
+                    if other != comp and input in proc_vars[other]
+                ]
+                # generally zero or one producer; the first is used
+                inputs_from[comp][input] = producers[0] if producers else None
+
+        from_file = sorted(
+            {
+                input
+                for wired in inputs_from.values()
+                for input, source in wired.items()
+                if source is None
+            }
+        )
+
+        return {"inputs_from": inputs_from, "from_file": from_file}
+
+    def _solve_inputs(self):
+        """What processes supply inputs to others, what files are needed?
+
+        The pure logic lives in the public staticmethod solve_inputs;
+        here its answer is adapted to the internal representations.
+
+        TODO: this does not currently take order into account, which could
+              be important and is now possible with order specified.
+        """
+        specs = {
+            proc_name: self.model_dict[proc_name]
+            for proc_name in self._category_key_dict["process"]
+        }
+        solved = Model.solve_inputs(specs)
+
+        # internal representation: source as a list, empty if from file
+        inputs_from = {
+            comp: {
+                input: [] if source is None else [source]
+                for input, source in wired.items()
+            }
+            for comp, wired in solved["inputs_from"].items()
+        }
 
         # If inputs dont come from other processes or self, assume they come
         # from file in input_dir or input_file. Exception is that
         # PRMSAtmosphere requires its files on init, so dont adapt these
-        input_names = set([])
-        for k0, v0 in inputs_from.items():
-            for k1, v1 in v0.items():
-                if not v1:
-                    input_names = input_names.union([k1])
+        input_names = set(solved["from_file"])
 
         # initiate the file inputs here rather than in the processes
-        file_inputs = {}
         # Use dummy names for now
-        for name in input_names:
-            file_inputs[name] = pl.Path(name)
+        file_inputs = {name: pl.Path(name) for name in input_names}
 
-        self._proc_dict = proc_dict
+        self._proc_dict = {kk: vv["class"] for kk, vv in specs.items()}
         self._inputs_from = inputs_from
         self._input_names = input_names
         self._file_inputs = file_inputs
