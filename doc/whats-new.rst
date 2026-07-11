@@ -125,6 +125,12 @@ Breaking Changes
 
 Bug fixes
 ~~~~~~~~~
+- :class:`utils.PrmsDynamicParameter` ``daily_data_array`` left fill values for days
+  between ``daily_start_date`` and the first dynamic parameter date inside that window,
+  instead of forward-filling from the most recent date at or before ``daily_start_date``
+  as PRMS applies dynamic updates. Only runs starting between dynamic parameter dates
+  were affected.
+  (:pull:`XXX`) By `James McCreight <https://github.com/jmccreight>`_.
 - PRMS 5.2.1.1 had a bug in stream temperature where division by HRU area was repeated
   multiple times. In the old code this occurred in routing.f90 on lines 764 and
   765 and then again on 789 and 790, where ``seginc_swrad`` and ``seginc_potet`` were
