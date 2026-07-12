@@ -144,8 +144,11 @@ All on the `v3.0.0` branch:
   pending minor/major section (which stays "Unreleased").
 - `CITATION.cff`: update the `version:` and `date-released:` fields (the
   `version:` field is verified by release.yaml: `check`). For a major
-  release, obtain the provisional new DOI from USGS and update it in
-  `CITATION.cff` and the top-level `README.md`.
+  release, obtain the provisional new DOI from USGS — ideally ahead of
+  time, it may require the network/VPN — and update it in all three
+  places it appears: `CITATION.cff` `identifiers:`, the `README.md` DOI
+  badge, and the `README.md` "How to Cite" line. Nothing automated
+  checks the DOI, so verify it by hand.
 - `README.md`: if the release is USGS-approved, put the approved-release
   disclaimer at the top level; otherwise keep the provisional disclaimer.
 - `code.json`: update `version:`, `downloadURL:` (the release archive,
@@ -167,7 +170,14 @@ placeholder pull-request numbers in the new section. The release PR
 runs the identical script (release.yaml: `check`), so passing locally
 means those CI checks will pass.
 
-Commit these changes to `v3.0.0` and push the branch to upstream.
+Commit these changes to `v3.0.0` and push the branch to upstream (not
+to a fork: the release branch is shared state, step 7 deletes it on
+upstream, and a same-repo PR runs the release workflows with full
+repository permissions):
+
+```shell
+git push upstream v3.0.0
+```
 
 ### 5. Open a pull request to main
 

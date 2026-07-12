@@ -76,6 +76,12 @@ gone stale in past releases:
    - Draft the commands or file edits it requires. You may make the
      file edits of step 4 (whats-new heading and date, CITATION.cff,
      README disclaimer) directly when asked; the human commits them.
+   - For a major release, ask for the new provisional DOI explicitly
+     and early (step 1, not step 4) — only the human can obtain it
+     from USGS, retrieval may need the VPN, and no automated check
+     will catch a stale DOI. It appears in three places: the
+     `README.md` badge, the `README.md` "How to Cite" line, and
+     `CITATION.cff` `identifiers:`.
    - Verify before moving on. In particular:
      - After step 4: run `.github/scripts/release_preflight.sh` and
        show the result; do not proceed until it passes.
