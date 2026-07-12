@@ -19,6 +19,7 @@ which is outlined at the start of
   - [6. Merge the pull request to main (merge, never squash)](#6-merge-the-pull-request-to-main-merge-never-squash)
   - [7. Publish the draft GitHub release](#7-publish-the-draft-github-release)
   - [8. Bring the release back into develop](#8-bring-the-release-back-into-develop)
+  - [9. Publish extended release notes on gh-pages (major releases)](#9-publish-extended-release-notes-on-gh-pages-major-releases)
 - [If something goes wrong](#if-something-goes-wrong)
 - [Utility scripts](#utility-scripts)
   - [update_version.py](#update_versionpy)
@@ -100,10 +101,11 @@ Everything intended for `3.0.0` is merged to `develop` and CI is passing
 there. Documentation requirements are met, including release notes in
 `doc/whats-new.rst` for all changes.
 
-If there are extended release notes on the `gh-pages` branch: once
-approved, set their dates to the planned release date, make sure links to
-them from `develop` match, and push `gh-pages` to confirm the rendering
-before releasing.
+If the release will have extended release notes on the `gh-pages`
+branch (typically major releases), draft and review them any time
+before or during the release, but publish them after the release
+(step 9) — their links only resolve once the tag, the merged `main`,
+and the rebuilt documentation exist.
 
 For a patch release (`2.0.5`), the fix branches from `main` instead:
 either merge the fix PR to a patch branch off `main`, or make the patch
@@ -231,6 +233,27 @@ Open a PR from `post_v3.0.0` into `develop` and merge it **with a merge
 commit** (again, never squash). This single merge is also how patch
 releases reach `develop`: after releasing `2.0.5` from `main`, the same
 main-into-develop PR carries the fix, so nothing is cherry-picked.
+
+### 9. Publish extended release notes on gh-pages (major releases)
+
+Extended release notes live on the `gh-pages` branch as a Jekyll post
+(`_posts/YYYY-MM-DD-vX-Y-Z-overview.md`) plus a link entry at the top
+of that branch's `README.md`. Before pushing:
+
+- The release date appears in four coupled places that must agree: the
+  post filename, its front-matter `date:`, the permalinks in
+  `README.md` (permalinks derive from the post date), and the dated
+  whats-new anchor in the post
+  (e.g. `whats-new.html#v3-0-0-11-july-2026`).
+- Check the links that only resolve post-release: the GitHub release
+  tag URL, the whats-new anchor, and readthedocs pages for new classes
+  (these need the documentation build from `main` to have completed).
+
+Push `gh-pages` and confirm the rendering at
+<https://doi-usgs.github.io/pywatershed/>. The notes can be edited and
+re-pushed at any time after release. Note: `gh-pages` has no
+`.pre-commit-config.yaml`, so commit there with
+`PRE_COMMIT_ALLOW_NO_CONFIG=1 git commit ...`.
 
 ## If something goes wrong
 
