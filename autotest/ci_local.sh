@@ -11,11 +11,11 @@
 # local configuration
 pytest_n=8
 # should probably clone mf6 locally and checkout latest develop
-modflow_repo_location=../../modflow6_for_pws_ci
+# modflow_repo_location=../../modflow6_for_pws_ci
 
 # options
 # all "no data" options. if passed, these turn OFF sections of the tests.
-while getopts 'hilmtosrdug' opt; do
+while getopts 'hilmtosrdufg' opt; do
     case "$opt" in
     h)
         h=h
@@ -57,6 +57,10 @@ while getopts 'hilmtosrdug' opt; do
         u=u
         echo "Not running the ucb_2yr tests"
         ;;
+    f)
+        f=f
+        echo "Not running the fgr_ag_2yr tests"
+        ;;
     g)
         g=g
         echo "Not generating test data for any run tests"
@@ -83,6 +87,8 @@ if [ ! -z "${h}" ]; then
     echo "    g: generate drb_2yr data"
     echo "  u: ucb_2yr"
     echo "    g: generate ucb_2yr data"
+    echo "  f: fgr_ag_2yr"
+    echo "    g: generate fgr_ag_2yr data"
 
     exit 0
 fi
@@ -92,12 +98,101 @@ echo ""
 
 start_dir=$(pwd)
 
+# Function to compile PRMS 5.2.1.1 if binary doesn't exist
+compile_prms_5211_if_needed() {
+    # Determine the binary name based on platform
+    case "$OSTYPE" in
+    darwin*)
+        binary_name="prms_5.2.1.1_gfortran_apple_silicon_dbl_prec"
+        ;;
+    linux*)
+        binary_name="prms_5.2.1.1_gfort_linux_dbl_prec"
+        ;;
+    msys* | cygwin* | win32)
+        binary_name="prms_5.2.1.1_gfort_win_dbl_prec.exe"
+        ;;
+    *)
+        echo "Unknown OS type: $OSTYPE"
+        return 1
+        ;;
+    esac
+
+    binary_path="../bin/$binary_name"
+
+    # Check if binary exists
+    if [ -f "$binary_path" ]; then
+        echo "PRMS 5.2.1.1 binary exists: $binary_path"
+        return 0
+    fi
+
+    echo ""
+    echo "******************************"
+    echo "Compiling PRMS 5.2.1.1"
+    echo "******************************"
+    echo "Binary not found: $binary_path"
+    echo "Compiling from source..."
+    echo ""
+
+    # Save current directory
+    orig_dir=$(pwd)
+
+    # Navigate to PRMS source directory
+    cd ../prms_src/prms5.2.1.1 || return 1
+
+    # Get make path
+    MAKE_PATH=$(which make)
+    if [ -z "$MAKE_PATH" ]; then
+        echo "Error: make not found in PATH"
+        cd "$orig_dir"
+        return 1
+    fi
+
+    # Compile
+    echo "Using make: $MAKE_PATH"
+    echo "Using gfortran: $(which gfortran)"
+    gfortran --version
+
+    $MAKE_PATH clean MAKE="$MAKE_PATH" || {
+        cd "$orig_dir"
+        return 1
+    }
+    $MAKE_PATH DBL_PREC=true FC=gfortran CC=gcc MAKE="$MAKE_PATH" || {
+        cd "$orig_dir"
+        return 1
+    }
+
+    # Copy binary to bin directory
+    if [ -f "bin/prms" ]; then
+        cp bin/prms "../../bin/$binary_name" || {
+            cd "$orig_dir"
+            return 1
+        }
+        echo "Successfully compiled and copied binary to ../../bin/$binary_name"
+    else
+        echo "Error: Compilation succeeded but bin/prms not found"
+        cd "$orig_dir"
+        return 1
+    fi
+
+    # Return to original directory
+    cd "$orig_dir" || return 1
+
+    echo ""
+    return 0
+}
+
 # name: Set environment variables
 export PYWS_FORTRAN=false
 export SETUPTOOLS_ENABLE_FEATURES="legacy-editable"
 export PYNHM_FORTRAN=false
-export $(head -n1 ../.mf6_ci_ref_remote)
-export $(tail -n1 ../.mf6_ci_ref_remote)
+# export $(head -n1 ../.mf6_ci_ref_remote)
+# export $(tail -n1 ../.mf6_ci_ref_remote)
+
+# The mf6 binaries (downloaded by the modflow section, -m to skip)
+# persist in ../bin between invocations; always put them on PATH so
+# tests needing mf6 (e.g. test_mmr_to_mf6_dfw.py) find them even when
+# the modflow section is skipped this invocation.
+export PATH="$PATH:$(cd .. && pwd)/bin"
 
 if [ -z "${i}" ]; then
     echo
@@ -147,71 +242,74 @@ if [ -z "${m}" ]; then
     echo
     echo
     echo "******************************"
-    echo "Modflow6 Update and Build"
+    echo "Modflow6 Update from nighly build"
     echo "******************************"
     echo
 
-    # name: Enforce MF6 ref and remote merge to main
-    req_ref=develop # if not develop, submit an issue
-    echo $MF6_REF
-    if [[ "$MF6_REF" != "$req_ref" ]]; then exit 1; fi
-    req_remote=MODFLOW-USGS/modflow6
-    echo $MF6_REMOTE
-    if [[ "$MF6_REMOTE" != "$req_remote" ]]; then
-        echo "bad mf6 remote in .mf6_ci_ref_remote"
-        exit 1
-    fi
+    python -m flopy.mf6.utils.generate_classes --ref develop
+    get-modflow ../bin --repo modflow6-nightly-build
+    # (../bin is already on PATH; exported unconditionally above)
 
-    # Checkout MODFLOW 6 (from $start_dir)
-    if [ ! -d $modflow_repo_location ]; then
-        git clone git@github.com:$req_remote $modflow_repo_location || exit 1
-    fi
-    cd "${modflow_repo_location}" || exit 1
-    git checkout $req_ref || exit 1
-    git fetch origin || exit 1
-    git merge origin/$req_ref || exit 1
+    # The above uses flopy tools to get the nightly build binary and
+    # to generate flopy classes against develop. There's a remote possibility
+    # those could be out of sync.
+    #
+    # I'm leaving everything below in case an MF6 local build is desired.
 
-    # Update flopy MODFLOW 6 classes in the current environment
-    cd autotest || exit 1
-    python -m flopy.mf6.utils.generate_classes || exit 8
+#     # name: Enforce MF6 ref and remote merge to main
+#     req_ref=develop # if not develop, submit an issue
+#     echo $MF6_REF
+#     if [[ "$MF6_REF" != "$req_ref" ]]; then exit 1; fi
+#     req_remote=MODFLOW-USGS/modflow6
+#     echo $MF6_REMOTE
+#     if [[ "$MF6_REMOTE" != "$req_remote" ]]; then
+#         echo "bad mf6 remote in .mf6_ci_ref_remote"
+#         exit 1
+#     fi
 
-    # Build mf6 locally instead of installing mf6 nightly build
-    # install conda env for mf6
-    cd "${modflow_repo_location}" || exit 1
-    env_name=mf64ci
-    # only necessary the first time ?
-    # env_file=environment.yml
-    # mamba remove -y --name $env_name --all || exit 1
-    # mamba create -y --name $env_name || exit 1
-    # mamba env update --name $env_name --file $env_file --prune  || exit 1
+#     # Checkout MODFLOW 6 (from $start_dir)
+#     if [ ! -d $modflow_repo_location ]; then
+#         git clone git@github.com:$req_remote $modflow_repo_location || exit 1
+#     fi
+#     cd "${modflow_repo_location}" || exit 1
+#     git checkout $req_ref || exit 1
+#     git fetch origin || exit 1
+#     git merge origin/$req_ref || exit 1
 
-    conda_dir=$(dirname $CONDA_EXE)
-    source $conda_dir/activate $env_name || exit 1
-    # putting this here b/c of some issues on macos 26
-    # export SDKROOT=$(xcrun --sdk macosx --show-sdk-path)
-    # export LIBRARY_PATH="$LIBRARY_PATH:$SDKROOT/usr/lib"
-    # only necessary the first time
-    if [ ! -d "buildir" ]; then
-        meson setup --prefix=$(pwd) --libdir=bin builddir || exit 11
-    fi
-    meson install -C builddir || exit 12
-    conda deactivate
+#     # Update flopy MODFLOW 6 classes in the current environment
+#     cd autotest || exit 1
+#     python -m flopy.mf6.utils.generate_classes || exit 8
 
-    cd $start_dir
+#     # Build mf6 locally instead of installing mf6 nightly build
+#     # install conda env for mf6
+#     cd "${modflow_repo_location}" || exit 1
+#     env_name=mf64ci
+#     # only necessary the first time - create env if it doesn't exist
+#     if ! conda env list | grep -q "^${env_name} "; then
+#         env_file=environment.yml
+#         mamba remove -y --name $env_name --all || exit 1
+#         mamba create -y --name $env_name || exit 1
+#         mamba env update --name $env_name --file $env_file --prune || exit 1
+#     fi
+
+#     conda_dir=$(dirname $CONDA_EXE)
+#     source $conda_dir/activate $env_name || exit 1
+#     # putting this here b/c of some issues on macos 26
+#     # only necessary on macOS
+#     if [[ "$OSTYPE" == "darwin"* ]]; then
+#         export SDKROOT=$(xcrun --sdk macosx --show-sdk-path)
+#         export LIBRARY_PATH="$LIBRARY_PATH:$SDKROOT/usr/lib"
+#     fi
+#     if [ ! -d "buildir" ]; then
+#         meson setup --prefix=$(pwd) --libdir=bin builddir || exit 11
+#     fi
+#     meson install -C builddir || exit 12
+#     conda deactivate
+
+#     cd $start_dir
+#     export PATH=$PATH:$modflow_repo_location/bin
 
 fi
-
-export PATH=$PATH:$modflow_repo_location/bin
-
-# Use the installation above if performed, else use an existing installation
-# - name: Install pywatershed
-#   run: |
-#     pip install .
-
-# - name: Version info
-#   run: |
-#     pip -V
-#     pip list
 
 if [ -z "${t}" ]; then
     echo
@@ -225,7 +323,11 @@ if [ -z "${t}" ]; then
 
     echo
     echo "Get GIS files for tests"
-    python pywatershed/utils/gis_files.py || exit 1
+    python -m pywatershed.utils.gis_files || exit 1
+
+    echo
+    echo "Get additional domain files for tests"
+    python -m pywatershed.utils.addtl_domain_files || exit 1
 
     cd autotest
 
@@ -237,7 +339,7 @@ if [ -z "${t}" ]; then
         echo "===================="
         echo
         echo "domainless - run tests not requiring domain data"
-        pytest -m domainless -n=$pytest_n -vv || exit 1
+        pytest -m domainless -n=$pytest_n -vv --error-for-skips || exit 1
     fi
 
     if [ -z "${s}" ]; then
@@ -275,7 +377,36 @@ if [ -z "${t}" ]; then
             -m "not domainless" \
             --domain=sagehen_5yr \
             --control_pattern=sagehen_no_cascades.control \
-            --durations=0 || exit 1
+            --durations=0 \
+            --error-for-skips \
+            --ignore=test_cbh_to_netcdf.py \
+            --ignore=test_prms_dyn_params.py \
+            --ignore=test_control_read.py \
+            --ignore=test_domain_subset.py \
+            --ignore=test_mmr_to_mf6_dfw.py \
+            --ignore=test_model.py \
+            --ignore=test_netcdf_subset.py \
+            --ignore=test_nhm_restart.py \
+            --ignore=test_obsin_flow_node.py \
+            --ignore=test_output.py \
+            --ignore=test_pass_through_flow_graph.py \
+            --ignore=test_prms_atmosphere_transp_frost.py \
+            --ignore=test_prms_atmosphere_transp_frost_dynamic.py \
+            --ignore=test_prms_channel.py \
+            --ignore=test_prms_channel_flow_graph.py \
+            --ignore=test_prms_et.py \
+            --ignore=test_prms_et_can_runoff.py \
+            --ignore=test_prms_et_canopy.py \
+            --ignore=test_prms_hydraulic_geometry.py \
+            --ignore=test_prms_soilzone_ag.py \
+            --ignore=test_prms_soilzone_ag_restart.py \
+            --ignore=test_prms_runoff.py \
+            --ignore=test_prms_runoff_ag.py \
+            --ignore=test_prms_runoff_ag_restart.py \
+            --ignore=test_prms_runoff_soilzone_ag.py \
+            --ignore=test_prms_stream_temp.py \
+            --ignore=test_source_sink_flow_node.py \
+            --ignore=test_starfit_flow_graph.py || exit 1
     fi
 
     if [ -z "${r}" ]; then
@@ -294,14 +425,11 @@ if [ -z "${t}" ]; then
             echo ".........."
             echo
             python generate_test_data.py \
-                -n=$pytest_n --domain=hru_1 --control_pattern=nhm.control \
-                --remove_prms_csvs --remove_prms_output_dirs || exit 1
+                -n=$pytest_n --domain=hru_1 \
+                --remove_prms_csvs --remove_prms_output_dirs \
+                --control_pattern=nhm.control \
+                --control_pattern=frost.control || exit 1
         fi
-
-        # - name: hru_1_nhm - list netcdf input files
-        #   working-directory: test_data
-        #   run: |
-        #     find hru_1/output -name '*.nc'
 
         echo
         echo ".........."
@@ -315,7 +443,42 @@ if [ -z "${t}" ]; then
             -m "not domainless" \
             --domain=hru_1 \
             --control_pattern=nhm.control \
-            --durations=0 || exit 1
+            --durations=0 \
+            --error-for-skips \
+            --ignore=test_domain_subset.py \
+            --ignore=test_prms_dyn_params.py \
+            --ignore=test_mmr_to_mf6_dfw.py \
+            --ignore=test_obsin_flow_node.py \
+            --ignore=test_output.py \
+            --ignore=test_pass_through_flow_graph.py \
+            --ignore=test_prms_atmosphere_transp_frost.py \
+            --ignore=test_prms_atmosphere_transp_frost_dynamic.py \
+            --ignore=test_prms_channel_flow_graph.py \
+            --ignore=test_prms_hydraulic_geometry.py \
+            --ignore=test_prms_runoff_ag.py \
+            --ignore=test_prms_runoff_ag_restart.py \
+            --ignore=test_prms_runoff_soilzone_ag.py \
+            --ignore=test_prms_soilzone_ag.py \
+            --ignore=test_prms_soilzone_ag_restart.py \
+            --ignore=test_prms_stream_temp.py \
+            --ignore=test_source_sink_flow_node.py \
+            --ignore=test_starfit_flow_graph.py || exit 1
+
+        echo
+        echo ".........."
+        echo "hru_1_nhm_transp_frost - pywatershed tests"
+        echo ".........."
+        echo
+        pytest \
+            -vv \
+            -rs \
+            -n=$pytest_n \
+            -m "not domainless" \
+            --domain=hru_1 \
+            --control_pattern=nhm_transp_frost.control \
+            --durations=0 \
+            --error-for-skips \
+            test_prms_atmosphere_transp_frost.py || exit 1
 
     fi
 
@@ -326,11 +489,15 @@ if [ -z "${t}" ]; then
         echo "DOMAIN: drb_2yr"
         echo "===================="
         echo
+
+        # Compile PRMS 5.2.1.1 if binary doesn't exist
+        compile_prms_5211_if_needed || exit 1
+
         if [ -z "${g}" ]; then
             echo
             echo ".........."
-            echo "drb_2yr with and without dprst and obsin - generate and "
-            echo "  manage test data"
+            echo "drb_2yr all configs - "
+            echo "  generate and manage test data"
             echo ".........."
             echo
             python generate_test_data.py \
@@ -338,23 +505,10 @@ if [ -z "${t}" ]; then
                 --remove_prms_csvs --remove_prms_output_dirs || exit 1
         fi
 
-        # - name: drb_2yr_nhm - list netcdf input files
-        #   working-directory: test_data
-        #   run: |
-        #     find drb_2yr/output -name '*.nc'
-
-        # - name: drb_2yr_no_dprst - list netcdf input files
-        #   working-directory: test_data
-        #   run: |
-        #     find drb_2yr/output_no_dprst -name '*.nc'
-
         echo ".........."
         echo "drb_2yr_nhm - pywatershed tests"
         echo ".........."
         echo
-        echo "Running:"
-        echo "    pytest -vv -rs -n=$pytest_n -m 'not domainless' --domain=drb_2yr "
-        echo "       --control_pattern=nhm.control   --durations=0"
         pytest \
             -vv \
             -rs \
@@ -362,7 +516,22 @@ if [ -z "${t}" ]; then
             -m "not domainless" \
             --domain=drb_2yr \
             --control_pattern=nhm.control \
-            --durations=0 || exit 1
+            --durations=0 \
+            --error-for-skips \
+            --ignore=test_obsin_flow_node.py \
+            --ignore=test_prms_dyn_params.py \
+            --ignore=test_prms_atmosphere_transp_frost.py \
+            --ignore=test_prms_atmosphere_transp_frost_dynamic.py \
+            --ignore=test_prms_hydraulic_geometry.py \
+            --ignore=test_prms_stream_temp.py \
+            --ignore=test_domain_subset.py \
+            --ignore=test_prms_runoff_ag.py \
+            --ignore=test_prms_runoff_ag_restart.py \
+            --ignore=test_prms_runoff_soilzone_ag.py \
+            --ignore=test_prms_soilzone_ag.py \
+            --ignore=test_prms_soilzone_ag_restart.py \
+            --ignore=test_source_sink_flow_node.py \
+            --ignore=test_starfit_flow_graph.py || exit 1
 
         # Specific tests not redundant with dprst
         echo ".........."
@@ -370,18 +539,19 @@ if [ -z "${t}" ]; then
         echo ".........."
         echo
         pytest \
-            test_prms_runoff.py \
-            test_prms_soilzone.py \
-            test_prms_groundwater.py \
-            test_prms_above_snow.py \
-            test_prms_below_snow.py \
             -vv \
             -rs \
             -n=$pytest_n \
             -m "not domainless" \
             --domain=drb_2yr \
             --control_pattern=no_dprst \
-            --durations=0 || exit 1
+            --durations=0 \
+            --error-for-skips \
+            test_prms_runoff.py \
+            test_prms_soilzone.py \
+            test_prms_groundwater.py \
+            test_prms_above_snow.py \
+            test_prms_below_snow.py || exit 1
 
         # # Specific tests not redundant with dprst
         echo ".........."
@@ -389,13 +559,44 @@ if [ -z "${t}" ]; then
         echo ".........."
         echo
         pytest \
-            test_obsin_flow_node.py \
             -vv \
+            -rs \
             -n=0 \
             -m "not domainless" \
             --domain=drb_2yr \
             --control_pattern=nhm_obsin.control \
-            --durations=0 || exit 1
+            --durations=0 \
+            --error-for-skips \
+            test_obsin_flow_node.py || exit 1
+
+        echo ".........."
+        echo "drb_2yr_transp_frost - pywatershed tests"
+        echo ".........."
+        echo
+        pytest \
+            -vv \
+            -rs \
+            -n=$pytest_n \
+            --domain=drb_2yr \
+            --control_pattern=nhm_transp_frost.control \
+            --durations=0 \
+            --error-for-skips \
+            test_prms_atmosphere_transp_frost.py || exit 1
+
+        echo ".........."
+        echo "drb_2yr_nhm_stream_temp - pywatershed tests"
+        echo ".........."
+        echo
+        pytest \
+            -vv \
+            -rs \
+            -n=$pytest_n \
+            --domain=drb_2yr \
+            --control_pattern=nhm_stream_temp \
+            --durations=0 \
+            --error-for-skips \
+            test_prms_hydraulic_geometry.py \
+            test_prms_stream_temp.py || exit 1
 
     fi
 
@@ -409,18 +610,17 @@ if [ -z "${t}" ]; then
         if [ -z "${g}" ]; then
             echo
             echo ".........."
-            echo "ucb_2yr_nhm - generate and manage test data"
+
+            echo "ucb_2yr all configs - generate and manage test data"
             echo ".........."
             echo
             python generate_test_data.py \
-                -n=$pytest_n --domain=ucb_2yr --control_pattern=nhm.control \
-                --remove_prms_csvs --remove_prms_output_dirs || exit 1
+                -n=$pytest_n --domain=ucb_2yr \
+                --remove_prms_csvs \
+                --remove_prms_output_dirs \
+                --control_pattern=nhm.control \
+                --control_pattern=frost.control || exit 1
         fi
-
-        # - name: ucb_2yr_nhm - list netcdf input files
-        #   working-directory: test_data
-        #   run: |
-        #     find ucb_2yr/output -name '*.nc'
 
         echo ".........."
         echo "ucb_2yr_nhm - pywatershed tests"
@@ -428,13 +628,133 @@ if [ -z "${t}" ]; then
         echo
         pytest \
             -vv \
+            -rs \
             -n=$pytest_n \
             -m "not domainless" \
             --domain=ucb_2yr \
             --control_pattern=nhm.control \
-            --durations=0 || exit 1
+            --durations=0 \
+            --error-for-skips \
+            --ignore=test_netcdf_subset.py \
+            --ignore=test_prms_dyn_params.py \
+            --ignore=test_obsin_flow_node.py \
+            --ignore=test_output.py \
+            --ignore=test_pass_through_flow_graph.py \
+            --ignore=test_prms_atmosphere_transp_frost.py \
+            --ignore=test_prms_atmosphere_transp_frost_dynamic.py \
+            --ignore=test_mmr_to_mf6_dfw.py \
+            --ignore=test_prms_hydraulic_geometry.py \
+            --ignore=test_prms_stream_temp.py \
+            --ignore=test_prms_runoff_ag.py \
+            --ignore=test_prms_runoff_ag_restart.py \
+            --ignore=test_prms_runoff_soilzone_ag.py \
+            --ignore=test_prms_soilzone_ag.py \
+            --ignore=test_prms_soilzone_ag_restart.py || exit 1
+
+        echo ".........."
+        echo "ucb_2yr_nhm_transp_frost - pywatershed tests"
+        echo ".........."
+        echo
+        pytest \
+            -vv \
+            -rs \
+            -n=$pytest_n \
+            -m "not domainless" \
+            --domain=ucb_2yr \
+            --control_pattern=nhm_transp_frost.control \
+            --durations=0 \
+            --error-for-skips \
+            test_prms_atmosphere_transp_frost.py || exit 1
     fi
 
+    if [ -z "${f}" ]; then
+        echo
+        echo
+        echo "===================="
+        echo "DOMAIN: fgr_ag_2yr"
+        echo "===================="
+        echo
+
+        if [ -z "${g}" ]; then
+            # Check and create symlink to additional domain data
+            echo
+            echo "Check/create symlink to fgr_ag_2yr domain data"
+            expected_target="../pywatershed/data/pywatershed_addtl_domains/fgr_ag_2yr"
+            symlink_path="../test_data/fgr_ag_2yr"
+
+            if [ -L "$symlink_path" ]; then
+                # Symlink exists, check if it points to the right place
+                current_target=$(readlink "$symlink_path")
+                if [ "$current_target" != "$expected_target" ]; then
+                    echo "ERROR: Symlink $symlink_path exists but points to wrong location:"
+                    echo "  Current: $current_target"
+                    echo "  Expected: $expected_target"
+                    exit 1
+                fi
+                echo "Symlink already exists and is correct"
+            elif [ -e "$symlink_path" ]; then
+                # Path exists but is not a symlink
+                echo "ERROR: $symlink_path exists but is not a symlink"
+                exit 1
+            else
+                # Create the symlink
+                ln -sfn "$expected_target" "$symlink_path" || exit 1
+                echo "Symlink created successfully"
+            fi
+
+            echo
+            echo ".........."
+            echo "fgr_ag_2yr all configs - generate and manage test data"
+            echo ".........."
+            echo
+            python generate_test_data.py \
+                -n=$pytest_n --domain=fgr_ag_2yr \
+                --remove_prms_csvs \
+                --remove_prms_output_dirs \
+                --control_pattern=spinup.control \
+                --control_pattern=analysis.control || exit 1
+
+            echo "fgr_ag_2yr - list netcdf input files"
+            find ../test_data/fgr_ag_2yr/output_spinup -name '*.nc' | sort -n
+            find ../test_data/fgr_ag_2yr/output_analysis -name '*.nc' | sort -n
+        fi
+
+        echo ".........."
+        echo "fgr_ag_2yr - pywatershed tests"
+        echo ".........."
+        echo
+        pytest \
+            -vv \
+            -rs \
+            -n=$pytest_n \
+            --domain=fgr_ag_2yr \
+            --control_pattern=spinup.control \
+            --control_pattern=analysis.control \
+            --durations=0 \
+            --error-for-skips \
+            test_prms_runoff_ag.py \
+            test_prms_runoff_ag_restart.py \
+            test_prms_soilzone_ag.py \
+            test_prms_soilzone_ag_restart.py \
+            test_prms_runoff_soilzone_ag.py \
+            test_prms_dyn_params.py || exit 1
+
+        echo ".........."
+        echo "fgr_ag_2yr_analysis transp_frost_dynamic - pywatershed tests"
+        echo ".........."
+        echo
+        # analysis.control only: these tests skip without dynamic frost dates
+        pytest \
+            -vv \
+            -rs \
+            -n=$pytest_n \
+            --domain=fgr_ag_2yr \
+            --control_pattern=analysis.control \
+            --durations=0 \
+            --error-for-skips \
+            test_prms_atmosphere_transp_frost_dynamic.py || exit 1
+
+    fi
 fi
 
 if [ -z "${i}" ]; then

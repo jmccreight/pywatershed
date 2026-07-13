@@ -1,4 +1,5 @@
 import pathlib as pl
+from typing import Literal, Union
 from warnings import warn
 
 import numpy as np
@@ -10,7 +11,12 @@ from ..base.adapter import adaptable
 from ..base.control import Control
 from ..constants import inch2cm, nan, nearzero, one, zero
 from ..parameters import Parameters
-from ..utils.time_utils import datetime_day_of_month, datetime_month
+from ..utils.prms_dyn_param import PrmsDynamicParameter
+from ..utils.time_utils import (
+    datetime_day_of_month,
+    datetime_jsol,
+    datetime_month,
+)
 from .solar_constants import solf
 
 
@@ -55,7 +61,7 @@ class PRMSAtmosphere(Process):
     complete preprocessing of the input CBH files to the fields the model
     actually uses on initialization. For an example of preprocessing the
     variables in PRMSAtmosphere, see
-    `this notebook <https://github.com/EC-USGS/pywatershed/tree/main/examples/04_preprocess_atm.ipynb>`_.
+    `this notebook <https://github.com/DOI-USGS/pywatershed/tree/main/examples/04_preprocess_atm.ipynb>`_.
 
     The full time version of a variable is given by the "private" version of
     the variable which is named with a single-leading underscore (eg tmaxf for
@@ -80,9 +86,32 @@ class PRMSAtmosphere(Process):
         soltab_potsw: the solar table of potential shortwave radiation
         soltab_horad_potsw: the solar table of potential shortwave
             radiation on a horizontal plane
-
         verbose: Print extra information or not?
-
+        restart_read:
+            May be boolean or a Pathlib.Path. If False, control.options
+            will be examined for this key. If True, the working
+            directory is searched for restart files. If a Pathlib.Path, this
+            specifies an alternative directory to search for restart files.
+            Files searched for are of the pattern YYYY-mm-dd-varname.nc where
+            the date is the control.init_time. The timestamp on the file is the
+            valid time of the states in the file with the exception of
+            processes with sub-daily timesteps. For example, the outflow_ts
+            variable of PRMSChannel is instantaneous and valid at the 23rd hour
+            of the timestampped day whereas its variable seg_outflow is the
+            daily averge value over the timestampped day.
+        restart_write:
+            As for restart_read but for writing. The directory in either
+            case will be attempted to be created if it does not exist.
+        restart_write_freq:
+            If False, then control.options is examined for this key. The
+            follwing values set the frequency of restart output with "y" for
+            yearly, "m" for monthly, "d" for daily, or "f" for final. "Final"
+            means that restart files are written with the states at
+            control.end_time to files timestampped with control.end_time.
+            Yearly and monthly restart options write files with timestamps on
+            the last day of each year or month during the run. If daily,
+            restarts are written every day. If restart_write is not False and
+            restart_write_freq is False, the default of "f" is used.
     """
 
     def __init__(
@@ -90,13 +119,17 @@ class PRMSAtmosphere(Process):
         control: Control,
         discretization: Parameters,
         parameters: Parameters,
-        prcp: [str, pl.Path],
-        tmax: [str, pl.Path],
-        tmin: [str, pl.Path],
+        prcp: Union[str, pl.Path],
+        tmax: Union[str, pl.Path],
+        tmin: Union[str, pl.Path],
         soltab_potsw: adaptable,
         soltab_horad_potsw: adaptable,
+        input_aliases: dict = None,
         verbose: bool = False,
-    ):
+        restart_read: Union[pl.Path, bool] = False,
+        restart_write: Union[pl.Path, bool] = False,
+        restart_write_freq: Literal["y", "m", "d", False] = False,
+    ) -> None:
         # Defering handling batch handling of time chunks but self.n_time_chunk
         # is a dimension used in the metadata/variables dimensions.
         # TODO: make time chunking options work (esp with output)
@@ -116,13 +149,19 @@ class PRMSAtmosphere(Process):
             control=control,
             discretization=discretization,
             parameters=parameters,
+            input_aliases=input_aliases,
             metadata_patches=metadata_patches,
             metadata_patch_conflicts="left",
+            restart_read=restart_read,
+            restart_write=restart_write,
+            restart_write_freq=restart_write_freq,
         )
         self.name = "PRMSAtmosphere"
 
         self._set_inputs(locals())
         self._set_options(locals())
+
+        self.calculate_transp = self.calc_transp_tindex
 
         self._calculated = False
         self._netcdf_initialized = False
@@ -160,7 +199,7 @@ class PRMSAtmosphere(Process):
         self.adjust_precip()
         self.calculate_sw_rad_degree_day()
         self.calculate_potential_et_jh()
-        self.calculate_transp_tindex()
+        self.calculate_transp()
 
         # JLM todo: delete large variables on self for memory management
         self._calculated = True
@@ -230,27 +269,6 @@ class PRMSAtmosphere(Process):
         )
 
     @staticmethod
-    def get_variables() -> tuple:
-        return (
-            "tmaxf",
-            "tminf",
-            "prmx",
-            "hru_ppt",
-            "hru_rain",
-            "hru_snow",
-            "swrad",
-            "potet",
-            # "hru_actet",
-            # "available_potet",
-            "transp_on",
-            "tmaxc",
-            "tavgc",
-            "tminc",
-            "pptmix",
-            "orad_hru",
-        )
-
-    @staticmethod
     def get_init_values() -> dict:
         return {
             "tmaxf": nan,
@@ -264,12 +282,28 @@ class PRMSAtmosphere(Process):
             # "hru_actet": zero,
             # "available_potet": nan,
             "transp_on": 0,
+            "tmax_sum": zero,
             "tmaxc": nan,
             "tavgc": nan,
             "tminc": nan,
             "pptmix": -9999,
             "orad_hru": nan,
         }
+
+    @staticmethod
+    def get_restart_variables() -> list:
+        # The restart capability in PRMS does not work, PRMS fails daily
+        # restart test starting on many days, including 1979-12-31
+        # as documented on
+        # nueva: ~/usgs/pywatershed/autotest/prms_restart_transp_on
+        # so a more in-depth solution is necessary.
+        # raise NotImplementedError(
+        #     "Restart capability not implemented for PRMSAtmosphere"
+        # )
+        return ["tmax_sum", "transp_on"]
+
+    def _init_diagnostic_vars(self) -> None:
+        return
 
     def _set_initial_conditions(self):
         return
@@ -677,7 +711,7 @@ class PRMSAtmosphere(Process):
     #     self.pot_et_consumed += et
     #     return et
 
-    def calculate_transp_tindex(self):
+    def calc_transp_tindex(self):
         # INIT: Process_flag==INIT
         # transp_on inited to 0 everywhere above
 
@@ -688,14 +722,12 @@ class PRMSAtmosphere(Process):
             transp_tmax_f = (self.transp_tmax * (9.0 / 5.0)) + 32.0
 
         transp_check = self.transp_on.current.copy()  # dim nhrus only
-        tmax_sum = self.transp_on.current.copy().astype(
-            "float64"
-        )  # dim nhrus only
         start_day = self.control.start_doy
         start_month = self.control.start_month
 
         motmp = start_month + self.nmonth
 
+        # time zero calculations
         for hh in range(self.nhru):
             if start_month == self.transp_beg[hh]:
                 # rsr, why 10? if transp_tmax < 300, should be < 10
@@ -709,6 +741,7 @@ class PRMSAtmosphere(Process):
                     start_month < self.transp_end[hh]
                 ):
                     self.transp_on.data[0, hh] = 1
+
             else:
                 if (start_month > self.transp_beg[hh]) or (
                     motmp < self.transp_end[hh] + self.nmonth
@@ -729,6 +762,7 @@ class PRMSAtmosphere(Process):
                     self.transp_on.data[tt, hh] = self.transp_on.data[
                         tt - 1, hh
                     ]
+                    self.tmax_sum.data[tt, hh] = self.tmax_sum.data[tt - 1, hh]
 
                 # check for month to turn check switch on or
                 # transpiration switch off
@@ -737,13 +771,13 @@ class PRMSAtmosphere(Process):
                     if self._month[tt] == self.transp_end[hh]:
                         self.transp_on.data[tt, hh] = 0
                         transp_check[hh] = 0
-                        tmax_sum[hh] = zero
+                        self.tmax_sum.data[tt, hh] = zero
 
                     # <
                     # check for month to turn transpiration switch on or off
                     if self._month[tt] == self.transp_beg[hh]:
                         transp_check[hh] = 1
-                        tmax_sum[hh] = zero
+                        self.tmax_sum.data[tt, hh] = zero
 
                 # <<
                 # If in checking period, then for each day
@@ -753,13 +787,16 @@ class PRMSAtmosphere(Process):
                 # Fahrenheit
                 if transp_check[hh] == 1:
                     if self.tmaxf.data[tt, hh] > 32.0:
-                        tmax_sum[hh] = tmax_sum[hh] + self.tmaxf.data[tt, hh]
+                        self.tmax_sum.data[tt, hh] = (
+                            self.tmax_sum.data[tt, hh]
+                            + self.tmaxf.data[tt, hh]
+                        )
 
                     # <
-                    if tmax_sum[hh] > transp_tmax_f[hh]:
+                    if self.tmax_sum.data[tt, hh] > transp_tmax_f[hh]:
                         self.transp_on.data[tt, hh] = 1
                         transp_check[hh] = 0
-                        tmax_sum[hh] = 0.0
+                        self.tmax_sum.data[tt, hh] = 0.0
 
         # <<<
         return
@@ -884,5 +921,264 @@ class PRMSAtmosphere(Process):
                     f"Writing FULL timeseries output for: {self.name}",
                     flush=True,
                 )
+            # <
             self._write_netcdf_timeseries()
+
+        # logic for when to write restarts in the function
+        self._output_restart()
+
+        return
+
+
+class PRMSAtmosphereTranspFrost(PRMSAtmosphere):
+    """PRMS atmospheric boundary layer model with a frost transpiration model.
+
+    In this subclass, the `PRMSAtmosphere` transpiration model using
+    temperature index is replaced by a specified active period between the
+    parameteres of (last) spring_frost and (first, killing) fall frost. This is
+    as implemented in the PRMS module transp_frost.f90.
+
+    See Also
+    --------
+    PRMSAtmosphere
+
+    """
+
+    def __init__(
+        self,
+        control: Control,
+        discretization: Parameters,
+        parameters: Parameters,
+        prcp: Union[str, pl.Path],
+        tmax: Union[str, pl.Path],
+        tmin: Union[str, pl.Path],
+        soltab_potsw: adaptable,
+        soltab_horad_potsw: adaptable,
+        input_aliases: dict = None,
+        verbose: bool = False,
+        restart_read: Union[pl.Path, bool] = False,
+        restart_write: Union[pl.Path, bool] = False,
+        restart_write_freq: Literal["y", "m", "d", False] = False,
+    ) -> None:
+        super().__init__(
+            control=control,
+            discretization=discretization,
+            parameters=parameters,
+            prcp=prcp,
+            tmax=tmax,
+            tmin=tmin,
+            soltab_potsw=soltab_potsw,
+            soltab_horad_potsw=soltab_horad_potsw,
+            input_aliases=input_aliases,
+            verbose=verbose,
+            restart_read=restart_read,
+            restart_write=restart_write,
+            restart_write_freq=restart_write_freq,
+        )
+
+        self.calculate_transp = self.calc_transp_frost
+
+        return
+
+    @staticmethod
+    def get_parameters():
+        return (
+            "doy",
+            "radadj_intcp",
+            "radadj_slope",
+            "tmax_index",
+            "dday_slope",
+            "dday_intcp",
+            "radmax",
+            "ppt_rad_adj",
+            "tmax_allsnow",
+            "tmax_allrain_offset",
+            "hru_slope",
+            "radj_sppt",
+            "radj_wppt",
+            "hru_lat",
+            "hru_area",
+            "hru_aspect",
+            "jh_coef",
+            "jh_coef_hru",
+            "tmax_cbh_adj",
+            "tmin_cbh_adj",
+            "tmax_allsnow",
+            "tmax_allrain_offset",
+            "snow_cbh_adj",
+            "rain_cbh_adj",
+            "adjmix_rain",
+            "fall_frost",
+            "spring_frost",
+            "radadj_intcp",  # below are solar params used by Atmosphere
+            "radadj_slope",
+            "tmax_index",
+            "dday_slope",
+            "dday_intcp",
+            "radmax",
+            "ppt_rad_adj",
+            "tmax_allsnow",
+            "tmax_allrain_offset",
+            "hru_slope",
+            "radj_sppt",
+            "radj_wppt",
+            "hru_lat",
+            "hru_area",
+            "temp_units",
+        )
+
+    def _calculate_all_time(self):
+        super()._calculate_all_time()
+
+    def calc_transp_frost(self) -> None:
+        self._jsol = tile_time_to_space(
+            datetime_jsol(self._time), self.nhru
+        )  # (time)
+        spring_frost = tile_space_to_time(self.spring_frost, self.ntime)
+        fall_frost = tile_space_to_time(self.fall_frost, self.ntime)
+
+        self.transp_on.data[:, :] = np.where(
+            (self._jsol >= spring_frost) & (self._jsol <= fall_frost), 1, 0
+        )
+
+        return
+
+
+class PRMSAtmosphereTranspFrostDynamic(PRMSAtmosphereTranspFrost):
+    """PRMSAtmosphereTranspFrost with dynamic (time-varying) frost dates.
+
+    In this subclass, the fall_frost and spring_frost solar dates bounding
+    the transpiration period may each be supplied as a PRMS dynamic parameter
+    file (or PrmsDynamicParameter object) instead of the static parameters
+    used by PRMSAtmosphereTranspFrost. This reproduces PRMS/GSFLOW runs with
+    dyn_fallfrost_flag and/or dyn_springfrost_flag set (dynamic_param_read.f90
+    updating transp_frost.f90).
+
+    The sparse (typically annual) updates in a dynamic parameter file are
+    forward-filled to daily values, starting from the first date in the file,
+    exactly as PRMS applies updates: values from dates at or before the model
+    start time are in effect at the start, then each new date in the file
+    takes effect on that day. The model time window must begin at or after
+    the first date in each dynamic parameter file.
+
+    When neither dynamic argument is supplied, behavior is identical to
+    PRMSAtmosphereTranspFrost using the static fall_frost and spring_frost
+    parameters. When only one is supplied, the other uses its static
+    parameter.
+
+    Args:
+        fall_frost_dyn: a PRMS dynamic parameter file (e.g. fall_frost.dyn)
+            or a PrmsDynamicParameter object giving time-varying solar dates
+            of the first killing frost of the fall. If None (default), the
+            static fall_frost parameter is used.
+        spring_frost_dyn: as for fall_frost_dyn but for the solar date of
+            the last killing frost of the spring, using the static
+            spring_frost parameter if None.
+
+    See PRMSAtmosphereTranspFrost and PRMSAtmosphere for all other arguments.
+
+    See Also
+    --------
+    PRMSAtmosphereTranspFrost
+
+    """
+
+    def __init__(
+        self,
+        control: Control,
+        discretization: Parameters,
+        parameters: Parameters,
+        prcp: Union[str, pl.Path],
+        tmax: Union[str, pl.Path],
+        tmin: Union[str, pl.Path],
+        soltab_potsw: adaptable,
+        soltab_horad_potsw: adaptable,
+        fall_frost_dyn: Union[str, pl.Path, PrmsDynamicParameter] = None,
+        spring_frost_dyn: Union[str, pl.Path, PrmsDynamicParameter] = None,
+        input_aliases: dict = None,
+        verbose: bool = False,
+        restart_read: Union[pl.Path, bool] = False,
+        restart_write: Union[pl.Path, bool] = False,
+        restart_write_freq: Literal["y", "m", "d", False] = False,
+    ) -> None:
+        super().__init__(
+            control=control,
+            discretization=discretization,
+            parameters=parameters,
+            prcp=prcp,
+            tmax=tmax,
+            tmin=tmin,
+            soltab_potsw=soltab_potsw,
+            soltab_horad_potsw=soltab_horad_potsw,
+            input_aliases=input_aliases,
+            verbose=verbose,
+            restart_read=restart_read,
+            restart_write=restart_write,
+            restart_write_freq=restart_write_freq,
+        )
+
+        self._dyn_frost = {}
+        dyn_args = {
+            "fall_frost": fall_frost_dyn,
+            "spring_frost": spring_frost_dyn,
+        }
+        for name, arg in dyn_args.items():
+            if arg is None:
+                continue
+            if isinstance(arg, (str, pl.Path)):
+                arg = PrmsDynamicParameter.load(arg, dtype="int")
+            if not isinstance(arg, PrmsDynamicParameter):
+                msg = (
+                    f"{name}_dyn must be a path to a PRMS dynamic parameter "
+                    f"file or a PrmsDynamicParameter, got {type(arg)}"
+                )
+                raise TypeError(msg)
+            self._dyn_frost[name] = arg
+
+        return
+
+    def _frost_all_time(self, name: str) -> np.ndarray:
+        """Frost dates over all model time, (ntime, nhru).
+
+        From the dynamic source when supplied, forward-filled to daily from
+        the first date in the dynamic parameter file and subset to model
+        time. Otherwise the static parameter tiled over time.
+        """
+        if name not in self._dyn_frost:
+            return tile_space_to_time(self[name], self.ntime)
+
+        dyn = self._dyn_frost[name]
+        dyn.daily_start_date = None  # daily data start at first file date
+        dyn.daily_end_date = self._time[-1]
+        window = dyn.daily_data_array.sel(
+            time=slice(self._time[0], self._time[-1])
+        )
+        window_time = window["time"].values.astype("datetime64[s]")
+        if (window_time.shape != self._time.shape) or (
+            window_time != self._time
+        ).any():
+            if len(window_time):
+                data_range = f"{window_time[0]} to {window_time[-1]}"
+            else:
+                data_range = "empty"
+            msg = (
+                f"Dynamic {name} data do not cover the model time window: "
+                f"model is {self._time[0]} to {self._time[-1]} but "
+                f"daily-filled dynamic data are {data_range}"
+            )
+            raise ValueError(msg)
+
+        return window.values
+
+    def calc_transp_frost(self) -> None:
+        self._jsol = tile_time_to_space(
+            datetime_jsol(self._time), self.nhru
+        )  # (time)
+        spring_frost = self._frost_all_time("spring_frost")
+        fall_frost = self._frost_all_time("fall_frost")
+
+        self.transp_on.data[:, :] = np.where(
+            (self._jsol >= spring_frost) & (self._jsol <= fall_frost), 1, 0
+        )
+
         return

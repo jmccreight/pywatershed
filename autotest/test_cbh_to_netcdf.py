@@ -82,6 +82,7 @@ answer_key = {
 }
 
 
+# really only need one case
 @pytest.mark.parametrize("var", [var_cases[0]])
 def test_cbh_files_to_df(simulation, var, params):
     the_file = simulation["dir"] / f"{var}.cbh"

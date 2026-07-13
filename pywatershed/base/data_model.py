@@ -217,6 +217,13 @@ class DatasetDict(Accessor):
         self._metadata = metadata
         self._encoding = encoding
 
+        for cat_data in ["_data_vars", "_coords"]:
+            for kk, vv in self[cat_data].items():
+                if not isinstance(vv, np.ndarray):
+                    msg = f"Coercing {cat_data[1:]}: {kk} to an np.ndarray."
+                    warnings.warn(msg)
+                    self[cat_data][kk] = np.array(vv)
+
         if "global" not in self._metadata.keys():
             self._metadata["global"] = {}
 
@@ -310,12 +317,19 @@ class DatasetDict(Accessor):
     @classmethod
     def from_dict(cls, dict_in, copy=False):
         """Return this class from a passed dictionary.
-        Args:
-            dict_in: a dictionary from which to create an instance of this
-                class
-            copy: boolean if the passed dictionary should be deep copied
-        Returns:
-            A object of this class.
+
+        Parameters
+        ----------
+        dict_in : dict
+            A dictionary from which to create an instance of this class
+        copy : bool, optional
+            If True, the passed dictionary will be deep copied. Default is
+            False.
+
+        Returns
+        -------
+        DatasetDict
+            An object of this class.
         """
         if copy:
             return cls(**deepcopy(dict_in))
@@ -682,8 +696,11 @@ class DatasetDict(Accessor):
             dd_list = [deepcopy(dd.data) for dd in dd_list]
             if del_global_src:
                 for dd in dd_list:
+                    if "global" not in dd["encoding"]:
+                        continue
                     if "source" in dd["encoding"]["global"]:
                         del dd["encoding"]["global"]["source"]
+            # <<<
             merged_dict = _merge_dicts(dd_list)
         else:
             merged_dict = _merge_dicts([deepcopy(dd.data) for dd in dd_list])
@@ -752,7 +769,7 @@ def xr_ds_to_dd(file_or_ds, schema_only=False, encoding=True) -> dict:
     the keys of coords and data_vars.
     """
     if not isinstance(file_or_ds, xr.Dataset):
-        xr_ds = xr.open_dataset(file_or_ds)
+        xr_ds = xr.load_dataset(file_or_ds)
     else:
         xr_ds = file_or_ds
 
@@ -993,13 +1010,12 @@ def nc4_ds_to_xr_dd(file_or_ds, xr_enc: dict = None) -> dict:
 
 
 def _get_xr_encoding(nc_file) -> dict:
-    ds = xr.open_dataset(nc_file)
+    ds = xr.load_dataset(nc_file)
     encoding = {}
     encoding["global"] = ds.encoding
     for vv in ds.variables:
         encoding[vv] = ds[vv].encoding
 
-    ds.close()
     return encoding
 
 

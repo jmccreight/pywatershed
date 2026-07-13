@@ -1,4 +1,5 @@
-from typing import Literal, Tuple
+import pathlib as pl
+from typing import Literal, Tuple, Union
 from warnings import warn
 
 import networkx as nx
@@ -74,10 +75,11 @@ class PRMSChannel(ConservativeProcess):
             reservoirs to the stream network for each HRU
         gwres_flow_vol: Groundwater discharge volume from each GWR to the
             stream network
-        budget_type: one of ["defer", None, "warn", "error"] with "defer" being
-            the default and defering to control.options["budget_type"] when
-            available. When control.options["budget_type"] is not avaiable,
-            budget_type is set to "warn".
+        imbalance_behavior: one of ["defer", None, "warn", "error"]
+            with "defer" being the default and defering to
+            control.options["imbalance_behavior"] when available. When
+            control.options["imbalance_behavior"] is not avaiable,
+            imbalance_behavior is set to "warn".
         calc_method: one of ["numba", "numpy"]. None defaults to
             "numba".
         adjust_parameters: one of ["warn", "error", "no"]. Default is "warn",
@@ -87,6 +89,31 @@ class PRMSChannel(ConservativeProcess):
             selected then no parameters are adjusted and there will be no
             warnings or errors.
         verbose: Print extra information or not?
+        restart_read:
+            May be boolean or a Pathlib.Path. If False, control.options
+            will be examined for this key. If True, the working
+            directory is searched for restart files. If a Pathlib.Path, this
+            specifies an alternative directory to search for restart files.
+            Files searched for are of the pattern YYYY-mm-dd-varname.nc where
+            the date is the control.init_time. The timestamp on the file is the
+            valid time of the states in the file with the exception of
+            processes with sub-daily timesteps. For example, the outflow_ts
+            variable of PRMSChannel is instantaneous and valid at the 23rd hour
+            of the timestampped day whereas its variable seg_outflow is the
+            daily averge value over the timestampped day.
+        restart_write:
+            As for restart_read but for writing. The directory in either
+            case will be attempted to be created if it does not exist.
+        restart_write_freq:
+            If False, then control.options is examined for this key. The
+            follwing values set the frequency of restart output with "y" for
+            yearly, "m" for monthly, "d" for daily, or "f" for final. "Final"
+            means that restart files are written with the states at
+            control.end_time to files timestampped with control.end_time.
+            Yearly and monthly restart options write files with timestamps on
+            the last day of each year or month during the run. If daily,
+            restarts are written every day. If restart_write is not False and
+            restart_write_freq is False, the default of "f" is used.
     """
 
     def __init__(
@@ -97,22 +124,31 @@ class PRMSChannel(ConservativeProcess):
         sroff_vol: adaptable,
         ssres_flow_vol: adaptable,
         gwres_flow_vol: adaptable,
-        budget_type: Literal["defer", None, "warn", "error"] = "defer",
+        imbalance_behavior: Literal["defer", None, "warn", "error"] = "defer",
         calc_method: Literal["numba", "numpy"] = None,
         adjust_parameters: Literal["warn", "error", "no"] = "warn",
+        input_aliases: dict = None,
         verbose: bool = None,
+        restart_read: Union[pl.Path, bool] = False,
+        restart_write: Union[pl.Path, bool] = False,
+        restart_write_freq: Literal["y", "m", "d", "f", False] = False,
     ) -> None:
         super().__init__(
             control=control,
             discretization=discretization,
             parameters=parameters,
+            input_aliases=input_aliases,
+            imbalance_behavior=imbalance_behavior,
+            restart_read=restart_read,
+            restart_write=restart_write,
+            restart_write_freq=restart_write_freq,
         )
         self.name = "PRMSChannel"
 
         self._set_inputs(locals())
         self._set_options(locals())
 
-        self._set_budget(basis="global")
+        self._set_budget(basis="global", quantity="mass")
         self._initialize_channel_data()
         self._init_calc_method()
 
@@ -157,12 +193,20 @@ class PRMSChannel(ConservativeProcess):
             "channel_outflow_vol": nan,
             "seg_lateral_inflow": zero,
             "seg_upstream_inflow": zero,
+            "seg_inflow": zero,
+            "inflow_ts_prev": nan,
             "seg_outflow": zero,
             "seg_stor_change": zero,
+            "outflow_ts": zero,
         }
 
     @staticmethod
-    def get_mass_budget_terms():
+    def get_restart_variables() -> list:
+        """Get a dict of restart varible names mapping current: previous."""
+        return ["seg_inflow", "outflow_ts"]
+
+    @staticmethod
+    def get_mass_budget_terms() -> dict:
         return {
             "inputs": [
                 "channel_sroff_vol",
@@ -181,9 +225,11 @@ class PRMSChannel(ConservativeProcess):
         return self._outflow_mask
 
     def _set_initial_conditions(self) -> None:
-        # initialize channel segment "storage"
-        # this is unused currently. Seems that it would set seg_inflow0
         self.seg_outflow[:] = self.segment_flow_init
+        self.inflow_ts_prev[:] = self.seg_inflow
+        return
+
+    def _init_diagnostic_vars(self) -> None:
         return
 
     def _initialize_channel_data(self) -> None:
@@ -326,18 +372,15 @@ class PRMSChannel(ConservativeProcess):
         self._c0[idx] = 0.0
 
         # local flow variables
-        self._seg_inflow = np.zeros(self.nsegment, dtype=float)
-        self._seg_inflow0 = np.zeros(self.nsegment, dtype=float) * nan
         self._inflow_ts = np.zeros(self.nsegment, dtype=float)
-        self._outflow_ts = np.zeros(self.nsegment, dtype=float)
         self._seg_current_sum = np.zeros(self.nsegment, dtype=float)
 
-        # initialize internal self_inflow variable
-        for iseg in range(self.nsegment):
-            jseg = self._tosegment[iseg]
-            if jseg < 0:
-                continue
-            self._seg_inflow[jseg] = self.seg_outflow[iseg]
+        if not self._restart_read:
+            for iseg in range(self.nsegment):
+                jseg = self._tosegment[iseg]
+                if jseg < 0:
+                    continue
+                self.seg_inflow[jseg] = self.seg_outflow[iseg]
 
         return
 
@@ -366,7 +409,7 @@ class PRMSChannel(ConservativeProcess):
                     nb.int64[:],  # _segment_order
                     nb.int64[:],  # _tosegment
                     nb.float64[:],  # seg_lateral_inflow
-                    nb.float64[:],  # _seg_inflow0
+                    nb.float64[:],  # inflow_ts_prev
                     nb.float64[:],  # _outflow_ts
                     nb.int64[:],  # _tsi
                     nb.float64[:],  # _ts
@@ -382,7 +425,10 @@ class PRMSChannel(ConservativeProcess):
             self._muskingum_mann = self._muskingum_mann_numpy
 
     def _advance_variables(self) -> None:
-        self._seg_inflow0[:] = self._seg_inflow
+        # Seems strange to set an instantaneous value to an avg one.
+        # Cant the method use instantaneous values across timesteps?
+        self.inflow_ts_prev[:] = self.seg_inflow
+
         return
 
     def _calculate(self, simulation_time: float) -> None:
@@ -423,18 +469,18 @@ class PRMSChannel(ConservativeProcess):
         # solve muskingum_mann routing
         (
             self.seg_upstream_inflow[:],
-            self._seg_inflow0[:],
-            self._seg_inflow[:],
+            self.inflow_ts_prev[:],
+            self.seg_inflow[:],
             self.seg_outflow[:],
             self._inflow_ts[:],
-            self._outflow_ts[:],
+            self.outflow_ts[:],
             self._seg_current_sum[:],
         ) = self._muskingum_mann(
             self._segment_order,
             self._tosegment,
             self.seg_lateral_inflow,
-            self._seg_inflow0,
-            self._outflow_ts,
+            self.inflow_ts_prev,
+            self.outflow_ts,
             self._tsi,
             self._ts,
             self._c0,
@@ -443,7 +489,7 @@ class PRMSChannel(ConservativeProcess):
         )
 
         self.seg_stor_change[:] = (
-            self._seg_inflow - self.seg_outflow
+            self.seg_inflow - self.seg_outflow
         ) * s_per_time
 
         self.channel_outflow_vol[:] = (
@@ -457,7 +503,7 @@ class PRMSChannel(ConservativeProcess):
         segment_order: np.ndarray,
         to_segment: np.ndarray,
         seg_lateral_inflow: np.ndarray,
-        seg_inflow0: np.ndarray,
+        inflow_ts_prev: np.ndarray,
         outflow_ts: np.ndarray,
         tsi: np.ndarray,
         ts: np.ndarray,
@@ -481,9 +527,9 @@ class PRMSChannel(ConservativeProcess):
             segment_order: segment routing order
             to_segment: downstream segment for each segment
             seg_lateral_inflow: segment lateral inflow
-            seg_inflow0: previous segment inflow variable (internal
+            inflow_ts_prev: previous segment inflow variable (subtimestep
                 calculations)
-            outflow_ts: outflow timeseries variable (internal calculations)
+            outflow_ts: outflow timeseries variable (subtimestep calculations)
             tsi: integer flood wave travel time
             ts: float version of integer flood wave travel time
             c0: Muskingum c0 variable
@@ -492,7 +538,7 @@ class PRMSChannel(ConservativeProcess):
 
         Returns:
             seg_upstream_inflow: inflow for each segment for the current day
-            seg_inflow0: segment inflow variable
+            inflow_ts_prev: segment inflow variable on subtimestep
             seg_inflow: segment inflow variable
             seg_outflow: outflow for each segment for the current day
             inflow_ts: inflow timeseries variable
@@ -501,10 +547,10 @@ class PRMSChannel(ConservativeProcess):
         """
         # initialize variables for the day
 
-        seg_inflow = seg_inflow0 * zero
-        seg_outflow = seg_inflow0 * zero
-        inflow_ts = seg_inflow0 * zero
-        seg_current_sum = seg_inflow0 * zero
+        seg_inflow = inflow_ts_prev * zero
+        seg_outflow = inflow_ts_prev * zero
+        inflow_ts = inflow_ts_prev * zero
+        seg_current_sum = inflow_ts_prev * zero
 
         for ihr in range(24):
             seg_upstream_inflow = seg_inflow * zero
@@ -537,7 +583,7 @@ class PRMSChannel(ConservativeProcess):
                         # Muskingum routing equation
                         outflow_ts[jseg] = (
                             inflow_ts[jseg] * c0[jseg]
-                            + seg_inflow0[jseg] * c1[jseg]
+                            + inflow_ts_prev[jseg] * c1[jseg]
                             + outflow_ts[jseg] * c2[jseg]
                         )
                     else:
@@ -548,7 +594,7 @@ class PRMSChannel(ConservativeProcess):
 
                     # previous inflow is equal to inflow_ts from the previous
                     # routed time step
-                    seg_inflow0[jseg] = inflow_ts[jseg]
+                    inflow_ts_prev[jseg] = inflow_ts[jseg]
 
                     # upstream inflow is used, reset it to zero so a new
                     # average can be calculated next routing time step
@@ -576,7 +622,7 @@ class PRMSChannel(ConservativeProcess):
 
         return (
             seg_upstream_inflow,
-            seg_inflow0,
+            inflow_ts_prev,
             seg_inflow,
             seg_outflow,
             inflow_ts,

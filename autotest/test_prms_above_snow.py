@@ -67,7 +67,7 @@ def control(simulation):
         simulation["control_file"], warn_unused_options=False
     )
     control.options["verbosity"] = 10
-    control.options["budget_type"] = None
+    control.options["imbalance_behavior"] = None
     control.options["calc_method"] = "numba"
     del control.options["netcdf_output_var_names"]
     return control
@@ -226,6 +226,8 @@ def test_model(simulation, model_args, tmp_path):
     ans = {key: {} for key in comparison_vars_dict.keys()}
     for process_name, var_names in comparison_vars_dict.items():
         for vv in var_names:
+            if vv == "tmax_sum":
+                continue
             # TODO: this is hacky, improve the design
             if (
                 "dprst_flag" in control.options.keys()

@@ -139,7 +139,7 @@ class PRMSModels:
                     del self.control.options[oo]
 
             self.control.options["input_dir"] = self.tag_input_dir
-            self.control.options["budget_type"] = "warn"
+            self.control.options["imbalance_behavior"] = "warn"
             self.control.options["calc_method"] = "numba"
             self.control.edit_n_time_steps(n_time_steps)
 
@@ -159,7 +159,7 @@ class PRMSModels:
                 *self.processes,
                 control=self.control,
                 input_dir=self.tag_input_dir,
-                budget_type="warn",
+                imbalance_behavior="warn",
                 calc_method="numba",
             )
 

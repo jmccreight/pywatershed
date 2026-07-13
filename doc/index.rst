@@ -31,7 +31,7 @@ of spatially distributed hydrologic process representations including evaporatio
 transpiration, runoff, infiltration, interflow, snowpack, soil moisture, conceptual
 groundwater storage, and channel flow. These process representations simulate hydrologic
 response and water budgets given inputs of spatially distributed weather variables and
-land use change at temporal scales ranging from days to centuries. 
+land use change at temporal scales ranging from days to centuries.
 
 Pywatershed enhances PRMS with a new software design that is object-oriented and highly
 flexible, allowing users to easily run "sub-models", replace process representations, and
@@ -52,7 +52,7 @@ via its
 (Hughes et al., 2022).
 We are working towards a two-way, tight coupling with MF6 to reproduce GSFLOW. Our goal is
 support integrated hydrologic process modeling of surface water and groundwater in a
-sustainable manner that allows individual software components to evolve independently. 
+sustainable manner that allows individual software components to evolve independently.
 
 
 ==========================
@@ -61,15 +61,15 @@ Version 1.0.0 (2023-12-18)
 With pywatershed version 1.0.0, we have faithfully reproduced the PRMS process representations used in
 the USGS `National Hydrolgical Model <https://pubs.usgs.gov/publication/tm6B9>`__ (NHM, Regan et al.,
 2018). For more information on version 1.0.0 see the
-`release notes <https://github.com/EC-USGS/pywatershed/releases/tag/1.0.0>`_
-and the `extended release notes <https://ec-usgs.github.io/pywatershed/2023/12/18/v1-0-0-overview>`_
+`v1.0.0 release notes <https://github.com/DOI-USGS/pywatershed/releases/tag/1.0.0>`_
+and the `v1.0.0 extended release notes <https://doi-usgs.github.io/pywatershed/2023/12/18/v1-0-0-overview>`_
 for version 1.0.0.
 
 ===================================
 Version: 2.0.0 (2024-12-16)
 ===================================
 With pywatershed version 2.0.0, we introduce the :class:`FlowGraph` capabilities that allow
-users to combine different kinds flow solutions in arbitrary order on a "flow graph". 
+users to combine different kinds flow solutions in arbitrary order on a "flow graph".
 
 Version 2.0.0 introduces several important PRMS capabilities beyond those included in
 the `National Hydrolgical Model <https://pubs.usgs.gov/publication/tm6B9>`__ (NHM, Regan et al.,
@@ -81,8 +81,29 @@ Version 2.0.0 also includes capabilties to translate :class:`PRMSChannel` simula
 into 1-D diffusive wave simulations in MODFLOW 6's development branch using :class:`MmrToMf6Dfw`.
 
 For more information on version 2.0.0 see the
-`release notes <https://github.com/EC-USGS/pywatershed/releases/tag/2.0.0>`_
-and the `extended release notes <https://ec-usgs.github.io/pywatershed/2024/12/16/v2-0-0-overview>`_.
+`v2.0.0 release notes <https://github.com/DOI-USGS/pywatershed/releases/tag/2.0.0>`_
+and the `v2.0.0 extended release notes <https://doi-usgs.github.io/pywatershed/2024/12/16/v2-0-0-overview>`_.
+
+===================================
+Version 3.0.0 (2026-07-13)
+===================================
+With pywatershed version 3.0.0, we introduce stream temperature simulation
+following the PRMS methodology (:class:`PRMSStreamTemp` and
+:class:`PRMSStreamTempHumidityCBH`, with supporting stream shade and hydraulic
+geometry classes) and simulation of irrigated agriculture based on GSFLOW
+(:class:`PRMSRunoffAg`, :class:`PRMSSoilzoneAgObsET`, and
+:class:`PRMSSoilzoneAg`).
+
+Version 3.0.0 also adds energy budgets alongside the existing mass budgets in
+:class:`base.ConservativeProcess`, a restart capability for processes, the
+:class:`~base.output.Output` class for flexible output collection and
+statistics, and dynamic transpiration and frost timing
+(:class:`PRMSAtmosphereTranspFrost` and
+:class:`PRMSAtmosphereTranspFrostDynamic`).
+
+For more information on version 3.0.0 see the
+`v3.0.0 release notes <https://github.com/DOI-USGS/pywatershed/releases/tag/3.0.0>`_
+and the `v3.0.0 extended release notes <https://doi-usgs.github.io/pywatershed/2026/07/13/v3-0-0-overview>`_.
 
 ============================================
 Upcoming development
@@ -97,26 +118,19 @@ Please note that you can browse the API reference, developer info, and index
 using the table of contents on the left. But *the best way to get started
 with pywatershed is to dive into the example notebooks*.
 
-| For introductory example notebooks, look in the `examples/ <https://github.com/EC-USGS/pywatershed/tree/main/examples>`_ directory in the repository. Numbered starting at 00, these are meant to be completed in order. Notebook outputs are not saved in Github. But you can run these notebooks locally or using WholeTale (free but sign-up or log-in required) where the pywatershed environment is all ready to go:
+| For introductory example notebooks, look in the `examples/ <https://github.com/DOI-USGS/pywatershed/tree/main/examples>`_ directory in the repository. Numbered starting at 00, these are meant to be completed in order. Notebook outputs are not saved in Github, but you can run these notebooks locally.
 
-.. image:: https://raw.githubusercontent.com/whole-tale/wt-design-docs/master/badges/wholetale-explore.svg
-   :target: https://dashboard.wholetale.org
-
-* `Run the latest release in WholeTale <https://dashboard.wholetale.org/run/64ae29e8a887f48b9f173678?tab=metadata>`_
-* `Run the develop branch in WholeTale <https://dashboard.wholetale.org/run/64ae25c3a887f48b9f1735c8?tab=metadata>`_
-
-See `README.md <https://github.com/EC-USGS/pywatershed/tree/develop/README.md>`_ for more details
-on both `running locally <https://github.com/EC-USGS/pywatershed#installation>`_
-or `using WholeTale <https://github.com/EC-USGS/pywatershed#example-notebooks>`_.
+See `README.md <https://github.com/DOI-USGS/pywatershed/tree/develop/README.md>`_ for more details
+on `installation <https://github.com/DOI-USGS/pywatershed#installation>`_.
 
 ========================
 Community engagement
 ========================
-We value your feedback! Please use `discussions <https://github.com/EC-USGS/pywatershed/discussions>`_
-or `issues <https://github.com/EC-USGS/pywatershed/issues>`_ on Github. You may also suggest
+We value your feedback! Please use `discussions <https://github.com/DOI-USGS/pywatershed/discussions>`_
+or `issues <https://github.com/DOI-USGS/pywatershed/issues>`_ on Github. You may also suggest
 edits to this documentation or open an issue by clicking on the Github Octocat at the top of the page.
 For more in-depth contributions, please start by reading over
-the `DEVELOPER.md file <https://github.com/EC-USGS/pywatershed/blob/develop/DEVELOPER.md>`_.
+the `DEVELOPER.md file <https://github.com/DOI-USGS/pywatershed/blob/develop/DEVELOPER.md>`_.
 
 Thank you for your interest.
 
@@ -134,9 +148,9 @@ References
    :caption: Home
 
    self
-	     
 
-  
+
+
 .. toctree::
    :hidden:
    :caption: API Reference
@@ -150,7 +164,9 @@ References
     Hydrology <api/hydrology>
     FlowGraph <api/flow_graph>
     Model <api/generated/pywatershed.Model.rst>
+    Output <api/generated/pywatershed.Output.rst>
     Base Classes <api/base>
+    Analysis <api/analysis>
     Utilities <api/utils>
 
 .. toctree::
@@ -159,7 +175,7 @@ References
    :caption: For developers
 
    What’s New <whats-new>
-   GitHub repository <https://github.com/EC-USGS/pywatershed>
+   GitHub repository <https://github.com/DOI-USGS/pywatershed>
 
 .. toctree::
    :hidden:

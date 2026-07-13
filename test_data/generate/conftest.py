@@ -1,14 +1,18 @@
 import os
 import pathlib as pl
-import sys
+import warnings
 from fnmatch import fnmatch
-from platform import processor
 from typing import List
 from warnings import warn
 
 import pytest
 
 import pywatershed as pws
+
+# Note: Either PRMS or GSFLOW exectuables may be executed. The choice is
+# triggered by the control file field executable_desc. If "gsflow" is
+# found in the lower case version of its value, then gsflow is used. Otherwise,
+# PRMS is used.
 
 test_data_dir = pl.Path("..")
 
@@ -20,7 +24,27 @@ all_domain_dirs = sorted(
 # This would change to handle other/additional schedulers
 domain_globs_schedule = ["*conus*"]
 
-final_var_names = ["through_rain", "seg_lateral_inflow"]
+final_var_names = ["through_rain", "infil", "seg_lateral_inflow"]
+
+
+def get_ctl_exe_desc(ctl_file):
+    import warnings
+
+    with warnings.catch_warnings():
+        # This is the only way to silence "invalid" options.
+        warnings.simplefilter("ignore")
+        ctl = pws.Control.load_prms(
+            ctl_file,
+            keep_unused_options=True,
+            warn_unused_options=False,
+        )
+
+    if "executable_desc" in ctl.options.keys():
+        exe_desc = ctl.options["executable_desc"][0].lower()
+    else:
+        exe_desc = "prms"
+
+    return exe_desc
 
 
 def pytest_addoption(parser):
@@ -56,21 +80,58 @@ def pytest_addoption(parser):
         ),
     )
 
+    parser.addoption(
+        "--write_log",
+        help=(
+            "Write the PRMS/GSFLOW stdout to log matching control file name."
+        ),
+        action="store_true",
+    )
 
-@pytest.fixture()
-def exe():
-    platform = sys.platform.lower()
-    if platform == "win32":
-        exe_name = "prms_win_gfort_dbl_prec.exe"
-    elif platform == "darwin":
-        if processor() == "arm":
-            exe_name = "prms_mac_m1_ifort_dbl_prec"
-        else:
-            exe_name = "prms_mac_intel_gfort_dbl_prec"
-    elif platform == "linux":
-        exe_name = "prms_linux_gfort_dbl_prec"
-    exe_pth = pl.Path(f"../../bin/{exe_name}").resolve()
-    return exe_pth
+    parser.addoption(
+        "--suppress-control-warnings",
+        required=False,
+        action="store_true",
+        default=False,
+        help=(
+            "Suppress UserWarnings about unrecognized control options "
+            "(e.g., 'executable_model', 'model_mode')"
+        ),
+    )
+
+    parser.addoption(
+        "--exe",
+        required=False,
+        default=None,
+        help=("Path to PRMS or GSFLOW executable to use"),
+    )
+
+
+def pytest_configure(config):
+    """Configure pytest with warning filters based on command line options."""
+    if config.getoption("suppress_control_warnings"):
+        warnings.filterwarnings(
+            "ignore",
+            message=r".*is not an available control option",
+            category=UserWarning,
+        )
+
+
+@pytest.fixture(scope="function")
+def exe(simulation, request):
+    # Check if exe was provided on command line
+    exe_path = request.config.getoption("exe")
+    if exe_path:
+        exe_pth = pl.Path(exe_path).resolve()
+        if not exe_pth.exists():
+            pytest.fail(f"Executable not found: {exe_pth}")
+        return exe_pth
+
+    exe_desc = get_ctl_exe_desc(simulation["control_file"])
+    try:
+        return pws.utils.get_prms_exe_path(exe_desc)
+    except NotImplementedError as e:
+        pytest.skip(str(e))
 
 
 def scheduler_active():
@@ -111,12 +172,22 @@ def collect_simulations(
     control_pattern_list,
     force: bool = True,
     verbose: bool = False,
+    write_log: bool = False,
 ):
     simulations = {}
     for dom_dir in all_domain_dirs:
+        if dom_dir.name not in domain_list:
+            continue
+
         # ensure this is a self-contained run (all files in repo)
-        if not (dom_dir / "prcp.cbh").exists():
+        if not (
+            (dom_dir / "prcp.cbh").exists()
+            or (dom_dir / "prcp.day").exists()
+            or (dom_dir / "precip.cbh").exists()
+            or (dom_dir / "precip.day").exists()
+        ):
             # this is kind of a silly check... until something better needed
+            warn(f"prcp/precip.cbh/day not found in {dom_dir}, skipping")
             continue
 
         # filter selected domains
@@ -149,6 +220,7 @@ def collect_simulations(
                 "ws": dom_dir,
                 "control_file": control,
                 "output_dir": output_dir,
+                "write_log": write_log,
             }
 
     # make sure all requested domains were found
@@ -169,7 +241,7 @@ def collect_simulations(
     return simulations
 
 
-def collect_csv_files(simulations: list) -> List[tuple]:
+def collect_csv_files(simulations: dict) -> List[tuple]:
     csv_files = []
     for key, value in simulations.items():
         control = value["control_file"]
@@ -184,7 +256,11 @@ def pytest_generate_tests(metafunc):
     domain_list = metafunc.config.getoption("domain")
     control_pattern_list = metafunc.config.getoption("control_pattern")
     force = metafunc.config.getoption("force")
-    simulations = collect_simulations(domain_list, control_pattern_list, force)
+    write_log = metafunc.config.getoption("write_log")
+
+    simulations = collect_simulations(
+        domain_list, control_pattern_list, force=force, write_log=write_log
+    )
     control_csv_files = collect_csv_files(simulations)
 
     if "control_csv_file" in metafunc.fixturenames:
@@ -199,14 +275,35 @@ def pytest_generate_tests(metafunc):
         metafunc.parametrize("control_csv_file", control_csv_files, ids=ids)
 
     if "control_soltab_file" in metafunc.fixturenames:
-        control_soltab_files = [
-            (vv["control_file"], vv["ws"] / "soltab_debug")
-            for kk, vv in simulations.items()
-        ]
+        # The single/combined soltab output file was from PRMS 5.2.1. In that
+        # case this parameterization doesnt really make sense because it's
+        # always the same, but this is useful because it also identifies the
+        # ws/domain_dir. The processing of this parameter returns 3 individual
+        # output netcdf files: soltab_potsw, soltab_horad_potsw, soltab_sunhrs.
+        # In PRMS 5.3+ the soltab file was split into 4 output files:
+        # soltab_sunhrs.csv, soltab_potsw.csv, obliquity.csv, and
+        # solar_declination.csv. I've modified GSFLOW 2.4.1 to also output
+        #  soltab_horad_potsw.csv. Sadly, the output format does not match
+        # PRMS output files, there is no date column, presumably because it
+        # has a doy dimension 1-366.
+        control_soltab_files = []
+        for kk, vv in simulations.items():
+            exe_desc = get_ctl_exe_desc(vv["control_file"])
+            if "5.2.1.1" in exe_desc:
+                soltab_name = "soltab_debug_5.2.1.1"
+            else:
+                soltab_name = "soltab_debug"
+
+            control_soltab_files += [
+                (vv["control_file"], vv["ws"] / soltab_name)
+            ]
+
+        # <
         ids = [
             ff.parent.name + ":" + cc.with_suffix("").name + ":" + ff.name
             for cc, ff in control_soltab_files
         ]
+
         metafunc.parametrize(
             "control_soltab_file",
             control_soltab_files,

@@ -11,7 +11,7 @@ verbosity: 0
 
 # input_dir: .
 
-budget_type: warn
+imbalance_behavior: warn
 calc_method: numba
 
 # load_n_time_batches: 1

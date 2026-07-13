@@ -1,5 +1,3 @@
-from warnings import warn
-
 import pytest
 from prms_diagnostic_variables import (
     diagnose_final_vars_to_nc,
@@ -19,7 +17,7 @@ def final_netcdf_file(control_final_file):
 
     control_file = control_final_file[0]
     final_file = control_final_file[1]
-    domain_dir = final_file.parent
+    domain_dir = control_file.parent
     var_name = final_file.name
     control = pws.Control.load_prms(control_file, warn_unused_options=False)
     output_dir = control_file.parent / control.options["netcdf_output_dir"]
@@ -29,9 +27,8 @@ def final_netcdf_file(control_final_file):
     )
 
     if not success:
-        warn(
-            "make_final_netcdf_files False PASS above: "
-            f"unable to diagnose {final_file}"
+        pytest.skip(
+            f"make_final_netcdf_files: unable to diagnose {final_file}"
         )
 
 

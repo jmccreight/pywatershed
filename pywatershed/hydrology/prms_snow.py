@@ -1,4 +1,5 @@
-from typing import Literal
+import pathlib as pl
+from typing import Literal, Union
 from warnings import warn
 
 import numpy as np
@@ -110,13 +111,39 @@ class PRMSSnow(ConservativeProcess):
         net_snow: Snow that falls through canopy for each HRU
         transp_on: Flag indicating whether transpiration is occurring
             (0=no;1=yes)
-        budget_type: one of ["defer", None, "warn", "error"] with "defer" being
-            the default and defering to control.options["budget_type"] when
-            available. When control.options["budget_type"] is not avaiable,
-            budget_type is set to "warn".
+        imbalance_behavior: one of ["defer", None, "warn", "error"]
+            with "defer" being the default and defering to
+            control.options["imbalance_behavior"] when available. When
+            control.options["imbalance_behavior"] is not avaiable,
+            imbalance_behavior is set to "warn".
         calc_method: one of ["fortran", "numba", "numpy"]. None defaults to
             "numba".
         verbose: Print extra information or not?
+        restart_read:
+            May be boolean or a Pathlib.Path. If False, control.options
+            will be examined for this key. If True, the working
+            directory is searched for restart files. If a Pathlib.Path, this
+            specifies an alternative directory to search for restart files.
+            Files searched for are of the pattern YYYY-mm-dd-varname.nc where
+            the date is the control.init_time. The timestamp on the file is the
+            valid time of the states in the file with the exception of
+            processes with sub-daily timesteps. For example, the outflow_ts
+            variable of PRMSChannel is instantaneous and valid at the 23rd hour
+            of the timestampped day whereas its variable seg_outflow is the
+            daily averge value over the timestampped day.
+        restart_write:
+            As for restart_read but for writing. The directory in either
+            case will be attempted to be created if it does not exist.
+        restart_write_freq:
+            If False, then control.options is examined for this key. The
+            follwing values set the frequency of restart output with "y" for
+            yearly, "m" for monthly, "d" for daily, or "f" for final. "Final"
+            means that restart files are written with the states at
+            control.end_time to files timestampped with control.end_time.
+            Yearly and monthly restart options write files with timestamps on
+            the last day of each year or month during the run. If daily,
+            restarts are written every day. If restart_write is not False and
+            restart_write_freq is False, the default of "f" is used.
     """
 
     def __init__(
@@ -139,14 +166,22 @@ class PRMSSnow(ConservativeProcess):
         net_rain: adaptable,
         net_snow: adaptable,
         transp_on: adaptable,
-        budget_type: Literal["defer", None, "warn", "error"] = "defer",
+        imbalance_behavior: Literal["defer", None, "warn", "error"] = "defer",
         calc_method: Literal["numba", "numpy"] = None,
+        input_aliases: dict = None,
         verbose: bool = None,
-    ) -> "PRMSSnow":
+        restart_read: Union[pl.Path, bool] = False,
+        restart_write: Union[pl.Path, bool] = False,
+        restart_write_freq: Literal["y", "m", "d", "f", False] = False,
+    ):
         super().__init__(
             control=control,
             discretization=discretization,
             parameters=parameters,
+            input_aliases=input_aliases,
+            restart_read=restart_read,
+            restart_write=restart_write,
+            restart_write_freq=restart_write_freq,
         )
         self.name = "PRMSSnow"
 
@@ -254,6 +289,25 @@ class PRMSSnow(ConservativeProcess):
         }
 
     @staticmethod
+    def get_restart_variables() -> list:
+        return [
+            "freeh2o",
+            "iasw",
+            "pk_def",
+            "pk_depth",
+            "pk_den",
+            "pk_ice",
+            "pksv",
+            "pkwater_equiv",
+            "pss",
+            "pst",
+            "scrv",
+            "slst",
+            "snowcov_area",
+            "snowcov_areasv",
+        ]
+
+    @staticmethod
     def get_mass_budget_terms():
         return {
             "inputs": ["net_rain", "net_snow"],
@@ -265,32 +319,33 @@ class PRMSSnow(ConservativeProcess):
             "storage_changes": ["freeh2o_change", "pk_ice_change"],
         }
 
-    @staticmethod
-    def get_restart_variables() -> tuple:
-        return (
-            "albedo",
-            "freeh2o",
-            "iasw",
-            "int_alb",
-            "iso",
-            "lso",
-            "lst",
-            "mso",
-            "pk_def",
-            "pk_depth",
-            "pk_den",
-            "pk_ice",
-            "pk_temp",
-            "pksv",
-            "pss",
-            "pst",
-            "salb",
-            "scrv",
-            "slst",
-            "snowcov_area",
-            "snowcov_areasv",
-            "snsv",
-        )
+    # TODO: remove this. Im a bit concerned theres important knowledge in here
+    # @staticmethod
+    # def get_restart_variables() -> tuple:
+    #     return (
+    #         "albedo",
+    #         "freeh2o",
+    #         "iasw",
+    #         "int_alb",
+    #         "iso",
+    #         "lso",
+    #         "lst",
+    #         "mso",
+    #         "pk_def",
+    #         "pk_depth",
+    #         "pk_den",
+    #         "pk_ice",
+    #         "pk_temp",
+    #         "pksv",
+    #         "pss",
+    #         "pst",
+    #         "salb",
+    #         "scrv",
+    #         "slst",
+    #         "snowcov_area",
+    #         "snowcov_areasv",
+    #         "snsv",
+    #     )
 
     def _set_initial_conditions(self):
         # Derived parameters
@@ -319,7 +374,8 @@ class PRMSSnow(ConservativeProcess):
         self.deninv = one / den_init
         self.denmaxinv = one / self.den_max
 
-        self.pkwater_equiv[:] = self.snowpack_init.copy()
+        if not self._restart_read:
+            self.pkwater_equiv[:] = self.snowpack_init.copy()
 
         sd = int(self.ndeplval / 11)
         self.snarea_curve_2d = np.reshape(self.snarea_curve, (sd, 11))
@@ -335,10 +391,8 @@ class PRMSSnow(ConservativeProcess):
             # <
             self.hru_deplcrv = self.hru_deplcrv.astype("int64")
 
-        if True:
-            # For now there is no restart capability. we'll use the following
-            # line above when there is
-            # if self.control.options["restart"] in [0, 2, 3]:
+        if not self._restart_read:
+            # Skip initialization of state variables when restarting
 
             # The super().__init__ already set_initial_conditions using its
             # set_initial_conditions
@@ -423,10 +477,9 @@ class PRMSSnow(ConservativeProcess):
             self.pst[:] = self.pkwater_equiv.copy()
 
         else:
-            raise RuntimeError("Snow restart capability not implemented")
-            # JLM: a list of restart variables dosent shed light on what states
-            # actually have memory.
-            # JLM: could there be a diagnostic part of the advance?
+            # Restart path: state variables are loaded by the base class
+            # from restart files, so no initialization needed here.
+            pass
 
         return
 

@@ -125,6 +125,7 @@ class CsvFile:
         zlib: bool = True,
         complevel: int = 4,
         chunk_sizes: dict = {"time": 30, "nhm_id": 0, "nhm_seg": 0},
+        verbose: bool = True,
     ) -> None:
         """Output the csv output data to a netcdf file
 
@@ -221,7 +222,8 @@ class CsvFile:
             ds.variables[variable_name][:, :] = arr
 
         ds.close()
-        print(f"Wrote netcdf file: {name}")
+        if verbose:
+            print(f"Wrote netcdf file: {name}")
         return
 
     def _add_path(

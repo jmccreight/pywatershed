@@ -10,15 +10,15 @@ dependencies:
   - contextily
   - epiweeks4cf
   - filelock
-  - flopy
   - folium
   - geopandas
   - geoviews
+  - gfortran>=15.2.0
   - git
-  - holoviews
+  - make
+  - holoviews<=1.20.0
   - hvplot
   - ipython
-  - modflow-devtools
   - netCDF4
   - networkx
   - numpy>=2.0.0
@@ -33,11 +33,13 @@ dependencies:
   - pytest-env
   - pytest-order
   - pytest-xdist
-  - python<3.12,>=3.10
+  - python=3.13
   - pyyaml
+  - pyvis
   - ruff
+  - safety
   - shapely
-  - sphinx
+  - sphinx<9.0
   - sphinx-book-theme>=0.3.3
   - sphinx-autodoc-typehints>=2.2.1
   - sphinx-autosummary-accessors
@@ -45,6 +47,10 @@ dependencies:
   - tqdm
   - xarray>=2024.06.0
   - xmltodict
+  - zarr
   - pip:
       - git+https://github.com/jararias/mpsplines.git
       - pyPRMS
+      - modflow-devtools[dfn]==1.7.0
+      - pytest-error-for-skips
+      - "flopy[codegen] @ git+https://github.com/modflowpy/flopy.git"

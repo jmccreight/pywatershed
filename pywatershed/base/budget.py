@@ -9,7 +9,6 @@ import numpy as np
 from pywatershed.base.control import Control
 
 from ..constants import zero
-from ..utils.formatting import pretty_print
 from ..utils.netcdf_utils import NetCdfWrite
 from .accessor import Accessor
 from .parameters import Parameters
@@ -34,6 +33,7 @@ class Budget(Accessor):
         inputs: Union[list, dict],
         outputs: Union[list, dict],
         storage_changes: Union[list, dict],
+        exchanges: Union[list, dict] = None,
         init_accumulations: dict = None,
         accum_start_time: np.datetime64 = None,
         units: dict = None,
@@ -44,7 +44,7 @@ class Budget(Accessor):
         basis: Literal["unit", "global"] = "unit",
         imbalance_fatal: bool = False,
         ignore_nans: bool = False,
-        unit_desc: str = "volumes",
+        unit_desc: str = "",
         verbose: bool = True,
     ):
         self.name = "Budget"
@@ -52,6 +52,14 @@ class Budget(Accessor):
         self.inputs = self.init_component(inputs)
         self.outputs = self.init_component(outputs)
         self.storage_changes = self.init_component(storage_changes)
+
+        # Handle optional exchanges component (for bi-directional fluxes)
+        if exchanges is None:
+            self.exchanges = {}
+            self._has_exchanges = False
+        else:
+            self.exchanges = self.init_component(exchanges)
+            self._has_exchanges = True
         self.units = units
         self.time_unit = time_unit
         self.description = description
@@ -60,6 +68,11 @@ class Budget(Accessor):
         self.imbalance_fatal = imbalance_fatal
         self._ignore_nans = ignore_nans
         self._unit_desc = unit_desc
+        if self._unit_desc != "":
+            self._unit_desc = f" ({self._unit_desc})"
+        else:
+            self._unit_desc = " "
+
         self.verbose = verbose
         self.basis = basis
 
@@ -67,6 +80,7 @@ class Budget(Accessor):
         self._inputs_sum = None
         self._outputs_sum = None
         self._storage_changes_sum = None
+        self._exchanges_sum = None
         self._balance = None
         self._accumulations = None
         self._accumulations_sum = None
@@ -163,11 +177,18 @@ class Budget(Accessor):
                     self[comp_name][var_name] = var_data
 
     @classmethod
-    def from_storage_unit(cls, storage_unit, **kwargs):
-        mass_budget_terms = storage_unit.get_mass_budget_terms()
-        for component in mass_budget_terms.keys():
+    def from_storage_unit(cls, storage_unit, quantity="mass", **kwargs):
+        # Get budget terms based on quantity
+        if quantity == "mass":
+            budget_terms = storage_unit.get_mass_budget_terms()
+        elif quantity == "energy":
+            budget_terms = storage_unit.get_energy_budget_terms()
+        else:
+            raise ValueError(f"Unknown quantity: {quantity}")
+
+        for component in budget_terms.keys():
             kwargs[component] = {}
-            for var in mass_budget_terms[component]:
+            for var in budget_terms[component]:
                 kwargs[component][var] = storage_unit[var]
 
         return Budget(storage_unit.control, **kwargs)
@@ -178,12 +199,14 @@ class Budget(Accessor):
         return ("desc", "modules", "var_category", "units")
 
     @staticmethod
-    def get_components():
+    def get_components(has_exchanges=False):
+        if has_exchanges:
+            return ("inputs", "exchanges", "outputs", "storage_changes")
         return ("inputs", "outputs", "storage_changes")
 
     @property
     def components(self):
-        return self.get_components()
+        return self.get_components(self._has_exchanges)
 
     @property
     def inputs_sum(self):
@@ -196,6 +219,10 @@ class Budget(Accessor):
     @property
     def storage_changes_sum(self):
         return self._storage_changes_sum
+
+    @property
+    def exchanges_sum(self):
+        return self._exchanges_sum
 
     @property
     def terms(self):
@@ -258,6 +285,8 @@ class Budget(Accessor):
         self._inputs_sum = self._sum_inputs()
         self._outputs_sum = self._sum_outputs()
         self._storage_changes_sum = self._sum_storage_changes()
+        if self._has_exchanges:
+            self._exchanges_sum = self._sum_exchanges()
 
         # accumulate
         for component in self.components:
@@ -333,23 +362,36 @@ class Budget(Accessor):
     def _sum_storage_changes(self):
         return self._sum("storage_changes")
 
+    def _sum_exchanges(self):
+        return self._sum("exchanges")
+
     def _calc_unit_balance(self):
-        unit_balance = self._inputs_sum - self._outputs_sum
         self._zero_sum = True
 
-        # compare i ?=? o + ds so that relative errors are not compared to
+        # compare
+        # lhs ?=? rhs
+        # i + e ?=? o + ds  (e is optional term)
+        # so that relative errors are not compared to
+        rhs = self._outputs_sum + self._storage_changes_sum
+        # LHS depends on if we have exchanges or not
+        if self._has_exchanges:
+            unit_balance = (
+                self._inputs_sum + self._exchanges_sum - self._outputs_sum
+            )
+            lhs = self._inputs_sum + self._exchanges_sum
+        else:
+            unit_balance = self._inputs_sum - self._outputs_sum
+            lhs = self._inputs_sum
+
         # zero when ds is zero
         if not np.allclose(
-            self._inputs_sum,
-            self._outputs_sum + self._storage_changes_sum,
+            lhs,
+            rhs,
             rtol=self.rtol,
             atol=self.atol,
             equal_nan=self._ignore_nans,
         ):
             self._zero_sum = False
-
-            lhs = self._inputs_sum
-            rhs = self._outputs_sum + self._storage_changes_sum
 
             if self._ignore_nans:
                 actual_nan = np.where(np.isnan(lhs), True, False)
@@ -359,7 +401,7 @@ class Budget(Accessor):
 
             abs_diff = abs(lhs - rhs)
             with np.errstate(divide="ignore", invalid="ignore"):
-                rel_abs_diff = abs_diff / rhs
+                rel_abs_diff = abs(abs_diff / rhs)
 
             abs_close = abs_diff < self.atol
             rel_close = rel_abs_diff < self.rtol
@@ -420,6 +462,7 @@ class Budget(Accessor):
         return self._balance
 
     def __repr__(self):
+        """Budget string representation"""
         if self._itime_step == -1:
             msg = (
                 f"Budget (units: {self.units}) of {self.description} "
@@ -427,50 +470,40 @@ class Budget(Accessor):
             )
             return msg
 
-        n_in = len(self.inputs)
-        n_out = len(self.outputs)
-        n_stor = len(self.storage_changes)
-        n_report = max(n_in, n_out, n_stor)
-        in_keys = list(self.inputs.keys())
-        out_keys = list(self.outputs.keys())
-        stor_keys = list(self.storage_changes.keys())
+        # Determine which components to display
+        components_to_display = []
+        if len(self.inputs) > 0:
+            components_to_display.append(("inputs", self.inputs))
+        if self._has_exchanges and len(self.exchanges) > 0:
+            components_to_display.append(("exchanges", self.exchanges))
+        if len(self.outputs) > 0:
+            components_to_display.append(("outputs", self.outputs))
+        if len(self.storage_changes) > 0:
+            components_to_display.append(
+                ("storage_changes", self.storage_changes)
+            )
 
-        # the following do not copy the ndarrays
-        in_vals = list(self.inputs.values())
-        out_vals = list(self.outputs.values())
-        stor_vals = list(self.storage_changes.values())
-        acc_in_vals = list(self._accumulations["inputs"].values())
-        acc_out_vals = list(self._accumulations["outputs"].values())
-        acc_stor_vals = list(self._accumulations["storage_changes"].values())
+        # Calculate column widths
+        col_widths = {}
+        col_extra = 12  # ': ' + scientific notation space
+        for comp_name, comp_dict in components_to_display:
+            max_key_len = (
+                max([len(k) for k in comp_dict.keys()]) if comp_dict else 5
+            )
+            col_widths[comp_name] = max_key_len + col_extra
 
-        #           ': ' + value spaces
-        col_extra_colon = 2
-        col_extra_vals = 10
-        col_extra = col_extra_colon + col_extra_vals
-        in_col_key_width = max([len(kk) for kk in in_keys])
-        out_col_key_width = max([len(kk) for kk in out_keys])
-        stor_col_key_width = max([len(kk) for kk in stor_keys])
-        in_col_width = in_col_key_width + col_extra
-        out_col_width = out_col_key_width + col_extra
-        stor_col_width = stor_col_key_width + col_extra
-
-        indent_width = 9
-        indent_fill = " " * indent_width
-        in_col_fill = " " * in_col_width
-        out_col_fill = " " * out_col_width
-        stor_col_fill = " " * stor_col_width
-        sep_width = 4
-        col_sep = " " * sep_width
-        terms_width = (
-            in_col_width + out_col_width + stor_col_width + (2 * sep_width)
+        indent = " " * 9
+        col_sep = "    "
+        total_width = (
+            sum(col_widths.values())
+            + len(col_sep) * (len(components_to_display) - 1)
+            + 9
         )
-        total_width = indent_width + terms_width
 
-        # volume/mass or energy
-        # budget name
-        summary = []
-        summary += ["*-" * int((total_width) / 2)]
+        # Build output
+        summary = ["*-" * int(total_width / 2)]
 
+        # Header
         if self.basis == "unit":
             summary += [
                 f"Individual spatial unit budget for {self.description} "
@@ -485,166 +518,310 @@ class Budget(Accessor):
                 "and storage changes are checked for balance."
             ]
 
-        # print the model time. this is
         summary += [f"@ time: {self._time} (itime_step: {self._itime_step})"]
+        summary += ["", "This timestep:"]
 
-        # Timestep rates
-        summary += [""]
-        # header
-        summary += ["This timestep, rates:"]
-        summary += [
-            indent_fill
-            + "input rates".ljust(in_col_width)
-            + col_sep
-            + "output rates".ljust(out_col_width)
-            + col_sep
-            + "storage change rates".ljust(stor_col_width)
-        ]
-        separator = [
-            (indent_fill + "-" * in_col_width + col_sep)
-            + ("-" * out_col_width + col_sep)
-            + ("-" * stor_col_width)
-        ]
-        summary += separator
+        # Column headers
+        header_line = indent
+        for comp_name, _ in components_to_display:
+            display_name = comp_name.replace("_", " ")
+            header_line += display_name.ljust(col_widths[comp_name]) + col_sep
+        summary += [header_line]
 
-        # terms line by line with cols: in, out, storage
-        term_data = (
-            (n_in, in_keys, in_vals, in_col_width, in_col_fill),
-            (n_out, out_keys, out_vals, out_col_width, out_col_fill),
-            (n_stor, stor_keys, stor_vals, stor_col_width, stor_col_fill),
+        # Separator
+        sep_line = indent
+        for comp_name, _ in components_to_display:
+            sep_line += "-" * col_widths[comp_name] + col_sep
+        summary += [sep_line]
+
+        # Data rows
+        max_rows = max(
+            [len(comp_dict) for _, comp_dict in components_to_display]
         )
-
-        def table_terms_col_wise():
-            "Fill terms table column wise"
-            table = []
-            with np.printoptions(precision=2):
-                for ll in range(n_report):
-                    line = indent_fill
-                    for n_items, keys, vals, col_width, col_fill in term_data:
-                        if ll <= (n_items - 1):
-                            nk = len(keys[ll])
-                            # subtract ": ", "m." and "e+ee"
-                            prec_width = col_width - nk - 2 - 2 - 4
-                            vals_sum = vals[ll].sum()
-                            if vals_sum < 0:
-                                prec_width -= 1
-                            vv = np.format_float_scientific(
-                                vals_sum,
-                                precision=prec_width,
-                            )
-                            line += (
-                                pretty_print(f"{keys[ll]}: {vv}", col_width)
-                                + col_sep
-                            )
-                        else:
-                            line += col_fill + col_sep
-
-                    line += col_sep
-                    table += [line]
-
-            return table
-
-        summary += table_terms_col_wise()
-
-        # balance line
-        summary += [indent_fill + "-" * terms_width]
-
-        eq_op = "="
-        if not self._zero_sum:
-            eq_op = "!=!"
-
-        term_data = (
-            ("", self._inputs_sum, in_col_width, in_col_key_width),
-            ("-", self._outputs_sum, out_col_width, out_col_key_width),
-            (
-                eq_op,
-                self._storage_changes_sum,
-                stor_col_width,
-                stor_col_key_width,
-            ),
-        )
-
-        def balance_line_col_wise():
-            # TODO(JLM): This is a hack until i have some time to sort this out
-            bal_line = "Balance: "
-            for oper, vals_sum, col_width, col_key_width in term_data:
-                if vals_sum.sum() > 0:
-                    sign_extra = 0
-                else:
-                    sign_extra = 1
-
-                bal_line += (
-                    oper
-                    + (" " * (col_key_width + col_extra_colon - len(oper)))
-                    + pretty_print(
-                        np.format_float_scientific(
-                            vals_sum.sum(),
-                            precision=col_width
-                            - col_key_width
-                            - col_extra_colon
-                            - 6
-                            - sign_extra,
-                        ),
-                        col_width - col_key_width - col_extra_colon,
+        for row_idx in range(max_rows):
+            line = indent
+            for comp_name, comp_dict in components_to_display:
+                keys = list(comp_dict.keys())
+                vals = list(comp_dict.values())
+                if row_idx < len(keys):
+                    key = keys[row_idx]
+                    val_sum = vals[row_idx].sum()
+                    # Format value
+                    precision = col_widths[comp_name] - len(key) - 8
+                    if val_sum < 0:
+                        precision -= 1
+                    val_str = np.format_float_scientific(
+                        val_sum, precision=precision
                     )
-                    + col_sep
+                    line += (
+                        f"{key}: {val_str}".ljust(col_widths[comp_name])
+                        + col_sep
+                    )
+                else:
+                    line += " " * col_widths[comp_name] + col_sep
+            summary += [line]
+
+        # Balance line
+        summary += [
+            indent
+            + "-"
+            * (
+                sum(col_widths.values())
+                + len(col_sep) * (len(components_to_display) - 1)
+            )
+        ]
+
+        eq_op = "=" if self._zero_sum else "!=!"
+        balance_line = "Balance: "
+
+        # Build balance equation based on presence of exchanges
+        balance_parts = []
+        for comp_name, _ in components_to_display:
+            comp_sum = getattr(self, f"_{comp_name}_sum")
+            if comp_sum is None:
+                comp_sum = np.float64(0.0)
+            total = comp_sum.sum() if hasattr(comp_sum, "sum") else comp_sum
+
+            # Determine operator
+            if comp_name == "inputs":
+                op = ""
+            elif comp_name == "exchanges":
+                op = "+"
+            elif comp_name == "outputs":
+                op = "-"
+            elif comp_name == "storage_changes":
+                # For exchanges: storage_changes gets subtracted like outputs
+                # For no exchanges: storage_changes gets the eq_op (= or !=!)
+                op = "-" if self._has_exchanges else eq_op
+            else:
+                op = "+"
+
+            # Format value
+            key_width = max(
+                [len(k) for k in list(components_to_display[0][1].keys())]
+            )
+            precision = col_widths[comp_name] - key_width - 8
+            if total < 0:
+                precision -= 1
+            val_str = np.format_float_scientific(
+                total, precision=max(1, precision)
+            )
+
+            balance_parts.append(
+                f"{op} ".ljust(key_width + 2) + val_str.rjust(10)
+            )
+
+        # Calculate residual
+        if self._has_exchanges:
+            residual = (
+                (
+                    self._inputs_sum.sum()
+                    if hasattr(self._inputs_sum, "sum")
+                    else self._inputs_sum
                 )
-            return bal_line
+                + (
+                    self._exchanges_sum.sum()
+                    if hasattr(self._exchanges_sum, "sum")
+                    else self._exchanges_sum
+                )
+                - (
+                    self._outputs_sum.sum()
+                    if hasattr(self._outputs_sum, "sum")
+                    else self._outputs_sum
+                )
+                - (
+                    self._storage_changes_sum.sum()
+                    if hasattr(self._storage_changes_sum, "sum")
+                    else (
+                        self._storage_changes_sum
+                        if self._storage_changes_sum is not None
+                        else 0.0
+                    )
+                )
+            )
+        else:
+            residual = (
+                (
+                    self._inputs_sum.sum()
+                    if hasattr(self._inputs_sum, "sum")
+                    else self._inputs_sum
+                )
+                - (
+                    self._outputs_sum.sum()
+                    if hasattr(self._outputs_sum, "sum")
+                    else self._outputs_sum
+                )
+                - (
+                    self._storage_changes_sum.sum()
+                    if hasattr(self._storage_changes_sum, "sum")
+                    else (
+                        self._storage_changes_sum
+                        if self._storage_changes_sum is not None
+                        else 0.0
+                    )
+                )
+            )
 
-        summary += [balance_line_col_wise()]
+        # Only show residual column if there are exchanges
+        if self._has_exchanges:
+            residual_str = np.format_float_scientific(residual, precision=1)
+            residual_op = "=" if self._zero_sum else "!=!"
+            summary += [
+                balance_line
+                + col_sep.join(balance_parts)
+                + col_sep
+                + f"{residual_op} {residual_str}".rjust(12)
+            ]
+        else:
+            summary += [balance_line + col_sep.join(balance_parts)]
 
-        # Accumulated volumes
-        summary += [""]
-        # header
+        # Accumulations
+        summary += ["", f"Accumulations  (since {self._accum_start_time}):"]
+
+        # Accumulation header
+        header_line = indent
+        for comp_name, _ in components_to_display:
+            display_name = comp_name.replace("_", " ")
+            header_line += display_name.ljust(col_widths[comp_name]) + col_sep
+        summary += [header_line, sep_line]
+
+        # Accumulation data
+        for row_idx in range(max_rows):
+            line = indent
+            for comp_name, comp_dict in components_to_display:
+                keys = list(comp_dict.keys())
+                if row_idx < len(keys):
+                    key = keys[row_idx]
+                    acc_val_sum = self._accumulations[comp_name][key].sum()
+                    precision = col_widths[comp_name] - len(key) - 8
+                    if acc_val_sum < 0:
+                        precision -= 1
+                    val_str = np.format_float_scientific(
+                        acc_val_sum, precision=precision
+                    )
+                    line += (
+                        f"{key}: {val_str}".ljust(col_widths[comp_name])
+                        + col_sep
+                    )
+                else:
+                    line += " " * col_widths[comp_name] + col_sep
+            summary += [line]
+
+        # Accumulation balance
         summary += [
-            f"Accumulated {self._unit_desc} (since {self._accum_start_time}):"
+            indent
+            + "-"
+            * (
+                sum(col_widths.values())
+                + len(col_sep) * (len(components_to_display) - 1)
+            )
         ]
-        summary += [
-            indent_fill
-            + f"input {self._unit_desc}".ljust(in_col_width)
-            + col_sep
-            + f"output {self._unit_desc}".ljust(out_col_width)
-            + col_sep
-            + f"storage change {self._unit_desc}".ljust(out_col_width)
-        ]
-        # separator
-        summary += separator
 
-        # terms line by line with cols: in, out, storage
-        term_data = (
-            (n_in, in_keys, acc_in_vals, in_col_width, in_col_fill),
-            (n_out, out_keys, acc_out_vals, out_col_width, out_col_fill),
-            (n_stor, stor_keys, acc_stor_vals, stor_col_width, stor_col_fill),
-        )
-        # fill terms column wise (abuse scope a bit)
-        summary += table_terms_col_wise()
+        balance_line = "Balance: "
+        balance_parts = []
+        for comp_name, _ in components_to_display:
+            acc_sum = self._accumulations_sum[comp_name]
+            if acc_sum is None:
+                acc_sum = np.float64(0.0)
+            total = acc_sum.sum() if hasattr(acc_sum, "sum") else acc_sum
 
-        # balance line
-        summary += [indent_fill + "-" * terms_width]
-        term_data = (
-            (
+            if comp_name == "inputs":
+                op = ""
+            elif comp_name == "exchanges":
+                op = "+"
+            elif comp_name == "outputs":
+                op = "-"
+            elif comp_name == "storage_changes":
+                op = "-" if self._has_exchanges else eq_op
+            else:
+                op = "+"
+
+            key_width = max(
+                [len(k) for k in list(components_to_display[0][1].keys())]
+            )
+            precision = col_widths[comp_name] - key_width - 8
+            if total < 0:
+                precision -= 1
+            val_str = np.format_float_scientific(
+                total, precision=max(1, precision)
+            )
+
+            balance_parts.append(
+                f"{op} ".ljust(key_width + 2) + val_str.rjust(10)
+            )
+
+        # Calculate accumulated residual
+        if self._has_exchanges:
+            acc_residual = (
+                (
+                    self._accumulations_sum["inputs"].sum()
+                    if hasattr(self._accumulations_sum["inputs"], "sum")
+                    else self._accumulations_sum["inputs"]
+                )
+                + (
+                    self._accumulations_sum["exchanges"].sum()
+                    if hasattr(self._accumulations_sum["exchanges"], "sum")
+                    else self._accumulations_sum["exchanges"]
+                )
+                - (
+                    self._accumulations_sum["outputs"].sum()
+                    if hasattr(self._accumulations_sum["outputs"], "sum")
+                    else self._accumulations_sum["outputs"]
+                )
+                - (
+                    self._accumulations_sum["storage_changes"].sum()
+                    if hasattr(
+                        self._accumulations_sum["storage_changes"], "sum"
+                    )
+                    else (
+                        self._accumulations_sum["storage_changes"]
+                        if self._accumulations_sum["storage_changes"]
+                        is not None
+                        else 0.0
+                    )
+                )
+            )
+        else:
+            acc_residual = (
+                (
+                    self._accumulations_sum["inputs"].sum()
+                    if hasattr(self._accumulations_sum["inputs"], "sum")
+                    else self._accumulations_sum["inputs"]
+                )
+                - (
+                    self._accumulations_sum["outputs"].sum()
+                    if hasattr(self._accumulations_sum["outputs"], "sum")
+                    else self._accumulations_sum["outputs"]
+                )
+                - (
+                    self._accumulations_sum["storage_changes"].sum()
+                    if hasattr(
+                        self._accumulations_sum["storage_changes"], "sum"
+                    )
+                    else (
+                        self._accumulations_sum["storage_changes"]
+                        if self._accumulations_sum["storage_changes"]
+                        is not None
+                        else 0.0
+                    )
+                )
+            )
+
+        # Only show residual column if there are exchanges
+        if self._has_exchanges:
+            acc_residual_str = np.format_float_scientific(
+                acc_residual, precision=1
+            )
+            summary += [
+                balance_line
+                + col_sep.join(balance_parts)
+                + col_sep
+                + f"{residual_op} {acc_residual_str}".rjust(12),
                 "",
-                self._accumulations_sum["inputs"],
-                in_col_width,
-                in_col_key_width,
-            ),
-            (
-                "-",
-                self._accumulations_sum["outputs"],
-                out_col_width,
-                out_col_key_width,
-            ),
-            (
-                eq_op,
-                self._accumulations_sum["storage_changes"],
-                stor_col_width,
-                stor_col_key_width,
-            ),
-        )
-        summary += [balance_line_col_wise()]
+            ]
+        else:
+            summary += [balance_line + col_sep.join(balance_parts), ""]
 
-        # conclude
-        summary += [""]
         return "\n".join(summary)
 
     def output(self) -> None:

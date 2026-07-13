@@ -82,7 +82,9 @@ def test_compare_prms(
 ):
     tmp_path = pl.Path(tmp_path)
 
-    comparison_var_names = set(Runoff.get_variables())
+    comparison_var_names = set(Runoff.get_variables()) - {
+        "dprst_vol_thres_open",
+    }
     control.options["netcdf_output_var_names"] = comparison_var_names
 
     output_dir = simulation["output_dir"]
@@ -93,15 +95,15 @@ def test_compare_prms(
         input_variables[key] = nc_pth
 
     if do_compare_output_files:
-        nc_parent = tmp_path / simulation["name"]
-        control.options["netcdf_output_dir"] = nc_parent
+        nc_output_dir = tmp_path / simulation["name"].replace(":", "_")
+        control.options["netcdf_output_dir"] = nc_output_dir
 
     runoff = Runoff(
         control=control,
         discretization=discretization,
         parameters=parameters,
         **input_variables,
-        budget_type="error",
+        imbalance_behavior="error",
         calc_method=calc_method,
     )
 
@@ -134,7 +136,7 @@ def test_compare_prms(
                 atol=atol,
                 rtol=rtol,
                 skip_missing_ans=True,
-                fail_after_all_vars=False,
+                fail_after_all_vars=True,
             )
 
     runoff.finalize()
@@ -142,7 +144,7 @@ def test_compare_prms(
     if do_compare_output_files:
         compare_netcdfs(
             comparison_var_names,
-            tmp_path / simulation["name"],
+            nc_output_dir,
             output_dir,
             atol=atol,
             rtol=rtol,

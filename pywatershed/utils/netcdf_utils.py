@@ -541,7 +541,9 @@ class NetCdfWrite(Accessor):
                     # if it is a string array, convert it to a character array
                     # I dont understand the particulars here, may need more
                     # work
-                    # if "U" in type_str:
+                    # Convert Unicode strings to UTF-8 byte strings first
+                    if "U" in type_str:
+                        x_data = np.char.encode(x_data, "utf-8")
                     char_array = stringtochar(x_data)
 
                     char_dim_len = char_array.shape[1]

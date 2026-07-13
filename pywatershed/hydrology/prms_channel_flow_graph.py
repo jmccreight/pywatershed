@@ -26,13 +26,13 @@ from pywatershed.parameters import Parameters
 
 
 class PRMSChannelFlowNode(FlowNode):
-    """A FlowNode for the Muskingum-Mann method of PRMSChannel
+    r"""A FlowNode for the Muskingum-Mann method of PRMSChannel
 
     This is a :class:`FlowNode` implementation of :class:`PRMSChannel` where
     the solution is the so-called Muskingum-Mann method.
 
     See :class:`FlowGraph` for discussion and a worked example. The notebook
-    `examples/06_flow_graph_starfit.ipynb <https://github.com/EC-USGS/pywatershed/blob/develop/examples/06_flow_graph_starfit.ipynb>`__
+    `examples/06_flow_graph_starfit.ipynb <https://github.com/DOI-USGS/pywatershed/blob/develop/examples/06_flow_graph_starfit.ipynb>`__
     highlights adding a StarfitFlowNode a :class:`FlowGraph` otherwised
     comprised of :class:`PRMSChannelFlowNode`\ s using the helper functions
     :func:`prms_channel_flow_graph_to_model_dict`
@@ -70,7 +70,7 @@ class PRMSChannelFlowNode(FlowNode):
         self._c2 = c2
 
         self._outflow_ts = zero
-        self._seg_inflow0 = zero
+        self.inflow_ts_prev = zero
         self._seg_inflow = zero
         self._inflow_ts = zero
         self._seg_current_sum = zero
@@ -98,13 +98,13 @@ class PRMSChannelFlowNode(FlowNode):
             self._seg_inflow,
             self._inflow_ts,
             self._outflow_ts,
-            self._seg_inflow0,
+            self.inflow_ts_prev,
             self._seg_outflow,
         ) = self._calculate_subtimestep(
             ihr,
             inflow_upstream,
             inflow_lateral,
-            self._seg_inflow0,
+            self.inflow_ts_prev,
             self._seg_inflow,  # implied on RHS by +=
             self._inflow_ts,
             self._seg_outflow,
@@ -125,7 +125,7 @@ class PRMSChannelFlowNode(FlowNode):
         return
 
     def advance(self):
-        self._seg_inflow0 = self._seg_inflow
+        self.inflow_ts_prev = self._seg_inflow
 
         return
 
@@ -157,13 +157,13 @@ class PRMSChannelFlowNode(FlowNode):
 
 
 class PRMSChannelFlowNodeMaker(FlowNodeMaker):
-    """A FlowNodeMaker for PRMSChannelFlowNodes.
+    r"""A FlowNodeMaker for PRMSChannelFlowNodes.
 
     See :class:`PRMSChannelFlowNode` for additional details and the required
     parameters.
 
     See :class:`FlowGraph` for discussion and a worked example. The notebook
-    `examples/06_flow_graph_starfit.ipynb <https://github.com/EC-USGS/pywatershed/blob/develop/examples/06_flow_graph_starfit.ipynb>`__
+    `examples/06_flow_graph_starfit.ipynb <https://github.com/DOI-USGS/pywatershed/blob/develop/examples/06_flow_graph_starfit.ipynb>`__
     highlights adding a StarfitFlowNode a :class:`FlowGraph` otherwised
     comprised of :class:`PRMSChannelFlowNode`\ s using the helper functions
     :func:`prms_channel_flow_graph_to_model_dict`
@@ -326,7 +326,7 @@ class PRMSChannelFlowNodeMaker(FlowNodeMaker):
 
         # local flow variables
         self._seg_inflow = np.zeros(self.nsegment, dtype=float)
-        self._seg_inflow0 = np.zeros(self.nsegment, dtype=float) * nan
+        self.inflow_ts_prev = np.zeros(self.nsegment, dtype=float) * nan
         self._inflow_ts = np.zeros(self.nsegment, dtype=float)
         self._outflow_ts = np.zeros(self.nsegment, dtype=float)
         self._seg_current_sum = np.zeros(self.nsegment, dtype=float)
@@ -340,7 +340,7 @@ def _calculate_subtimestep_numpy(
     ihr,
     inflow_upstream,
     inflow_lateral,
-    _seg_inflow0,
+    inflow_ts_prev,
     _seg_inflow,
     _inflow_ts,
     _seg_outflow,
@@ -364,12 +364,12 @@ def _calculate_subtimestep_numpy(
         if _tsi > 0:
             # Muskingum routing equation
             _outflow_ts = (
-                _inflow_ts * _c0 + _seg_inflow0 * _c1 + _outflow_ts * _c2
+                _inflow_ts * _c0 + inflow_ts_prev * _c1 + _outflow_ts * _c2
             )
         else:
             _outflow_ts = _inflow_ts
 
-        _seg_inflow0 = _inflow_ts
+        inflow_ts_prev = _inflow_ts
         _inflow_ts = 0.0
 
     _seg_outflow += _outflow_ts
@@ -378,7 +378,7 @@ def _calculate_subtimestep_numpy(
         _seg_inflow,
         _inflow_ts,
         _outflow_ts,
-        _seg_inflow0,
+        inflow_ts_prev,
         _seg_outflow,
     )
 
@@ -391,7 +391,7 @@ _calculate_subtimestep_numba = nb.njit(
         nb.int64,  # ihr
         nb.float64,  # inflow_upstream
         nb.float64,  # inflow_lateral
-        nb.float64,  # _seg_inflow0
+        nb.float64,  # inflow_ts_prev
         nb.float64,  # _seg_inflow
         nb.float64,  # _inflow_ts
         nb.float64,  # _seg_outflow
@@ -514,7 +514,8 @@ class HruNodeFlowExchange(ConservativeProcess):
         sroff_vol: adaptable,
         ssres_flow_vol: adaptable,
         gwres_flow_vol: adaptable,
-        budget_type: Literal["defer", None, "warn", "error"] = "defer",
+        imbalance_behavior: Literal["defer", None, "warn", "error"] = "defer",
+        input_aliases: dict = None,
         verbose: bool = None,
     ) -> None:
         """Instantiate a HruNodeFlowExchange.
@@ -529,16 +530,18 @@ class HruNodeFlowExchange(ConservativeProcess):
               reservoir flow.
             gwres_flow_vol: An :class:`Adaptable` of volumetric groundwater
               reservoir flow.
-            budget_type: one of ["defer", None, "warn", "error"] with "defer"
-              being the default and defering to control.options["budget_type"]
-              when available. When control.options["budget_type"] is not
-              avaiable, budget_type is set to "warn".
+            imbalance_behavior: one of ["defer", None, "warn", "error"]
+              with "defer" being the default and defering to
+              control.options["imbalance_behavior"] when available.
+              When control.options["imbalance_behavior"] is not
+              avaiable, imbalance_behavior is set to "warn".
             verbose: Boolean for the amount of messages to be printed.
         """
         super().__init__(
             control=control,
             discretization=discretization,
             parameters=parameters,
+            input_aliases=input_aliases,
         )
         self.name = "HruNodeFlowExchange"
 
@@ -631,10 +634,11 @@ def prms_channel_flow_graph_postprocess(
     new_nodes_flow_to_nhm_seg: list,
     addtl_output_vars: list[str] = None,
     allow_disconnected_nodes: bool = False,
-    budget_type: Literal["defer", None, "warn", "error"] = "defer",
+    imbalance_behavior: Literal["defer", None, "warn", "error"] = "defer",
+    prms_channel_node_maker_name: str = "prms_channel",
     type_check_nodes: bool = False,
 ) -> FlowGraph:
-    """Add nodes to a PRMSChannel-based FlowGraph to run from known inputs.
+    r"""Add nodes to a PRMSChannel-based FlowGraph to run from known inputs.
 
     This function helps construct a :class:`FlowGraph` starting from existing
     data for a :class:`PRMSChannel` simulation. The resulting FlowGraph is
@@ -649,7 +653,7 @@ def prms_channel_flow_graph_postprocess(
 
     See :class:`FlowGraph` for additional details and discussion.
 
-    Please see the example notebook `examples/06_flow_graph_starfit.ipynb <https://github.com/EC-USGS/pywatershed/blob/develop/examples/06_flow_graph_starfit.ipynb>`__
+    Please see the example notebook `examples/06_flow_graph_starfit.ipynb <https://github.com/DOI-USGS/pywatershed/blob/develop/examples/06_flow_graph_starfit.ipynb>`__
     which highlights both this helper function and
     :func:`prms_channel_flow_graph_to_model_dict`.
 
@@ -670,20 +674,21 @@ def prms_channel_flow_graph_postprocess(
             collated parameters, allowing these new nodes to be added in
             groups, in series to the existing NHM FlowGraph. Note that a new
             node may not be placed below any outflow point of the domain.
-        budget_type: one of ["defer", None, "warn", "error"] with "defer" being
-            the default and defering to control.options["budget_type"] when
-            available. When control.options["budget_type"] is not avaiable,
-            budget_type is set to "warn".
+        imbalance_behavior: one of ["defer", None, "warn", "error"]
+            with "defer" being the default and defering to
+            control.options["imbalance_behavior"] when available. When
+            control.options["imbalance_behavior"] is not avaiable,
+            imbalance_behavior is set to "warn".
 
     Returns:
         An instantiated FlowGraph object.
 
     """  # noqa: E501
-    if budget_type == "defer":
-        if "budget_type" in control.options.keys():
-            budget_type = control.options["budget_type"]
+    if imbalance_behavior == "defer":
+        if "imbalance_behavior" in control.options.keys():
+            imbalance_behavior = control.options["imbalance_behavior"]
         else:
-            budget_type = "warn"
+            imbalance_behavior = "warn"
 
     params_flow_graph, node_maker_dict = _build_flow_graph_inputs(
         prms_channel_dis,
@@ -693,6 +698,7 @@ def prms_channel_flow_graph_postprocess(
         new_nodes_maker_indices,
         new_nodes_maker_ids,
         new_nodes_flow_to_nhm_seg,
+        prms_channel_node_maker_name=prms_channel_node_maker_name,
     )
 
     # combine PRMS lateral inflows to a single non-volumetric inflow
@@ -736,7 +742,7 @@ def prms_channel_flow_graph_postprocess(
         inflows=inflows_graph,
         node_maker_dict=node_maker_dict,
         addtl_output_vars=addtl_output_vars,
-        budget_type=budget_type,
+        imbalance_behavior=imbalance_behavior,
         type_check_nodes=type_check_nodes,
         allow_disconnected_nodes=allow_disconnected_nodes,
     )
@@ -754,11 +760,13 @@ def prms_channel_flow_graph_to_model_dict(
     new_nodes_maker_ids: list,
     new_nodes_flow_to_nhm_seg: list,
     addtl_output_vars: list[str] = None,
-    graph_budget_type: Literal["defer", None, "warn", "error"] = "defer",
+    graph_imbalance_behavior: Literal[
+        "defer", None, "warn", "error"
+    ] = "defer",
     allow_disconnected_nodes: bool = False,
-    type_check_nodes: bool = False,
+    prms_channel_node_maker_name: str = "prms_channel",
 ) -> dict:
-    """Add nodes to a PRMSChannel-based FlowGraph within a Model's model_dict.
+    r"""Add nodes to a PRMSChannel-based FlowGraph within a Model's model_dict.
 
     This function helps construct a :class:`FlowGraph` starting from existing
     data for a :class:`PRMSChannel` simulation. The resulting FlowGraph is
@@ -772,7 +780,7 @@ def prms_channel_flow_graph_to_model_dict(
     :class:`base.Process`\ es in a :class:`Model`), then the helper function
     :func:`prms_channel_flow_graph_postprocess` is for you.
 
-    Please see the example notebook `examples/06_flow_graph_starfit.ipynb <https://github.com/EC-USGS/pywatershed/blob/develop/examples/06_flow_graph_starfit.ipynb>`__
+    Please see the example notebook `examples/06_flow_graph_starfit.ipynb <https://github.com/DOI-USGS/pywatershed/blob/develop/examples/06_flow_graph_starfit.ipynb>`__
     which highlights both this helper function and
     :func:`prms_channel_flow_graph_postprocess`.
 
@@ -794,10 +802,10 @@ def prms_channel_flow_graph_to_model_dict(
             collated parameters, allowing these new nodes to be added in
             groups, in series to the existing NHM FlowGraph. Note that a new
             node may not be placed below any outflow point of the domain.
-        graph_budget_type: one of ["defer", None, "warn", "error"] with
+        graph_imbalance_behavior: one of ["defer", None, "warn", "error"] with
             "defer" being the default and defering to
-            control.options["budget_type"] when available. When
-            control.options["budget_type"] is not avaiable, budget_type is set
+            control.options["imbalance_behavior"] when available. When
+            control.options["imbalance_behavior"] is not avaiable, imbalance_behavior is set
             to "warn".
 
     Returns:
@@ -814,6 +822,7 @@ def prms_channel_flow_graph_to_model_dict(
         new_nodes_maker_indices,
         new_nodes_maker_ids,
         new_nodes_flow_to_nhm_seg,
+        prms_channel_node_maker_name=prms_channel_node_maker_name,
     )
 
     def exchange_calculation(self) -> None:
@@ -861,7 +870,7 @@ def prms_channel_flow_graph_to_model_dict(
             "storage_changes": [],
         },
         calculation=exchange_calculation,
-    )  # get the budget type into the exchange too: exchange_budget_type
+    )  # get the budget type into the exchange too: exchange_imbalance_behavior
 
     # Exchange parameters
     nnodes = params_flow_graph.dims["nnodes"]
@@ -884,7 +893,7 @@ def prms_channel_flow_graph_to_model_dict(
             "node_maker_dict": node_maker_dict,
             "parameters": params_flow_graph,
             "dis": None,
-            "budget_type": graph_budget_type,
+            "imbalance_behavior": graph_imbalance_behavior,
             "addtl_output_vars": addtl_output_vars,
             "allow_disconnected_nodes": allow_disconnected_nodes,
         },
@@ -903,6 +912,7 @@ def _build_flow_graph_inputs(
     new_nodes_maker_indices: list,
     new_nodes_maker_ids: list,
     new_nodes_flow_to_nhm_seg: list,
+    prms_channel_node_maker_name: str = "prms_channel",
 ):
     prms_channel_flow_makers = [
         type(vv)
@@ -924,7 +934,9 @@ def _build_flow_graph_inputs(
     nnew = len(new_nodes_maker_names)
     nnodes = nseg + nnew
 
-    node_maker_name = ["prms_channel"] * nseg + new_nodes_maker_names
+    node_maker_name = [
+        prms_channel_node_maker_name
+    ] * nseg + new_nodes_maker_names
     maxlen = np.array([len(nn) for nn in node_maker_name]).max()
     # need this to be unicode U# for keys and searching below
     node_maker_name = np.array(node_maker_name, dtype=f"|U{maxlen}")
@@ -957,11 +969,11 @@ def _build_flow_graph_inputs(
         )
         # have to map to the graph from an index found in prms_channel
         wh_intervene_above_graph = np.where(
-            (node_maker_name == "prms_channel")
+            (node_maker_name == prms_channel_node_maker_name)
             & (node_maker_index == wh_intervene_above_nhm[0][0])
         )
         wh_intervene_below_graph = np.where(
-            (node_maker_name == "prms_channel")
+            (node_maker_name == prms_channel_node_maker_name)
             & np.isin(node_maker_index, wh_intervene_below_nhm)
         )
 
@@ -1017,7 +1029,7 @@ def _build_flow_graph_inputs(
 
     # make available at top level __init__
     node_maker_dict = {
-        "prms_channel": PRMSChannelFlowNodeMaker(
+        prms_channel_node_maker_name: PRMSChannelFlowNodeMaker(
             prms_channel_dis, prms_channel_params
         ),
     } | new_nodes_maker_dict

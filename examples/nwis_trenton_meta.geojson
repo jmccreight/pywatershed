@@ -1,0 +1,8 @@
+{
+"type": "FeatureCollection",
+"name": "nwis_trenton_meta",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:EPSG::4269" } },
+"features": [
+{ "type": "Feature", "properties": { "agency_cd": "USGS", "site_no": "01463500", "station_nm": "Delaware River at Trenton NJ", "site_tp_cd": "ST", "lat_va": 401318, "long_va": 744641, "dec_lat_va": 40.22166667, "dec_long_va": -74.77805556, "coord_meth_cd": "M", "coord_acy_cd": "S", "coord_datum_cd": "NAD83", "dec_coord_datum_cd": "NAD83", "district_cd": 34, "state_cd": 34, "county_cd": 21, "country_cd": "US", "land_net_ds": "Trenton City", "map_nm": "Trenton West", "map_scale_fc": 24000, "alt_va": -1.08, "alt_meth_cd": "X", "alt_acy_va": 0.0, "alt_datum_cd": "NAVD88", "huc_cd": 20401050911, "basin_cd": null, "topo_cd": null, "instruments_cd": "NNYNYNNNNNYNNNNNNNNNNNNNNNNNNN", "construction_dt": null, "inventory_dt": 191302, "drain_area_va": 6780.0, "contrib_drain_area_va": null, "tz_cd": "EST", "local_time_fg": "Y", "reliability_cd": null, "gw_file_cd": "NNNNNNNNNNNNNNNNNNNN", "nat_aqfr_cd": null, "aqfr_cd": null, "aqfr_type_cd": null, "well_depth_va": null, "hole_depth_va": null, "depth_src_cd": null, "project_no": null }, "geometry": { "type": "Point", "coordinates": [ -74.77805556, 40.22166667 ] } }
+]
+}

@@ -28,12 +28,12 @@ jobs:
         shell: bash
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
-          python-version: "3.10"
+          python-version: "3.13"
 
       - name: Upgrade pip and install build and twine
         run: |
@@ -63,12 +63,12 @@ jobs:
         shell: bash
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
-          python-version: "3.11"
+          python-version: "3.13"
 
       - name: Upgrade pip and install build and twine
         run: |
@@ -98,12 +98,12 @@ jobs:
         shell: bash
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
-          python-version: "3.10"
+          python-version: "3.13"
 
       - name: Install dependencies
         run: |
@@ -122,8 +122,8 @@ jobs:
       - name: Format
         run: ruff format --check .
 
-  test:
-    name: ${{ matrix.os }} py${{ matrix.python-version }}
+  test_domainless:
+    name: domainless ${{ matrix.os }} py${{ matrix.python-version }}
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -132,35 +132,38 @@ jobs:
       fail-fast: false
       matrix:
         os: ["ubuntu-latest", "macos-latest", "windows-latest"]
-        python-version: ["3.10", "3.11"]
+        python-version: ["3.13"]
 
     steps:
-      - name: Free Disk Space (Ubuntu)
-        if: runner.os == 'Linux'
-        uses: jlumbroso/free-disk-space@main
-        with:
-          tool-cache: false
-          android: true
-          dotnet: true
-          haskell: true
-          large-packages: true
-          docker-images: true
-          swap-storage: true
-
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup tmate session
         uses: mxschmitt/action-tmate@v3
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}
 
+      - name: Install Dependencies via Micromamba
+        uses: mamba-org/setup-micromamba@v3
+        with:
+          log-level: debug
+          environment-file: environment.yml
+          cache-environment: true
+          cache-downloads: true
+          create-args: >-
+            python=${{matrix.python-version}}
+
+      - name: Link conda gfortran dylibs on Mac
+        if: runner.os == 'macOS'
+        run: .github/scripts/symlink_gfortran_mac.sh
+
       - name: Set environment variables
         run: |
           echo "PYTHON_VERSION=${{ matrix.python-version }}" >> $GITHUB_ENV
-          echo "PYWS_FORTRAN=false" >> $GITHUB_ENV
           cat .mf6_ci_ref_remote  >> $GITHUB_ENV
 
       - name: Enforce MF6 ref and remote merge to main
+        # need the code to update flopy but can get the binary
+        # from nightly builds
         if: github.base_ref == 'main'
         run: |
           echo Merge commit: GITHUB_BASE_REF = $GITHUB_BASE_REF
@@ -171,29 +174,8 @@ jobs:
           echo $MF6_REMOTE
           if [[ "$MF6_REMOTE" != "$req_remote" ]]; then echo "bad mf6 remote in .mf6_ci_ref_remote"; exit 1; fi
 
-      - name: Setup gfortran
-        uses: fortran-lang/setup-fortran@v1
-        with:
-          compiler: gcc
-          version: 11
-
-      - name: Link gfortran dylibs on Mac
-        if: runner.os == 'macOS'
-        run: .github/scripts/symlink_gfortran_mac.sh
-
-      - name: Install Dependencies via Micromamba
-        uses: mamba-org/setup-micromamba@v1.9.0
-        with:
-          micromamba-version: "1.5.10-0"
-          log-level: debug
-          environment-file: environment.yml
-          cache-environment: true
-          cache-downloads: true
-          create-args: >-
-            python=${{matrix.python-version}}
-
       - name: Checkout MODFLOW 6
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ env.MF6_REMOTE }}
           ref: ${{ env.MF6_REF }}
@@ -202,7 +184,357 @@ jobs:
       - name: Update flopy MODFLOW 6 classes
         working-directory: modflow6/autotest
         run: |
-          pip install tomli_w boltons
+          # requires flopy[codgen] install option
+          python -m flopy.mf6.utils.generate_classes
+
+      - name: Install mf6 nightly build binaries
+        uses: modflowpy/install-modflow-action@v1
+        with:
+          repo: modflow6-nightly-build
+
+      - name: Install pywatershed
+        run: |
+          pip install .
+
+      - name: Version info
+        run: |
+          pip -V
+          pip list
+
+      - name: domainless - run tests not requiring domain data
+        working-directory: autotest
+        run: pytest
+          -m domainless
+          -n=auto
+          -vv
+          --durations=0
+          --error-for-skips
+          --cov=pywatershed
+          --cov-report=xml
+          --junitxml=pytest_domainless.xml
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: Test results for domainless-${{ runner.os }}-${{ matrix.python-version }}
+          path: |
+            ./autotest/pytest_domainless.xml
+
+      - name: Upload code coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./autotest/coverage.xml
+          env_vars: RUNNER_OS,PYTHON_VERSION
+          fail_ci_if_error: false
+          version: "v0.1.15"
+
+  test_sagehen_5yr:
+    name: sagehen_5yr ${{ matrix.os }} py${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash -l {0}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["ubuntu-latest", "macos-latest", "windows-latest"]
+        python-version: ["3.13"]
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v6
+
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}
+
+      - name: Install Dependencies via Micromamba
+        uses: mamba-org/setup-micromamba@v3
+        with:
+          log-level: debug
+          environment-file: environment.yml
+          cache-environment: true
+          cache-downloads: true
+          create-args: >-
+            python=${{matrix.python-version}}
+
+      - name: Link conda gfortran dylibs on Mac
+        if: runner.os == 'macOS'
+        run: .github/scripts/symlink_gfortran_mac.sh
+
+      - name: Install pywatershed
+        run: |
+          pip install .
+
+      - name: Version info
+        run: |
+          pip -V
+          pip list
+
+      - name: sagehen_5yr_no_cascades - generate and manage test data domain, run PRMS and convert csv output to NetCDF
+        working-directory: autotest
+        run: |
+          python generate_test_data.py \
+            --domain=sagehen_5yr \
+            --control_pattern=sagehen_no_cascades.control \
+            --remove_prms_csvs --remove_prms_output_dirs
+
+      - name: sagehen_5yr_no_cascades - list netcdf input files
+        working-directory: test_data
+        run: |
+          find sagehen_5yr/output_no_cascades -name '*.nc' | sort -n
+
+      - name: sagehen_5yr_no_cascades - pywatershed tests
+        working-directory: autotest
+        run: pytest
+          -vv
+          -rs
+          -n=auto
+          -m "not domainless"
+          --domain=sagehen_5yr
+          --control_pattern=sagehen_no_cascades.control
+          --durations=0
+          --error-for-skips
+          --cov=pywatershed
+          --cov-report=xml
+          --junitxml=pytest_sagehen_5yr_no_cascades.xml
+          --ignore=test_cbh_to_netcdf.py
+          --ignore=test_prms_dyn_params.py
+          --ignore=test_control_read.py
+          --ignore=test_domain_subset.py
+          --ignore=test_mmr_to_mf6_dfw.py
+          --ignore=test_model.py
+          --ignore=test_netcdf_subset.py
+          --ignore=test_nhm_restart.py
+          --ignore=test_obsin_flow_node.py
+          --ignore=test_output.py
+          --ignore=test_pass_through_flow_graph.py
+          --ignore=test_prms_atmosphere_transp_frost.py
+          --ignore=test_prms_atmosphere_transp_frost_dynamic.py
+          --ignore=test_prms_channel.py
+          --ignore=test_prms_channel_flow_graph.py
+          --ignore=test_prms_et.py
+          --ignore=test_prms_et_can_runoff.py
+          --ignore=test_prms_et_canopy.py
+          --ignore=test_prms_hydraulic_geometry.py
+          --ignore=test_prms_runoff.py
+          --ignore=test_prms_runoff_ag.py
+          --ignore=test_prms_runoff_ag_restart.py
+          --ignore=test_prms_runoff_soilzone_ag.py
+          --ignore=test_prms_soilzone_ag.py
+          --ignore=test_prms_soilzone_ag_restart.py
+          --ignore=test_prms_stream_temp.py
+          --ignore=test_source_sink_flow_node.py
+          --ignore=test_starfit_flow_graph.py
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: Test results for sagehen_5yr-${{ runner.os }}-${{ matrix.python-version }}
+          path: |
+            ./autotest/pytest_sagehen_5yr_no_cascades.xml
+
+      - name: Upload code coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./autotest/coverage.xml
+          env_vars: RUNNER_OS,PYTHON_VERSION
+          fail_ci_if_error: false
+          version: "v0.1.15"
+
+  test_hru_1:
+    name: hru_1 ${{ matrix.os }} py${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash -l {0}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["ubuntu-latest", "macos-latest", "windows-latest"]
+        python-version: ["3.13"]
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v6
+
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}
+
+      - name: Install Dependencies via Micromamba
+        uses: mamba-org/setup-micromamba@v3
+        with:
+          log-level: debug
+          environment-file: environment.yml
+          cache-environment: true
+          cache-downloads: true
+          create-args: >-
+            python=${{matrix.python-version}}
+
+      - name: Link conda gfortran dylibs on Mac
+        if: runner.os == 'macOS'
+        run: .github/scripts/symlink_gfortran_mac.sh
+
+      - name: Install pywatershed
+        run: |
+          pip install .
+
+      - name: Version info
+        run: |
+          pip -V
+          pip list
+
+      - name: hru_1 all configs - generate and manage test data, run PRMS and convert csv output to NetCDF
+        working-directory: autotest
+        run: |
+          python generate_test_data.py \
+            -n=auto --domain=hru_1 \
+            --remove_prms_csvs --remove_prms_output_dirs \
+            --control_pattern=nhm.control \
+            --control_pattern=frost.control
+
+      - name: hru_1_nhm - list netcdf input files
+        working-directory: test_data
+        run: |
+          find hru_1/output -name '*.nc' | sort -n
+
+      - name: hru_1_nhm_transp_frost - list netcdf input files
+        working-directory: test_data
+        run: |
+          find hru_1/output_transp_frost -name '*.nc' | sort -n
+
+      - name: hru_1_nhm - pywatershed tests
+        working-directory: autotest
+        run: pytest
+          -vv
+          -rs
+          -n=auto
+          -m "not domainless"
+          --domain=hru_1
+          --control_pattern=nhm.control
+          --durations=0
+          --error-for-skips
+          --cov=pywatershed
+          --cov-report=xml
+          --junitxml=pytest_hru_1_nhm.xml
+          --ignore=test_domain_subset.py
+          --ignore=test_prms_dyn_params.py
+          --ignore=test_mmr_to_mf6_dfw.py
+          --ignore=test_obsin_flow_node.py
+          --ignore=test_output.py
+          --ignore=test_pass_through_flow_graph.py
+          --ignore=test_prms_atmosphere_transp_frost.py
+          --ignore=test_prms_atmosphere_transp_frost_dynamic.py
+          --ignore=test_prms_channel_flow_graph.py
+          --ignore=test_prms_hydraulic_geometry.py
+          --ignore=test_prms_runoff_ag.py
+          --ignore=test_prms_runoff_ag_restart.py
+          --ignore=test_prms_runoff_soilzone_ag.py
+          --ignore=test_prms_soilzone_ag.py
+          --ignore=test_prms_soilzone_ag_restart.py
+          --ignore=test_prms_stream_temp.py
+          --ignore=test_source_sink_flow_node.py
+          --ignore=test_starfit_flow_graph.py
+
+      - name: hru_1_nhm_transp_frost - pywatershed tests
+        working-directory: autotest
+        run: pytest
+          -vv
+          -rs
+          -n=auto
+          -m "not domainless"
+          --domain=hru_1
+          --control_pattern=nhm_transp_frost.control
+          --durations=0
+          --error-for-skips
+          --cov=pywatershed
+          --cov-report=xml
+          --junitxml=pytest_hru_1_transp_frost.xml
+          test_prms_atmosphere_transp_frost.py
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: Test results for hru_1-${{ runner.os }}-${{ matrix.python-version }}
+          path: |
+            ./autotest/pytest_hru_1_nhm.xml
+            ./autotest/pytest_hru_1_transp_frost.xml
+
+      - name: Upload code coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./autotest/coverage.xml
+          env_vars: RUNNER_OS,PYTHON_VERSION
+          fail_ci_if_error: false
+          version: "v0.1.15"
+
+  test_drb_2yr:
+    name: drb_2yr ${{ matrix.os }} py${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash -l {0}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["ubuntu-latest", "macos-latest", "windows-latest"]
+        python-version: ["3.13"]
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v6
+
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}
+
+      - name: Set environment variables
+        run: |
+          echo "PYTHON_VERSION=${{ matrix.python-version }}" >> $GITHUB_ENV
+          cat .mf6_ci_ref_remote  >> $GITHUB_ENV
+
+      - name: Install Dependencies via Micromamba
+        uses: mamba-org/setup-micromamba@v3
+        with:
+          log-level: debug
+          environment-file: environment.yml
+          cache-environment: true
+          cache-downloads: true
+          create-args: >-
+            python=${{matrix.python-version}}
+
+      - name: Link conda gfortran dylibs on Mac
+        if: runner.os == 'macOS'
+        run: .github/scripts/symlink_gfortran_mac.sh
+
+      - name: Enforce MF6 ref and remote merge to main
+        # need the code to update flopy but can get the binary
+        # from nightly builds
+        if: github.base_ref == 'main'
+        run: |
+          echo Merge commit: GITHUB_BASE_REF = $GITHUB_BASE_REF
+          req_ref=develop  # if not develop, submit an issue
+          echo $MF6_REF
+          if [[ "$MF6_REF" != "$req_ref" ]]; then exit 1; fi
+          req_remote=MODFLOW-USGS/modflow6
+          echo $MF6_REMOTE
+          if [[ "$MF6_REMOTE" != "$req_remote" ]]; then echo "bad mf6 remote in .mf6_ci_ref_remote"; exit 1; fi
+
+      - name: Checkout MODFLOW 6
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ env.MF6_REMOTE }}
+          ref: ${{ env.MF6_REF }}
+          path: modflow6
+
+      - name: Update flopy MODFLOW 6 classes
+        working-directory: modflow6/autotest
+        run: |
+          # requires flopy[codgen] install option
           python -m flopy.mf6.utils.generate_classes
 
       - name: Install mf6 nightly build binaries
@@ -223,85 +555,34 @@ jobs:
         run: |
           python pywatershed/utils/gis_files.py
 
-      - name: domainless - run tests not requiring domain data
-        working-directory: autotest
-        run: pytest
-          -m domainless
-          -n=auto
-          -vv
-          --durations=0
-          --cov=pywatershed
-          --cov-report=xml
-          --junitxml=pytest_domainless.xml
-
-      - name: sagehen_5yr_no_cascades - generate and manage test data domain, run PRMS and convert csv output to NetCDF
-        working-directory: autotest
+      - name: Compile PRMS 5.2.1.1
+        working-directory: prms_src/prms5.2.1.1
         run: |
-          python generate_test_data.py \
-            -n=auto --domain=sagehen_5yr --control_pattern=sagehen_no_cascades.control \
-            --remove_prms_csvs --remove_prms_output_dirs
+          which gfortran
+          gfortran --version
+          which make
+          MAKE_PATH=$(which make)
+          $MAKE_PATH clean MAKE="$MAKE_PATH"
+          $MAKE_PATH DBL_PREC=true FC=gfortran CC=gcc MAKE="$MAKE_PATH"
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            cp bin/prms ../../bin/prms_5.2.1.1_gfort_win_dbl_prec.exe
+          elif [ "$RUNNER_OS" == "macOS" ]; then
+            cp bin/prms ../../bin/prms_5.2.1.1_gfortran_apple_silicon_dbl_prec
+          elif [ "$RUNNER_OS" == "Linux" ]; then
+            cp bin/prms ../../bin/prms_5.2.1.1_gfort_linux_dbl_prec
+          fi
 
-      - name: sagehen_5yr_no_cascades - list netcdf input files
-        working-directory: test_data
-        run: |
-          find sagehen_5yr/output_no_cascades -name '*.nc'
-
-      - name: sagehen_5yr_no_cascades - pywatershed tests
-        working-directory: autotest
-        run: pytest
-          -vv
-          -rs
-          -n=auto
-          -m "not domainless"
-          --domain=sagehen_5yr
-          --control_pattern=sagehen_no_cascades.control
-          --durations=0
-          --cov=pywatershed
-          --cov-report=xml
-          --junitxml=pytest_sagehen_5yr_no_cascades.xml
-
-      - name: hru_1_nhm - generate and manage test data domain, run PRMS and convert csv output to NetCDF
-        working-directory: autotest
-        run: |
-          python generate_test_data.py \
-            -n=auto --domain=hru_1 --control_pattern=nhm.control \
-            --remove_prms_csvs --remove_prms_output_dirs
-
-      - name: hru_1_nhm - list netcdf input files
-        working-directory: test_data
-        run: |
-          find hru_1/output -name '*.nc'
-
-      - name: hru_1_nhm - pywatershed tests
-        working-directory: autotest
-        run: pytest
-          -vv
-          -rs
-          -n=auto
-          -m "not domainless"
-          --domain=hru_1
-          --control_pattern=nhm.control
-          --durations=0
-          --cov=pywatershed
-          --cov-report=xml
-          --junitxml=pytest_hru_1_nhm.xml
-
-      - name: drb_2yr with and without dprst and obsin - generate and manage test data
+      - name: drb_2yr all domains - generate and manage test data
         working-directory: autotest
         run: |
           python generate_test_data.py \
             -n=auto --domain=drb_2yr \
             --remove_prms_csvs --remove_prms_output_dirs
 
-      - name: drb_2yr_nhm - list netcdf input files
+      - name: drb_2yr all domains - list netcdf input files
         working-directory: test_data
         run: |
-          find drb_2yr/output -name '*.nc'
-
-      - name: drb_2yr_no_dprst - list netcdf input files
-        working-directory: test_data
-        run: |
-          find drb_2yr/output_no_dprst -name '*.nc'
+          find drb_2yr/output*/ -name '*.nc' | sort -n
 
       - name: drb_2yr_nhm - pywatershed tests
         working-directory: autotest
@@ -313,19 +594,29 @@ jobs:
           --domain=drb_2yr
           --control_pattern=nhm.control
           --durations=0
+          --error-for-skips
           --cov=pywatershed
           --cov-report=xml
           --junitxml=pytest_drb_2yr_nhm.xml
+          --ignore=test_obsin_flow_node.py
+          --ignore=test_prms_dyn_params.py
+          --ignore=test_prms_atmosphere_transp_frost.py
+          --ignore=test_prms_atmosphere_transp_frost_dynamic.py
+          --ignore=test_prms_hydraulic_geometry.py
+          --ignore=test_prms_stream_temp.py
+          --ignore=test_domain_subset.py
+          --ignore=test_prms_runoff_ag.py
+          --ignore=test_prms_runoff_ag_restart.py
+          --ignore=test_prms_runoff_soilzone_ag.py
+          --ignore=test_prms_soilzone_ag.py
+          --ignore=test_prms_soilzone_ag_restart.py
+          --ignore=test_source_sink_flow_node.py
+          --ignore=test_starfit_flow_graph.py
 
       # Specific tests not redundant with dprst
       - name: drb_2yr_no_dprst - pywatershed tests
         working-directory: autotest
         run: pytest
-          test_prms_runoff.py
-          test_prms_soilzone.py
-          test_prms_groundwater.py
-          test_prms_above_snow.py
-          test_prms_below_snow.py
           -vv
           -rs
           -n=auto
@@ -333,67 +624,671 @@ jobs:
           --domain=drb_2yr
           --control_pattern=no_dprst
           --durations=0
+          --error-for-skips
           --cov=pywatershed
           --cov-report=xml
           --junitxml=pytest_drb_2yr_no_dprst.xml
+          test_prms_runoff.py
+          test_prms_soilzone.py
+          test_prms_groundwater.py
+          test_prms_above_snow.py
+          test_prms_below_snow.py
 
       # Specific tests not redundant with dprst
       - name: drb_2yr_obsin - pywatershed tests
         working-directory: autotest
         run: pytest
-          test_obsin_flow_node.py
           -vv
+          -rs
           -n=0
           -m "not domainless"
           --domain=drb_2yr
           --control_pattern=nhm_obsin.control
           --durations=0
+          --error-for-skips
           --cov=pywatershed
           --cov-report=xml
-          --junitxml=pytest_drb_2yr_no_dprst.xml
+          --junitxml=pytest_drb_2yr_obsin.xml
+          test_obsin_flow_node.py
+
+      # Specific tests not redundant with dprst
+      - name: drb_2yr_nhm_transp_frost - pywatershed tests
+        working-directory: autotest
+        run: pytest
+          -vv
+          -rs
+          -n=auto
+          -m "not domainless"
+          --domain=drb_2yr
+          --control_pattern=nhm_transp_frost.control
+          --durations=0
+          --error-for-skips
+          --cov=pywatershed
+          --cov-report=xml
+          --junitxml=pytest_drb_2yr_transp_frost.xml
+          test_prms_atmosphere_transp_frost.py
+
+      # Specific tests not redundant with dprst
+      - name: drb_2yr_stream_temp - pywatershed tests
+        working-directory: autotest
+        run: pytest
+          -vv
+          -rs
+          -n=auto
+          -m "not domainless"
+          --domain=drb_2yr
+          --control_pattern=nhm_stream_temp
+          --durations=0
+          --error-for-skips
+          --cov=pywatershed
+          --cov-report=xml
+          --junitxml=pytest_drb_2yr_stream_temp.xml
+          test_prms_hydraulic_geometry.py
+          test_prms_stream_temp.py
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: Test results for drb_2yr-${{ runner.os }}-${{ matrix.python-version }}
+          path: |
+            ./autotest/pytest_drb_2yr_nhm.xml
+            ./autotest/pytest_drb_2yr_no_dprst.xml
+            ./autotest/pytest_drb_2yr_obsin.xml
+            ./autotest/pytest_drb_2yr_transp_frost.xml
+            ./autotest/pytest_drb_2yr_stream_temp.xml
+
+      - name: Upload code coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./autotest/coverage.xml
+          env_vars: RUNNER_OS,PYTHON_VERSION
+          fail_ci_if_error: false
+          version: "v0.1.15"
+
+  test_ucb_2yr_nhm:
+    name: ucb_2yr_nhm ${{ matrix.os }} py${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash -l {0}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["ubuntu-latest", "macos-latest", "windows-latest"]
+        python-version: ["3.13"]
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v6
+
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}
+
+      - name: Set environment variables
+        run: |
+          echo "PYTHON_VERSION=${{ matrix.python-version }}" >> $GITHUB_ENV
+          cat .mf6_ci_ref_remote  >> $GITHUB_ENV
+
+      - name: Enforce MF6 ref and remote merge to main
+        if: github.base_ref == 'main'
+        run: |
+          echo Merge commit: GITHUB_BASE_REF = $GITHUB_BASE_REF
+          req_ref=develop  # if not develop, submit an issue
+          echo $MF6_REF
+          if [[ "$MF6_REF" != "$req_ref" ]]; then exit 1; fi
+          req_remote=MODFLOW-USGS/modflow6
+          echo $MF6_REMOTE
+          if [[ "$MF6_REMOTE" != "$req_remote" ]]; then echo "bad mf6 remote in .mf6_ci_ref_remote"; exit 1; fi
+
+      - name: Install Dependencies via Micromamba
+        uses: mamba-org/setup-micromamba@v3
+        with:
+          log-level: debug
+          environment-file: environment.yml
+          cache-environment: true
+          cache-downloads: true
+          create-args: >-
+            python=${{matrix.python-version}}
+
+      - name: Link conda gfortran dylibs on Mac
+        if: runner.os == 'macOS'
+        run: .github/scripts/symlink_gfortran_mac.sh
+
+      - name: Install pywatershed
+        run: |
+          pip install .
+
+      - name: Version info
+        run: |
+          pip -V
+          pip list
 
       - name: ucb_2yr_nhm - generate and manage test data
         working-directory: autotest
         run: |
           python generate_test_data.py \
-            -n=auto --domain=ucb_2yr --control_pattern=nhm.control \
-            --remove_prms_csvs --remove_prms_output_dirs
+            -n=auto \
+            --domain=ucb_2yr \
+            --remove_prms_csvs \
+            --remove_prms_output_dirs \
+            --control_pattern=nhm.control
 
       - name: ucb_2yr_nhm - list netcdf input files
         working-directory: test_data
         run: |
-          find ucb_2yr/output -name '*.nc'
+          find ucb_2yr/output -name '*.nc' | sort -n
 
-      - name: ucb_2yr_nhm - pywatershed tests
+      - name: ucb_2yr_nhm - pywatershed tests (subset 1)
         working-directory: autotest
         run: pytest
           -vv
+          -rs
           -n=auto
           -m "not domainless"
           --domain=ucb_2yr
           --control_pattern=nhm.control
           --durations=0
+          --error-for-skips
           --cov=pywatershed
           --cov-report=xml
           --junitxml=pytest_ucb_2yr_nhm.xml
+          --ignore=test_netcdf_subset.py
+          --ignore=test_prms_dyn_params.py
+          --ignore=test_obsin_flow_node.py
+          --ignore=test_output.py
+          --ignore=test_pass_through_flow_graph.py
+          --ignore=test_prms_atmosphere_transp_frost.py
+          --ignore=test_prms_atmosphere_transp_frost_dynamic.py
+          --ignore=test_mmr_to_mf6_dfw.py
+          --ignore=test_prms_hydraulic_geometry.py
+          --ignore=test_prms_stream_temp.py
+          --ignore=test_prms_runoff_ag.py
+          --ignore=test_prms_runoff_ag_restart.py
+          --ignore=test_prms_runoff_soilzone_ag.py
+          --ignore=test_prms_soilzone_ag.py
+          --ignore=test_prms_soilzone_ag_restart.py
+          --ignore=test_prms_soilzone.py
+          --ignore=test_prms_runoff.py
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
-          name: Test results for ${{ runner.os }}-${{ matrix.python-version }}
+          name: Test results for ucb_2yr_nhm-${{ runner.os }}-${{ matrix.python-version }}
           path: |
-            ./autotest/pytest_hru_1_nhm.xml
-            ./autotest/pytest_drb_2yr_nhm.xml
-            ./autotest/pytest_drb_2yr_no_dprst.xml
             ./autotest/pytest_ucb_2yr_nhm.xml
 
       - name: Upload code coverage to Codecov
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
         with:
-          file: ./autotest/coverage.xml # should be just the ucb result
-          # flags: unittests
+          files: ./autotest/coverage.xml
           env_vars: RUNNER_OS,PYTHON_VERSION
-          # name: codecov-umbrella
+          fail_ci_if_error: false
+          version: "v0.1.15"
+
+  test_ucb_2yr_slow_tests:
+    name: ucb_2yr_slow_tests ${{ matrix.os }} py${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash -l {0}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["ubuntu-latest", "macos-latest", "windows-latest"]
+        python-version: ["3.13"]
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v6
+
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}
+
+      - name: Install Dependencies via Micromamba
+        uses: mamba-org/setup-micromamba@v3
+        with:
+          log-level: debug
+          environment-file: environment.yml
+          cache-environment: true
+          cache-downloads: true
+          create-args: >-
+            python=${{matrix.python-version}}
+
+      - name: Link conda gfortran dylibs on Mac
+        if: runner.os == 'macOS'
+        run: .github/scripts/symlink_gfortran_mac.sh
+
+      - name: Install pywatershed
+        run: |
+          pip install .
+
+      - name: Version info
+        run: |
+          pip -V
+          pip list
+
+      - name: ucb_2yr_slow_tests - generate and manage test data
+        working-directory: autotest
+        run: |
+          python generate_test_data.py \
+            -n=auto \
+            --domain=ucb_2yr \
+            --remove_prms_csvs \
+            --remove_prms_output_dirs \
+            --control_pattern=nhm.control \
+            --control_pattern=transp_frost.control
+
+      - name: ucb_2yr_slow_tests - list netcdf input files
+        working-directory: test_data
+        run: |
+          find ucb_2yr/output -name '*.nc' | sort -n
+          find ucb_2yr/output_transp_frost -name '*.nc' | sort -n
+
+      - name: ucb_2yr_slow_tests - pywatershed tests (subset 2)
+        working-directory: autotest
+        run: pytest
+          -vv
+          -rs
+          -n=auto
+          --domain=ucb_2yr
+          --control_pattern=nhm.control
+          --durations=0
+          --error-for-skips
+          --cov=pywatershed
+          --cov-report=xml
+          --junitxml=pytest_ucb_2yr_slow_tests.xml
+          test_prms_soilzone.py
+          test_prms_runoff.py
+
+      - name: ucb_2yr_transp_frost - pywatershed tests
+        working-directory: autotest
+        run: pytest
+          -vv
+          -rs
+          -n=auto
+          -m "not domainless"
+          --domain=ucb_2yr
+          --control_pattern=nhm_transp_frost.control
+          --durations=0
+          --error-for-skips
+          --cov=pywatershed
+          --cov-append
+          --cov-report=xml
+          --junitxml=pytest_ucb_2yr_transp_frost.xml
+          test_prms_atmosphere_transp_frost.py
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: Test results for ucb_2yr_slow_tests-${{ runner.os }}-${{ matrix.python-version }}
+          path: |
+            ./autotest/pytest_ucb_2yr_slow_tests.xml
+            ./autotest/pytest_ucb_2yr_transp_frost.xml
+
+      - name: Upload code coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./autotest/coverage.xml
+          env_vars: RUNNER_OS,PYTHON_VERSION
+          fail_ci_if_error: false
+          version: "v0.1.15"
+
+  test_fgr_ag_2yr_subset1:
+    name: fgr_ag_2yr_subset1 ${{ matrix.os }} py${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash -l {0}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["ubuntu-latest", "macos-latest", "windows-latest"]
+        python-version: ["3.13"]
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v6
+
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}
+
+      - name: Install Dependencies via Micromamba
+        uses: mamba-org/setup-micromamba@v3
+        with:
+          log-level: debug
+          environment-file: environment.yml
+          cache-environment: true
+          cache-downloads: true
+          create-args: >-
+            python=${{matrix.python-version}}
+
+      - name: Link conda gfortran dylibs on Mac
+        if: runner.os == 'macOS'
+        run: .github/scripts/symlink_gfortran_mac.sh
+
+      - name: Install pywatershed
+        run: |
+          pip install .
+
+      - name: Version info
+        run: |
+          pip -V
+          pip list
+
+      - name: Get additional domain files for tests
+        run: |
+          python pywatershed/utils/addtl_domain_files.py
+          if [ $? -ne 0 ]; then
+            echo "Failed to download additional domain files"
+            exit 1
+          fi
+          echo ""
+          echo "Checking where additional domains were downloaded:"
+          python -c "
+          import pywatershed as pws
+          pkg_root = pws.constants.__pywatershed_root__
+          addtl_dir = pkg_root / 'data' / 'pywatershed_addtl_domains'
+          print(f'Package root: {pkg_root}')
+          print(f'Additional domains dir: {addtl_dir}')
+          print(f'Additional domains exists: {addtl_dir.exists()}')
+          if addtl_dir.exists():
+              import os
+              print(f'Contents: {os.listdir(addtl_dir)}')
+          "
+
+      - name: Create symlink to fgr_ag_2yr domain
+        run: |
+          echo "Current directory: $(pwd)"
+          echo ""
+          python -c "
+          import os
+          import sys
+          import platform
+          import shutil
+          # Remove current directory from sys.path to avoid importing local source
+          # We want the installed package in site-packages, not repo source
+          if '' in sys.path:
+              sys.path.remove('')
+          if '.' in sys.path:
+              sys.path.remove('.')
+          cwd = os.getcwd()
+          if cwd in sys.path:
+              sys.path.remove(cwd)
+          # Now import pywatershed from site-packages
+          import pywatershed as pws
+          # Find pywatershed package location using __file__
+          pkg_dir = os.path.dirname(pws.__file__)
+          src = os.path.join(pkg_dir, 'data', 'pywatershed_addtl_domains', 'fgr_ag_2yr')
+          dst = 'test_data/fgr_ag_2yr'
+          print(f'Platform: {platform.system()}')
+          print(f'Package directory: {pkg_dir}')
+          print(f'Source path: {src}')
+          print(f'Source exists: {os.path.exists(src)}')
+          print(f'Destination path: {dst}')
+          print(f'Destination absolute: {os.path.abspath(dst)}')
+          if not os.path.exists(src):
+              print(f'ERROR: Source path does not exist!')
+              print(f'Checking pywatershed/data:')
+              data_dir = os.path.join(pkg_dir, 'data')
+              if os.path.exists(data_dir):
+                  print(f'Contents: {os.listdir(data_dir)}')
+              sys.exit(1)
+          if os.path.exists(dst):
+              print(f'Removing existing destination')
+              if os.path.islink(dst) or os.path.isfile(dst):
+                  os.unlink(dst)
+              else:
+                  shutil.rmtree(dst)
+          # On Windows, copy instead of symlink (symlinks require special privileges)
+          if platform.system() == 'Windows':
+              print(f'Copying directory (Windows)')
+              shutil.copytree(src, dst)
+          else:
+              print(f'Creating symlink (Unix)')
+              os.symlink(src, dst, target_is_directory=True)
+          print(f'Link/copy created successfully')
+          print(f'Destination exists (after): {os.path.exists(dst)}')
+          "
+
+      - name: fgr_ag_2yr all configs - generate and manage test data
+        working-directory: autotest
+        run: |
+          python generate_test_data.py \
+            -n=auto \
+            --domain=fgr_ag_2yr \
+            --remove_prms_csvs \
+            --remove_prms_output_dirs \
+            --control_pattern=spinup.control \
+            --control_pattern=analysis.control
+
+      - name: fgr_ag_2yr_subset1 - list netcdf input files
+        working-directory: test_data
+        run: |
+          find fgr_ag_2yr/output_spinup -name '*.nc' | sort -n
+          find fgr_ag_2yr/output_analysis -name '*.nc' | sort -n
+
+      - name: fgr_ag_2yr_subset1 - pywatershed tests
+        working-directory: autotest
+        run: pytest
+          -vv
+          -rs
+          -n=auto
+          --domain=fgr_ag_2yr
+          --control_pattern=spinup.control
+          --control_pattern=analysis.control
+          --durations=0
+          --error-for-skips
+          --cov=pywatershed
+          --cov-report=xml
+          --junitxml=pytest_fgr_ag_2yr_subset1.xml
+          test_prms_runoff_ag.py
+          test_prms_runoff_ag_restart.py
+          test_prms_soilzone_ag.py
+          test_prms_soilzone_ag_restart.py
+          test_prms_dyn_params.py
+
+      # analysis.control only: these tests skip without dynamic frost dates
+      - name: fgr_ag_2yr_analysis transp_frost_dynamic - pywatershed tests
+        working-directory: autotest
+        run: pytest
+          -vv
+          -rs
+          -n=auto
+          --domain=fgr_ag_2yr
+          --control_pattern=analysis.control
+          --durations=0
+          --error-for-skips
+          --cov=pywatershed
+          --cov-report=xml
+          --junitxml=pytest_fgr_ag_2yr_transp_frost_dynamic.xml
+          test_prms_atmosphere_transp_frost_dynamic.py
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: Test results for fgr_ag_2yr_subset1-${{ runner.os }}-${{ matrix.python-version }}
+          path: |
+            ./autotest/pytest_fgr_ag_2yr_subset1.xml
+            ./autotest/pytest_fgr_ag_2yr_transp_frost_dynamic.xml
+
+      - name: Upload code coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./autotest/coverage.xml
+          env_vars: RUNNER_OS,PYTHON_VERSION
+          fail_ci_if_error: false
+          version: "v0.1.15"
+
+  test_fgr_ag_2yr_subset2:
+    name: fgr_ag_2yr_subset2 ${{ matrix.os }} py${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash -l {0}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["ubuntu-latest", "macos-latest", "windows-latest"]
+        python-version: ["3.13"]
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v6
+
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.debug_enabled }}
+
+      - name: Install Dependencies via Micromamba
+        uses: mamba-org/setup-micromamba@v3
+        with:
+          log-level: debug
+          environment-file: environment.yml
+          cache-environment: true
+          cache-downloads: true
+          create-args: >-
+            python=${{matrix.python-version}}
+
+      - name: Link conda gfortran dylibs on Mac
+        if: runner.os == 'macOS'
+        run: .github/scripts/symlink_gfortran_mac.sh
+
+      - name: Install pywatershed
+        run: |
+          pip install .
+
+      - name: Version info
+        run: |
+          pip -V
+          pip list
+
+      - name: Get additional domain files for tests
+        run: |
+          python pywatershed/utils/addtl_domain_files.py
+          if [ $? -ne 0 ]; then
+            echo "Failed to download additional domain files"
+            exit 1
+          fi
+          echo ""
+          echo "Checking where additional domains were downloaded:"
+          python -c "
+          import pywatershed as pws
+          pkg_root = pws.constants.__pywatershed_root__
+          addtl_dir = pkg_root / 'data' / 'pywatershed_addtl_domains'
+          print(f'Package root: {pkg_root}')
+          print(f'Additional domains dir: {addtl_dir}')
+          print(f'Additional domains exists: {addtl_dir.exists()}')
+          if addtl_dir.exists():
+              import os
+              print(f'Contents: {os.listdir(addtl_dir)}')
+          "
+
+      - name: Create symlink to fgr_ag_2yr domain
+        run: |
+          echo "Current directory: $(pwd)"
+          echo ""
+          python -c "
+          import os
+          import sys
+          import platform
+          import shutil
+          # Remove current directory from sys.path to avoid importing local source
+          # We want the installed package in site-packages, not repo source
+          if '' in sys.path:
+              sys.path.remove('')
+          if '.' in sys.path:
+              sys.path.remove('.')
+          cwd = os.getcwd()
+          if cwd in sys.path:
+              sys.path.remove(cwd)
+          # Now import pywatershed from site-packages
+          import pywatershed as pws
+          # Find pywatershed package location using __file__
+          pkg_dir = os.path.dirname(pws.__file__)
+          src = os.path.join(pkg_dir, 'data', 'pywatershed_addtl_domains', 'fgr_ag_2yr')
+          dst = 'test_data/fgr_ag_2yr'
+          print(f'Platform: {platform.system()}')
+          print(f'Package directory: {pkg_dir}')
+          print(f'Source path: {src}')
+          print(f'Source exists: {os.path.exists(src)}')
+          print(f'Destination path: {dst}')
+          print(f'Destination absolute: {os.path.abspath(dst)}')
+          if not os.path.exists(src):
+              print(f'ERROR: Source path does not exist!')
+              print(f'Checking pywatershed/data:')
+              data_dir = os.path.join(pkg_dir, 'data')
+              if os.path.exists(data_dir):
+                  print(f'Contents: {os.listdir(data_dir)}')
+              sys.exit(1)
+          if os.path.exists(dst):
+              print(f'Removing existing destination')
+              if os.path.islink(dst) or os.path.isfile(dst):
+                  os.unlink(dst)
+              else:
+                  shutil.rmtree(dst)
+          # On Windows, copy instead of symlink (symlinks require special privileges)
+          if platform.system() == 'Windows':
+              print(f'Copying directory (Windows)')
+              shutil.copytree(src, dst)
+          else:
+              print(f'Creating symlink (Unix)')
+              os.symlink(src, dst, target_is_directory=True)
+          print(f'Link/copy created successfully')
+          print(f'Destination exists (after): {os.path.exists(dst)}')
+          "
+
+      - name: fgr_ag_2yr_subset2 all configs - generate and manage test data
+        working-directory: autotest
+        run: |
+          python generate_test_data.py \
+            -n=auto \
+            --domain=fgr_ag_2yr \
+            --remove_prms_csvs \
+            --remove_prms_output_dirs \
+            --control_pattern=spinup.control \
+            --control_pattern=analysis.control
+
+      - name: fgr_ag_2yr_subset2 - list netcdf input files
+        working-directory: test_data
+        run: |
+          find fgr_ag_2yr/output_spinup -name '*.nc' | sort -n
+          find fgr_ag_2yr/output_analysis -name '*.nc' | sort -n
+
+      - name: fgr_ag_2yr_subset2 - pywatershed tests
+        working-directory: autotest
+        run: pytest
+          -vv
+          -rs
+          -n=auto
+          --domain=fgr_ag_2yr
+          --control_pattern=spinup.control
+          --control_pattern=analysis.control
+          --durations=0
+          --error-for-skips
+          --cov=pywatershed
+          --cov-report=xml
+          --junitxml=pytest_fgr_ag_2yr_subset2.xml
+          test_prms_runoff_soilzone_ag.py
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: Test results for fgr_ag_2yr_subset2-${{ runner.os }}-${{ matrix.python-version }}
+          path: |
+            ./autotest/pytest_fgr_ag_2yr_subset2.xml
+
+      - name: Upload code coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./autotest/coverage.xml
+          env_vars: RUNNER_OS,PYTHON_VERSION
           fail_ci_if_error: false
           version: "v0.1.15"

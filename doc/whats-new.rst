@@ -11,20 +11,191 @@ What's New
 
     np.random.seed(123456)
 
+.. _whats-new.3.0.0:
+
+v3.0.0 (13 July 2026)
+-------------------------
+
+New Features
+~~~~~~~~~~~~~~~~
+- The new staticmethod :meth:`Model.solve_inputs` determines where each process
+  input comes from — another process or a file — from a process list or model
+  dictionary, without instantiating a Model or requiring any files to exist.
+  Useful for determining the file inputs a model configuration requires, e.g.
+  when forcing a sub-model from another model's outputs. Model construction
+  uses the same implementation internally.
+  (:pull:`396`) By `James McCreight <https://github.com/jmccreight>`_.
+- The :class:`base.ConservativeProcess` class now supports both mass and energy budgets.
+  Processes can specify which quantity to budget using the ``quantity`` parameter in
+  ``_set_budget()``. The new ``mass_budget`` and ``energy_budget`` properties provide
+  explicit access to each budget type. The legacy ``budget`` property is deprecated
+  and will be removed in the next major release - use ``mass_budget`` instead.
+  (:pull:`343`) By `James McCreight <https://github.com/jmccreight>`_.
+- The new :class:`PRMSStreamTemp` and :class:`PRMSStreamTempHumidityCBH` classes provide
+  stream temperature simulation using the PRMS stream temperature methodology, computing
+  water temperatures based on energy balance in stream segments. The latter class accepts
+  time-varying humidity inputs on the HRUs while the former accepts a mean monthly
+  humidity for each segment.
+  The classes support optional energy flux tracking and budgeting via the
+  ``track_energy_fluxes`` parameter (default: True). When enabled, it computes and
+  tracks 11 energy flux components including advective heat transport (upstream,
+  lateral, outflow), surface energy exchange (solar radiation, longwave
+  emission/absorption, evaporative cooling, convective exchange), and internal sources
+  (friction heating, groundwater conduction). These fluxes are available as output
+  variables and included in the energy budget. When disabled
+  (``track_energy_fluxes=False``), energy flux variables are set to None and excluded
+  from NetCDF output, with ``imbalance_behavior`` required to be None.
+  The classes :class:`PRMSStreamTemp` and :class:`PRMSStreamTempHumidityCBH` take a stream shade
+  class as input on initialization. Two stream shade classes have been implemented,
+  :class:`PRMSStreamShadeConstant` and :class:`PRMSStreamShadeDynamic`. The former
+  works based on 3 parameters: summer shade fraction, winter shade fraction, and segment
+  latitude. The latter class computes shade dynamically based on topographic and
+  vegetation parameters using solar geometry calculations. This is the default PRMS
+  behavior when ``stream_temp_shade_flag = 0`` and requires 13 parameters describing topography
+  and vegetation characteristics for each stream segment.
+  The classes :class:`PRMSStreamTemp` and :class:`PRMSStreamTempHumidityCBH` also require one of
+  :class:`PRMSHydraulicGeometryFull` or :class:`PRMSHydraulicGeometryWidthOnly` as an upstream process to provide
+  hydraulic geometry variables needed for energy balance calculations. :class:`PRMSHydraulicGeometryFull`
+  computes flow-dependent hydraulic geometry (width, depth, area, velocity) using power-law
+  relationships when all parameters are provided, while :class:`PRMSHydraulicGeometryWidthOnly`
+  uses PRMS default values for depth parameters (depth_alpha=0.27, depth_m=0.39) when they are
+  missing from the parameter file, matching PRMS 5.2.1 behavior. These capabilities are
+  demonstrated in notebooks ``examples/01_multi-process_models.ipynb`` and ``examples/02_prms_legacy_models.ipynb``
+  as part of the NHM configuration in pywatershed.
+  (:pull:`343`) By `James McCreight <https://github.com/jmccreight>`_.
+- Option for :class:`Model` class to read from a single netcdf file or (not and,
+  the existing option,) from a directory containing multiple netcdf files.
+  (:pull:`333`) By `James McCreight <https://github.com/jmccreight>`_.
+- A new :class:`SourceSinkFlowNode` class adds or removes flow above some minimum
+  flow parameter as specified by an input data file.
+  (:pull:`327`) By `James McCreight <https://github.com/jmccreight>`_.
+- The :class:`Control` class has new method `set_init_start_times` to manage changing these times.
+  (:pull:`335`) By `James McCreight <https://github.com/jmccreight>`_.
+- The :class:`FlowGraph` class has new method `plot` to show an abstract plot of the FlowGraph.
+  (:pull:`351`) By `James McCreight <https://github.com/jmccreight>`_.
+- The :class:`base.Process` class and subclasses have a new restart capability.
+  See notebook ``examples/08_restart_streamflow.ipynb`` for examples.
+  (:pull:`349`, :pull:`362`) By `James McCreight <https://github.com/jmccreight>`_.
+- The :class:`PRMSAtmosphereTranspFrost` implements the transp_frost module of PRMS.
+  (:pull:`354`) By `James McCreight <https://github.com/jmccreight>`_.
+- The :class:`PRMSAtmosphereTranspFrostDynamic` extends :class:`PRMSAtmosphereTranspFrost`
+  to accept dynamic (time-varying) fall_frost and spring_frost dates from PRMS dynamic
+  parameter files, reproducing PRMS/GSFLOW runs with ``dyn_fallfrost_flag`` and/or
+  ``dyn_springfrost_flag`` set.
+  (:pull:`392`) By `James McCreight <https://github.com/jmccreight>`_.
+- The `load()` method of :class:`parameters.PrmsParameters` now supports reading multiple parameter
+  files which are treated as addenda to the first parameter file in the list which
+  contains the dimension information.
+  (:pull:`354`) By `James McCreight <https://github.com/jmccreight>`_.
+- The :class:`StarfitSourceSinkFlowNode` allows sources and sinks to interact
+  with storage of a Starfit reservoir/FlowNode.
+  (:pull:`348`) By `James McCreight <https://github.com/jmccreight>`_.
+- The new :class:`~base.output.Output` class provides flexible output collection and statistical
+  analysis for models, supporting HRUs of interest (HOI), segments/nodes of interest (NOI),
+  and monthly accumulations. Includes Zarr chunked output capability for efficient large-scale
+  data writing (~6x faster than NetCDF). See notebook ``examples/09_model_output.ipynb`` for examples.
+  (:pull:`363`) By `James McCreight <https://github.com/jmccreight>`_.
+- New agricultural water use classes enable simulation of irrigated agriculture based on GSFLOW.
+  :class:`PRMSRunoffAg` extends :class:`PRMSRunoff` to calculate infiltration separately for pervious
+  and agricultural areas. :class:`PRMSSoilzoneAgObsET` provides dual-area soil moisture accounting
+  with iterative adjustment of irrigation to match observed actual ET. :class:`PRMSSoilzoneAg`
+  is a simplified version without the observed ET iteration, suitable when ET observations are
+  not available. See notebook ``examples/10_ag_irrigation_use.ipynb`` for examples.
+  (:pull:`362`) By `James McCreight <https://github.com/jmccreight>`_.
+- Add pre-commit hook to run security review on staged files or on entire repository, checks for:
+  1. Absolute paths, 2. IP addresses, 3. Internal server hostnames, and 4. Usernames/passwords or
+  credentials. See .github/scripts/check_security.py.
+  (:pull:`384`) By `James McCreight <https://github.com/jmccreight>`_.
+- Bug fixes for PRMS 5.2.1.1: 1) errant code skipped humidity CBH files entirely when they were
+  selected to be used, 2) code deletion resulted in ``seg_humid`` not being zeroed each timestep and
+  erroneously accumulating. Both fixes are extensively documented. The PRMS code was modified
+  (compared to the released 5.2.1.1) and the pywatershed code was made to match PRMS stream
+  temperature when using humidity inputs from 1. CBH, 2. scalar parameter, and 3. monthly spatially
+  distributed parameters.
+  (:pull:`386`) By `James McCreight <https://github.com/jmccreight>`_.
+- Add a weekly security scan using Safety CLI in a GitHub Actions workflow
+  (``.github/workflows/security_check.yaml``): checks conda-installed packages,
+  pip-installed packages, and ``pyproject.toml`` dependencies separately.
+  (:pull:`387`) By `James McCreight <https://github.com/jmccreight>`_.
+Breaking Changes
+~~~~~~~~~~~~~~~~
+- The ``budget_type`` parameter has been renamed to ``imbalance_behavior`` in
+  :class:`base.ConservativeProcess` and all its subclasses, in :class:`base.FlowGraph`, and in
+  control options. Update all ``budget_type`` references to ``imbalance_behavior`` in
+  your code and configuration files. This breaking change clarifies what the parameter does
+  and is intentionally distinct from the budget quantity parameter.
+  (:pull:`343`) By `James McCreight <https://github.com/jmccreight>`_.
+- Budget netcdf output filenames have changed to include the quantity type.
+  Mass budgets are now named ``ProcessName_mass_budget.nc`` instead of
+  ``ProcessName_budget.nc``. Energy budgets use ``ProcessName_energy_budget.nc``.
+  (:pull:`343`) By `James McCreight <https://github.com/jmccreight>`_.
+
+Bug fixes
+~~~~~~~~~
+- The :class:`PRMSRunoffAg` mass budget did not balance on days with canopy
+  changeover (``intcp_changeover > 0``, at canopy density transitions), for two
+  reasons: the budget input term ``intcp_changeover_budget`` was assigned only
+  in dead code and remained zero, and depression storage inflow was missing
+  changeover water when changeover is carried separately from net_rain
+  (``intcp_changeover_in_net_rain=False``). GSFLOW carries changeover inside
+  net_rain, whereby its depression storage receives this water. With the fix
+  the budget closes to machine precision.
+  (:pull:`401`) By `James McCreight <https://github.com/jmccreight>`_.
+- :class:`utils.PrmsDynamicParameter` ``daily_data_array`` left fill values for days
+  between ``daily_start_date`` and the first dynamic parameter date inside that window,
+  instead of forward-filling from the most recent date at or before ``daily_start_date``
+  as PRMS applies dynamic updates. Only runs starting between dynamic parameter dates
+  were affected.
+  (:pull:`393`) By `James McCreight <https://github.com/jmccreight>`_.
+- PRMS 5.2.1.1 had a bug in stream temperature where division by HRU area was repeated
+  multiple times. In the old code this occurred in routing.f90 on lines 764 and
+  765 and then again on 789 and 790, where ``seginc_swrad`` and ``seginc_potet`` were
+  divided despite this having already occurred on lines 744 and 745. Comments
+  regarding the fix are found on lines 764 and 793 in the fixed code.
+  (:pull:`383`) By `James McCreight <https://github.com/jmccreight>`_.
+
+Internal changes
+~~~~~~~~~~~~~~~~
+- The :class:`base.ConservativeProcess` class now uses ``_mass_budget`` and
+  ``_energy_budget`` attributes internally instead of ``budget``. The ``budget``
+  property remains as a deprecated alias for ``_mass_budget`` for backward compatibility.
+- Release procedures were revamped: ``.github/RELEASE.md`` rewritten as a
+  concrete step-by-step guide with a running example, guarded release
+  automation jobs (checks, package build/publish, frozen conda environment
+  exports per platform), a preflight script shared between local use and CI,
+  and a version-consistency test.
+  (:pull:`395`) By `James McCreight <https://github.com/jmccreight>`_.
+- CI no longer uses ``fortran-lang/setup-fortran``; gfortran is provided by
+  the conda environment.
+  (:pull:`394`) By `James McCreight <https://github.com/jmccreight>`_.
+- CI and the conda environments temporarily install flopy from its develop
+  branch (with codegen options) to accommodate a flopy API change, until the
+  next flopy release.
+  (:pull:`397`) By `James McCreight <https://github.com/jmccreight>`_.
+- The autotests now require an explicit ``--domain`` option; the silent
+  ``drb_2yr`` default was removed.
+  (:pull:`393`) By `James McCreight <https://github.com/jmccreight>`_.
+- ``autotest/ci_local.sh`` keeps previously downloaded mf6 binaries on PATH
+  so mf6-dependent tests run even when the modflow section is skipped.
+  (:pull:`398`) By `James McCreight <https://github.com/jmccreight>`_.
+- Refactor of ``test_data/generate/convert_prms_output_to_nc.py`` to put final variables into
+  a separate file to run by pytests both after all other variables are generated and
+  so the final variables are run serially.
+  (:pull:`331`) By `James McCreight <https://github.com/jmccreight>`_.
 
 .. _whats-new.2.0.4:
 
 v2.0.4 (23 February 2026)
----------------------
+--------------------------
 
 New Features
 ~~~~~~~~~~~~~~~~
-Fixes to release workflow, pypi publishing. 
+Fixes to release workflow, pypi publishing.
 
 .. _whats-new.2.0.3:
 
 v2.0.3 (22 February 2026)
----------------------
+--------------------------
 
 New Features
 ~~~~~~~~~~~~~~~~
@@ -34,28 +205,31 @@ release.
 .. _whats-new.2.0.2:
 
 v2.0.2 (14 March 2025)
----------------------
+----------------------
 
-New Features
-~~~~~~~~~~~~~~~~
-Fixed setup.py to allow editable installs, keeping up with changes in the pythonverse. Deprecated all fortran code
-built and interfaced using f2py as it was not popular and had only maybe very slight speed advantages compared to numba.
-
+Bug fixes
+~~~~~~~~~
+- Fixed setup.py to allow editable installs, keeping up with changes in
+  the pythonverse. Deprecated all fortran code built and interfaced using
+  f2py as it was not popular and had only maybe very slight speed advantages
+  compared to numba. This was not considered a breaking change because there
+  are redundant alternatives to the fortran.
+  (:pull:`331`) By `James McCreight <https://github.com/jmccreight>`_.
 
 .. _whats-new.2.0.1:
 
 v2.0.1 (19 December 2024)
----------------------
+-----------------------------
 
 New Features
 ~~~~~~~~~~~~~~~~
-Corrected disclaimer on top-level README.md. Other minor fixes not to code base (CI, envs, etc).
+- Corrected disclaimer on top-level README.md. Other minor fixes not to code base (CI, envs, etc).
 
 
 .. _whats-new.2.0.0:
 
 v2.0.0 (16 December 2024)
----------------------
+-----------------------------
 
 New Features
 ~~~~~~~~~~~~~~~~
@@ -67,7 +241,7 @@ New Features
   observations with sink and source tracking in mass balance),
   :class:`PRMSChannelFlowNode`\ s, and :class:`StarfitFlowNode`\ s. A new
   example notebook,
-  `examples/06_flow_graph_starfit.ipynb <https://github.com/EC-USGS/pywatershed/blob/develop/examples/06_flow_graph_starfit.ipynb>`__
+  `examples/06_flow_graph_starfit.ipynb <https://github.com/DOI-USGS/pywatershed/blob/develop/examples/06_flow_graph_starfit.ipynb>`__
   demonstrates adding STARFIT reservoir nodes into a FlowGraph otherwise
   simulating `PRMSChannel` and highlights helper functions for this use case.
   (:pull:`233`) By `James McCreight <https://github.com/jmccreight>`_.
@@ -75,7 +249,7 @@ New Features
   (DFW) routing from PRMS NHM input files and a few simple assumptions. The
   lateral (to-channel) fluxes from a PRMS are used as time varying boundary
   conditions. A new notebook runs the Delaware River Basin using MF6 DFW:
-  `examples/07_mmr_to_mf6_chf_dfw.ipynb <https://github.com/EC-USGS/pywatershed/blob/develop/examples/07_mmr_to_mf6_chf_dfw.ipynb>`__.
+  `examples/07_mmr_to_mf6_chf_dfw.ipynb <https://github.com/DOI-USGS/pywatershed/blob/develop/examples/07_mmr_to_mf6_chf_dfw.ipynb>`__.
   (:pull:`290`) By `James McCreight <https://github.com/jmccreight>`_.
 - No depression storage subclasses are available for PRMSRunoff, PRMSSoilzone,
   and PRMSGroundwater by adding "NoDprst" to the end of the names. Depression
@@ -211,8 +385,8 @@ Documentation
 - Implement sphinx_autodoc_typehints.
   (:pull:`257`) By `James McCreight <https://github.com/jmccreight>`_.
 - New gh-pages branch (without history) to publish
-  `"pywatershed notes" <https://ec-usgs.github.io/pywatershed/>`_ including the
-  `extended release notes for v1.0.0 <https://ec-usgs.github.io/pywatershed/2023/12/18/v1-0-0-overview>`_.
+  `"pywatershed notes" <https://doi-usgs.github.io/pywatershed/>`_ including the
+  `extended release notes for v1.0.0 <https://doi-usgs.github.io/pywatershed/2023/12/18/v1-0-0-overview>`_.
   This branch publishes analysis supporting the version 1.0.0 release.
 - Add about section for version 1.0 to describe how pywatershed matches PRMS'
   NHM configuration and how to perform the comparison.

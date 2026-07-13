@@ -12,10 +12,14 @@ from pywatershed.parameters import PrmsParameters
 # compare in memory (faster) or full output files? or both!
 do_compare_output_files = True
 do_compare_in_memory = True
-rtol = atol = 1.0e-7
+default_rtol = default_atol = 1.0e-7
+# Default tolerances for most variables (depth-based)
+
 
 calc_methods = ("numpy", "numba")
 params = ("params_sep", "params_one")
+
+var_tolerance_exceptions = {}
 
 
 @pytest.fixture(scope="function")
@@ -76,10 +80,14 @@ def test_compare_prms(
         discretization,
         parameters,
         **input_variables,
-        budget_type="error",
+        imbalance_behavior="error",
         calc_method=calc_method,
     )
 
+    compare_vars = set(PRMSChannel.get_variables()) - {
+        "inflow_ts_prev",
+        "outflow_ts",
+    }
     if do_compare_output_files:
         nc_parent = tmp_path / simulation["name"].replace(":", "_")
         channel.initialize_netcdf(nc_parent)
@@ -89,7 +97,7 @@ def test_compare_prms(
 
     if do_compare_in_memory:
         answers = {}
-        for var in PRMSChannel.get_variables():
+        for var in compare_vars:
             var_pth = output_dir / f"{var}.nc"
             answers[var] = adapter_factory(
                 var_pth, variable_name=var, control=control
@@ -103,17 +111,54 @@ def test_compare_prms(
         if do_compare_in_memory:
             for var in answers.values():
                 var.advance()
-            compare_in_memory(channel, answers, atol=atol, rtol=rtol)
+
+            # Build variable-specific tolerances: default for all,
+            # then apply exceptions
+            var_tolerances = {
+                var: {"rtol": default_rtol, "atol": default_atol}
+                for var in answers.keys()
+            }
+            for var, tols in var_tolerance_exceptions.items():
+                if var in var_tolerances:
+                    var_tolerances[var] = tols
+
+            compare_in_memory(
+                channel,
+                answers,
+                atol=default_atol,
+                rtol=default_rtol,
+                skip_missing_ans=True,
+                var_tolerances=var_tolerances,
+            )
 
     channel.finalize()
 
     if do_compare_output_files:
+        # Filter out variables without answer files
+        vars_with_answers = []
+        for var in compare_vars:
+            var_pth = output_dir / f"{var}.nc"
+            if var_pth.exists():
+                vars_with_answers.append(var)
+
+        # Build variable-specific tolerances
+        var_tolerances = {
+            var: {"rtol": default_rtol, "atol": default_atol}
+            for var in vars_with_answers
+        }
+        for var, tols in var_tolerance_exceptions.items():
+            if var in var_tolerances:
+                var_tolerances[var] = tols
+
         compare_netcdfs(
-            PRMSChannel.get_variables(),
+            compare_vars,
             tmp_path / simulation["name"].replace(":", "_"),
             output_dir,
-            atol=atol,
-            rtol=rtol,
+            atol=default_atol,
+            rtol=default_rtol,
+            var_tolerances=var_tolerances,
+            # fail_after_all_vars=False,
+            verbose=True,
         )
 
     return

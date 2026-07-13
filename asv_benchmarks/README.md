@@ -1,6 +1,5 @@
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
-**Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
 - [ASV Benchmarking](#asv-benchmarking)
 
@@ -11,7 +10,7 @@
 [https://github.com/airspeed-velocity/asv/](https://github.com/airspeed-velocity/asv/)
 [https://asv.readthedocs.io/en/stable/](https://asv.readthedocs.io/en/stable/)
 
-__Notes__
+**Notes**
 
 This suite of performance benchmarks tests import and various aspects of
 running the nhm configuration(s) in pywatershed.
@@ -34,9 +33,8 @@ asv continuous --verbose --show-stderr --factor 1.5 53a2e51929  dd99eb7922
 Currently, [ASV is not getting the version of python correct](https://github.com/airspeed-velocity/asv/issues/1294)
 in the environment it is building (with conda). I managed to get it to use
 python 3.10 for the `./environment.yml` file. When I tried reducing
-dependencies needed for benchmarking, it kept installing python 3.11 which wont
-install pywatershed per the `pyproject.toml` requires-python field. For this
-reason, in `__import__` i'm printing `sys.version` and since each test is run
-in a separate subprocess, the actual python version number will be littered
-around your screen when using the `--verbose` flag.
-
+dependencies needed for benchmarking, it kept installing python 3.11 which won't
+install pywatershed per the `pyproject.toml` requires-python field (note: pywatershed
+now requires Python 3.12 or higher). For this reason, in `__import__` i'm printing
+`sys.version` and since each test is run in a separate subprocess, the actual python
+version number will be littered around your screen when using the `--verbose` flag.

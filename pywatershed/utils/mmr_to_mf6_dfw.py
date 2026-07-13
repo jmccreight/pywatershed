@@ -1,19 +1,19 @@
 import pathlib as pl
 from warnings import warn
 
-import flopy
-import geopandas as gpd
 import numpy as np
-import pint
-import shapely
 import xarray as xr
 
 from pywatershed import Control, meta
 
 from ..constants import fileish, zero
 from ..parameters import PrmsParameters
-from ..utils import import_optional_dependency
+from .optional_import import import_optional_dependency
 
+flopy = import_optional_dependency("flopy", errors="ignore")
+gpd = import_optional_dependency("geopandas", errors="ignore")
+pint = import_optional_dependency("pint", errors="ignore")
+shapely = import_optional_dependency("shapely", errors="ignore")
 mpsplines = import_optional_dependency("mpsplines", errors="warn")
 
 
@@ -39,7 +39,7 @@ class MmrToMf6Dfw:
     time varying boundary conditions.
 
     Please see the example notebook
-    `examples/mmr_to_mf6_dfw.ipynb <https://github.com/EC-USGS/pywatershed/blob/develop/examples/mmr_to_mf6_dfw.ipynb>`__ which demonstrates running the Delaware River
+    `examples/mmr_to_mf6_dfw.ipynb <https://github.com/DOI-USGS/pywatershed/blob/develop/examples/mmr_to_mf6_dfw.ipynb>`__ which demonstrates running the Delaware River
     Basin in MF6 DFW based on the PRMS data and its lateral inflows.
 
     In addition to standard MF6 packages and their input files (e.g. IMS, OC,
@@ -590,7 +590,7 @@ class MmrToMf6Dfw:
         inflow_unit = self._units(inflow_unit)
 
         def read_inflow(vv, start_time, end_time):
-            ff = xr.open_dataset(pl.Path(self._inflow_dir) / f"{vv}.nc")[vv]
+            ff = xr.load_dataset(pl.Path(self._inflow_dir) / f"{vv}.nc")[vv]
             return ff.sel(time=slice(start_time, end_time)).values
 
         inflows = {

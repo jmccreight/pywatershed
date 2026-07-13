@@ -1,12 +1,12 @@
 import pathlib as pl
-from copy import deepcopy
 from datetime import datetime
-from typing import Union
+from typing import Type, Union
 
 from tqdm.auto import tqdm
 
 from ..base.adapter import adapter_factory
 from ..base.control import Control
+from ..base.output import Output
 from ..constants import fileish
 from ..parameters import Parameters, PrmsParameters
 from ..utils.path import path_rel_to_yaml
@@ -18,13 +18,20 @@ process_order_nhm = [
     "PRMSCanopy",
     "PRMSSnow",
     "PRMSRunoff",
+    "PRMSRunoffAg",
     "PRMSRunoffNoDprst",
     "PRMSSoilzone",
+    "PRMSSoilzoneAg",
+    "PRMSSoilzoneAgObsET",
     "PRMSSoilzoneNoDprst",
     "PRMSEt",
     "PRMSGroundwater",
     "PRMSGroundwaterNoDprst",
     "PRMSChannel",
+    "PRMSHydraulicGeometryFull",
+    "PRMSHydraulicGeometryWidthOnly",
+    "PRMSStreamTemp",
+    "PRMSStreamTempHumidityCBH",
 ]
 
 
@@ -63,7 +70,7 @@ class Model:
     * parameters: A PrmsParameters object.
 
     The first example below provides details. An extended example is given by
-    `examples/02_prms_legacy_models.ipynb <https://github.com/EC-USGS/pywatershed/blob/develop/examples/02_prms_legacy_models.ipynb>`__.
+    `examples/02_prms_legacy_models.ipynb <https://github.com/DOI-USGS/pywatershed/blob/develop/examples/02_prms_legacy_models.ipynb>`__.
 
     pywatershed-centric instatiation
     ------------------------------------
@@ -90,7 +97,7 @@ class Model:
     different.
 
     See the second and third examples below for more details and see
-    `examples/01_multi-process_models.ipynb <https://github.com/EC-USGS/pywatershed/blob/develop/examples/01_multi-process_models.ipynb>`__
+    `examples/01_multi-process_models.ipynb <https://github.com/DOI-USGS/pywatershed/blob/develop/examples/01_multi-process_models.ipynb>`__
     for an extended example.
 
     Model dictionary values description:
@@ -231,7 +238,7 @@ class Model:
     ...     "time_step": 24,
     ...     "time_step_units": "h",
     ...     "verbosity": 0,
-    ...     "budget_type": "warn",
+    ...     "imbalance_behavior": "warn",
     ...     "input_dir": str(domain_dir),
     ... }
     >>> control_file = domain_dir / "example_control.yaml"
@@ -285,6 +292,8 @@ class Model:
         parameters: Union[Parameters, dict[Parameters]] = None,
         find_input_files: bool = True,
         write_control: Union[bool, str, pl.Path] = False,
+        output_obj_kwargs_dict: dict = None,
+        input_aliases: dict = None,
     ):
         self.control = control
         self.parameters = parameters
@@ -303,6 +312,7 @@ class Model:
             #     proc_param_file
             # )
 
+            self._input_aliases = input_aliases or {}
             self.model_dict = {}
             model_dict = self.model_dict
             model_dict["control"] = self.control
@@ -320,13 +330,21 @@ class Model:
             assert control is None, msg
             assert parameters is None, msg
             self.model_dict = process_list_or_model_dict
+            # Extract input_aliases from model_dict before
+            # _categorize_model_dict (any dict-valued top-level key
+            # would be mis-classified as a process)
+            model_dict_aliases = self.model_dict.pop("input_aliases", {}) or {}
+            self._input_aliases = {
+                **model_dict_aliases,
+                **(input_aliases or {}),
+            }
 
         else:
             raise ValueError("Invalid type of process_list_or_model_dict")
 
         self._categorize_model_dict()
         self._validate_model_dict()
-        self._set_input_dir()
+        self._set_input_path()
         self._solve_inputs()
         self._init_procs()
         self._connect_procs()
@@ -351,7 +369,33 @@ class Model:
                 yaml_fn.parent.mkdir(parents=True)
             self.control.to_yaml(yaml_fn)
 
+        self._output_obj_kwargs_dict = output_obj_kwargs_dict
+        self._handle_output_obj_kwargs_dict()
+
         return
+
+    def _handle_output_obj_kwargs_dict(self):
+        if not self._output_obj_kwargs_dict:
+            self._output_obj_kwargs_dict = {}
+            self._output_obj = None
+            return
+
+        for kk, vv in {"control": self.control, "model": self}.items():
+            if kk in self._output_obj_kwargs_dict.keys():
+                if self._output_obj_kwargs_dict[kk] is not vv:
+                    raise ValueError(
+                        f"An inappropriate (and unnecessary) {kk} object "
+                        "was passed via output_obj_kwargs_dict."
+                    )
+            else:
+                self._output_obj_kwargs_dict[kk] = vv
+
+        self._output_obj = Output(**self._output_obj_kwargs_dict)
+
+    @property
+    def output_obj(self) -> "Output | None":
+        """Output object collector for the model (if configured)."""
+        return self._output_obj
 
     def _categorize_model_dict(self):
         """Categorize model_dict entries
@@ -399,57 +443,142 @@ class Model:
 
         return
 
-    def _solve_inputs(self):
-        """What processes supply inputs to others, what files are needed?
+    @staticmethod
+    def solve_inputs(process_list_or_model_dict) -> dict:
+        """Determine where each process input comes from, per class.
 
-        TODO: this does not currently take order into account, which could
-              be important and is now possible with order specified.
-        """
-        proc_dict = {
-            proc_name: self.model_dict[proc_name]["class"]
-            for proc_name in self._category_key_dict["process"]
-        }
+        Answers, without instantiating a Model (or requiring any files to
+        exist): which inputs are supplied by other processes and which
+        must come from file. All information required is class-level.
 
+        Args:
+            process_list_or_model_dict: as for Model. Either a list of
+                Process classes, or a model dictionary whose process
+                specifications are dicts with a "class" key (non-dict and
+                class-less entries, e.g. control or discretizations, are
+                ignored). In the dictionary form, a specification key
+                naming an input that is also in the class's ``__init__``
+                signature counts as a passed input, satisfied by the
+                specification itself (e.g. ``ag_frac``).
+
+        Returns:
+            A dict with keys:
+
+            - ``"inputs_from"``: ``{process_name: {input_name: source}}``
+              where source is the producing process's name, or None if
+              the input must come from file. Passed inputs are omitted.
+            - ``"from_file"``: sorted list of the input names that must
+              come from file (the union of the None-sourced inputs).
+
+        Notes:
+            - Process order is not considered (matching Model
+              construction; a later process can supply an earlier one).
+            - input_aliases are not considered; names are variable names.
+
+        Examples:
+            >>> import pywatershed as pws
+            >>> below_soil = [pws.PRMSGroundwater, pws.PRMSChannel]
+            >>> pws.Model.solve_inputs(below_soil)["from_file"]
+            ['dprst_seep_hru', 'soil_to_gw', 'sroff_vol', 'ssr_to_gw', 'ssres_flow_vol']
+        """  # noqa: E501
+        import inspect
+
+        if isinstance(process_list_or_model_dict, (list, tuple)):
+            specs = {
+                cls.__name__: {"class": cls}
+                for cls in process_list_or_model_dict
+            }
+        else:
+            specs = {
+                kk: vv
+                for kk, vv in process_list_or_model_dict.items()
+                if isinstance(vv, dict) and "class" in vv.keys()
+            }
+
+        proc_dict = {kk: vv["class"] for kk, vv in specs.items()}
         proc_inputs = {kk: vv.get_inputs() for kk, vv in proc_dict.items()}
         proc_vars = {kk: vv.get_variables() for kk, vv in proc_dict.items()}
+
+        def get_passed_args(
+            proc_class: Type, proc_passed_arg_names: list
+        ) -> set:
+            signature_args = set(
+                inspect.signature(proc_class.__init__).parameters.keys()
+            )
+            return (
+                signature_args
+                & set(proc_passed_arg_names)
+                & set(proc_class.get_inputs())
+            )
+
+        proc_passed_inputs = {
+            kk: get_passed_args(proc_dict[kk], specs[kk].keys())
+            for kk in proc_dict.keys()
+        }
 
         # Solve where inputs come from
         inputs_from = {}
         for comp in proc_dict.keys():
-            inputs = deepcopy(proc_inputs)
-            vars = deepcopy(proc_vars)
-            c_inputs = inputs.pop(comp)
-            _ = vars.pop(comp)
-
             inputs_from[comp] = {}
-            for input in c_inputs:
-                inputs_ptr = inputs_from
-                inputs_ptr[comp][input] = []  # could use None
-                for other in inputs.keys():
-                    if input in vars[other]:
-                        inputs_ptr[comp][input] += [other]
-                        # this should be a list of length one
-                        # check?
+            for input in proc_inputs[comp]:
+                if input in proc_passed_inputs[comp]:
+                    continue
+                producers = [
+                    other
+                    for other in proc_dict.keys()
+                    if other != comp and input in proc_vars[other]
+                ]
+                # generally zero or one producer; the first is used
+                inputs_from[comp][input] = producers[0] if producers else None
 
-        # If inputs dont come from other processes, assume they come from
-        # file in input_dir. Exception is that PRMSAtmosphere requires its
-        # files on init, so dont adapt these
-        file_input_names = set([])
-        for k0, v0 in inputs_from.items():
-            for k1, v1 in v0.items():
-                if not v1:
-                    file_input_names = file_input_names.union([k1])
+        from_file = sorted(
+            {
+                input
+                for wired in inputs_from.values()
+                for input, source in wired.items()
+                if source is None
+            }
+        )
+
+        return {"inputs_from": inputs_from, "from_file": from_file}
+
+    def _solve_inputs(self):
+        """What processes supply inputs to others, what files are needed?
+
+        The pure logic lives in the public staticmethod solve_inputs;
+        here its answer is adapted to the internal representations.
+
+        TODO: this does not currently take order into account, which could
+              be important and is now possible with order specified.
+        """
+        specs = {
+            proc_name: self.model_dict[proc_name]
+            for proc_name in self._category_key_dict["process"]
+        }
+        solved = Model.solve_inputs(specs)
+
+        # internal representation: source as a list, empty if from file
+        inputs_from = {
+            comp: {
+                input: [] if source is None else [source]
+                for input, source in wired.items()
+            }
+            for comp, wired in solved["inputs_from"].items()
+        }
+
+        # If inputs dont come from other processes or self, assume they come
+        # from file in input_dir or input_file. Exception is that
+        # PRMSAtmosphere requires its files on init, so dont adapt these
+        input_names = set(solved["from_file"])
 
         # initiate the file inputs here rather than in the processes
-        file_inputs = {}
         # Use dummy names for now
-        for name in file_input_names:
-            file_inputs[name] = pl.Path(name)
+        file_inputs = {name: pl.Path(name) for name in input_names}
 
-        self._proc_dict = proc_dict
+        self._proc_dict = {kk: vv["class"] for kk, vv in specs.items()}
         self._inputs_from = inputs_from
+        self._input_names = input_names
         self._file_inputs = file_inputs
-        self._file_input_names = file_input_names
         return
 
     def _init_procs(self):
@@ -469,16 +598,32 @@ class Model:
 
             proc_specs["discretization"] = dis
 
-            process_inputs = {
-                input: None
-                for input in self._proc_dict[proc_name].get_inputs()
-            }
-            proc_specs = proc_specs | process_inputs
+            process_inputs = {}
+            for input in self._proc_dict[proc_name].get_inputs():
+                # set the inputs, allowing for passed already inputs
+                if input in proc_specs.keys():
+                    continue
+                process_inputs[input] = None
 
-            not_args = ["class", "dis"]
+            proc_specs = proc_specs | process_inputs
+            not_args = ["class", "dis", "input_aliases"]
             proc_args = {
                 kk: vv for kk, vv in proc_specs.items() if kk not in not_args
             }
+
+            # Merge model-level aliases (filtered to this process's inputs)
+            # with any process-level aliases from the proc spec.
+            # Process-level takes precedence over model-level.
+            proc_inputs = set(self._proc_dict[proc_name].get_inputs())
+            merged_aliases = {
+                k: v
+                for k, v in self._input_aliases.items()
+                if k in proc_inputs
+            }
+            proc_level_aliases = proc_specs.get("input_aliases") or {}
+            merged_aliases.update(proc_level_aliases)
+            if merged_aliases:
+                proc_args["input_aliases"] = merged_aliases
 
             self.processes[proc_name] = self._proc_dict[proc_name](**proc_args)
 
@@ -503,36 +648,57 @@ class Model:
                             control=self.control,
                         ),  # drop list above
                     )
-        #   <   <   <
+        # <<<
         return
 
-    def _set_input_dir(self):
-        if "input_dir" not in self.control.options.keys():
-            msg = "Required control option 'input_dir' not found"
+    def _set_input_path(self):
+        opt_keys = self.control.options.keys()
+        if ("input_dir" in opt_keys and "input_file" in opt_keys) or (
+            "input_dir" not in opt_keys and "input_file" not in opt_keys
+        ):
+            msg = (
+                "Exactly one of 'input_dir' or 'input_file' must be specified"
+            )
             raise ValueError(msg)
-        else:
-            self._input_dir = pl.Path(
-                self.control.options["input_dir"]
-            ).resolve()
+
+        for ii in ["input_dir", "input_file"]:
+            if ii in opt_keys:
+                self._input_path = pl.Path(self.control.options[ii]).resolve()
 
         return
 
     def _find_input_files(self) -> None:
-        file_inputs = {}
-        for name in self._file_input_names:
-            nc_path = self._input_dir / f"{name}.nc"
-            file_inputs[name] = adapter_factory(
+        # Build a combined alias map from all processes for file lookup.
+        # Process-level aliases take precedence over model-level.
+        alias_map = dict(self._input_aliases)
+        for proc_name in self.process_order:
+            proc_aliases = getattr(
+                self.processes[proc_name], "_input_aliases", {}
+            )
+            alias_map.update(proc_aliases)
+
+        input_adapters = {}
+        for name in self._input_names:
+            file_var_name = alias_map.get(name, name)
+            if self._input_path.is_dir():
+                nc_path = self._input_path / f"{file_var_name}.nc"
+                # currently netcdf files or dynamic parameter files accepted
+                if not nc_path.exists():
+                    nc_path = self._input_path / f"{file_var_name}.param"
+            else:
+                nc_path = self._input_path
+            input_adapters[name] = adapter_factory(
                 nc_path,
-                name,
+                file_var_name,
                 control=self.control,
             )
         for process in self.process_order:
             for input, frm in self._inputs_from[process].items():
                 if not frm:
-                    fname = file_inputs[input]._fname
+                    fname = input_adapters[input]._fname
                     self.process_input_from[process][input] = fname
                     self.processes[process].set_input_to_adapter(
-                        input, file_inputs[input]
+                        input, input_adapters[input]
                     )
 
         self._found_input_files = True
@@ -586,6 +752,9 @@ class Model:
                     )
                     # dis = val["dis"]
                     # val["dis"] = model_dict[dis]
+                    for subkey in val.keys():
+                        if "_class" in subkey:
+                            val[subkey] = getattr(pywatershed, val[subkey])
 
             elif isinstance(val, list):
                 pass
@@ -677,10 +846,11 @@ class Model:
 
     def run(
         self,
-        netcdf_dir: fileish = None,
+        netcdf_dir: fileish | None = None,
         finalize: bool = True,
-        n_time_steps: int = None,
-        output_vars: list = None,
+        n_time_steps: int | None = None,
+        output_vars: list | None = None,
+        output_obj: "Output | None" = None,
     ):
         """Run the model.
 
@@ -700,6 +870,11 @@ class Model:
             n_time_steps: the number of timesteps to run
             output_vars: the vars to output to the netcdf_dir
         """
+        if self._output_obj is not None:
+            if output_obj is not None:
+                raise ValueError("Output previously defined on self")
+            output_obj = self._output_obj
+
         if netcdf_dir or (
             not self._netcdf_initialized
             and self._default_nc_out_dir is not None
@@ -713,10 +888,14 @@ class Model:
             self.advance()
             self.calculate()
             self.output()
+            if output_obj is not None:
+                output_obj.calculate()
 
         if finalize:
             print("model.run(): finalizing")
             self.finalize()
+            if output_obj is not None:
+                output_obj.finalize()
 
         return
 

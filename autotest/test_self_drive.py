@@ -62,7 +62,7 @@ def test_drive_indiv_process(simulation, process_list, tmp_path):
     )
 
     control.edit_n_time_steps(n_time_steps)
-    control.options["budget_type"] = "warn"
+    control.options["imbalance_behavior"] = "warn"
     control.options["calc_method"] = "numba"
     control.options["input_dir"] = simulation["dir"]
     del control.options["netcdf_output_var_names"]
@@ -100,7 +100,7 @@ def test_drive_indiv_process(simulation, process_list, tmp_path):
         params = pws.parameters.PrmsParameters.load(param_file)
 
         control.edit_n_time_steps(n_time_steps)
-        control.options["budget_type"] = "warn"
+        control.options["imbalance_behavior"] = "warn"
         control.options["calc_method"] = "numba"
         control.options["input_dir"] = output_dir
         control.options["netcdf_output_dir"] = proc_model_output_dir
@@ -121,8 +121,12 @@ def test_drive_indiv_process(simulation, process_list, tmp_path):
             if not results_file.exists():
                 print(f"results file not found: {results_file}")
                 continue
-            res = xr.open_dataset(proc_model_output_dir / f"{vv}.nc")
-            ans = xr.open_dataset(output_dir / f"{vv}.nc")
+            res = xr.open_dataset(
+                proc_model_output_dir / f"{vv}.nc", decode_timedelta=False
+            )
+            ans = xr.open_dataset(
+                output_dir / f"{vv}.nc", decode_timedelta=False
+            )
 
             # Leaving the commented to diagnose what PRMSRunoff later.
             try:

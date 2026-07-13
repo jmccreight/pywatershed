@@ -19,6 +19,14 @@ params_expand_scalar = [
     "obsout_segment",
     "seg_humidity",
     "width_m",
+    "lat_temp_adj",
+    "stream_tave_init",
+    "gw_tau",
+    "ss_tau",
+    "alte",
+    "altw",
+    "voe",
+    "vow",
 ]
 
 var_meta_to_attrs = [
@@ -43,6 +51,7 @@ dis_hru_vars = [
 ]
 
 dis_seg_vars = [
+    "lat_temp_adj",
     "nhm_seg",
     "poi_gage_segment",
     "seg_cum_area",
@@ -101,12 +110,19 @@ def separate_domain_params_dis_to_ncdf(
         pywatershed.PRMSCanopy,
         pywatershed.PRMSSnow,
         pywatershed.PRMSRunoff,
+        pywatershed.PRMSRunoffAg,
         pywatershed.PRMSRunoffNoDprst,
         pywatershed.PRMSSoilzone,
+        pywatershed.PRMSSoilzoneAg,
         pywatershed.PRMSSoilzoneNoDprst,
         pywatershed.PRMSGroundwater,
         pywatershed.PRMSGroundwaterNoDprst,
         pywatershed.PRMSChannel,
+        pywatershed.PRMSHydraulicGeometryFull,
+        pywatershed.PRMSHydraulicGeometryWidthOnly,
+        pywatershed.PRMSStreamShadeDynamic,
+        pywatershed.PRMSStreamTemp,
+        pywatershed.PRMSStreamTempHumidityCBH,
     ]
     if process_list is None:
         process_list = nhm_processes

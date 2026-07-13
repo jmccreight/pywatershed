@@ -11,11 +11,23 @@ from .prms_channel_flow_graph import (
 )
 from .prms_groundwater import PRMSGroundwater
 from .prms_groundwater_no_dprst import PRMSGroundwaterNoDprst
+from .prms_hydraulic_geometry import (
+    PRMSHydraulicGeometryFull,
+    PRMSHydraulicGeometryWidthOnly,
+)
 from .prms_runoff import PRMSRunoff
+from .prms_runoff_ag import PRMSRunoffAg
 from .prms_runoff_no_dprst import PRMSRunoffNoDprst
 from .prms_snow import PRMSSnow
 from .prms_soilzone import PRMSSoilzone
+from .prms_soilzone_ag import PRMSSoilzoneAg
+from .prms_soilzone_ag_obs_et import PRMSSoilzoneAgObsET
 from .prms_soilzone_no_dprst import PRMSSoilzoneNoDprst
+from .prms_stream_shade import (
+    PRMSStreamShadeConstant,
+    PRMSStreamShadeDynamic,
+)
+from .prms_stream_temp import PRMSStreamTemp, PRMSStreamTempHumidityCBH
 
 __all__ = (
     "prms_channel_flow_graph_postprocess",
@@ -29,9 +41,18 @@ __all__ = (
     "PRMSChannel",
     "PRMSGroundwater",
     "PRMSGroundwaterNoDprst",
+    "PRMSHydraulicGeometryFull",
+    "PRMSHydraulicGeometryWidthOnly",
     "PRMSRunoff",
+    "PRMSRunoffAg",
     "PRMSRunoffNoDprst",
     "PRMSSnow",
     "PRMSSoilzone",
+    "PRMSSoilzoneAg",
+    "PRMSSoilzoneAgObsET",
     "PRMSSoilzoneNoDprst",
+    "PRMSStreamShadeConstant",
+    "PRMSStreamShadeDynamic",
+    "PRMSStreamTemp",
+    "PRMSStreamTempHumidityCBH",
 )

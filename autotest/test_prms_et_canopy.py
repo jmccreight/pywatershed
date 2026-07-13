@@ -53,7 +53,7 @@ def test_et(simulation, control, params, tmp_path):
         control=control,
         discretization=None,
         parameters=params,
-        budget_type="error",
+        imbalance_behavior="error",
         **et_inputs,
     )
 
@@ -70,7 +70,7 @@ def test_et(simulation, control, params, tmp_path):
         control=control,
         discretization=None,
         parameters=params,
-        budget_type="error",
+        imbalance_behavior="error",
         **canopy_inputs,
     )
 

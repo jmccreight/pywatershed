@@ -4,6 +4,7 @@ from enum import Enum
 from typing import Union
 
 import numpy as np
+import pyPRMS as pp
 
 # Environment variables
 numba_num_threads = os.getenv("NUMBA_NUM_THREADS")
@@ -25,6 +26,11 @@ zero = np.zeros([1])[0]
 one = np.ones([1])[0]
 nan = np.nan
 nat = np.datetime64("NaT")
+
+
+def nan1d():
+    return np.zeros(1) * nan
+
 
 epsilon = np.finfo(zero).eps
 # https://en.wikipedia.org/wiki/Machine_epsilon
@@ -63,6 +69,17 @@ np_type_to_netcdf_type_dict = {
     np.dtype("uint16"): "u2",
     np.dtype("uint8"): "u1",
     np.dtype("bool"): None,
+}
+
+# Map variable type strings from metadata YAML to numpy dtypes
+var_type_to_numpy_type = {
+    "float64": np.float64,
+    "float32": np.float32,
+    "int64": np.int64,
+    "int32": np.int32,
+    "int16": np.int16,
+    "int8": np.int8,
+    "bool": np.bool_,
 }
 
 inch2cm = 2.54
@@ -118,3 +135,30 @@ class SegmentType(Enum):
     SINK = 9
     INBOUNDGREATLAKES = 10
     OUTBOUNDGREATLAKES = 11
+
+
+# PRMS naming conventions
+
+# The keys/names for CBH variables in the control files dont match the internal
+# variable names. It's vague to me what these are in the headers of the CBH
+# files, it's also a bit vague in the tables.
+# One place it is partially documented in pyPRMS
+# https://github.com/DOI-USGS/pyPRMS/blob/49cbb8cd46b6760b1be67c106b8074688abaab39/tests/func/test_Control/ctl_metadata_default.csv#L96
+cbh_ctl_var_map = {
+    "albedo_day": "albedo_hru",
+    "cloud_cover_day": "cloud_cover_cbh",
+    "humidity_day": "humidity_hru",
+    "potet_day": "potet",
+    "precip_day": "prcp",
+    "swrad_day": "swrad",
+    "tmax_day": "tmax",
+    "tmin_day": "tmin",
+    "transp_day": "transp_on",
+    "windspeed_day": "windspeed_hru",
+    "AET_cbh_file": "aet_observed",
+    "PET_cbh_file": "pet_observed",  # not used in PWS but required for subsetting domains  # noqa: E501
+    "rhavg": "rhavg",
+}
+
+# pyPRMS metadata - consolidated in one place
+pyprms_meta = pp.MetaData(verbose=False).metadata

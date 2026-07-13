@@ -1,14 +1,21 @@
-from warnings import warn
-
 import pytest
-from filelock import FileLock
 from prms_convert_to_netcdf import convert_csv_to_nc, convert_soltab_to_nc
 from prms_diagnostic_variables import (
-    diagnose_final_vars_to_nc,
     diagnose_simple_vars_to_nc,
 )
 
 import pywatershed as pws
+
+# This map is from PRMS names to PWS names.
+# In PRMS seg_depth and seg_width are BOTH parameter and variable names. These
+# variables are all claculated with a flow dependence, so renaming of the PRMS
+# variables was performed for all 4.
+rename_vars = {
+    "seg_area": "seg_flow_area",
+    "seg_depth": "seg_flow_depth",
+    "seg_velocity": "seg_flow_velocity",
+    "seg_width": "seg_flow_width",
+}
 
 
 @pytest.fixture
@@ -18,17 +25,21 @@ def netcdf_file(control_csv_file):
     csv_file = control_csv_file[1]
 
     var_name = csv_file.stem
+    output_name = f"{var_name}.nc"
+    rename = None
+    if var_name in rename_vars.keys():
+        rename = rename_vars[var_name]
+        output_name = f"{rename}.nc"
+
     data_dir = csv_file.parent
-    convert_csv_to_nc(var_name, data_dir)
+    convert_csv_to_nc(var_name, data_dir, rename=rename)
 
     success = diagnose_simple_vars_to_nc(var_name, data_dir, control_file)
 
     if not success:
-        # should this fail or not?
-        # pytest.skip(f"Unable to diagnose {var_name}")
         assert False, "Unable to diagnose {var_name}"
 
-    return f"{var_name}.nc"
+    return output_name
 
 
 def make_netcdf_files(netcdf_file):
@@ -41,43 +52,40 @@ def soltab_netcdf_file(tmp_path_factory, control_soltab_file):
     control_file = control_soltab_file[0]
     soltab_file = control_soltab_file[1]
     domain_dir = soltab_file.parent
+    indiv_soltab_files = None
+
+    if not soltab_file.exists():
+        indiv_soltab_files = [
+            "soltab_sunhrs.csv",
+            "soltab_potsw.csv",
+            "soltab_horad_potsw.csv",
+        ]
+        indiv_soltab_files = {
+            ff[:-4]: domain_dir / ff for ff in indiv_soltab_files
+        }
+        all_indiv_files_exist = all(
+            [ff.exists() for ff in indiv_soltab_files.values()]
+        )
+        if not all_indiv_files_exist:
+            pytest.skip("No (or insufficient) soltab file(s) found.")
+
     control = pws.Control.load_prms(control_file, warn_unused_options=False)
     output_dir = control_file.parent / control.options["netcdf_output_dir"]
 
-    convert_soltab_to_nc(soltab_file, output_dir, control_file, domain_dir)
+    if indiv_soltab_files is None:
+        convert_soltab_to_nc(
+            output_dir, control_file, domain_dir, soltab_file=soltab_file
+        )
+    else:
+        convert_soltab_to_nc(
+            output_dir,
+            control_file,
+            domain_dir,
+            soltab_sunhrs_file=indiv_soltab_files["soltab_sunhrs"],
+            soltab_potsw_file=indiv_soltab_files["soltab_potsw"],
+            soltab_horad_potsw_file=indiv_soltab_files["soltab_horad_potsw"],
+        )
 
 
 def make_soltab_netcdf_files(soltab_netcdf_file):
     print(f"Creating NetCDF files for soltab file {soltab_netcdf_file}")
-
-
-@pytest.fixture(scope="session")
-def final_netcdf_file(tmp_path_factory, control_final_file):
-    """Create NetCDF files that depend on multiple other NetCDFs"""
-
-    control_file = control_final_file[0]
-    final_file = control_final_file[1]
-    domain_dir = final_file.parent
-    var_name = final_file.name
-    control = pws.Control.load_prms(control_file, warn_unused_options=False)
-    output_dir = control_file.parent / control.options["netcdf_output_dir"]
-
-    root_tmpdir = tmp_path_factory.getbasetemp().parent
-    with FileLock(root_tmpdir / "final_nc.lock"):
-        yield final_file  # do this in session cleanup
-
-        success = diagnose_final_vars_to_nc(
-            var_name, output_dir, control_file, domain_dir
-        )
-
-        if not success:
-            warn(
-                "make_final_netcdf_files False PASS above: "
-                f"unable to diagnose {final_file}"
-            )
-
-    return final_file  # dosent really matter
-
-
-def make_final_netcdf_files(final_netcdf_file):
-    print(f"Creating final NetCDF file {final_netcdf_file}")

@@ -11,6 +11,7 @@ from pywatershed.base.conservative_process import ConservativeProcess
 from pywatershed.base.control import Control
 from pywatershed.constants import nan, zero
 from pywatershed.parameters import Parameters
+from pywatershed.utils.optional_import import import_optional_dependency
 
 
 class FlowNode(Accessor):
@@ -20,7 +21,8 @@ class FlowNode(Accessor):
     does not (currently) include a head (water depth) term.
 
     A FlowNode is instantiated with its own (optional) data and calculates
-    outflow, storage_change, and sink_source properties on subtimesteps.
+    outflow, storage, storage_change, and sink_source properties on
+    subtimesteps.
 
     A FlowNode may have additional public variables provided by properties that
     can be requested to be collected by :class:`FlowGraph` for output to
@@ -30,7 +32,7 @@ class FlowNode(Accessor):
     See :class:`FlowGraph` for related examples and discussion.
     """
 
-    def __init__(self, control: Control):
+    def __init__(self, control: Control) -> None:
         """Initialize the FlowNode.
 
         Args:
@@ -38,13 +40,13 @@ class FlowNode(Accessor):
         """
         raise Exception("This must be overridden")
 
-    def prepare_timestep(self):
+    def prepare_timestep(self) -> None:
         "Prepare the subtimestep for subtimestep calculations."
         raise Exception("This must be overridden")
 
     def calculate_subtimestep(
         self, isubstep: int, inflow_upstream: float, inflow_lateral: float
-    ):
+    ) -> None:
         """Calculate the subtimestep.
 
         Args:
@@ -57,11 +59,11 @@ class FlowNode(Accessor):
         """
         raise Exception("This must be overridden")
 
-    def advance(self):
+    def advance(self) -> None:
         "Advance this FlowNode to the next timestep."
         raise Exception("This must be overridden")
 
-    def finalize_timestep(self):
+    def finalize_timestep(self) -> None:
         "Finalize the current timestep at this FlowNode."
         raise Exception("This must be overridden")
 
@@ -101,7 +103,7 @@ class FlowNodeMaker(Accessor):
         self,
         discretization: Parameters = None,
         parameters: Parameters = None,
-    ):
+    ) -> None:
         """Intitalize the FlowNodeMaker.
 
         Args:
@@ -111,7 +113,7 @@ class FlowNodeMaker(Accessor):
         self.name = "FlowNodeMaker"
         return
 
-    def get_node(control: Control, index: int) -> FlowNode:
+    def get_node(self, control: Control, index: int) -> FlowNode:
         """Instantiate FlowNode at a given index.
 
         Args:
@@ -122,7 +124,7 @@ class FlowNodeMaker(Accessor):
         raise Exception("This must be overridden")
 
 
-def type_check(scalar: float):
+def type_check(scalar: float) -> None:
     assert isinstance(scalar, float)
     return None
 
@@ -142,6 +144,7 @@ class FlowGraph(ConservativeProcess):
 
     .. |fg1| image:: /_static/flow_graph_schematic_1.png
        :align: middle
+
     +---------+
     |  |fg1|  |
     +---------+
@@ -156,6 +159,7 @@ class FlowGraph(ConservativeProcess):
 
     .. |fg2| image:: /_static/flow_graph_schematic_2.png
        :align: middle
+
     +---------+
     |  |fg2|  |
     +---------+
@@ -177,7 +181,7 @@ class FlowGraph(ConservativeProcess):
     For users specifically interested in adding new nodes into the
     :class:`PRMSChannel` MuskingumMann routing solutions, there are helper
     functions available which greatly simplify the code. See the notebook
-    `examples/06_flow_graph_starfit.ipynb <https://github.com/EC-USGS/pywatershed/blob/develop/examples/06_flow_graph_starfit.ipynb>`__
+    `examples/06_flow_graph_starfit.ipynb <https://github.com/DOI-USGS/pywatershed/blob/develop/examples/06_flow_graph_starfit.ipynb>`__
     which highlights both helper functions
     :func:`prms_channel_flow_graph_to_model_dict`
     and :func:`prms_channel_flow_graph_postprocess`.
@@ -304,7 +308,7 @@ class FlowGraph(ConservativeProcess):
     ...     parameters=parameters_flow_graph,
     ...     inflows=inflows_graph,
     ...     node_maker_dict=node_maker_dict,
-    ...     budget_type="error",
+    ...     imbalance_behavior="error",
     ... )
     >>> # Save out the full timeseries of flows for all nodes
     >>> graph_seg_outflows = np.zeros([control.n_times, nnodes])
@@ -337,9 +341,10 @@ class FlowGraph(ConservativeProcess):
         node_maker_dict: dict,
         addtl_output_vars: list[str] = None,
         params_not_to_netcdf: list[str] = None,
-        budget_type: Literal["defer", None, "warn", "error"] = "defer",
+        imbalance_behavior: Literal["defer", None, "warn", "error"] = "defer",
         allow_disconnected_nodes: bool = False,
         type_check_nodes: bool = False,
+        input_aliases: dict = None,
         verbose: bool = None,
     ):
         """Initialize a FlowGraph.
@@ -362,11 +367,11 @@ class FlowGraph(ConservativeProcess):
               for NetCDF output from FlowNodes. These variables do not have to
               be available in all FlowNodes but must be present in at least
               one.
-            budget_type: one of ["defer", None, "warn", "error"] with "defer"
-              being the default and defering to
-              control.options["budget_type"] when
-              available. When control.options["budget_type"] is not avaiable,
-              budget_type is set to "warn".
+            imbalance_behavior: one of ["defer", None, "warn", "error"]
+              with "defer" being the default and defering to
+              control.options["imbalance_behavior"] when available.
+              When control.options["imbalance_behavior"] is not
+              avaiable, imbalance_behavior is set to "warn".
             allow_disconnected_nodes: If False, an error is thrown when
               disconnected nodes are found in the graph. This happens often
               in PRMS, so allowing is a convenience but bad practive.
@@ -401,12 +406,14 @@ class FlowGraph(ConservativeProcess):
             control=control,
             discretization=discretization,
             parameters=parameters,
+            input_aliases=input_aliases,
         )
         self.name = "FlowGraph"
 
         self._set_inputs(locals())
         self._set_options(locals())
 
+        self._node_maker_dict = node_maker_dict
         for fnm in self._node_maker_dict.values():
             assert isinstance(fnm, FlowNodeMaker)
 
@@ -493,7 +500,7 @@ class FlowGraph(ConservativeProcess):
 
         connectivity = []
         for inode in range(self.nnodes):
-            tonode = params["to_graph_index"][inode]
+            tonode = int(params["to_graph_index"][inode])
             if tonode < 0:
                 continue
             connectivity.append(
@@ -552,14 +559,21 @@ class FlowGraph(ConservativeProcess):
         for vv in self._addtl_output_vars:
             inds_to_collect = []
             for uu in unique_makers:
-                wh_uu = np.where(params["node_maker_name"] == uu)
-                if hasattr(self._nodes[wh_uu[0][0]], vv):
+                wh_uu = np.where(np.array(params["node_maker_name"]) == uu)
+                # if hasattr(self._nodes[wh_uu[0][0]], vv):
+                if vv in dir(self._nodes[wh_uu[0][0]]):
                     # do we need to get/set the type here? Would have to
                     # check the type over all nodes/node makers
                     # for now I'll just throw and error if it is not float64
                     msg = "Only currently handling float64, new code required"
                     assert self._nodes[wh_uu[0][0]][vv].dtype == "float64", msg
                     inds_to_collect += wh_uu[0].tolist()
+                else:
+                    msg = (
+                        f"{vv} not a property of "
+                        f"{type(self._nodes[wh_uu[0][0]]).__name__}"
+                    )
+                    warn(msg)
             # <<
             if len(inds_to_collect):
                 self._addtl_output_vars_wh_collect[vv] = inds_to_collect
@@ -574,6 +588,65 @@ class FlowGraph(ConservativeProcess):
             # elegant. I suppose there could be conflicts if multiple
             # nodes have the same variable and different metadata.
             self.meta[kk] = {"dims": ("nnodes",), "type": "float64"}
+
+    def plot(
+        self,
+        plot_name: pl.Path = pl.Path("flow_graph.html"),
+        notebook=True,
+        cdn_resources="in_line",
+        return_network_obj: bool = False,
+    ):
+        """Plot an abstract representation of the FlowGraph.
+
+        Args:
+            plot_name: a Pathlib object saying where to write the html file
+              plot of the network. (It will still render in jupyter.)
+            notebook: Argument passed to pyvis.network.Network instantation
+              if using jupyter notebook or not. Defaults to True.
+            cdn_resources: Argument passed to pyvis.network.Network
+              instantation if using jupyter notebook or not.
+            return_network_obj: If True returns the pyvis.network.Network
+              instance/object.
+
+        This uses pyvis.network.Network with the internal networkx
+        representation of the FlowGraph to visualize the network with out
+        reference to geograph (abstractly).
+
+        In the output, the nodes are colored by "node_maker_name" and they are
+        labled on the the first line with "node_maker_name: node_maker_id" and
+        on the second line with "node index: to node index" where this later
+        is relative to the entire FlowGraph.
+        """
+        pyvisnetwork = import_optional_dependency(
+            "pyvis.network", errors="warn"
+        )
+        ipdisplay = import_optional_dependency(
+            "IPython.display", errors="warn"
+        )
+
+        nt = pyvisnetwork.Network(
+            notebook=notebook, cdn_resources=cdn_resources
+        )
+        gg = self._graph
+
+        for node in gg.nodes:
+            label = (
+                f"{self['node_maker_name'][node]} : "
+                f"{self['node_maker_id'][node]}"
+                "\n"
+                f"{node} ->"
+                f"{self['to_graph_index'][node]}"
+            )
+            gg.nodes[node]["label"] = label
+            gg.nodes[node]["group"] = self["node_maker_name"][node]
+
+        nt.from_nx(gg)
+        ipdisplay.display(nt.show(str(plot_name)))
+
+        if return_network_obj:
+            return nt
+        else:
+            return None
 
     def initialize_netcdf(
         self,
@@ -693,9 +766,9 @@ class FlowGraph(ConservativeProcess):
             self._outflow_mask, self.node_outflows, zero
         )
 
-        if self.budget is not None:
-            self.budget.advance()
-            self.budget.calculate()
+        if self.mass_budget is not None:
+            self.mass_budget.advance()
+            self.mass_budget.calculate()
 
         return
 
@@ -731,7 +804,8 @@ def inflow_exchange_factory(
             control: Control,
             discretization: Parameters,
             parameters: Parameters,
-            budget_type: Literal[None, "warn", "error"] = None,
+            imbalance_behavior: Literal[None, "warn", "error"] = None,
+            input_aliases: dict = None,
             verbose: bool = None,
             budget_basis="global",
             **kwargs,
@@ -740,6 +814,7 @@ def inflow_exchange_factory(
                 control=control,
                 discretization=discretization,
                 parameters=parameters,
+                input_aliases=input_aliases,
             )
             self.name = "InflowExchange"
 
