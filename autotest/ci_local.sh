@@ -188,6 +188,12 @@ export PYNHM_FORTRAN=false
 # export $(head -n1 ../.mf6_ci_ref_remote)
 # export $(tail -n1 ../.mf6_ci_ref_remote)
 
+# The mf6 binaries (downloaded by the modflow section, -m to skip)
+# persist in ../bin between invocations; always put them on PATH so
+# tests needing mf6 (e.g. test_mmr_to_mf6_dfw.py) find them even when
+# the modflow section is skipped this invocation.
+export PATH="$PATH:$(cd .. && pwd)/bin"
+
 if [ -z "${i}" ]; then
     echo
     echo
@@ -242,7 +248,7 @@ if [ -z "${m}" ]; then
 
     python -m flopy.mf6.utils.generate_classes --ref develop
     get-modflow ../bin --repo modflow6-nightly-build
-    export PATH=$PATH:../bin
+    # (../bin is already on PATH; exported unconditionally above)
 
     # The above uses flopy tools to get the nightly build binary and
     # to generate flopy classes against develop. There's a remote possibility
