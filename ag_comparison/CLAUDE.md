@@ -368,21 +368,30 @@ Divergence observed between GSFLOW and pywatershed is **dominated by
 
 ## Open questions / TODO (to confirm with James)
 
-- **PRMSRunoffAg mass-balance warnings (James: "should not be happening").**
-  Both run-2 phases emit `budget.py` warnings that the flux balance does not
-  equal the storage change for `PRMSRunoffAg_mass` on a handful of days
-  (spinup: 2000-07-02, 2000-09-18; dynamic-frost analysis: 2001-08-12 one
-  HRU, then widespread 2001-09-17..19). Mid/late-summer clustering suggests
-  an ag-irrigation or dprst term missing from the budget definition rather
-  than roundoff. Investigate later; note GSFLOW's analysis emitted its own
-  non-fatal `soil_lower exceeds soil_lower_stor_max` messages (soilzone, not
-  runoff) — possibly related, possibly not.
-  **Evidence from run 3 (2026-07-10):** the run-3 spinup (forced by
-  GSFLOW outputs) emits *identical* warnings to run 2's spinup — same
-  dates, same HRU arrays element-for-element — so the imbalance is
-  intrinsic to the PRMSRunoffAg budget accounting, not caused by
-  upstream pywatershed inputs. (Incidentally this also implies
-  pywatershed's above-snow outputs closely match GSFLOW's.)
+- **PRMSRunoffAg mass-balance warnings: RESOLVED (2026-07-12), fixed on
+  `bug_runoff_ag_budget` (into develop and the 3.0.0 release).**
+  Warning days were exactly the `intcp_changeover > 0` days (canopy-density
+  transitions, hence the mid/late-summer clustering) in all run-2 phases.
+  Two causes, both diagnosed from the run-2 budget/output netCDFs:
+  1. Accounting: the budget input term `intcp_changeover_budget` was only
+     assigned in the dead, never-called `_calculate_infil_ag` (deleted),
+     so it stayed zero; residual ≈ −changeover.
+  2. Physics: `dprst_comp_ag` inflow was `through_rain + snowmelt`,
+     missing changeover; residual after (1) was exactly
+     `changeover x dprst_frac`. GSFLOW v2.4.0 srunoff.f90 confirms dprst
+     receives `availh2o_total`, with changeover inside `Net_rain`
+     (`intcp_changeover_in_net_rain=True` convention), so when pywatershed
+     carries changeover separately it must be added to dprst inflow.
+  After the fix the spinup budget closes to machine precision (max
+  |resid| 1.1e-2 → 1.1e-15) with zero warnings; 24 PRMSRunoffAg-related
+  autotests pass (they run flag-True, so no regression there).
+  Not related to `ag_irrigation_add` (never crosses PRMSRunoffAg's
+  boundary; spinup warned without irrigation). Side finding: GSFLOW's
+  `waterin` includes `Net_apply` (above-canopy irrigation application) —
+  a srunoff irrigation source term pywatershed does not model; inactive
+  in these runs (soilzone-applied irrigation), a scope limit to document
+  someday. GSFLOW's own `soil_lower exceeds soil_lower_stor_max`
+  messages are unrelated (soilzone, not runoff).
 
 - **Run 1 first-run check.** Verify GSFLOW writes the restart to exactly
   `output_spinup/gsflow_ic_2000-12-31.ic`; if GSFLOW derives the name from
