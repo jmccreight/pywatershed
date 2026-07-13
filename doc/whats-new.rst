@@ -13,7 +13,7 @@ What's New
 
 .. _whats-new.3.0.0:
 
-v3.0.0 (12 July 2026)
+v3.0.0 (13 July 2026)
 -------------------------
 
 New Features
