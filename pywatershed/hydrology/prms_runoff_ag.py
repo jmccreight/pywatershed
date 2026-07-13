@@ -551,141 +551,15 @@ class PRMSRunoffAg(PRMSRunoff):
             self.dprst_stor_hru - self.dprst_stor_hru_old
         )
 
-        self.sroff_vol[:] = self.sroff * self.hru_in_to_cf
-
-        return
-
-    def _calculate_infil_ag(self):
-        """Calculate agricultural infiltration and runoff."""
-        # ag_soil_moist_prev is already the TOTAL ag soil moisture
-        # (equivalent to ag_soil_lower + ag_soil_rechr in Fortran)
-        # Do NOT add ag_soil_rechr_prev to it!
-
-        self.infil_ag[:] = 0.0
-        # Array to accumulate agricultural runoff
-        sroff_ag_array = np.zeros(self.nhru, dtype=np.float64)
-
-        for i in range(self.nhru):
-            # Skip HRUs with no agricultural area
-            # Following Fortran: IF ( Ag_area(i)>0.0 ) ag_on = ACTIVE
-            if self.ag_area[i] <= 0.0:
-                continue
-
-            infil_ag = 0.0
-            sroff_ag = 0.0
-
-            # Process intcp_changeover
-            if self.intcp_changeover[i] > 0.0:
-                infil_ag = infil_ag + self.intcp_changeover[i]
-                if self.hru_type[i] == LAND:
-                    infil_ag, sroff_ag = self.ag_comp(
-                        self.ag_soil_moist_prev[i],
-                        self.ag_soil_rechr_prev[i],
-                        self.carea_max[i],
-                        self.smidx_coef[i],
-                        self.smidx_exp[i],
-                        self.intcp_changeover[i],
-                        self.intcp_changeover[i],
-                        infil_ag,
-                        sroff_ag,
-                    )
-
-            # Process pptmix_nopack
-            if self.pptmix_nopack[i] != 0:
-                infil_ag = infil_ag + self.through_rain[i]
-                if self.hru_type[i] == LAND:
-                    infil_ag, sroff_ag = self.ag_comp(
-                        self.ag_soil_moist_prev[i],
-                        self.ag_soil_rechr_prev[i],
-                        self.carea_max[i],
-                        self.smidx_coef[i],
-                        self.smidx_exp[i],
-                        self.through_rain[i],
-                        self.through_rain[i],
-                        infil_ag,
-                        sroff_ag,
-                    )
-
-            # Process snowmelt
-            if self.snowmelt[i] > 0.0:
-                infil_ag = infil_ag + self.snowmelt[i]
-                if self.hru_type[i] == LAND:
-                    if (self.pkwater_equiv[i] > 0.0) or (
-                        self.net_rain[i] < nearzero
-                    ):
-                        # Check capacity
-                        infil_ag, sroff_ag = self.check_capacity_ag(
-                            self.ag_soil_moist_prev[i],
-                            self.ag_soil_moist_max[i],
-                            self.snowinfil_max[i],
-                            infil_ag,
-                            sroff_ag,
-                        )
-                    else:
-                        # Snowmelt occurred and depleted the snowpack
-                        infil_ag, sroff_ag = self.ag_comp(
-                            self.ag_soil_moist_prev[i],
-                            self.ag_soil_rechr_prev[i],
-                            self.carea_max[i],
-                            self.smidx_coef[i],
-                            self.smidx_exp[i],
-                            self.snowmelt[i],
-                            self.net_ppt[i],
-                            infil_ag,
-                            sroff_ag,
-                        )
-
-            elif self.pkwater_equiv[i] < dnearzero:
-                # No snowpack
-                if self.net_snow[i] < nearzero and self.through_rain[i] > 0.0:
-                    infil_ag = infil_ag + self.through_rain[i]
-                    if self.hru_type[i] == LAND:
-                        infil_ag, sroff_ag = self.ag_comp(
-                            self.ag_soil_moist_prev[i],
-                            self.ag_soil_rechr_prev[i],
-                            self.carea_max[i],
-                            self.smidx_coef[i],
-                            self.smidx_exp[i],
-                            self.through_rain[i],
-                            self.through_rain[i],
-                            infil_ag,
-                            sroff_ag,
-                        )
-
-            elif infil_ag > 0.0:
-                # Snowpack exists, check capacity
-                if self.hru_type[i] == LAND:
-                    infil_ag, sroff_ag = self.check_capacity_ag(
-                        self.ag_soil_moist_prev[i],
-                        self.ag_soil_moist_max[i],
-                        self.snowinfil_max[i],
-                        infil_ag,
-                        sroff_ag,
-                    )
-
-            self.infil_ag[i] = infil_ag
-            sroff_ag_array[i] = sroff_ag
-
-        # Store agricultural runoff as a separate output variable
-        # Following Fortran line 804:
-        # runoff = runoff + DBLE( Sroff_ag*Ag_area(i) )
-        # sroff_ag is depth on ag area, so multiply by ag_frac to get
-        # depth on HRU area
-        # In Fortran, hru_sroffp is pervious-only, agricultural runoff
-        # is added separately to total
-        self.hru_sroff_ag[:] = sroff_ag_array * self.ag_frac
-
-        # Add agricultural runoff to total sroff
-        self.sroff[:] = self.sroff + self.hru_sroff_ag
-
-        # Recalculate sroff_vol since we changed sroff
-        self.sroff_vol[:] = self.sroff * self.hru_in_to_cf
-
-        # before mass balance
+        # The budget input term for canopy changeover water. When changeover
+        # is included in net_rain (GSFLOW 4.2.0/PRMS 5.2.1.1 convention), it
+        # is already counted in through_rain, so the budget term is zero.
         if self._intcp_changeover_in_net_rain:
             self.intcp_changeover_budget[:] = 0.0
         else:
             self.intcp_changeover_budget[:] = self.intcp_changeover
+
+        self.sroff_vol[:] = self.sroff * self.hru_in_to_cf
 
         return
 
@@ -904,6 +778,10 @@ class PRMSRunoffAg(PRMSRunoff):
                             sro_to_dprst_imperv=sro_to_dprst_imperv[i],
                             dprst_evap_hru=dprst_evap_hru[i],
                             through_rain=through_rain[i],
+                            intcp_changeover=intcp_changeover[i],
+                            intcp_changeover_in_net_rain=(
+                                intcp_changeover_in_net_rain
+                            ),
                             snowmelt=snowmelt[i],
                             hru_area=hru_area[i],
                             dprst_insroff_hru=dprst_insroff_hru[i],
@@ -1128,6 +1006,8 @@ class PRMSRunoffAg(PRMSRunoff):
         sro_to_dprst_imperv,
         dprst_evap_hru,
         through_rain,
+        intcp_changeover,
+        intcp_changeover_in_net_rain,
         snowmelt,
         hru_area,
         dprst_insroff_hru,
@@ -1161,6 +1041,11 @@ class PRMSRunoffAg(PRMSRunoff):
 
         """
         inflow = through_rain + snowmelt
+        # Canopy changeover water reaches depression storage as in the
+        # parent's dprst_comp (via availh2o = intcp_changeover + net_rain);
+        # when changeover is in net_rain it is already part of through_rain.
+        if not intcp_changeover_in_net_rain:
+            inflow = inflow + intcp_changeover
 
         dprst_in = 0.0
         if dprst_area_open_max > 0.0:
