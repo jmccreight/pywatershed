@@ -156,6 +156,11 @@ All on the `v3.0.0` branch:
   check `status:` still reflects the release's USGS approval status.
   Nothing automated verifies this file, so it goes stale silently if
   skipped.
+- `doc/index.rst` (major releases): add a "Version 3.0.0 (date)" section
+  to the documentation landing page, following the pattern of the prior
+  majors, linking the release notes and the extended release notes. The
+  legacy `check_version.yaml` workflow (push to `v*` branches) fails
+  without it.
 
 When done, check your work from the repository root (the version is
 taken from the branch name):
