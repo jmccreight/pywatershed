@@ -13,6 +13,15 @@ on:
   release:
     types:
       - published
+  # Recovery path: re-run the publish job for an already-published
+  # release (e.g. the publish job failed after publication). See
+  # RELEASE.md "If something goes wrong".
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag to (re)publish to PyPI"
+        required: true
+        type: string
 
 jobs:
   # On a release PR (branch vX.Y.Z into main), check that the version
@@ -103,7 +112,9 @@ jobs:
   publish:
     name: Publish package to pypi
     runs-on: ubuntu-latest
-    if: github.event_name == 'release'
+    if: >-
+      github.event_name == 'release' ||
+      github.event_name == 'workflow_dispatch'
     permissions:
       contents: write
       pull-requests: write
@@ -115,6 +126,9 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v6
+        with:
+          # the release tag, or the tag given to a manual dispatch
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -131,8 +145,10 @@ jobs:
 
       - name: Check package version matches the release tag
         run: |
-          tag="${{ github.event.release.tag_name }}"
-          pkg_version=$(python -c "import pywatershed; print(pywatershed.__version__)")
+          tag="${{ github.event.release.tag_name || inputs.tag }}"
+          # read installed metadata: importing the package pollutes
+          # stdout with optional-dependency warnings
+          pkg_version=$(python -c "from importlib.metadata import version; print(version('pywatershed'))")
           echo "release tag: $tag, package version: $pkg_version"
           if [ "$pkg_version" != "$tag" ]; then
             echo "Package version does not match the release tag. Did"

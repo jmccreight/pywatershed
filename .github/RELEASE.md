@@ -288,6 +288,21 @@ re-pushed at any time after release. Note: `gh-pages` has no
 - **Something was missed, discovered after publishing**: the release is
   public and tagged; do not rewrite it. Release a patch (e.g. `3.0.1`)
   from `main` following the patch steps above.
+- **The `publish` job fails after the release is published** (so the
+  version never reached PyPI, e.g. a bug in the workflow itself): the
+  package is fine, only its delivery failed — do NOT release a patch.
+  Re-running the failed job re-uses the workflow definition frozen at
+  the tag, so a workflow bug cannot be fixed that way. Instead, fix
+  `release.yaml` on a plain branch, PR it to `main` (the release jobs
+  skip on non-`v*` PRs; regular CI runs), merge, then run Actions →
+  "Release Workflow" → "Run workflow" giving the existing release tag
+  (e.g. `3.0.0`). The dispatched `publish` job checks out that tag, so
+  the package uploaded to PyPI is built from exactly the release
+  commit; only the CI script performing the upload comes from `main`.
+  The main-into-develop merge of step 8 then carries the workflow fix
+  to `develop`. (This exact recovery was used for `3.0.0` itself, when
+  the version-match guard failed on import-time warnings polluting
+  stdout.)
 
 ## Utility scripts
 
