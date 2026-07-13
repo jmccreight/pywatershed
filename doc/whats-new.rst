@@ -132,6 +132,15 @@ Breaking Changes
 
 Bug fixes
 ~~~~~~~~~
+- The :class:`PRMSRunoffAg` mass budget did not balance on days with canopy
+  changeover (``intcp_changeover > 0``, at canopy density transitions), for two
+  reasons: the budget input term ``intcp_changeover_budget`` was assigned only
+  in dead code and remained zero, and depression storage inflow was missing
+  changeover water when changeover is carried separately from net_rain
+  (``intcp_changeover_in_net_rain=False``). GSFLOW carries changeover inside
+  net_rain, whereby its depression storage receives this water. With the fix
+  the budget closes to machine precision.
+  (:pull:`XXX`) By `James McCreight <https://github.com/jmccreight>`_.
 - :class:`utils.PrmsDynamicParameter` ``daily_data_array`` left fill values for days
   between ``daily_start_date`` and the first dynamic parameter date inside that window,
   instead of forward-filling from the most recent date at or before ``daily_start_date``
