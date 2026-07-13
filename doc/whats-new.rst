@@ -140,7 +140,7 @@ Bug fixes
   (``intcp_changeover_in_net_rain=False``). GSFLOW carries changeover inside
   net_rain, whereby its depression storage receives this water. With the fix
   the budget closes to machine precision.
-  (:pull:`XXX`) By `James McCreight <https://github.com/jmccreight>`_.
+  (:pull:`401`) By `James McCreight <https://github.com/jmccreight>`_.
 - :class:`utils.PrmsDynamicParameter` ``daily_data_array`` left fill values for days
   between ``daily_start_date`` and the first dynamic parameter date inside that window,
   instead of forward-filling from the most recent date at or before ``daily_start_date``
