@@ -300,9 +300,16 @@ re-pushed at any time after release. Note: `gh-pages` has no
   the package uploaded to PyPI is built from exactly the release
   commit; only the CI script performing the upload comes from `main`.
   The main-into-develop merge of step 8 then carries the workflow fix
-  to `develop`. (This exact recovery was used for `3.0.0` itself, when
-  the version-match guard failed on import-time warnings polluting
-  stdout.)
+  to `develop`. (For `3.0.0` itself, when the version-match guard
+  failed on import-time warnings polluting stdout, the "Run workflow"
+  button never appeared in the Actions UI — cause unresolved, possibly
+  organization policy.) Last resort, proven for `3.0.0`: publish
+  manually from the exact release commit with a PyPI API token —
+  `git switch --detach 3.0.0`, remove any stale `dist/`/`build/`,
+  `python -m build`, `twine check --strict dist/*`, confirm the built
+  filenames carry the tag's version, `twine upload dist/*`
+  (username `__token__`; the token secret is shown only once at
+  creation on pypi.org). Delete the token afterwards.
 
 ## Utility scripts
 
