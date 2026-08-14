@@ -62,6 +62,12 @@ gone stale in past releases:
 - **code.json**: updated in RELEASE.md step 4 (`version`,
   `downloadURL`, `metadataLastUpdated`, `status`), but verify — no
   automated check covers this file and it goes stale silently.
+- **conda recipe drift**: diff `pyproject.toml` dependencies and
+  `requires-python` against the last release NOW — after publication
+  they must be mirrored into the conda-forge feedstock (RELEASE.md
+  step 10), and any dependency not yet on conda-forge needs a
+  staged-recipes submission, which has days of review lead time
+  (pyPRMS blocked the 3.0.0 conda package this way).
 
 ## Protocol
 

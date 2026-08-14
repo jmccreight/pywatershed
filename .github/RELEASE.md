@@ -20,6 +20,7 @@ which is outlined at the start of
   - [7. Publish the draft GitHub release](#7-publish-the-draft-github-release)
   - [8. Bring the release back into develop](#8-bring-the-release-back-into-develop)
   - [9. Publish extended release notes on gh-pages (major releases)](#9-publish-extended-release-notes-on-gh-pages-major-releases)
+  - [10. Update the conda-forge feedstock](#10-update-the-conda-forge-feedstock)
 - [If something goes wrong](#if-something-goes-wrong)
 - [Utility scripts](#utility-scripts)
   - [update_version.py](#update_versionpy)
@@ -269,6 +270,31 @@ Push `gh-pages` and confirm the rendering at
 re-pushed at any time after release. Note: `gh-pages` has no
 `.pre-commit-config.yaml`, so commit there with
 `PRE_COMMIT_ALLOW_NO_CONFIG=1 git commit ...`.
+
+### 10. Update the conda-forge feedstock
+
+The conda package is maintained at
+<https://github.com/conda-forge/pywatershed-feedstock>. Within hours of
+the PyPI publication, the conda-forge autotick bot opens a version-bump
+PR on the feedstock. The bot updates **only** the version and sha256;
+reconciling the recipe with the release is on the maintainer:
+
+- Mirror any dependency and python-version changes from
+  `pyproject.toml` (`requires-python` and the `dependencies` list) into
+  `recipe/meta.yaml`. Conda names can differ (`epiweeks` →
+  `epiweeks4cf`, `matplotlib` → `matplotlib-base`), and pip extras must
+  be expanded into their component packages (`flopy[codegen]` → flopy
+  plus boltons, jinja2, modflow-devtools, tomli, tomli-w).
+- Every runtime dependency must exist on conda-forge, or the recipe's
+  `pip check` test fails. A dependency missing from conda-forge (e.g.
+  pyPRMS at 3.0.0) must first be submitted to
+  conda-forge/staged-recipes — this has review lead time, so check for
+  new dependencies *before* the release (the pre-release review
+  covers this).
+- Push the fixes to the bot's PR branch (its PRs allow maintainer
+  edits) rather than opening a competing PR, and merge when the
+  feedstock CI passes. The conda package appears on the channel
+  shortly after.
 
 ## If something goes wrong
 
