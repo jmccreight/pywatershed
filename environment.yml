@@ -23,6 +23,11 @@ dependencies:
   - networkx
   - numpy>=2.0.0
   - numba
+  # TEMPORARY: pyPRMS 0.9.10 MetaData crashes with packaging >=26.3
+  # (Version(None) now raises InvalidVersion, escaping its
+  # except TypeError). Remove when a fixed pyPRMS releases and
+  # require that pyPRMS version instead.
+  - packaging<26.3
   - pandas>=1.4.0
   - pint
   - pip
