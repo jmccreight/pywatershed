@@ -148,10 +148,14 @@ def test_mmr_to_mf6_chf_dfw(tmp_path, binary_flw):
     ic_options = {"strt": 1.0}
 
     # CXS
+    # mf6 > 6.7 requires the cross section (feature) number ifno as the
+    # first field of each crosssectiondata entry (modflow6 PR #2892);
+    # zero-based here, as for packagedata below.
+    ifno = [0, 0, 0, 0]
     xfraction = [0.0, 0.0, 1.0, 1.0]
     height = [100.0, 0.0, 0.0, 100.0]
     mannfraction = [1.0, 1.0, 1.0, 1.0]
-    cxsdata = list(zip(xfraction, height, mannfraction))
+    cxsdata = list(zip(ifno, xfraction, height, mannfraction))
     cxs_options = {
         "nsections": 1,
         "npoints": 4,
