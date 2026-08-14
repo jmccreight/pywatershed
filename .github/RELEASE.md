@@ -20,6 +20,7 @@ which is outlined at the start of
   - [7. Publish the draft GitHub release](#7-publish-the-draft-github-release)
   - [8. Bring the release back into develop](#8-bring-the-release-back-into-develop)
   - [9. Publish extended release notes on gh-pages (major releases)](#9-publish-extended-release-notes-on-gh-pages-major-releases)
+  - [10. Update the conda-forge feedstock](#10-update-the-conda-forge-feedstock)
 - [If something goes wrong](#if-something-goes-wrong)
 - [Utility scripts](#utility-scripts)
   - [update_version.py](#update_versionpy)
@@ -144,8 +145,11 @@ All on the `v3.0.0` branch:
   pending minor/major section (which stays "Unreleased").
 - `CITATION.cff`: update the `version:` and `date-released:` fields (the
   `version:` field is verified by release.yaml: `check`). For a major
-  release, obtain the provisional new DOI from USGS and update it in
-  `CITATION.cff` and the top-level `README.md`.
+  release, obtain the provisional new DOI from USGS — ideally ahead of
+  time, it may require the network/VPN — and update it in all three
+  places it appears: `CITATION.cff` `identifiers:`, the `README.md` DOI
+  badge, and the `README.md` "How to Cite" line. Nothing automated
+  checks the DOI, so verify it by hand.
 - `README.md`: if the release is USGS-approved, put the approved-release
   disclaimer at the top level; otherwise keep the provisional disclaimer.
 - `code.json`: update `version:`, `downloadURL:` (the release archive,
@@ -153,6 +157,11 @@ All on the `v3.0.0` branch:
   check `status:` still reflects the release's USGS approval status.
   Nothing automated verifies this file, so it goes stale silently if
   skipped.
+- `doc/index.rst` (major releases): add a "Version 3.0.0 (date)" section
+  to the documentation landing page, following the pattern of the prior
+  majors, linking the release notes and the extended release notes. The
+  legacy `check_version.yaml` workflow (push to `v*` branches) fails
+  without it.
 
 When done, check your work from the repository root (the version is
 taken from the branch name):
@@ -167,7 +176,14 @@ placeholder pull-request numbers in the new section. The release PR
 runs the identical script (release.yaml: `check`), so passing locally
 means those CI checks will pass.
 
-Commit these changes to `v3.0.0` and push the branch to upstream.
+Commit these changes to `v3.0.0` and push the branch to upstream (not
+to a fork: the release branch is shared state, step 7 deletes it on
+upstream, and a same-repo PR runs the release workflows with full
+repository permissions):
+
+```shell
+git push upstream v3.0.0
+```
 
 ### 5. Open a pull request to main
 
@@ -255,6 +271,31 @@ re-pushed at any time after release. Note: `gh-pages` has no
 `.pre-commit-config.yaml`, so commit there with
 `PRE_COMMIT_ALLOW_NO_CONFIG=1 git commit ...`.
 
+### 10. Update the conda-forge feedstock
+
+The conda package is maintained at
+<https://github.com/conda-forge/pywatershed-feedstock>. Within hours of
+the PyPI publication, the conda-forge autotick bot opens a version-bump
+PR on the feedstock. The bot updates **only** the version and sha256;
+reconciling the recipe with the release is on the maintainer:
+
+- Mirror any dependency and python-version changes from
+  `pyproject.toml` (`requires-python` and the `dependencies` list) into
+  `recipe/meta.yaml`. Conda names can differ (`epiweeks` →
+  `epiweeks4cf`, `matplotlib` → `matplotlib-base`), and pip extras must
+  be expanded into their component packages (`flopy[codegen]` → flopy
+  plus boltons, jinja2, modflow-devtools, tomli, tomli-w).
+- Every runtime dependency must exist on conda-forge, or the recipe's
+  `pip check` test fails. A dependency missing from conda-forge (e.g.
+  pyPRMS at 3.0.0) must first be submitted to
+  conda-forge/staged-recipes — this has review lead time, so check for
+  new dependencies *before* the release (the pre-release review
+  covers this).
+- Push the fixes to the bot's PR branch (its PRs allow maintainer
+  edits) rather than opening a competing PR, and merge when the
+  feedstock CI passes. The conda package appears on the channel
+  shortly after.
+
 ## If something goes wrong
 
 - **A check fails on the release PR**: fix it on the `v3.0.0` branch and
@@ -273,6 +314,28 @@ re-pushed at any time after release. Note: `gh-pages` has no
 - **Something was missed, discovered after publishing**: the release is
   public and tagged; do not rewrite it. Release a patch (e.g. `3.0.1`)
   from `main` following the patch steps above.
+- **The `publish` job fails after the release is published** (so the
+  version never reached PyPI, e.g. a bug in the workflow itself): the
+  package is fine, only its delivery failed — do NOT release a patch.
+  Re-running the failed job re-uses the workflow definition frozen at
+  the tag, so a workflow bug cannot be fixed that way. Instead, fix
+  `release.yaml` on a plain branch, PR it to `main` (the release jobs
+  skip on non-`v*` PRs; regular CI runs), merge, then run Actions →
+  "Release Workflow" → "Run workflow" giving the existing release tag
+  (e.g. `3.0.0`). The dispatched `publish` job checks out that tag, so
+  the package uploaded to PyPI is built from exactly the release
+  commit; only the CI script performing the upload comes from `main`.
+  The main-into-develop merge of step 8 then carries the workflow fix
+  to `develop`. (For `3.0.0` itself, when the version-match guard
+  failed on import-time warnings polluting stdout, the "Run workflow"
+  button never appeared in the Actions UI — cause unresolved, possibly
+  organization policy.) Last resort, proven for `3.0.0`: publish
+  manually from the exact release commit with a PyPI API token —
+  `git switch --detach 3.0.0`, remove any stale `dist/`/`build/`,
+  `python -m build`, `twine check --strict dist/*`, confirm the built
+  filenames carry the tag's version, `twine upload dist/*`
+  (username `__token__`; the token secret is shown only once at
+  creation on pypi.org). Delete the token afterwards.
 
 ## Utility scripts
 

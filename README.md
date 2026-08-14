@@ -13,7 +13,7 @@
 [![Anaconda-Server Badge](https://anaconda.org/conda-forge/pywatershed/badges/version.svg)](https://anaconda.org/conda-forge/pywatershed)
 [![Anaconda-Server Badge](https://anaconda.org/conda-forge/pywatershed/badges/platforms.svg)](https://anaconda.org/conda-forge/pywatershed)
 
-[![DOI:10.5066/P13EWPEV](https://img.shields.io/badge/DOI-10.5066/P13EWPEV-b4a9fe.svg)](https://doi.org/10.5066/P13EWPEV)
+[![DOI:10.5066/P13RCHPY](https://img.shields.io/badge/DOI-10.5066/P13RCHPY-b4a9fe.svg)](https://doi.org/10.5066/P13RCHPY)
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
@@ -133,7 +133,7 @@ Thank you for your interest.
 
 ## How to Cite
 
-McCreight, J. L., Langevin, C. D., Hughes, J. D., & Bonelli, W. P. (2024). pywatershed (Version 2.0.0) [Computer software]. [https://doi.org/10.5066/P13EWPEV](https://doi.org/10.5066/P13EWPEV)
+McCreight, J. L., Langevin, C. D., Hughes, J. D., & Bonelli, W. P. (2026). pywatershed (Version 3.0.0) [Computer software]. [https://doi.org/10.5066/P13RCHPY](https://doi.org/10.5066/P13RCHPY)
 
 ## Disclaimer
 

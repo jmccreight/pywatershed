@@ -184,8 +184,10 @@ jobs:
       - name: Update flopy MODFLOW 6 classes
         working-directory: modflow6/autotest
         run: |
-          # requires flopy[codgen] install option
-          python -m flopy.mf6.utils.generate_classes
+          # requires flopy[codegen] install option; --ref develop keeps
+          # the generated classes in sync with the mf6 nightly binary
+          # (flopy's bundled dfn snapshot lags mf6 develop)
+          python -m flopy.mf6.utils.generate_classes --ref develop
 
       - name: Install mf6 nightly build binaries
         uses: modflowpy/install-modflow-action@v1
@@ -534,8 +536,10 @@ jobs:
       - name: Update flopy MODFLOW 6 classes
         working-directory: modflow6/autotest
         run: |
-          # requires flopy[codgen] install option
-          python -m flopy.mf6.utils.generate_classes
+          # requires flopy[codegen] install option; --ref develop keeps
+          # the generated classes in sync with the mf6 nightly binary
+          # (flopy's bundled dfn snapshot lags mf6 develop)
+          python -m flopy.mf6.utils.generate_classes --ref develop
 
       - name: Install mf6 nightly build binaries
         uses: modflowpy/install-modflow-action@v1

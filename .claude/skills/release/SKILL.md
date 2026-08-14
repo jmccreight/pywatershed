@@ -62,6 +62,12 @@ gone stale in past releases:
 - **code.json**: updated in RELEASE.md step 4 (`version`,
   `downloadURL`, `metadataLastUpdated`, `status`), but verify — no
   automated check covers this file and it goes stale silently.
+- **conda recipe drift**: diff `pyproject.toml` dependencies and
+  `requires-python` against the last release NOW — after publication
+  they must be mirrored into the conda-forge feedstock (RELEASE.md
+  step 10), and any dependency not yet on conda-forge needs a
+  staged-recipes submission, which has days of review lead time
+  (pyPRMS blocked the 3.0.0 conda package this way).
 
 ## Protocol
 
@@ -76,6 +82,12 @@ gone stale in past releases:
    - Draft the commands or file edits it requires. You may make the
      file edits of step 4 (whats-new heading and date, CITATION.cff,
      README disclaimer) directly when asked; the human commits them.
+   - For a major release, ask for the new provisional DOI explicitly
+     and early (step 1, not step 4) — only the human can obtain it
+     from USGS, retrieval may need the VPN, and no automated check
+     will catch a stale DOI. It appears in three places: the
+     `README.md` badge, the `README.md` "How to Cite" line, and
+     `CITATION.cff` `identifiers:`.
    - Verify before moving on. In particular:
      - After step 4: run `.github/scripts/release_preflight.sh` and
        show the result; do not proceed until it passes.

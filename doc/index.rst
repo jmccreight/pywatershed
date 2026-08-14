@@ -84,6 +84,27 @@ For more information on version 2.0.0 see the
 `v2.0.0 release notes <https://github.com/DOI-USGS/pywatershed/releases/tag/2.0.0>`_
 and the `v2.0.0 extended release notes <https://doi-usgs.github.io/pywatershed/2024/12/16/v2-0-0-overview>`_.
 
+===================================
+Version 3.0.0 (2026-07-13)
+===================================
+With pywatershed version 3.0.0, we introduce stream temperature simulation
+following the PRMS methodology (:class:`PRMSStreamTemp` and
+:class:`PRMSStreamTempHumidityCBH`, with supporting stream shade and hydraulic
+geometry classes) and simulation of irrigated agriculture based on GSFLOW
+(:class:`PRMSRunoffAg`, :class:`PRMSSoilzoneAgObsET`, and
+:class:`PRMSSoilzoneAg`).
+
+Version 3.0.0 also adds energy budgets alongside the existing mass budgets in
+:class:`base.ConservativeProcess`, a restart capability for processes, the
+:class:`~base.output.Output` class for flexible output collection and
+statistics, and dynamic transpiration and frost timing
+(:class:`PRMSAtmosphereTranspFrost` and
+:class:`PRMSAtmosphereTranspFrostDynamic`).
+
+For more information on version 3.0.0 see the
+`v3.0.0 release notes <https://github.com/DOI-USGS/pywatershed/releases/tag/3.0.0>`_
+and the `v3.0.0 extended release notes <https://doi-usgs.github.io/pywatershed/2026/07/13/v3-0-0-overview>`_.
+
 ============================================
 Upcoming development
 ============================================
@@ -97,17 +118,10 @@ Please note that you can browse the API reference, developer info, and index
 using the table of contents on the left. But *the best way to get started
 with pywatershed is to dive into the example notebooks*.
 
-| For introductory example notebooks, look in the `examples/ <https://github.com/DOI-USGS/pywatershed/tree/main/examples>`_ directory in the repository. Numbered starting at 00, these are meant to be completed in order. Notebook outputs are not saved in Github. But you can run these notebooks locally or using WholeTale (free but sign-up or log-in required) where the pywatershed environment is all ready to go:
-
-.. image:: https://raw.githubusercontent.com/whole-tale/wt-design-docs/master/badges/wholetale-explore.svg
-   :target: https://dashboard.wholetale.org
-
-* `Run the latest release in WholeTale <https://dashboard.wholetale.org/run/64ae29e8a887f48b9f173678?tab=metadata>`_
-* `Run the develop branch in WholeTale <https://dashboard.wholetale.org/run/64ae25c3a887f48b9f1735c8?tab=metadata>`_
+| For introductory example notebooks, look in the `examples/ <https://github.com/DOI-USGS/pywatershed/tree/main/examples>`_ directory in the repository. Numbered starting at 00, these are meant to be completed in order. Notebook outputs are not saved in Github, but you can run these notebooks locally.
 
 See `README.md <https://github.com/DOI-USGS/pywatershed/tree/develop/README.md>`_ for more details
-on both `running locally <https://github.com/DOI-USGS/pywatershed#installation>`_
-or `using WholeTale <https://github.com/DOI-USGS/pywatershed#example-notebooks>`_.
+on `installation <https://github.com/DOI-USGS/pywatershed#installation>`_.
 
 ========================
 Community engagement

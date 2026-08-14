@@ -8,9 +8,11 @@ repos:
     rev: v2.2.0
     hooks:
       - id: doctoc
-        # skill files have yaml frontmatter that must be the first
-        # thing in the file; a doctoc TOC above it breaks them
-        exclude: ^\.claude/
+        # .claude: skill files have yaml frontmatter that must be the
+        # first thing in the file; a doctoc TOC above it breaks them.
+        # The PR template renders as every PR's description; a TOC
+        # there is noise.
+        exclude: ^(\.claude/|\.github/PULL_REQUEST_TEMPLATE\.md$)
   - repo: https://github.com/keewis/blackdoc
     rev: v0.3.9
     hooks:

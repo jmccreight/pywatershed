@@ -2,15 +2,15 @@ cff-version: 1.2.0
 message: If you use this software, please cite the software itself.
 type: software
 title: pywatershed
-version: 2.0.0
-date-released: '2024-12-16'
+version: 3.0.0
+date-released: '2026-07-13'
 abstract: pywatershed is a Python package for hydrologic modeling.
 repository-artifact: https://pypi.org/project/pywatershed
 repository-code: https://github.com/doi-usgs/pywatershed
 license: CC0-1.0
 identifiers:
   - type: doi
-    value: 10.5066/P13EWPEV
+    value: 10.5066/P13RCHPY
 authors:
 - family-names: McCreight
   given-names: James
