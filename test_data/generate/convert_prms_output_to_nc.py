@@ -50,6 +50,8 @@ def make_netcdf_files(netcdf_file):
 def soltab_netcdf_file(tmp_path_factory, control_soltab_file):
     """Convert soltab files to NetCDF, one file for each variable"""
     control_file = control_soltab_file[0]
+    if "make_cbh_only" in control_file.stem:
+        pytest.skip(f"Only generating CBH files with {control_file}")
     soltab_file = control_soltab_file[1]
     domain_dir = soltab_file.parent
     indiv_soltab_files = None
