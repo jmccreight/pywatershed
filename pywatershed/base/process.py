@@ -125,7 +125,9 @@ class Process(Accessor):
         restart_write: Union[pl.Path, bool] = False,
         restart_write_freq: Literal["y", "m", "d", "f", False] = False,
     ):
-        self.name = "Process"
+        if not hasattr(self, "name"):
+            self.name = "Process"
+
         # Maps internal input variable names to the variable name in the
         # source file. E.g. {"humidity_hru": "rhavg"} means the input
         # known internally as humidity_hru is stored as "rhavg" in the
@@ -344,7 +346,9 @@ class Process(Accessor):
 
             self._params = type(parameters).merge(parameters, discretization)
         else:
-            self._params = parameters.subset(self.parameters)
+            self._params = parameters.subset(
+                self.parameters, keep_dims=self.dimensions
+            )
 
     def _initialize_self_variables(self):
         # dims

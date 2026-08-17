@@ -1,12 +1,10 @@
-import pathlib as pl
-from typing import Literal, Union
-
-import numpy as np
+from typing import Literal
 
 from ..base.adapter import adaptable
 from ..base.control import Control
-from ..constants import HruType, nan, zero
+from ..constants import HruType, cubic_ft_per_acre_in, zero
 from ..parameters import Parameters
+from ..utils.preprocess_cascades import preprocess_cascade_params
 from .prms_runoff import PRMSRunoff
 
 RAIN = 0
@@ -24,10 +22,10 @@ LAKE = HruType.LAKE.value
 # TODO: using through_rain and not net_rain and net_ppt is a WIP
 
 
-class PRMSRunoffNoDprst(PRMSRunoff):
-    """PRMS surface runoff without depression storage.
+class PRMSRunoffCascadesNoDprst(PRMSRunoff):
+    """PRMS surface runoff with cascading flow.
 
-    A surface runoff representation from PRMS.
+    A surface runoff representation from PRMS with Cascading flow.
 
     Implementation based on PRMS 5.2.1 with theoretical documentation given in
     the PRMS-IV documentation:
@@ -38,6 +36,7 @@ class PRMSRunoffNoDprst(PRMSRunoff):
     Techniques and Methods, 6, B7.
     <https://pubs.usgs.gov/tm/6b7/pdf/tm6-b7.pdf>`__
 
+    And in the GSFlow documentation TODO.
 
     Args:
         control: a Control object
@@ -70,31 +69,6 @@ class PRMSRunoffNoDprst(PRMSRunoff):
         calc_method: one of ["fortran", "numba", "numpy"]. None defaults to
             "numba".
         verbose: Print extra information or not?
-        restart_read:
-            May be boolean or a Pathlib.Path. If False, control.options
-            will be examined for this key. If True, the working
-            directory is searched for restart files. If a Pathlib.Path, this
-            specifies an alternative directory to search for restart files.
-            Files searched for are of the pattern YYYY-mm-dd-varname.nc where
-            the date is the control.init_time. The timestamp on the file is the
-            valid time of the states in the file with the exception of
-            processes with sub-daily timesteps. For example, the outflow_ts
-            variable of PRMSChannel is instantaneous and valid at the 23rd hour
-            of the timestampped day whereas its variable seg_outflow is the
-            daily averge value over the timestampped day.
-        restart_write:
-            As for restart_read but for writing. The directory in either
-            case will be attempted to be created if it does not exist.
-        restart_write_freq:
-            If False, then control.options is examined for this key. The
-            follwing values set the frequency of restart output with "y" for
-            yearly, "m" for monthly, "d" for daily, or "f" for final. "Final"
-            means that restart files are written with the states at
-            control.end_time to files timestampped with control.end_time.
-            Yearly and monthly restart options write files with timestamps on
-            the last day of each year or month during the run. If daily,
-            restarts are written every day. If restart_write is not False and
-            restart_write_freq is False, the default of "f" is used.
     """
 
     def __init__(
@@ -119,13 +93,22 @@ class PRMSRunoffNoDprst(PRMSRunoff):
         intcp_changeover_in_net_rain: bool = False,
         imbalance_behavior: Literal["defer", None, "warn", "error"] = "defer",
         calc_method: Literal["numba", "numpy"] = None,
-        input_aliases: dict = None,
         verbose: bool = None,
-        restart_read: Union[pl.Path, bool] = False,
-        restart_write: Union[pl.Path, bool] = False,
-        restart_write_freq: Literal["y", "m", "d", "f", False] = False,
     ) -> None:
+        self.name = "PRMSRunoffCascadesNoDprst"
         self._dprst_flag = False
+
+        # hru_route_order could be required but because
+        # it wasnt by prms, we'll make it optional and add it here if missing.
+        # TODO: with a warning and/or better criteria for the if
+        if "hru_route_order" not in parameters.parameters.keys():
+            if verbose is None:
+                verbose_pass = 1
+            else:
+                verbose_pass = 0
+            parameters = preprocess_cascade_params(
+                control, parameters, verbosity=verbose_pass
+            )
 
         super().__init__(
             control=control,
@@ -146,30 +129,23 @@ class PRMSRunoffNoDprst(PRMSRunoff):
             hru_intcpevap=hru_intcpevap,
             intcp_changeover=intcp_changeover,
             dprst_flag=False,
+            intcp_changeover_in_net_rain=intcp_changeover_in_net_rain,
             imbalance_behavior=imbalance_behavior,
             calc_method=calc_method,
-            input_aliases=input_aliases,
             verbose=verbose,
-            restart_read=restart_read,
-            restart_write=restart_write,
-            restart_write_freq=restart_write_freq,
-            intcp_changeover_in_net_rain=intcp_changeover_in_net_rain,
         )
-
-        self.name = "PRMSRunoffNoDprst"
 
         self._set_inputs(locals())
         self._set_options(locals())
 
         self._set_budget(active_mask=self._active_hru_mask)
-
         self.basin_init()
 
         return
 
     @staticmethod
     def get_dimensions() -> tuple:
-        return ("nhru",)
+        return ("nhru", "nsegment")
 
     @staticmethod
     def get_parameters() -> tuple:
@@ -184,25 +160,13 @@ class PRMSRunoffNoDprst(PRMSRunoff):
             "smidx_exp",
             "soil_moist_max",
             "snowinfil_max",
-        )
-
-    @staticmethod
-    def get_inputs() -> tuple:
-        return (
-            "soil_lower_prev",
-            "soil_rechr_prev",
-            "net_rain",
-            "net_ppt",
-            "net_snow",
-            "potet",
-            "snowmelt",
-            "snow_evap",
-            "pkwater_equiv",
-            "pptmix_nopack",
-            "snowcov_area",
-            "through_rain",
-            "hru_intcpevap",
-            "intcp_changeover",
+            "hru_route_order",
+            "nsegment_dum",  # a hack
+            "ncascade_hru",
+            "hru_down",
+            "hru_down_frac",
+            "hru_down_fracwt",
+            "cascade_area",
         )
 
     @staticmethod
@@ -221,14 +185,11 @@ class PRMSRunoffNoDprst(PRMSRunoff):
             "hru_impervstor": zero,
             "hru_impervstor_old": zero,
             "hru_impervstor_change": zero,
+            "hortonian_flow": zero,
+            "upslope_hortonian": zero,
+            "hru_horton_cascflow": zero,
+            "stream_seg_in": zero,
         }
-
-    @staticmethod
-    def get_restart_variables() -> list:
-        return [
-            "imperv_stor",
-            "hru_impervstor",
-        ]
 
     @staticmethod
     def get_mass_budget_terms():
@@ -237,13 +198,13 @@ class PRMSRunoffNoDprst(PRMSRunoff):
                 "through_rain",
                 "snowmelt",
                 "intcp_changeover",
+                "upslope_hortonian",
             ],
             "outputs": [
-                # sroff = hru_sroffi + hru_sroffp
-                "hru_sroffi",
-                "hru_sroffp",
+                "hortonian_flow",
                 "infil_hru",
                 "hru_impervevap",
+                "hru_horton_cascflow",
             ],
             "storage_changes": [
                 "hru_impervstor_change",
@@ -256,11 +217,8 @@ class PRMSRunoffNoDprst(PRMSRunoff):
 
     def _calculate(self, time_length, vectorized=False):
         """Perform the core calculations"""
-
+        cfs_conv = cubic_ft_per_acre_in / self.control.time_step_seconds
         zero_array = zero * self.infil
-        zero_array_2d_int = np.zeros((2, 2), dtype="int32")
-        nan_array = nan * self.infil
-        nan_array_2d = np.zeros((2, 2)) * nan
 
         (
             self.infil[:],
@@ -282,8 +240,8 @@ class PRMSRunoffNoDprst(PRMSRunoff):
             _,
             _,
             self.sroff[:],
-            _,
-            _,
+            self.hru_horton_cascflow[:],
+            self.hortonian_flow[:],
         ) = self._calculate_runoff(
             infil=self.infil,
             nhru=self.nhru,
@@ -352,24 +310,24 @@ class PRMSRunoffNoDprst(PRMSRunoff):
             through_rain=self.through_rain,
             dprst_flag=self._dprst_flag,
             intcp_changeover_in_net_rain=self._intcp_changeover_in_net_rain,
-            ncascade_hru=nan_array,
+            ncascade_hru=self.ncascade_hru,
             nactive_hrus=self._nactive_hrus,
             hru_route_order=self.hru_route_order,
-            hru_down=zero_array_2d_int,
-            hru_down_frac=nan_array_2d,
-            hru_down_fracwt=nan_array_2d,
-            cascade_area=nan_array_2d,
-            hortonian_flow=nan_array,
-            upslope_hortonian=nan_array,
-            stream_seg_in=nan_array,
-            cfs_conv=nan_array,
+            hru_down=self.hru_down,
+            hru_down_frac=self.hru_down_frac,
+            hru_down_fracwt=self.hru_down_fracwt,
+            cascade_area=self.cascade_area,
+            hortonian_flow=self.hortonian_flow,
+            upslope_hortonian=self.upslope_hortonian,
+            stream_seg_in=self.stream_seg_in,
+            cfs_conv=cfs_conv,
             # functions at end
             check_capacity=self.check_capacity,
             perv_comp=self.perv_comp,
             compute_infil=self.compute_infil,
             dprst_comp=self.dprst_comp,
             imperv_et=self.imperv_et,
-            run_cascade_sroff=self._run_cascade_sroff_dummy,
+            run_cascade_sroff=self._run_cascade_sroff,
         )
 
         self.infil_hru[:] = self.infil * self.hru_frac_perv

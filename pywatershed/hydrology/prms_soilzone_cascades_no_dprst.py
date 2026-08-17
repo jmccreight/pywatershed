@@ -1,18 +1,18 @@
-import pathlib as pl
-from typing import Literal, Union
+from typing import Literal
 
 from ..base.adapter import adaptable
 from ..base.control import Control
-from ..constants import nan, zero
+from ..constants import cubic_ft_per_acre_in, nan, zero
 from ..parameters import Parameters
+from ..utils.preprocess_cascades import preprocess_cascade_params
 from .prms_soilzone import PRMSSoilzone
 
 ONETHIRD = 1 / 3
 TWOTHIRDS = 2 / 3
 
 
-class PRMSSoilzoneNoDprst(PRMSSoilzone):
-    """PRMS soil zone.
+class PRMSSoilzoneCascadesNoDprst(PRMSSoilzone):
+    """PRMS soil zone with cascades and no depression storage.
 
     Implementation based on PRMS 5.2.1 with theoretical documentation given in
     the PRMS-IV documentation:
@@ -22,10 +22,6 @@ class PRMSSoilzoneNoDprst(PRMSSoilzone):
     precipitation-runoff modeling system, version 4. US Geological Survey
     Techniques and Methods, 6, B7.
     <https://pubs.usgs.gov/tm/6b7/pdf/tm6-b7.pdf>`__
-
-    Note that as of pywatershed version 2.0.0, pref_flow_infil_frac is a
-    required parameters which is optional in PRMS. Specifying zeros for all
-    HRUs gives the same behavior as not supplying the parameter to PRMS.
 
     Args:
         control: a Control object
@@ -59,31 +55,6 @@ class PRMSSoilzoneNoDprst(PRMSSoilzone):
             selected then no parameters are adjusted and there will be no
             warnings or errors.
         verbose: Print extra information or not?
-        restart_read:
-            May be boolean or a Pathlib.Path. If False, control.options
-            will be examined for this key. If True, the working
-            directory is searched for restart files. If a Pathlib.Path, this
-            specifies an alternative directory to search for restart files.
-            Files searched for are of the pattern YYYY-mm-dd-varname.nc where
-            the date is the control.init_time. The timestamp on the file is the
-            valid time of the states in the file with the exception of
-            processes with sub-daily timesteps. For example, the outflow_ts
-            variable of PRMSChannel is instantaneous and valid at the 23rd hour
-            of the timestampped day whereas its variable seg_outflow is the
-            daily averge value over the timestampped day.
-        restart_write:
-            As for restart_read but for writing. The directory in either
-            case will be attempted to be created if it does not exist.
-        restart_write_freq:
-            If False, then control.options is examined for this key. The
-            follwing values set the frequency of restart output with "y" for
-            yearly, "m" for monthly, "d" for daily, or "f" for final. "Final"
-            means that restart files are written with the states at
-            control.end_time to files timestampped with control.end_time.
-            Yearly and monthly restart options write files with timestamps on
-            the last day of each year or month during the run. If daily,
-            restarts are written every day. If restart_write is not False and
-            restart_write_freq is False, the default of "f" is used.
     """
 
     def __init__(
@@ -100,17 +71,26 @@ class PRMSSoilzoneNoDprst(PRMSSoilzone):
         transp_on: adaptable,
         snow_evap: adaptable,
         snowcov_area: adaptable,
-        stream_seg_in: adaptable = None,
+        stream_seg_in: adaptable,
         imbalance_behavior: Literal["defer", None, "warn", "error"] = "defer",
         calc_method: Literal["numba", "numpy"] = None,
         adjust_parameters: Literal["warn", "error", "no"] = "warn",
-        input_aliases: dict = None,
         verbose: bool = None,
-        restart_read: Union[pl.Path, bool] = False,
-        restart_write: Union[pl.Path, bool] = False,
-        restart_write_freq: Literal["y", "m", "d", "f", False] = False,
     ) -> None:
+        self.name = "PRMSSoilzoneCascadesNoDprst"
         self._dprst_flag = False
+
+        # hru_route_order could be required but because
+        # it wasnt by prms, we'll make it optional and add it here if missing.
+        # TODO: with a warning and/or better criteria for the if
+        if "hru_route_order" not in parameters.parameters.keys():
+            if verbose is None:
+                verbose_pass = 1
+            else:
+                verbose_pass = 0
+            parameters = preprocess_cascade_params(
+                control, parameters, verbosity=verbose_pass
+            )
 
         super().__init__(
             control=control,
@@ -127,25 +107,21 @@ class PRMSSoilzoneNoDprst(PRMSSoilzone):
             transp_on=transp_on,
             snow_evap=snow_evap,
             snowcov_area=snowcov_area,
+            stream_seg_in=stream_seg_in,
             dprst_flag=False,
             imbalance_behavior=imbalance_behavior,
             calc_method=calc_method,
             adjust_parameters=adjust_parameters,
-            input_aliases=input_aliases,
             verbose=verbose,
-            restart_read=restart_read,
-            restart_write=restart_write,
-            restart_write_freq=restart_write_freq,
         )
 
-        self.name = "PRMSSoilzoneNoDprst"
         self._set_budget(active_mask=self._active_hru_mask)
 
         return
 
     @staticmethod
     def get_dimensions() -> tuple:
-        return ("nhru",)
+        return ("nhru", "nsegment")
 
     @staticmethod
     def get_parameters() -> tuple:
@@ -171,6 +147,13 @@ class PRMSSoilzoneNoDprst(PRMSSoilzone):
             "ssr2gw_exp",
             "ssr2gw_rate",
             "ssstor_init_frac",
+            "hru_route_order",
+            "nsegment_dum",  # a hack
+            "ncascade_hru",
+            "hru_down",
+            "hru_down_frac",
+            "hru_down_fracwt",
+            "cascade_area",
         )
 
     @staticmethod
@@ -179,14 +162,19 @@ class PRMSSoilzoneNoDprst(PRMSSoilzone):
             "hru_impervevap",  # JLM ??
             "hru_intcpevap",  # JLM ???
             "infil_hru",
-            "sroff",
-            "sroff_vol",
+            "sroff",  # this in inout, a modified input
+            "sroff_vol",  # this in inout, a modified input
             "potet",
             # hru_ppt => model_precip%hru_ppt, & # JLM ??
             "transp_on",
             "snow_evap",
             "snowcov_area",
+            "stream_seg_in",
         )
+
+    @staticmethod
+    def get_restart_variables() -> tuple:
+        return ()
 
     @staticmethod
     def get_init_values() -> dict:
@@ -234,19 +222,26 @@ class PRMSSoilzoneNoDprst(PRMSSoilzone):
             "ssres_stor": nan,  # sm_soilzone
             "swale_actet": zero,
             "unused_potet": zero,
+            "hru_sz_cascadeflow": zero,
+            "upslope_dunnianflow": nan,
+            "upslope_interflow": nan,
         }
 
     @staticmethod
-    def get_restart_variables() -> list:
-        raise NotImplementedError(
-            "Restart capability not implemented for PRMSSoilzoneNoDprst"
-        )
-
-    @staticmethod
     def get_mass_budget_terms():
+        """Give the terms in the soilzone mass budget.
+
+        In PRMS, there are two storages, soil/rechr and ssr/gvr, in the
+        "soilzone" which have their own individual balances. Here we only
+        calculate their combined balance and fluxes between the two storages
+        are ignored. Likewise, the partitioning of influxes between these
+        reservoirs is ignored.
+        """
         return {
             "inputs": [
                 "infil_hru",
+                "upslope_dunnianflow",
+                "upslope_interflow",
             ],
             "outputs": [
                 "perv_actet_hru",
@@ -255,6 +250,7 @@ class PRMSSoilzoneNoDprst(PRMSSoilzone):
                 "slow_flow",
                 "dunnian_flow",
                 "pref_flow",
+                "hru_sz_cascadeflow",
             ],
             "storage_changes": [
                 "soil_rechr_change_hru",
@@ -265,6 +261,9 @@ class PRMSSoilzoneNoDprst(PRMSSoilzone):
         }
 
     def _calculate(self, simulation_time):
+        """Perform the core calculations"""
+
+        cfs_conv = cubic_ft_per_acre_in / self.control.time_step_seconds
         zero_array = self.soil_to_gw * zero
 
         (
@@ -304,9 +303,9 @@ class PRMSSoilzoneNoDprst(PRMSSoilzone):
             self.swale_actet[:],
             self.unused_potet[:],
             # cascade returns:
-            _,
-            _,
-            _,
+            self.hru_sz_cascadeflow[:],
+            self.upslope_dunnianflow[:],
+            self.upslope_interflow[:],
         ) = self._calculate_soilzone(
             _pref_flow_flag=self._pref_flow_flag,
             _snow_free=self._snow_free,
@@ -339,7 +338,7 @@ class PRMSSoilzoneNoDprst(PRMSSoilzone):
             potet_lower=self.potet_lower,
             potet_rechr=self.potet_rechr,
             pref_flow=self.pref_flow,
-            pref_flow_den=self.pref_flow_den,
+            pref_flow_den=self._pref_flow_den,
             pref_flow_in=self.pref_flow_in,
             pref_flow_infil=self.pref_flow_infil,
             pref_flow_infil_frac=self.pref_flow_infil_frac,
@@ -387,18 +386,18 @@ class PRMSSoilzoneNoDprst(PRMSSoilzone):
             swale_actet=self.swale_actet,
             transp_on=self.transp_on,
             unused_potet=self.unused_potet,
-            ncascade_hru=None,
+            ncascade_hru=self.ncascade_hru,
             nactive_hrus=self._nactive_hrus,
             hru_route_order=self.hru_route_order,
-            hru_down=None,
-            hru_down_frac=None,
-            hru_down_fracwt=None,
-            cascade_area=None,
-            upslope_dunnianflow=None,
-            upslope_interflow=None,
-            hru_sz_cascadeflow=None,
-            stream_seg_in=None,
-            cfs_conv=None,
+            hru_down=self.hru_down,
+            hru_down_frac=self.hru_down_frac,
+            hru_down_fracwt=self.hru_down_fracwt,
+            cascade_area=self.cascade_area,
+            upslope_dunnianflow=self.upslope_dunnianflow,
+            upslope_interflow=self.upslope_interflow,
+            hru_sz_cascadeflow=self.hru_sz_cascadeflow,
+            stream_seg_in=self.stream_seg_in,
+            cfs_conv=cfs_conv,
             _compute_cascades=self._compute_cascades,
         )
 

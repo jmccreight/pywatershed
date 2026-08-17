@@ -44,6 +44,7 @@ class Budget(Accessor):
         basis: Literal["unit", "global"] = "unit",
         imbalance_fatal: bool = False,
         ignore_nans: bool = False,
+        active_mask: Union[bool, np.ndarray] = False,
         unit_desc: str = "",
         verbose: bool = True,
     ):
@@ -67,6 +68,10 @@ class Budget(Accessor):
         self.atol = atol
         self.imbalance_fatal = imbalance_fatal
         self._ignore_nans = ignore_nans
+        # active_mask: False or a boolean np.ndarray where False indicates
+        # inactive locations excluded from balance checks and global sums
+        # (e.g. inactive HRUs whose variables are masked to nan).
+        self.active_mask = active_mask
         self._unit_desc = unit_desc
         if self._unit_desc != "":
             self._unit_desc = f" ({self._unit_desc})"
@@ -347,7 +352,13 @@ class Budget(Accessor):
         elif self.basis == "global":
             # in global case, the variable dims dont need to match, collapse
             # to a scalar
-            vals = [sum(val) for val in self[attr].values()]
+            if self.active_mask is not False:
+                vals = [
+                    np.sum(val[self.active_mask])
+                    for val in self[attr].values()
+                ]
+            else:
+                vals = [sum(val) for val in self[attr].values()]
             the_sum = sum(vals)
         else:
             raise ValueError(f"self.basis '{self.basis}' is invalid")
@@ -382,6 +393,12 @@ class Budget(Accessor):
         else:
             unit_balance = self._inputs_sum - self._outputs_sum
             lhs = self._inputs_sum
+
+        if self.active_mask is not False:
+            # only check the balance at active locations; inactive locations
+            # are masked to nan and excluded.
+            lhs = lhs[self.active_mask]
+            rhs = rhs[self.active_mask]
 
         # zero when ds is zero
         if not np.allclose(
