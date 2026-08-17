@@ -53,5 +53,5 @@ dependencies:
       - git+https://github.com/jararias/mpsplines.git
       - git+https://github.com/jlarsen-usgs/dany.git
       - git+https://github.com/pygsflow/pygsflow.git@develop
-      - git+https://github.com/paknorton/pyPRMS.git@development
+      - pyPRMS==0.9.7
       - sphinx-autodoc-typehints>=2.2.1

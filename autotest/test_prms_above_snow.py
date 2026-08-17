@@ -38,6 +38,7 @@ test_models = {
     "nhm": all_configs_same,
     "nhm_no_dprst": all_configs_same,
     "sagehen_no_cascades": all_configs_same,
+    "sagehen_no_gw_cascades": all_configs_same,
     "sagehen_gridded_cascades": all_configs_same,
     "sagehen_structured_example": all_configs_same,
 }
