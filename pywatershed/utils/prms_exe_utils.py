@@ -188,10 +188,21 @@ def compile_prms(
 
         os.chdir(src_dir)
 
+        # Prefer the compilers of the active python environment (e.g.
+        # conda-forge gcc/gfortran) over whatever is on the PATH: local
+        # PATHs can put stale/mismatched toolchains first. The compiler
+        # names must remain plain "gcc"/"gfortran" as the makelists key
+        # their flags on these exact names.
+        sub_env = os.environ.copy()
+        env_bin = pl.Path(sys.prefix) / "bin"
+        if (env_bin / "gfortran").exists():
+            sub_env["PATH"] = str(env_bin) + os.pathsep + sub_env["PATH"]
+
         # Clean previous build
         subprocess.run(
             ["make", "clean", "MAKE=make"],
             check=True,
+            env=sub_env,
         )
 
         # Build with double precision
@@ -204,6 +215,7 @@ def compile_prms(
                 "MAKE=make",
             ],
             check=True,
+            env=sub_env,
         )
 
         compiled_bin = src_dir / "bin" / "prms"

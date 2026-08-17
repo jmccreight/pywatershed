@@ -17,6 +17,11 @@ from pywatershed.utils.preprocess_cascades import (
 
 @pytest.fixture(scope="function")
 def control(simulation):
+    if simulation["name"].split(":")[0] != "sagehen_5yr":
+        pytest.skip(
+            "test_preprocess_cascades answers are hard-coded for the "
+            "sagehen_5yr domain"
+        )
     control = Control.load_prms(
         simulation["control_file"], warn_unused_options=False
     )
