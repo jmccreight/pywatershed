@@ -27,6 +27,12 @@ Bug fixes
 
 Internal changes
 ~~~~~~~~~~~~~~~~
+- Require pyPRMS >=0.10.0 and remove the temporary ``packaging <26.3`` pin it
+  supersedes (pyPRMS 0.9.10 crashed on import of metadata with packaging >=26.3).
+  Also remove calls to pyPRMS methods deprecated in 0.10.0:
+  ``Parameters.adjust_bounded_parameters()`` in domain subsetting and
+  ``DataFile.data_by_variable()`` in the obsin flow node test.
+  (:pull:`406`) By `James McCreight <https://github.com/jmccreight>`_.
 
 .. _whats-new.3.0.0:
 
