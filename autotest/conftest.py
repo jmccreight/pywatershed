@@ -70,6 +70,7 @@ def collect_simulations(
         if not (
             (dom_dir / "prcp.cbh").exists()
             or (dom_dir / "prcp.day").exists()
+            or (dom_dir / "prcp.nc").exists()
             or (dom_dir / "precip.cbh").exists()
             or (dom_dir / "precip.day").exists()
         ):
