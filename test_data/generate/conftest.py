@@ -129,7 +129,8 @@ def exe(simulation, request):
 
     exe_desc = get_ctl_exe_desc(simulation["control_file"])
     try:
-        return pws.utils.get_prms_exe_path(exe_desc)
+        # compiles from prms_src on demand for compilable variants
+        return pws.utils.get_or_compile_prms_exe(exe_desc)
     except NotImplementedError as e:
         pytest.skip(str(e))
 

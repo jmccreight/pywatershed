@@ -99,11 +99,11 @@ endif
 
 ifeq ($(detected_OS), Windows)
 	ifeq ($(CC), gcc)
-		CFLAGS = -Dfloat=double $(OPTLEVEL) -D$(ARC) -D_UF -Wall
+		CFLAGS = -std=gnu99 -Dfloat=double $(OPTLEVEL) -D$(ARC) -D_UF -Wall
 	endif
 else
 	ifeq ($(CC), gcc)
-		CFLAGS = -Dfloat=double $(OPTLEVEL) -D$(ARC) -D_UF -Wall
+		CFLAGS = -std=gnu99 -Dfloat=double $(OPTLEVEL) -D$(ARC) -D_UF -Wall
 	endif
 	ifeq ($(CC), $(filter $(CC), icc mpiicc))
 		CFLAGS = $(OPTLEVEL) -Dfloat=double -D$(ARC) -D_UF -Wall

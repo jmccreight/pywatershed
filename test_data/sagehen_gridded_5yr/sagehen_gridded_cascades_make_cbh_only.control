@@ -206,7 +206,7 @@ executable_model
 executable_desc
 1
 4
-PRMS 5.2.2
+PRMS 5.2.1
 ####
 subbasin_flag
 1
@@ -221,7 +221,7 @@ print_debug
 parameter_check_flag
 1
 1
-1
+0
 ####
 prms_warmup
 1
