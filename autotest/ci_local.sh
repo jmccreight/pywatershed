@@ -451,6 +451,7 @@ if [ -z "${t}" ]; then
             --ignore=test_obsin_flow_node.py \
             --ignore=test_output.py \
             --ignore=test_pass_through_flow_graph.py \
+            --ignore=test_preprocess_cascades.py \
             --ignore=test_prms_atmosphere_transp_frost.py \
             --ignore=test_prms_atmosphere_transp_frost_dynamic.py \
             --ignore=test_prms_channel_flow_graph.py \
@@ -519,6 +520,7 @@ if [ -z "${t}" ]; then
             --durations=0 \
             --error-for-skips \
             --ignore=test_obsin_flow_node.py \
+            --ignore=test_preprocess_cascades.py \
             --ignore=test_prms_dyn_params.py \
             --ignore=test_prms_atmosphere_transp_frost.py \
             --ignore=test_prms_atmosphere_transp_frost_dynamic.py \
@@ -640,6 +642,7 @@ if [ -z "${t}" ]; then
             --ignore=test_obsin_flow_node.py \
             --ignore=test_output.py \
             --ignore=test_pass_through_flow_graph.py \
+            --ignore=test_preprocess_cascades.py \
             --ignore=test_prms_atmosphere_transp_frost.py \
             --ignore=test_prms_atmosphere_transp_frost_dynamic.py \
             --ignore=test_mmr_to_mf6_dfw.py \

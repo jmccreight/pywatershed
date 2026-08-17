@@ -374,6 +374,11 @@ class PRMSRunoff(ConservativeProcess, HruMixin):
         # <
         if not hasattr(self, "hru_route_order"):
             # hru_route_order in cascades is 1-based index, keep it the same.
+            if not hasattr(self, "_wh_active_hrus"):
+                # subclasses (e.g. PRMSRunoffAg) which do not call
+                # _set_active_hrus in their inits get the active HRU
+                # information on demand.
+                self._set_active_hrus()
             self.hru_route_order = self._wh_active_hrus + 1
 
         return
