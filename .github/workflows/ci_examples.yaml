@@ -3,6 +3,7 @@ name: CI example notebooks
 on:
   # Pushes to any branch (here or on forks) run the notebooks on ubuntu
   # only; all platforms run for pull requests and develop/main pushes.
+  # See DEVELOPER.md under "CI" for the skeleton/full CI strategy.
   push:
     branches:
       - "*"

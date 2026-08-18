@@ -29,6 +29,12 @@ reimplementation of PRMS process representations (see README.md).
 - CI uses `--error-for-skips`: a test that skips conditionally must be
   either `--ignore`d in the broad CI steps or run in a dedicated step
   whose `--control_pattern` avoids the skip.
+- Every domain test job in `ci.yaml` carries an `if:` gate (the
+  skeleton/full split). A new domain job must copy the gate from an
+  existing domain job, with an appropriate `ci-<token>` — an ungated job
+  runs on every push to every branch. Watch for this especially when
+  merging develop into branches that predate the gates. See DEVELOPER.md
+  under "CI" for the strategy and token semantics.
 
 ## Conventions
 
