@@ -63,6 +63,9 @@ skills:
 - `/release` — assists a pywatershed release step by step, following
   `.github/RELEASE.md`: drafts the commands for the human to run,
   runs the checks, and verifies each stage (PyPI, tag, release assets).
+- `/ci-triage` — triages failing GitHub Actions runs on a PR or branch
+  via the public API: stale-run vs real-failure verdict, annotations
+  when logs are locked, known failure signatures, local repro steps.
 
 Claude: in your first reply of a session, briefly show the user this
 bullet list of available skills (many users don't know skills exist).

@@ -36,7 +36,7 @@ Internal changes
   ``ci-<token>`` (e.g. ``ci-fgr``, ``ci-all``) in the branch name or head
   commit message — see DEVELOPER.md. ``concurrency`` groups cancel in-flight
   runs superseded by a newer push on the same non-mainline ref.
-  (:pull:`407`) By `James McCreight <https://github.com/jmccreight>`_.
+  (:pull:`408`) By `James McCreight <https://github.com/jmccreight>`_.
 - Require pyPRMS >=0.10.0 and remove the temporary ``packaging <26.3`` pin it
   supersedes (pyPRMS 0.9.10 crashed on import of metadata with packaging >=26.3).
   Also remove calls to pyPRMS methods deprecated in 0.10.0:
