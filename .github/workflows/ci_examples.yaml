@@ -1,6 +1,8 @@
 name: CI example notebooks
 
 on:
+  # Pushes to any branch (here or on forks) run the notebooks on ubuntu
+  # only; all platforms run for pull requests and develop/main pushes.
   push:
     branches:
       - "*"
@@ -9,6 +11,12 @@ on:
     branches:
       - "*"
       - "!v[0-9]+.[0-9]+.[0-9]+*"
+
+# Cancel in-flight runs superseded by a newer push on the same ref, but
+# let every run on the mainline branches finish
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref_name != 'develop' && github.ref_name != 'main' }}
 
 jobs:
   test:
@@ -27,7 +35,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ["ubuntu-latest", "macos-latest", "windows-latest"]
+        # skeleton/full split: all platforms for pull requests and
+        # develop/main pushes; ubuntu only for other pushes
+        os: ${{ (github.event_name != 'push' || github.ref_name == 'develop' || github.ref_name == 'main') && fromJSON('["ubuntu-latest", "macos-latest", "windows-latest"]') || fromJSON('["ubuntu-latest"]') }}
         python-version: ["3.13"]
 
     steps:

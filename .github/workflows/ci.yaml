@@ -1,5 +1,8 @@
 name: CI
 on:
+  # Pushes to any branch (here or on forks) run a skeleton: installs,
+  # linting, and domainless tests. The full suite (the domain test jobs)
+  # runs for pull requests, pushes to develop/main, and workflow_dispatch.
   push:
     branches:
       - "*"
@@ -16,6 +19,12 @@ on:
         description: "Run the build with tmate debugging enabled (https://github.com/marketplace/actions/debugging-with-tmate)"
         required: false
         default: false
+
+# Cancel in-flight runs superseded by a newer push on the same ref, but
+# let every run on the mainline branches finish
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref_name != 'develop' && github.ref_name != 'main' }}
 
 jobs:
   pws_install:
@@ -233,6 +242,12 @@ jobs:
 
   test_sagehen_5yr:
     name: sagehen_5yr ${{ matrix.os }} py${{ matrix.python-version }}
+    # skeleton/full split: domain jobs run only for pull requests,
+    # pushes to develop/main, and workflow_dispatch
+    if: >-
+      github.event_name != 'push' ||
+      github.ref_name == 'develop' ||
+      github.ref_name == 'main'
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -348,6 +363,12 @@ jobs:
 
   test_hru_1:
     name: hru_1 ${{ matrix.os }} py${{ matrix.python-version }}
+    # skeleton/full split: domain jobs run only for pull requests,
+    # pushes to develop/main, and workflow_dispatch
+    if: >-
+      github.event_name != 'push' ||
+      github.ref_name == 'develop' ||
+      github.ref_name == 'main'
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -476,6 +497,12 @@ jobs:
 
   test_drb_2yr:
     name: drb_2yr ${{ matrix.os }} py${{ matrix.python-version }}
+    # skeleton/full split: domain jobs run only for pull requests,
+    # pushes to develop/main, and workflow_dispatch
+    if: >-
+      github.event_name != 'push' ||
+      github.ref_name == 'develop' ||
+      github.ref_name == 'main'
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -712,6 +739,12 @@ jobs:
 
   test_ucb_2yr_nhm:
     name: ucb_2yr_nhm ${{ matrix.os }} py${{ matrix.python-version }}
+    # skeleton/full split: domain jobs run only for pull requests,
+    # pushes to develop/main, and workflow_dispatch
+    if: >-
+      github.event_name != 'push' ||
+      github.ref_name == 'develop' ||
+      github.ref_name == 'main'
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -834,6 +867,12 @@ jobs:
 
   test_ucb_2yr_slow_tests:
     name: ucb_2yr_slow_tests ${{ matrix.os }} py${{ matrix.python-version }}
+    # skeleton/full split: domain jobs run only for pull requests,
+    # pushes to develop/main, and workflow_dispatch
+    if: >-
+      github.event_name != 'push' ||
+      github.ref_name == 'develop' ||
+      github.ref_name == 'main'
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -944,6 +983,12 @@ jobs:
 
   test_fgr_ag_2yr_subset1:
     name: fgr_ag_2yr_subset1 ${{ matrix.os }} py${{ matrix.python-version }}
+    # skeleton/full split: domain jobs run only for pull requests,
+    # pushes to develop/main, and workflow_dispatch
+    if: >-
+      github.event_name != 'push' ||
+      github.ref_name == 'develop' ||
+      github.ref_name == 'main'
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -1132,6 +1177,12 @@ jobs:
 
   test_fgr_ag_2yr_subset2:
     name: fgr_ag_2yr_subset2 ${{ matrix.os }} py${{ matrix.python-version }}
+    # skeleton/full split: domain jobs run only for pull requests,
+    # pushes to develop/main, and workflow_dispatch
+    if: >-
+      github.event_name != 'push' ||
+      github.ref_name == 'develop' ||
+      github.ref_name == 'main'
     runs-on: ${{ matrix.os }}
     defaults:
       run:

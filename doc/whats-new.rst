@@ -27,6 +27,14 @@ Bug fixes
 
 Internal changes
 ~~~~~~~~~~~~~~~~
+- Reduce CI footprint with a skeleton/full split: pushes to any branch (in
+  this repository or on forks) run a skeleton — installs, linting, domainless
+  tests, the docs build, and example notebooks on ubuntu only — while the
+  full suite (domain test jobs, all platforms) runs for pull requests
+  (including drafts), pushes to ``develop``/``main``, and
+  ``workflow_dispatch``. ``concurrency`` groups cancel in-flight runs
+  superseded by a newer push on the same non-mainline ref.
+  (:pull:`407`) By `James McCreight <https://github.com/jmccreight>`_.
 
 .. _whats-new.3.0.0:
 
