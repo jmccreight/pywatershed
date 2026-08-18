@@ -7,7 +7,8 @@ on:
   # the branch name or in the pushed (head) commit message. Tokens:
   # ci-all, ci-sagehen, ci-hru1, ci-drb, ci-ucb, ci-fgr. For example, a
   # branch named my_feature_ci-fgr runs both fgr jobs on every push, with
-  # no workflow edits to clean up before merging.
+  # no workflow edits to clean up before merging; a commit-message token
+  # applies to its push only. Details in DEVELOPER.md under "CI".
   push:
     branches:
       - "*"

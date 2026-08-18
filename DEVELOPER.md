@@ -146,12 +146,29 @@ on all three platforms) runs for pull requests (including drafts), pushes to
 
 To also run domain test jobs on branch pushes, put a `ci-<token>` anywhere in
 the branch name or in the pushed (head) commit message. The tokens are
-`ci-all`, `ci-sagehen`, `ci-hru1`, `ci-drb`, `ci-ucb`, and `ci-fgr`. For
-example, a branch named `my_feature_ci-fgr` runs both fgr domain jobs on every
-push — with nothing to clean up before merging, since the opt-in lives in the
-branch name. A commit message containing `ci-drb` runs the drb job for that
-push only. Alternatively, open a draft PR or use the workflow dispatch button
-(on your fork) to get the full suite on any branch.
+`ci-all`, `ci-sagehen`, `ci-hru1`, `ci-drb`, `ci-ucb`, and `ci-fgr`.
+
+The two variants complement each other:
+
+- **Branch name — sticky.** A branch named `my_feature_ci-fgr` runs both fgr
+  domain jobs on every push, with nothing to clean up before merging since
+  the opt-in lives in the branch name.
+- **Commit message — one shot.** The gate is evaluated fresh on each push
+  with no memory of earlier pushes: a push whose head commit message contains
+  `ci-drb` runs the drb job for that push only, even on a branch previously
+  pushed without any token, and later pushes without a token drop back to the
+  skeleton. Only the *head* (most recent) commit of a push is checked — when
+  pushing several commits at once, the token must be in the last one. To
+  trigger a domain run on the current state without changing any code, push
+  an empty commit:
+
+  ```shell
+  git commit --allow-empty -m "trigger ci-fgr"
+  git push <fork-remote> my_branch
+  ```
+
+Alternatively, open a draft PR or use the workflow dispatch button (on your
+fork) to get the full suite on any branch.
 
 
 ## Testing
