@@ -411,6 +411,16 @@ jobs:
 
   test_sagehen_gridded_5yr:
     name: sagehen_gridded_5yr ${{ matrix.os }} py${{ matrix.python-version }}
+    # domain jobs skip plain branch pushes; see the ci-<token> note
+    # in the trigger comment at the top of this file
+    if: >-
+      github.event_name != 'push' ||
+      github.ref_name == 'develop' ||
+      github.ref_name == 'main' ||
+      contains(github.ref_name, 'ci-all') ||
+      contains(github.event.head_commit.message, 'ci-all') ||
+      contains(github.ref_name, 'ci-sagehen') ||
+      contains(github.event.head_commit.message, 'ci-sagehen')
     runs-on: ${{ matrix.os }}
     defaults:
       run:
