@@ -73,13 +73,14 @@ def test_prms_channel_obsin_compare_prms(
     # Constructed using obsout_segment to get the indices and poi ids,
     # we will insert the new nodes below this segment.
     obsout_seg = control_parameters.parameters["obsout_segment"] - 1
-    sf_data = PRMSStreamflowData(
-        simulation["dir"] / "sf_data",
-        metadata=pyprms_meta,
-    ).data_by_variable("runoff")
-    old_names = sf_data.columns.tolist()
-    new_names = [cc.split("_")[1] for cc in sf_data.columns.tolist()]
-    sf_data.rename(columns=dict(zip(old_names, new_names)), inplace=True)
+    sf_data = (
+        PRMSStreamflowData(
+            simulation["dir"] / "sf_data",
+            metadata=pyprms_meta,
+        )
+        .get("runoff")
+        .data.copy()
+    )
 
     poi_inds = obsout_seg[np.where(obsout_seg >= 0)].tolist()
     npoi = len(poi_inds)

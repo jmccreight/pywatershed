@@ -138,6 +138,63 @@ The automated practices of installing, linting, and testing described below are
 all formally encoded in `.github/workflows/ci.yaml` and
 `.github/workflows/ci_examples.yaml` files.
 
+CI runs at two levels. Pushes to any branch — in this repository or on a fork —
+run a skeleton: installs, linting, domainless tests, the documentation build,
+and the example notebooks on ubuntu only. The full suite (the domain test jobs
+on all three platforms) runs for pull requests (including drafts), pushes to
+`develop`/`main`, and `workflow_dispatch`.
+
+To also run domain test jobs on branch pushes, put a `ci-<token>` anywhere in
+the branch name or in the pushed (head) commit message. The tokens are
+`ci-all`, `ci-sagehen`, `ci-hru1`, `ci-drb`, `ci-ucb`, and `ci-fgr`.
+
+The two variants complement each other:
+
+- **Branch name — sticky.** A branch named `my_feature_ci-fgr` runs both fgr
+  domain jobs on every push, with nothing to clean up before merging since
+  the opt-in lives in the branch name.
+- **Commit message — one shot.** The gate is evaluated fresh on each push
+  with no memory of earlier pushes: a push whose head commit message contains
+  `ci-drb` runs the drb job for that push only, even on a branch previously
+  pushed without any token, and later pushes without a token drop back to the
+  skeleton. Only the *head* (most recent) commit of a push is checked — when
+  pushing several commits at once, the token must be in the last one. To
+  trigger a domain run on the current state without changing any code, push
+  an empty commit:
+
+  ```shell
+  git commit --allow-empty -m "trigger ci-fgr"
+  git push <fork-remote> my_branch
+  ```
+
+Alternatively, open a draft PR or use the workflow dispatch button (on your
+fork) to get the full suite on any branch.
+
+Token matching is a plain substring test — there is no parsing of token
+lists, separators, or suffixes. Consequences:
+
+- Tokens can only add jobs, never subtract them: appending to a token
+  (`ci-sagehen_gridded`) does not narrow the selection, it matches the
+  `ci-sagehen` token and triggers every job in that family.
+- A commit message that merely *mentions* a token triggers it — easy to do
+  accidentally in a commit message about the CI configuration itself. Write
+  `ci-<token>` (as in this file) rather than a literal token when referring
+  to the mechanism.
+- Tokens are matched anywhere in the branch name, so avoid naming a branch
+  with a literal token unless the sticky behavior is wanted.
+
+Notes for maintaining the gates in `ci.yaml`:
+
+- New domain test jobs must copy the `if:` gate from an existing domain job
+  (with an appropriate token) — an ungated job runs on every push to every
+  branch, silently defeating the skeleton/full split.
+- When adding finer-grained tokens, no token may be a substring of another:
+  a bare `ci-sagehen` cannot coexist with a distinct `ci-sagehen-gridded`
+  switch, because writing the longer token always matches the shorter one.
+  To split a family, replace the family token with mutually non-substring
+  tokens, e.g. `ci-sagehen-5yr`, `ci-sagehen-gridded`, and `ci-sagehen-all`
+  for the whole family.
+
 
 ## Testing
 Once the dependencies are available, we want to verify the software by running

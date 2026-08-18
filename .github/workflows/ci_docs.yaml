@@ -5,6 +5,12 @@ on:
   pull_request:
   workflow_dispatch:
 
+# Cancel in-flight runs superseded by a newer push on the same ref, but
+# let every run on the mainline branches finish
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref_name != 'develop' && github.ref_name != 'main' }}
+
 jobs:
   build_docs:
     name: Build Documentation

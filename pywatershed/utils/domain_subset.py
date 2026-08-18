@@ -1011,8 +1011,6 @@ class DomainSubset:
             # Add the data
             pp_params.get(str(var)).data = cparam.values
 
-        pp_params.adjust_bounded_parameters()
-
         file_name = pl.Path(self._sub_control["param_file"].values).name
         self._sub_control["param_file"].values = file_name
         pp_params.write_parameter_file(filename=write_dir / file_name)

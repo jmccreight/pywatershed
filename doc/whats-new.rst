@@ -52,6 +52,22 @@ Internal changes
   ``PRMSGroundwater*`` compute over active HRUs (in routing order where
   applicable) rather than all HRUs. All-active domains are unaffected.
   (:pull:`407`) By `James McCreight <https://github.com/jmccreight>`_.
+- Reduce CI footprint with a skeleton/full split: pushes to any branch (in
+  this repository or on forks) run a skeleton — installs, linting, domainless
+  tests, the docs build, and example notebooks on ubuntu only — while the
+  full suite (domain test jobs, all platforms) runs for pull requests
+  (including drafts), pushes to ``develop``/``main``, and
+  ``workflow_dispatch``. Domain jobs can be opted in on branch pushes with a
+  ``ci-<token>`` (e.g. ``ci-fgr``, ``ci-all``) in the branch name or head
+  commit message — see DEVELOPER.md. ``concurrency`` groups cancel in-flight
+  runs superseded by a newer push on the same non-mainline ref.
+  (:pull:`408`) By `James McCreight <https://github.com/jmccreight>`_.
+- Require pyPRMS >=0.10.0 and remove the temporary ``packaging <26.3`` pin it
+  supersedes (pyPRMS 0.9.10 crashed on import of metadata with packaging >=26.3).
+  Also remove calls to pyPRMS methods deprecated in 0.10.0:
+  ``Parameters.adjust_bounded_parameters()`` in domain subsetting and
+  ``DataFile.data_by_variable()`` in the obsin flow node test.
+  (:pull:`406`) By `James McCreight <https://github.com/jmccreight>`_.
 
 .. _whats-new.3.0.0:
 
