@@ -170,6 +170,31 @@ The two variants complement each other:
 Alternatively, open a draft PR or use the workflow dispatch button (on your
 fork) to get the full suite on any branch.
 
+Token matching is a plain substring test — there is no parsing of token
+lists, separators, or suffixes. Consequences:
+
+- Tokens can only add jobs, never subtract them: appending to a token
+  (`ci-sagehen_gridded`) does not narrow the selection, it matches the
+  `ci-sagehen` token and triggers every job in that family.
+- A commit message that merely *mentions* a token triggers it — easy to do
+  accidentally in a commit message about the CI configuration itself. Write
+  `ci-<token>` (as in this file) rather than a literal token when referring
+  to the mechanism.
+- Tokens are matched anywhere in the branch name, so avoid naming a branch
+  with a literal token unless the sticky behavior is wanted.
+
+Notes for maintaining the gates in `ci.yaml`:
+
+- New domain test jobs must copy the `if:` gate from an existing domain job
+  (with an appropriate token) — an ungated job runs on every push to every
+  branch, silently defeating the skeleton/full split.
+- When adding finer-grained tokens, no token may be a substring of another:
+  a bare `ci-sagehen` cannot coexist with a distinct `ci-sagehen-gridded`
+  switch, because writing the longer token always matches the shorter one.
+  To split a family, replace the family token with mutually non-substring
+  tokens, e.g. `ci-sagehen-5yr`, `ci-sagehen-gridded`, and `ci-sagehen-all`
+  for the whole family.
+
 
 ## Testing
 Once the dependencies are available, we want to verify the software by running
