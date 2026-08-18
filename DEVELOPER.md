@@ -138,6 +138,21 @@ The automated practices of installing, linting, and testing described below are
 all formally encoded in `.github/workflows/ci.yaml` and
 `.github/workflows/ci_examples.yaml` files.
 
+CI runs at two levels. Pushes to any branch — in this repository or on a fork —
+run a skeleton: installs, linting, domainless tests, the documentation build,
+and the example notebooks on ubuntu only. The full suite (the domain test jobs
+on all three platforms) runs for pull requests (including drafts), pushes to
+`develop`/`main`, and `workflow_dispatch`.
+
+To also run domain test jobs on branch pushes, put a `ci-<token>` anywhere in
+the branch name or in the pushed (head) commit message. The tokens are
+`ci-all`, `ci-sagehen`, `ci-hru1`, `ci-drb`, `ci-ucb`, and `ci-fgr`. For
+example, a branch named `my_feature_ci-fgr` runs both fgr domain jobs on every
+push — with nothing to clean up before merging, since the opt-in lives in the
+branch name. A commit message containing `ci-drb` runs the drb job for that
+push only. Alternatively, open a draft PR or use the workflow dispatch button
+(on your fork) to get the full suite on any branch.
+
 
 ## Testing
 Once the dependencies are available, we want to verify the software by running

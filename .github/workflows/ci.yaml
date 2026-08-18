@@ -3,6 +3,11 @@ on:
   # Pushes to any branch (here or on forks) run a skeleton: installs,
   # linting, and domainless tests. The full suite (the domain test jobs)
   # runs for pull requests, pushes to develop/main, and workflow_dispatch.
+  # To ALSO run domain jobs on branch pushes, put a ci-<token> anywhere in
+  # the branch name or in the pushed (head) commit message. Tokens:
+  # ci-all, ci-sagehen, ci-hru1, ci-drb, ci-ucb, ci-fgr. For example, a
+  # branch named my_feature_ci-fgr runs both fgr jobs on every push, with
+  # no workflow edits to clean up before merging.
   push:
     branches:
       - "*"
@@ -242,12 +247,16 @@ jobs:
 
   test_sagehen_5yr:
     name: sagehen_5yr ${{ matrix.os }} py${{ matrix.python-version }}
-    # skeleton/full split: domain jobs run only for pull requests,
-    # pushes to develop/main, and workflow_dispatch
+    # domain jobs skip plain branch pushes; see the ci-<token> note
+    # in the trigger comment at the top of this file
     if: >-
       github.event_name != 'push' ||
       github.ref_name == 'develop' ||
-      github.ref_name == 'main'
+      github.ref_name == 'main' ||
+      contains(github.ref_name, 'ci-all') ||
+      contains(github.event.head_commit.message, 'ci-all') ||
+      contains(github.ref_name, 'ci-sagehen') ||
+      contains(github.event.head_commit.message, 'ci-sagehen')
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -363,12 +372,16 @@ jobs:
 
   test_hru_1:
     name: hru_1 ${{ matrix.os }} py${{ matrix.python-version }}
-    # skeleton/full split: domain jobs run only for pull requests,
-    # pushes to develop/main, and workflow_dispatch
+    # domain jobs skip plain branch pushes; see the ci-<token> note
+    # in the trigger comment at the top of this file
     if: >-
       github.event_name != 'push' ||
       github.ref_name == 'develop' ||
-      github.ref_name == 'main'
+      github.ref_name == 'main' ||
+      contains(github.ref_name, 'ci-all') ||
+      contains(github.event.head_commit.message, 'ci-all') ||
+      contains(github.ref_name, 'ci-hru1') ||
+      contains(github.event.head_commit.message, 'ci-hru1')
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -497,12 +510,16 @@ jobs:
 
   test_drb_2yr:
     name: drb_2yr ${{ matrix.os }} py${{ matrix.python-version }}
-    # skeleton/full split: domain jobs run only for pull requests,
-    # pushes to develop/main, and workflow_dispatch
+    # domain jobs skip plain branch pushes; see the ci-<token> note
+    # in the trigger comment at the top of this file
     if: >-
       github.event_name != 'push' ||
       github.ref_name == 'develop' ||
-      github.ref_name == 'main'
+      github.ref_name == 'main' ||
+      contains(github.ref_name, 'ci-all') ||
+      contains(github.event.head_commit.message, 'ci-all') ||
+      contains(github.ref_name, 'ci-drb') ||
+      contains(github.event.head_commit.message, 'ci-drb')
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -739,12 +756,16 @@ jobs:
 
   test_ucb_2yr_nhm:
     name: ucb_2yr_nhm ${{ matrix.os }} py${{ matrix.python-version }}
-    # skeleton/full split: domain jobs run only for pull requests,
-    # pushes to develop/main, and workflow_dispatch
+    # domain jobs skip plain branch pushes; see the ci-<token> note
+    # in the trigger comment at the top of this file
     if: >-
       github.event_name != 'push' ||
       github.ref_name == 'develop' ||
-      github.ref_name == 'main'
+      github.ref_name == 'main' ||
+      contains(github.ref_name, 'ci-all') ||
+      contains(github.event.head_commit.message, 'ci-all') ||
+      contains(github.ref_name, 'ci-ucb') ||
+      contains(github.event.head_commit.message, 'ci-ucb')
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -867,12 +888,16 @@ jobs:
 
   test_ucb_2yr_slow_tests:
     name: ucb_2yr_slow_tests ${{ matrix.os }} py${{ matrix.python-version }}
-    # skeleton/full split: domain jobs run only for pull requests,
-    # pushes to develop/main, and workflow_dispatch
+    # domain jobs skip plain branch pushes; see the ci-<token> note
+    # in the trigger comment at the top of this file
     if: >-
       github.event_name != 'push' ||
       github.ref_name == 'develop' ||
-      github.ref_name == 'main'
+      github.ref_name == 'main' ||
+      contains(github.ref_name, 'ci-all') ||
+      contains(github.event.head_commit.message, 'ci-all') ||
+      contains(github.ref_name, 'ci-ucb') ||
+      contains(github.event.head_commit.message, 'ci-ucb')
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -983,12 +1008,16 @@ jobs:
 
   test_fgr_ag_2yr_subset1:
     name: fgr_ag_2yr_subset1 ${{ matrix.os }} py${{ matrix.python-version }}
-    # skeleton/full split: domain jobs run only for pull requests,
-    # pushes to develop/main, and workflow_dispatch
+    # domain jobs skip plain branch pushes; see the ci-<token> note
+    # in the trigger comment at the top of this file
     if: >-
       github.event_name != 'push' ||
       github.ref_name == 'develop' ||
-      github.ref_name == 'main'
+      github.ref_name == 'main' ||
+      contains(github.ref_name, 'ci-all') ||
+      contains(github.event.head_commit.message, 'ci-all') ||
+      contains(github.ref_name, 'ci-fgr') ||
+      contains(github.event.head_commit.message, 'ci-fgr')
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -1177,12 +1206,16 @@ jobs:
 
   test_fgr_ag_2yr_subset2:
     name: fgr_ag_2yr_subset2 ${{ matrix.os }} py${{ matrix.python-version }}
-    # skeleton/full split: domain jobs run only for pull requests,
-    # pushes to develop/main, and workflow_dispatch
+    # domain jobs skip plain branch pushes; see the ci-<token> note
+    # in the trigger comment at the top of this file
     if: >-
       github.event_name != 'push' ||
       github.ref_name == 'develop' ||
-      github.ref_name == 'main'
+      github.ref_name == 'main' ||
+      contains(github.ref_name, 'ci-all') ||
+      contains(github.event.head_commit.message, 'ci-all') ||
+      contains(github.ref_name, 'ci-fgr') ||
+      contains(github.event.head_commit.message, 'ci-fgr')
     runs-on: ${{ matrix.os }}
     defaults:
       run:

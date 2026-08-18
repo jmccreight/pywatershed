@@ -32,8 +32,10 @@ Internal changes
   tests, the docs build, and example notebooks on ubuntu only — while the
   full suite (domain test jobs, all platforms) runs for pull requests
   (including drafts), pushes to ``develop``/``main``, and
-  ``workflow_dispatch``. ``concurrency`` groups cancel in-flight runs
-  superseded by a newer push on the same non-mainline ref.
+  ``workflow_dispatch``. Domain jobs can be opted in on branch pushes with a
+  ``ci-<token>`` (e.g. ``ci-fgr``, ``ci-all``) in the branch name or head
+  commit message — see DEVELOPER.md. ``concurrency`` groups cancel in-flight
+  runs superseded by a newer push on the same non-mainline ref.
   (:pull:`407`) By `James McCreight <https://github.com/jmccreight>`_.
 
 .. _whats-new.3.0.0:
