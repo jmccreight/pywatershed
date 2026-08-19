@@ -5,7 +5,6 @@
   - [Open](#open)
     - [3.0.1 hotfix release (flopy pin unwind + pyPRMS floor)](#301-hotfix-release-flopy-pin-unwind--pyprms-floor)
     - [conda-forge feedstock: pyprms floor replaces packaging pin](#conda-forge-feedstock-pyprms-floor-replaces-packaging-pin)
-    - [PR #407 (cascades port): gate the new sagehen CI jobs](#pr-407-cascades-port-gate-the-new-sagehen-ci-jobs)
     - [pyPRMS upstream: close PR #64, port its regression test](#pyprms-upstream-close-pr-64-port-its-regression-test)
     - [Publish gh-pages v3.0.0 extended release notes upstream](#publish-gh-pages-v300-extended-release-notes-upstream)
     - [Reconcile check_version.yaml with release_preflight.sh](#reconcile-check_versionyaml-with-release_preflightsh)
@@ -64,16 +63,6 @@ check it), **Action** (what to do once unblocked), and optional
   comment `@conda-forge-admin, please rerender`, merge on green. This is
   the last `packaging <26.3` pin anywhere.
 
-### PR #407 (cascades port): gate the new sagehen CI jobs
-
-- **Blocked on:** merging `develop` (with the skeleton/full CI gates,
-  PR #408) into the `feat_cascades_port` branch. Check: PR #407 state and
-  whether its `ci.yaml` sagehen jobs carry `if:` gates.
-- **Action:** paste the domain-job `if:` gate (copy from any gated job in
-  `ci.yaml`) into each new sagehen job with token `ci-sagehen`; then test
-  with a push whose head commit message contains `ci-sagehen`. See
-  DEVELOPER.md under "CI".
-
 ### pyPRMS upstream: close PR #64, port its regression test
 
 - **Blocked on:** coordination with pyPRMS maintainer (pnorton-usgs).
@@ -117,6 +106,9 @@ check it), **Action** (what to do once unblocked), and optional
 
 ## Done
 
+- 2026-08-19: PR #407's new sagehen CI jobs carry the skeleton/full
+  `if:` gates (token `ci-sagehen`); its remaining ubuntu CI failure is
+  being handled on the branch.
 - 2026-08-18: PR #406 (pyPRMS>=0.10.0 floor replaces packaging<26.3 in
   pyproject + both env files) and PR #408 (CI skeleton/full split,
   ci-tokens, concurrency cancellation) merged to develop.
