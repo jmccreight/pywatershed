@@ -15,6 +15,12 @@ Read it fully first.
 - You run read-only checks (curl against public APIs, local greps) and
   edit `MAINTENANCE.md`; the human runs all git commands and clicks
   (re-runs, merges, PR creation). Draft paste-ready commands.
+- Read-only git (`status`, `log`, `branch`, `remote`, `diff`) in this
+  repo and the related clones listed below is fine. Anything that
+  creates, mutates, or destroys state — commits, pushes, PRs,
+  comments, or running project code — requires asking the human AND
+  receiving explicit permission first; drafting a command is not
+  permission to run it.
 - Unauthenticated GitHub API: 60 requests/hour per IP. Batch, cache to
   /tmp, and prefer one query that answers several items.
 - The ledger is repo-tracked: after updating it (item status, moves to

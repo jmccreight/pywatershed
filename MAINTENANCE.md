@@ -53,15 +53,13 @@ check it), **Action** (what to do once unblocked), and optional
 
 ### conda-forge feedstock: pyprms floor replaces packaging pin
 
-- **Blocked on:** nothing (pyprms 0.10.0 reached conda-forge 2026-08-18).
-  Check: `https://api.anaconda.org/package/conda-forge/pyprms` versions,
-  and PRs at `conda-forge/pywatershed-feedstock`.
-- **Action:** branch `unpin_packaging` (71c4f71: `pyprms >=0.10.0`
-  replacing `packaging <26.3`, build number 0 -> 1) is pushed to the
-  `jmccreight` fork, but no PR was ever opened (verified 2026-08-19).
-  Open the PR against `conda-forge/pywatershed-feedstock`, comment
-  `@conda-forge-admin, please rerender`, merge on green. This is the
-  last `packaging <26.3` pin anywhere.
+- **Blocked on:** feedstock PR #14 (pyprms >=0.10.0 floor, build 1)
+  MERGED 2026-08-19; awaiting the main-branch CI upload. Check:
+  `https://api.anaconda.org/package/conda-forge/pywatershed` shows a
+  3.0.0 build with build number 1.
+- **Action:** verify the new build's run deps carry `pyprms >=0.10.0`
+  and no `packaging <26.3`, then move to Done. This was the last
+  `packaging <26.3` pin anywhere.
 
 ### pyPRMS upstream: close PR #64, port its regression test
 

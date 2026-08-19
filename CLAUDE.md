@@ -44,6 +44,10 @@ reimplementation of PRMS process representations (see README.md).
   `(:pull:`XXX`)` as the placeholder until the PR number exists.
 - New public classes are exported in `pywatershed/__init__.py` (and the
   subpackage `__init__.py`) and listed in `doc/api/*.rst`.
+- When drafting a PR body, read `.github/PULL_REQUEST_TEMPLATE.md`
+  (fresh each time — it evolves) and conform to it: summary on top,
+  then its checklist with irrelevant items removed and applicable ones
+  checked, keeping its Docs section.
 
 ## Branches and releases
 
