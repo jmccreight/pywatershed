@@ -6,7 +6,6 @@
     - [3.0.1 hotfix release (flopy pin unwind + pyPRMS floor)](#301-hotfix-release-flopy-pin-unwind--pyprms-floor)
     - [conda-forge feedstock: pyprms floor replaces packaging pin](#conda-forge-feedstock-pyprms-floor-replaces-packaging-pin)
     - [pyPRMS upstream: close PR #64, port its regression test](#pyprms-upstream-close-pr-64-port-its-regression-test)
-    - [Publish gh-pages v3.0.0 extended release notes upstream](#publish-gh-pages-v300-extended-release-notes-upstream)
     - [Reconcile check_version.yaml with release_preflight.sh](#reconcile-check_versionyaml-with-release_preflightsh)
     - [Deliver CI-usage findings to org admins](#deliver-ci-usage-findings-to-org-admins)
   - [Done](#done)
@@ -57,32 +56,21 @@ check it), **Action** (what to do once unblocked), and optional
 - **Blocked on:** nothing (pyprms 0.10.0 reached conda-forge 2026-08-18).
   Check: `https://api.anaconda.org/package/conda-forge/pyprms` versions,
   and PRs at `conda-forge/pywatershed-feedstock`.
-- **Action:** the edit exists in a local clone
-  (`recipe/meta.yaml`: `pyprms >=0.10.0` replacing `packaging <26.3`,
-  build number 0 -> 1, branch `unpin_packaging`): push, open the PR,
-  comment `@conda-forge-admin, please rerender`, merge on green. This is
-  the last `packaging <26.3` pin anywhere.
+- **Action:** branch `unpin_packaging` (71c4f71: `pyprms >=0.10.0`
+  replacing `packaging <26.3`, build number 0 -> 1) is pushed to the
+  `jmccreight` fork, but no PR was ever opened (verified 2026-08-19).
+  Open the PR against `conda-forge/pywatershed-feedstock`, comment
+  `@conda-forge-admin, please rerender`, merge on green. This is the
+  last `packaging <26.3` pin anywhere.
 
 ### pyPRMS upstream: close PR #64, port its regression test
 
-- **Blocked on:** coordination with pyPRMS maintainer (pnorton-usgs).
-  Check: state of DOI-USGS/pyPRMS PR #64.
-- **Action:** close #64 (superseded by the higher-level fix in commit
-  3650b285, released in 0.10.0) but port its regression test
+- **Blocked on:** nothing — #64 was closed unmerged 2026-08-17; the
+  regression test is not on pyPRMS main (verified 2026-08-19).
+- **Action:** port #64's regression test to pyPRMS via a fresh PR
   (`tests/func/test_Parameters.py::TestParametersSharedMetadata` — two
-  `Parameters` instances from one shared `MetaData` dict).
-
-### Publish gh-pages v3.0.0 extended release notes upstream
-
-- **Blocked on:** James's push access to `DOI-USGS/pywatershed`
-  `gh-pages` (org permission issue; the Actions "Run workflow" button is
-  also missing upstream — possibly the same knot; ask org admins).
-  Check: does `https://doi-usgs.github.io/pywatershed/` show the
-  2026-07-13 v3.0.0 post?
-- **Action:** `git push upstream gh-pages` (content is complete and
-  previewed at `jmccreight.github.io/pywatershed`). Then verify the links
-  in the GitHub 3.0.0 release body and `doc/index.rst` resolve. This is
-  the last step (9) of the 3.0.0 release.
+  `Parameters` instances from one shared `MetaData` dict; the fix
+  itself shipped in 0.10.0 via commit 3650b285).
 
 ### Reconcile check_version.yaml with release_preflight.sh
 
@@ -106,6 +94,11 @@ check it), **Action** (what to do once unblocked), and optional
 
 ## Done
 
+- 2026-08-19: gh-pages v3.0.0 extended release notes are live upstream
+  (`doi-usgs.github.io/pywatershed`, 2026-07-13 post) and all 3.0.0
+  release-body links resolve — step 9 done, the 3.0.0 release is
+  complete. (Push-access / "Run workflow" org questions moved into the
+  CI-usage item.)
 - 2026-08-19: PR #407's new sagehen CI jobs carry the skeleton/full
   `if:` gates (token `ci-sagehen`); its remaining ubuntu CI failure is
   being handled on the branch.
