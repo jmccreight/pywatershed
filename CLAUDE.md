@@ -66,6 +66,11 @@ skills:
 - `/ci-triage` — triages failing GitHub Actions runs on a PR or branch
   via the public API: stale-run vs real-failure verdict, annotations
   when logs are locked, known failure signatures, local repro steps.
+- `/review` — project-aware code review of a diff (current branch vs
+  develop, or a PR number): pywatershed's mechanical convention checks
+  plus the harness's built-in `code-review` for correctness, merged
+  into one findings-only report; offers `/code-review ultra` for big
+  diffs.
 
 Claude: in your first reply of a session, briefly show the user this
 bullet list of available skills (many users don't know skills exist).
