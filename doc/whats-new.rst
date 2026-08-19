@@ -27,6 +27,11 @@ Bug fixes
 
 Internal changes
 ~~~~~~~~~~~~~~~~
+- Add ``MAINTENANCE.md``, a ledger of maintenance todos blocked on external
+  events (dependency releases, cross-repo work), each with a mechanically
+  checkable unblock condition; the ``/maintenance`` Claude skill checks them
+  live and reports what is actionable.
+  (:pull:`XXX`) By `James McCreight <https://github.com/jmccreight>`_.
 - Reduce CI footprint with a skeleton/full split: pushes to any branch (in
   this repository or on forks) run a skeleton — installs, linting, domainless
   tests, the docs build, and example notebooks on ubuntu only — while the

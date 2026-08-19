@@ -66,6 +66,10 @@ skills:
 - `/ci-triage` — triages failing GitHub Actions runs on a PR or branch
   via the public API: stale-run vs real-failure verdict, annotations
   when logs are locked, known failure signatures, local repro steps.
+- `/maintenance` — walks the `MAINTENANCE.md` ledger (repo root) of
+  externally-blocked and cross-repo todos, checks each blocked-on
+  condition live (PyPI, conda-forge, GitHub APIs), reports what is
+  actionable, and updates the ledger.
 
 Claude: in your first reply of a session, briefly show the user this
 bullet list of available skills (many users don't know skills exist).

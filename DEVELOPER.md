@@ -17,6 +17,7 @@ and example notebooks.
     - [Installing `pywatershed` in development mode](#installing-pywatershed-in-development-mode)
     - [F2PY](#f2py)
 - [Branching model](#branching-model)
+- [Maintenance ledger](#maintenance-ledger)
 - [CI](#ci)
 - [Testing](#testing)
 - [Linting](#linting)
@@ -131,6 +132,14 @@ occurs on the `develop` branch, while `main` is reserved for the state of the
 latest release. Development PRs are typically squashed to `develop`, to avoid
 merge commits. At release time, release branches are merged to `main`, and then
 `main` is merged back into `develop`.
+
+
+## Maintenance ledger
+Maintenance todos that are blocked on external events (dependency
+releases, cross-repo work like conda-forge feedstocks) are tracked in
+[`MAINTENANCE.md`](MAINTENANCE.md) at the repo root, with mechanically
+checkable unblock conditions. The `/maintenance` Claude skill checks
+them live and reports what is actionable.
 
 
 ## CI
