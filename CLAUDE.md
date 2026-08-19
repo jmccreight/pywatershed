@@ -44,6 +44,10 @@ reimplementation of PRMS process representations (see README.md).
   `(:pull:`XXX`)` as the placeholder until the PR number exists.
 - New public classes are exported in `pywatershed/__init__.py` (and the
   subpackage `__init__.py`) and listed in `doc/api/*.rst`.
+- When drafting a PR body, read `.github/PULL_REQUEST_TEMPLATE.md`
+  (fresh each time — it evolves) and conform to it: summary on top,
+  then its checklist with irrelevant items removed and applicable ones
+  checked, keeping its Docs section.
 
 ## Branches and releases
 
@@ -66,6 +70,10 @@ skills:
 - `/ci-triage` — triages failing GitHub Actions runs on a PR or branch
   via the public API: stale-run vs real-failure verdict, annotations
   when logs are locked, known failure signatures, local repro steps.
+- `/maintenance` — walks the `MAINTENANCE.md` ledger (repo root) of
+  externally-blocked and cross-repo todos, checks each blocked-on
+  condition live (PyPI, conda-forge, GitHub APIs), reports what is
+  actionable, and updates the ledger.
 
 Claude: in your first reply of a session, briefly show the user this
 bullet list of available skills (many users don't know skills exist).
