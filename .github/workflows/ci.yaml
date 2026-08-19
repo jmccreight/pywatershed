@@ -509,12 +509,13 @@ jobs:
 
       - name: sagehen_gridded_5yr - pywatershed tests
         working-directory: autotest
-        # -n=2 (not auto): 4 xdist workers x the gridded domain's memory
-        # footprint OOMs the ubuntu runner (pytest killed, exit 143)
+        # -n limited (not auto): xdist workers x the gridded domain's memory
+        # footprint OOMs the ubuntu runner (pytest killed, exit 143), even
+        # at -n=2, so run serially there; other OSes are fine at -n=2
         run: pytest
           -vv
           -rs
-          -n=2
+          -n=${{ runner.os == 'Linux' && '1' || '2' }}
           -m "not domainless"
           --domain=sagehen_gridded_5yr
           --durations=0
