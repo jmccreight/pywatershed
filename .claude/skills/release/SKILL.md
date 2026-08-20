@@ -18,6 +18,10 @@ automation it describes).
   explain what each will do before handing it over.
 - You run read-only verifications yourself (file greps, the preflight
   script, HTTP checks of PyPI and GitHub) and report results.
+- Anything not explicitly yours above — in particular anything that
+  creates, mutates, or destroys git state, or publishes — requires
+  asking the human AND receiving explicit permission first; a drafted
+  command is only ever executed by the human.
 - Releases are irreversible at two points — merging to `main` and
   publishing the release (PyPI versions can never be re-uploaded).
   Before each, explicitly confirm the checks passed and the human is

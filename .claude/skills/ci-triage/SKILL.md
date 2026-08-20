@@ -6,9 +6,12 @@ description: Triage failing GitHub Actions runs on pywatershed PRs or branches u
 # Triaging pywatershed CI failures
 
 You diagnose; the human clicks. You run read-only API queries (curl,
-no auth) and local reproductions; the human re-runs workflows, pushes
-fixes, and merges. Unauthenticated API calls are limited to 60/hour
-per IP — batch queries and cache responses to /tmp files.
+no auth); the human re-runs workflows, pushes fixes, and merges.
+Local reproduction (section 5) runs code and modifies the local
+environment (deletes/reinstalls binaries, regenerates test data) —
+propose those steps and get explicit permission before running any of
+them. Unauthenticated API calls are limited to 60/hour per IP — batch
+queries and cache responses to /tmp files.
 
 ## 1. Identify the target
 
