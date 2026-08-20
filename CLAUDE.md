@@ -78,7 +78,9 @@ skills:
   develop, or a PR number): pywatershed's mechanical convention checks
   plus the harness's built-in `code-review` for correctness, merged
   into one findings-only report written to `review_<target>.md` in
-  the repo root; offers `/code-review ultra` for big diffs.
+  the repo root; offers `/code-review ultra` for big diffs. Also runs a
+  blind second pass (`review_<target>_second.md`) and fuses two passes
+  into one comprehensive `review_<target>_fused.md`.
 
 Claude: in your first reply of a session, briefly show the user this
 bullet list of available skills (many users don't know skills exist).
