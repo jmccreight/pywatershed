@@ -74,6 +74,11 @@ skills:
   externally-blocked and cross-repo todos, checks each blocked-on
   condition live (PyPI, conda-forge, GitHub APIs), reports what is
   actionable, and updates the ledger.
+- `/review` — project-aware code review of a diff (current branch vs
+  develop, or a PR number): pywatershed's mechanical convention checks
+  plus the harness's built-in `code-review` for correctness, merged
+  into one findings-only report written to `review_<target>.md` in
+  the repo root; offers `/code-review ultra` for big diffs.
 
 Claude: in your first reply of a session, briefly show the user this
 bullet list of available skills (many users don't know skills exist).
