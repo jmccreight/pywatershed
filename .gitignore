@@ -116,3 +116,6 @@ starfit_minimal/
 
 # claude code: personal settings stay untracked
 .claude/settings.local.json
+
+# codegraph: local index, database, daemon state
+.codegraph/
