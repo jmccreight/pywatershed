@@ -119,3 +119,8 @@ starfit_minimal/
 
 # codegraph: local index, database, daemon state
 .codegraph/
+
+# PRMS binaries compiled on demand from prms_src (see pywatershed.utils.compile_prms)
+bin/prms_5.2.1_*
+bin/prms_5.2.1.1_*
+

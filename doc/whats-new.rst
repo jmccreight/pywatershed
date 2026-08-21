@@ -18,6 +18,26 @@ v3.1.0 (Unreleased)
 
 New Features
 ~~~~~~~~~~~~~~~~
+- HRU cascading flow (Hortonian surface runoff and soilzone interflow /
+  Dunnian flow) following PRMS ``cascade_flag=1`` with
+  ``cascadegw_flag=0``: new process classes
+  :class:`PRMSRunoffCascadesNoDprst` and
+  :class:`PRMSSoilzoneCascadesNoDprst`, cascade parameter preprocessing
+  from PRMS parameter files
+  (:func:`~utils.preprocess_cascades.preprocess_cascade_params`), and
+  support for inactive HRUs via :class:`base.HruMixin` (results at
+  inactive HRUs are masked to ``nan`` and excluded from mass-balance
+  checks by the new ``active_mask`` capability of :class:`base.Budget`).
+  Verified against PRMS 5.2.1 on the ``sagehen_5yr``
+  (``sagehen_no_gw_cascades``) and new gridded ``sagehen_gridded_5yr``
+  (5609 cells with inactive cells) test domains, both tested in CI on
+  all platforms. (:pull:`407`) By `James McCreight <https://github.com/jmccreight>`_.
+- The reference PRMS 5.2.1 binary (with cascades and full-precision CBH
+  output patches) is now compiled on demand from ``prms_src`` by the
+  test-data generation machinery
+  (:func:`~utils.prms_exe_utils.compile_prms`); the gridded sagehen
+  domain generates its own CBH forcing files with PRMS, making it fully
+  reproducible from a clean clone. (:pull:`407`) By `James McCreight <https://github.com/jmccreight>`_.
 
 Breaking Changes
 ~~~~~~~~~~~~~~~~
@@ -27,6 +47,11 @@ Bug fixes
 
 Internal changes
 ~~~~~~~~~~~~~~~~
+- ``PRMSAtmosphere``, ``PRMSSolarGeometry``, ``PRMSCanopy``,
+  ``PRMSSnow``, ``PRMSRunoff*``, ``PRMSSoilzone*`` and
+  ``PRMSGroundwater*`` compute over active HRUs (in routing order where
+  applicable) rather than all HRUs. All-active domains are unaffected.
+  (:pull:`407`) By `James McCreight <https://github.com/jmccreight>`_.
 - Add ``MAINTENANCE.md``, a ledger of maintenance todos blocked on external
   events (dependency releases, cross-repo work), each with a mechanically
   checkable unblock condition; the ``/maintenance`` Claude skill checks them

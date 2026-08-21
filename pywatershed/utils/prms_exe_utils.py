@@ -83,6 +83,22 @@ def get_prms_exe_name(exe_desc: str = "prms") -> str:
         else:
             raise ValueError(f"Unsupported platform: {platform}")
 
+    elif "5.2.1" in exe_desc_lower:
+        # note: this check must come after the "5.2.1.1" check above.
+        # The repository's prms_src/prms5.2.1 source (with cascades and
+        # G0-precision CBH output patches) compiled on-demand.
+        if platform == "win32":
+            return "prms_5.2.1_gfort_win_dbl_prec.exe"
+        elif platform == "darwin":
+            if proc == "arm":
+                return "prms_5.2.1_gfortran_apple_silicon_dbl_prec"
+            else:
+                return "prms_5.2.1_gfortran_mac_intel_dbl_prec"
+        elif platform == "linux":
+            return "prms_5.2.1_gfort_linux_dbl_prec"
+        else:
+            raise ValueError(f"Unsupported platform: {platform}")
+
     else:
         # Default PRMS binary
         if platform == "win32":
@@ -123,8 +139,9 @@ def compile_prms(
     Parameters
     ----------
     source : str
-        Source version to compile.  Currently only ``"5.2.1.1"`` is
-        supported.
+        Source version to compile.  One of ``"5.2.1"`` (the repository
+        source with cascades and G0-precision CBH output patches) or
+        ``"5.2.1.1"``.
     force : bool
         If ``True``, recompile even when the binary already exists.
         Default is ``False`` (skip if binary present).
@@ -143,14 +160,15 @@ def compile_prms(
     subprocess.CalledProcessError
         If any subprocess step fails.
     """
-    if source != "5.2.1.1":
+    compilable_sources = ("5.2.1", "5.2.1.1")
+    if source not in compilable_sources:
         raise ValueError(
-            f"Unsupported source '{source}'. Currently only '5.2.1.1' "
-            "can be compiled."
+            f"Unsupported source '{source}'. Compilable sources are "
+            f"{compilable_sources}."
         )
 
     binary_path = get_prms_exe_path(source)
-    src_dir = _get_src_dir() / "prms5.2.1.1"
+    src_dir = _get_src_dir() / f"prms{source}"
 
     if binary_path.exists() and not force:
         print(f"PRMS {source} binary already exists: {binary_path}")
@@ -170,10 +188,21 @@ def compile_prms(
 
         os.chdir(src_dir)
 
+        # Prefer the compilers of the active python environment (e.g.
+        # conda-forge gcc/gfortran) over whatever is on the PATH: local
+        # PATHs can put stale/mismatched toolchains first. The compiler
+        # names must remain plain "gcc"/"gfortran" as the makelists key
+        # their flags on these exact names.
+        sub_env = os.environ.copy()
+        env_bin = pl.Path(sys.prefix) / "bin"
+        if (env_bin / "gfortran").exists():
+            sub_env["PATH"] = str(env_bin) + os.pathsep + sub_env["PATH"]
+
         # Clean previous build
         subprocess.run(
             ["make", "clean", "MAKE=make"],
             check=True,
+            env=sub_env,
         )
 
         # Build with double precision
@@ -186,6 +215,7 @@ def compile_prms(
                 "MAKE=make",
             ],
             check=True,
+            env=sub_env,
         )
 
         compiled_bin = src_dir / "bin" / "prms"
@@ -248,6 +278,8 @@ def get_or_compile_prms_exe(
     if source is None:
         if "5.2.1.1" in exe_desc.lower():
             source = "5.2.1.1"
+        elif "5.2.1" in exe_desc.lower():
+            source = "5.2.1"
 
     if source is not None:
         return compile_prms(source=source, force=force)

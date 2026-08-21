@@ -50,10 +50,10 @@ fill_values_dict = {
     np.dtype("float64"): np.nan,
     np.dtype("float32"): np.nan,
     np.dtype("float16"): np.nan,
-    np.dtype("int64"): None,
-    np.dtype("int32"): None,
-    np.dtype("int16"): None,
-    np.dtype("int8"): None,
+    np.dtype("int64"): -9999,
+    np.dtype("int32"): -9999,
+    np.dtype("int16"): -9999,
+    np.dtype("int8"): -9999,
     np.dtype("bool"): None,
 }
 
@@ -89,17 +89,30 @@ cms_to_cfs = 35.314666721489
 cfs_to_cms = 1 / cms_to_cfs
 cm_to_cf = cms_to_cfs
 cf_to_cm = cfs_to_cms
+cubic_ft_per_acre_in = ft2_per_acre / inches_per_foot
 
 
 ndoy = 366
 nmonth = 12
 
+INACTIVE = 0
+ACTIVE = 1
+
 
 class HruType(Enum):
+    """HRU Type
     INACTIVE = 0
     LAND = 1
     LAKE = 2
     SWALE = 3
+    GLACIER = 4
+    """
+
+    INACTIVE = 0
+    LAND = 1
+    LAKE = 2
+    SWALE = 3
+    GLACIER = 4
 
 
 class CovType(Enum):

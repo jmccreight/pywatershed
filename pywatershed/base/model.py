@@ -8,7 +8,7 @@ from ..base.adapter import adapter_factory
 from ..base.control import Control
 from ..base.output import Output
 from ..constants import fileish
-from ..parameters import Parameters, PrmsParameters
+from ..parameters import Parameters
 from ..utils.path import path_rel_to_yaml
 
 # This is a convenience
@@ -19,10 +19,12 @@ process_order_nhm = [
     "PRMSSnow",
     "PRMSRunoff",
     "PRMSRunoffAg",
+    "PRMSRunoffCascadesNoDprst",
     "PRMSRunoffNoDprst",
     "PRMSSoilzone",
     "PRMSSoilzoneAg",
     "PRMSSoilzoneAgObsET",
+    "PRMSSoilzoneCascadesNoDprst",
     "PRMSSoilzoneNoDprst",
     "PRMSEt",
     "PRMSGroundwater",
@@ -304,7 +306,7 @@ class Model:
             # take the old-school-style inputs and convert to new-school inputs
             # may be deprecated in the future.
             assert control is not None, msg
-            assert isinstance(parameters, PrmsParameters), msg
+            assert isinstance(parameters, Parameters), msg
 
             # eventually handle a file for parameters?
             # proc_param_file = domain["dir"] / f"parameters_{proc_name}.nc"

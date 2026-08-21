@@ -129,7 +129,8 @@ def exe(simulation, request):
 
     exe_desc = get_ctl_exe_desc(simulation["control_file"])
     try:
-        return pws.utils.get_prms_exe_path(exe_desc)
+        # compiles from prms_src on demand for compilable variants
+        return pws.utils.get_or_compile_prms_exe(exe_desc)
     except NotImplementedError as e:
         pytest.skip(str(e))
 
@@ -180,11 +181,14 @@ def collect_simulations(
             continue
 
         # ensure this is a self-contained run (all files in repo)
+        # domains with a make_cbh_only control generate their own CBH
+        # forcing files with PRMS and are also self-contained
         if not (
             (dom_dir / "prcp.cbh").exists()
             or (dom_dir / "prcp.day").exists()
             or (dom_dir / "precip.cbh").exists()
             or (dom_dir / "precip.day").exists()
+            or len(list(dom_dir.glob("*make_cbh_only*.control")))
         ):
             # this is kind of a silly check... until something better needed
             warn(f"prcp/precip.cbh/day not found in {dom_dir}, skipping")
