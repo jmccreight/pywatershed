@@ -118,6 +118,7 @@ include = [
     "examples/**/*.py",
     "test_data/**/*.py",
     "docs/**/*.py",
+    "**/*.ipynb",
 ]
 
 [tool.ruff.lint]
@@ -125,6 +126,25 @@ select = ["F", "E", "I001"]
 ignore = [
     # "F401", # unused import
 ]
+
+[tool.ruff.lint.per-file-ignores]
+# Notebooks are narrative, so two rules are relaxed for them:
+#   E501 - wrapping cells to 79 columns hurts readability and churns
+#          diffs for no correctness gain.
+#   I001 - several notebooks import a module purely for its side effect
+#          (e.g. hvplot.xarray registers a .hvplot accessor) and must do
+#          so after the module it extends. Sorting moves those imports
+#          above their dependency.
+# Everything else applies, including F401; annotate a deliberate
+# side-effect import with `# noqa: F401` and a comment saying why.
+"**/*.ipynb" = ["E501", "I001"]
+
+[tool.ruff.format]
+# Notebooks are linted but not auto-formatted. The formatter wraps to
+# line-length regardless of the E501 exemption above, which would reflow
+# every cell in every notebook. Excluding them keeps `ruff format --check .`
+# green without that churn.
+exclude = ["**/*.ipynb"]
 
 # this is maintained for some editors
 # that dont yet support ruff
