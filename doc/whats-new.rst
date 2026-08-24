@@ -27,6 +27,17 @@ Bug fixes
 
 Internal changes
 ~~~~~~~~~~~~~~~~
+- Retire ifort and Intel MacOS. The PRMS binaries are no longer checked in to
+  ``bin/``; they are compiled from ``prms_src/`` with gfortran (supplied by
+  ``environment.yml``) the first time they are needed, by
+  ``pywatershed.utils.compile_prms()``, which ``ci.yaml``,
+  ``autotest/ci_local.sh``, and the test-data fixtures all call. The
+  ``prms_src`` makelists gained ``-std=gnu17`` for gcc, without which PRMS
+  5.2.1's C sources fail to build under the C23 default of gcc 15. Apple
+  Silicon binaries are tagged ``mac_arm`` rather than ``m1``, and Intel MacOS
+  is no longer detected. GSFLOW binaries remain checked in because their
+  source is not part of this repository.
+  (:pull:`XXX`) By `James McCreight <https://github.com/jmccreight>`_.
 - Add ``MAINTENANCE.md``, a ledger of maintenance todos blocked on external
   events (dependency releases, cross-repo work), each with a mechanically
   checkable unblock condition; the ``/maintenance`` Claude skill checks them

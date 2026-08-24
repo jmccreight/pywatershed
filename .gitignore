@@ -44,6 +44,11 @@ bin/libmf6.dylib
 bin/mf5to6
 bin/mf6
 bin/zbud6
+# PRMS binaries are compiled from prms_src/ on demand rather than checked
+# in; only the GSFLOW binaries (whose source is not in this repo) are
+# tracked in bin/.
+bin/prms_*
+bin/.compile_prms_*.lock
 
 # prms output files
 *.out
@@ -116,3 +121,5 @@ starfit_minimal/
 
 # claude code: personal settings stay untracked
 .claude/settings.local.json
+
+.codegraph/

@@ -6,6 +6,7 @@
     - [3.0.1 hotfix release (flopy pin unwind + pyPRMS floor)](#301-hotfix-release-flopy-pin-unwind--pyprms-floor)
     - [pyPRMS upstream: close PR #64, port its regression test](#pyprms-upstream-close-pr-64-port-its-regression-test)
     - [Reconcile check_version.yaml with release_preflight.sh](#reconcile-check_versionyaml-with-release_preflightsh)
+    - [Retire the GSFLOW ifort binary](#retire-the-gsflow-ifort-binary)
     - [Deliver CI-usage findings to org admins](#deliver-ci-usage-findings-to-org-admins)
   - [Done](#done)
 
@@ -66,6 +67,32 @@ check it), **Action** (what to do once unblocked), and optional
   check (exit code 7) into `.github/scripts/release_preflight.sh`, or
   retire `check_version.yaml` in favor of the preflight + release.yaml
   checks.
+
+### Retire the GSFLOW ifort binary
+
+- **Blocked on:** nothing external -- this is the follow-up half of the
+  ifort retirement. Check: `git ls-files bin/` still lists
+  `gsflow_2.4.0_ifort_apple_silicon_dbl_prec`.
+- **Action:** decide what replaces it. GSFLOW source is not in this
+  repository (`gsflow_src/` is gitignored), so unlike PRMS it cannot be
+  compiled on demand; it is the last intel-built artifact here, and it is
+  an **x86_64** binary, so on Apple Silicon it runs under Rosetta 2 --
+  including on the `macos-latest` runners for the three
+  `test_fgr_ag_2yr_*` jobs, which are the only consumers. Options:
+  vendor/point at a GSFLOW source and build it with gfortran the way PRMS
+  now is; ship a gfortran-built arm64 GSFLOW binary; or drop the binary
+  and remove `macos-latest` from the `test_fgr_ag_2yr_*` matrices.
+- **Notes:** `bin/gsflow_2.4.0_ifort_apple_silicon_dbl_prec_og` is
+  byte-identical to the non-`_og` file (verified with `cmp`) and is
+  referenced nowhere -- 11.9 MB of pure duplicate to delete whichever way
+  the decision goes. The PRMS half of this work (binaries compiled on
+  demand from `prms_src/`, ifort and Intel MacOS dropped, `m1` -> `mac_arm`)
+  landed on branch `feat_drop_ifort`. That compile-on-demand scheme is an
+  accepted intermediate step: the intended end state is to move the
+  PRMS/GSFLOW sources into a separate "oracle" repository that publishes
+  binaries for pywatershed to download, which would settle this item too.
+  Prefer a cheap stopgap here over a design that assumes the sources stay
+  in this repository.
 
 ### Deliver CI-usage findings to org admins
 
