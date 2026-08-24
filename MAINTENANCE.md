@@ -4,7 +4,6 @@
 - [Maintenance ledger](#maintenance-ledger)
   - [Open](#open)
     - [3.0.1 hotfix release (flopy pin unwind + pyPRMS floor)](#301-hotfix-release-flopy-pin-unwind--pyprms-floor)
-    - [conda-forge feedstock: pyprms floor replaces packaging pin](#conda-forge-feedstock-pyprms-floor-replaces-packaging-pin)
     - [pyPRMS upstream: close PR #64, port its regression test](#pyprms-upstream-close-pr-64-port-its-regression-test)
     - [Reconcile check_version.yaml with release_preflight.sh](#reconcile-check_versionyaml-with-release_preflightsh)
     - [Deliver CI-usage findings to org admins](#deliver-ci-usage-findings-to-org-admins)
@@ -51,16 +50,6 @@ check it), **Action** (what to do once unblocked), and optional
   released flopy until then; flopy imports lazily so this is not an
   import-time problem.
 
-### conda-forge feedstock: pyprms floor replaces packaging pin
-
-- **Blocked on:** feedstock PR #14 (pyprms >=0.10.0 floor, build 1)
-  MERGED 2026-08-19; awaiting the main-branch CI upload. Check:
-  `https://api.anaconda.org/package/conda-forge/pywatershed` shows a
-  3.0.0 build with build number 1.
-- **Action:** verify the new build's run deps carry `pyprms >=0.10.0`
-  and no `packaging <26.3`, then move to Done. This was the last
-  `packaging <26.3` pin anywhere.
-
 ### pyPRMS upstream: close PR #64, port its regression test
 
 - **Blocked on:** nothing — #64 was closed unmerged 2026-08-17; the
@@ -92,6 +81,11 @@ check it), **Action** (what to do once unblocked), and optional
 
 ## Done
 
+- 2026-08-19: conda-forge pywatershed 3.0.0 build 1 published (feedstock
+  PR #14: `pyprms >=0.10.0` replaces `packaging <26.3`; verified on
+  anaconda.org, uploaded 19:35 UTC). The last `packaging <26.3` pin
+  anywhere is gone. Also: PR #407's sagehen ubuntu OOM resolved by
+  serial pytest (`-n=1`) on Linux.
 - 2026-08-19: gh-pages v3.0.0 extended release notes are live upstream
   (`doi-usgs.github.io/pywatershed`, 2026-07-13 post) and all 3.0.0
   release-body links resolve — step 9 done, the 3.0.0 release is
