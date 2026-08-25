@@ -248,11 +248,15 @@ def compile_prms(
                 check=True,
             )
 
-            compiled_bin = src_dir / "bin" / "prms"
+            # The makefile links with `-o ../bin/prms`.  On Windows the
+            # gfortran driver appends ".exe" when the -o name carries no
+            # suffix, so the file to look for is bin/prms.exe there.
+            suffix = ".exe" if _get_platform_tag() == "win" else ""
+            compiled_bin = src_dir / "bin" / f"prms{suffix}"
             if not compiled_bin.exists():
                 raise RuntimeError(
                     "Compilation appeared to succeed but "
-                    f"bin/prms not found in {src_dir}"
+                    f"bin/{compiled_bin.name} not found in {src_dir}"
                 )
 
             _get_bin_dir().mkdir(parents=True, exist_ok=True)

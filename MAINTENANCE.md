@@ -8,6 +8,7 @@
     - [Reconcile check_version.yaml with release_preflight.sh](#reconcile-check_versionyaml-with-release_preflightsh)
     - [Retire the GSFLOW ifort binary](#retire-the-gsflow-ifort-binary)
     - [Deliver CI-usage findings to org admins](#deliver-ci-usage-findings-to-org-admins)
+    - [PRMSCanopy grass interception gate: pkwater_ante, not pk_ice + freeh2o](#prmscanopy-grass-interception-gate-pkwater_ante-not-pk_ice--freeh2o)
   - [Done](#done)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -105,6 +106,49 @@ check it), **Action** (what to do once unblocked), and optional
   concurrency was addressed by PR #408 (skeleton/full split +
   cancellation). Also raise the missing upstream push access /
   "Run workflow" button.
+
+### PRMSCanopy grass interception gate: pkwater_ante, not pk_ice + freeh2o
+
+- **Blocked on:** nothing; this is a pywatershed port-fidelity bug, found
+  2026-08-25 while retiring ifort (branch `feat_drop_ifort`).
+- **Action:** in `PRMSCanopy`, take `pkwater_ante` as an input in place of
+  `pk_ice_prev` and `freeh2o_prev`, and gate grass rain interception on
+  `pkwater_ante[i] < dnearzero` (`prms_canopy.py:521`). `pkwater_ante` is
+  already a PRMS output (declared `snowcomp.f90:346-349`, assigned
+  `Pkwater_ante = Pkwater_equiv` at `snowcomp.f90:946`) and already has
+  metadata (`variables.yaml:2663`), so no new diagnostic variable is
+  needed. `PRMSSnow` must also declare `pkwater_ante` so coupled models
+  can supply it; PRMS declares it in snowcomp, so that is faithful to the
+  original design. Regenerate test data afterward: answers change wherever
+  the gate flips.
+- **Notes:** `intcp.f90:416` gates grass interception on
+  `Pkwater_equiv(i) < DNEARZERO` (2.23e-16); `intcp` runs before
+  `snowcomp`, so the value it sees is the previous step's, which is what
+  the `pkwater_ante` output holds. pywatershed instead reconstructs the
+  pack as `pk_ice_prev + freeh2o_prev`. Those are not the same number:
+  PRMS carries `Pkwater_equiv` as its own accumulated double rather than
+  recomputing it as the sum, and in the vanishing tail of a melting pack
+  they diverge by orders of magnitude. At `ucb_2yr:nhm` HRU 257, step 652
+  (1980-10-14), `pkwater_ante = 1.63e-14` while
+  `pk_ice_prev + freeh2o_prev = 1.59e-16` -- straddling the 2.23e-16
+  threshold. PRMS passes the day's rain through; pywatershed intercepts
+  `srain_intcp = 0.013033`, so `net_rain` differs by
+  `covden_sum * srain_intcp = 0.001272829` on that day and the two agree
+  again the next. That fails `test_prms_canopy.py`,
+  `test_prms_above_snow.py`, `test_prms_et_canopy.py`, and
+  `test_prms_et_can_runoff.py` on macOS while Linux passes, because the
+  residuals left by each build land on opposite sides of the threshold.
+  The bug is latent and long-standing; the gfortran mac binary just rolled
+  the dice differently than the ifort one did. The comment at
+  `prms_canopy.py:519` already quotes the PRMS gate as
+  `pkwater_ante(i)<dnearzero`, so the substitution was known when it was
+  made. Caveat: this restores fidelity for the single-process comparisons,
+  which read PRMS's own `pkwater_ante`. Fully coupled pywatershed runs
+  still depend on `PRMSSnow` reproducing PRMS's residual tail to ~1e-16,
+  which it almost certainly does not -- `snowcomp` is full of similar
+  thresholds and `test_prms_snow.py` only checks 1e-3. Making `PRMSSnow`
+  abide by the same standard as the other processes is a much larger lift
+  and a separate item.
 
 ## Done
 
