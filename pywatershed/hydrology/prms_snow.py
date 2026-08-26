@@ -272,6 +272,7 @@ class PRMSSnow(ConservativeProcess):
             "pk_precip": zero,
             "pk_temp": zero,
             "pksv": zero,
+            "pkwater_ante": nan,
             "pkwater_equiv": nan,
             "pptmix_nopack": False,
             "pss": nan,
@@ -536,6 +537,11 @@ class PRMSSnow(ConservativeProcess):
     def _advance_variables(self) -> None:
         self.freeh2o_prev[:] = self.freeh2o
         self.pk_ice_prev[:] = self.pk_ice
+        # snowcomp.f90:946, "Keep track of the pack water equivalent before
+        # it is changed by precipitation during this time step".
+        # PRMSCanopy consumes this: intcp runs before snowcomp and gates
+        # grass rain interception on the pack it sees, intcp.f90:416.
+        self.pkwater_ante[:] = self.pkwater_equiv
         return
 
     def _calculate(self, simulation_time):

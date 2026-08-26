@@ -21,12 +21,40 @@ New Features
 
 Breaking Changes
 ~~~~~~~~~~~~~~~~
+- :class:`PRMSCanopy` takes the input ``pkwater_ante`` in place of the inputs
+  ``pk_ice_prev`` and ``freeh2o_prev``, and :class:`PRMSSnow` declares the
+  variable ``pkwater_ante`` to supply it. Code which supplies
+  :class:`PRMSCanopy` its inputs individually must be updated; models
+  assembled from process lists or model dictionaries are unaffected.
+  (:pull:`XXX`) By `James McCreight <https://github.com/jmccreight>`_.
 
 Bug fixes
 ~~~~~~~~~
+- :class:`PRMSCanopy` gates rain interception by grasses on the antecedent
+  snowpack, ``pkwater_ante``, as PRMS does (``intcp.f90:416``, which tests
+  ``Pkwater_equiv`` before ``snowcomp`` updates it for the timestep;
+  ``snowcomp.f90:946`` publishes that value as ``Pkwater_ante``). pywatershed
+  instead reconstructed the pack as ``pk_ice_prev + freeh2o_prev``. PRMS
+  carries ``Pkwater_equiv`` as its own accumulated double rather than
+  recomputing it as that sum, and in the vanishing tail of a melting pack the
+  two differ by orders of magnitude and fall on opposite sides of the
+  ``dnearzero`` (2.23e-16) threshold, flipping whether a day's rain is
+  intercepted. :class:`PRMSSnow` now declares ``pkwater_ante``, as
+  ``snowcomp`` does (``snowcomp.f90:346-349``), so coupled models supply it.
+  (:pull:`XXX`) By `James McCreight <https://github.com/jmccreight>`_.
 
 Internal changes
 ~~~~~~~~~~~~~~~~
+- Quiet the test suite's NumPy >= 2.5 deprecation warnings, which numbered
+  tens of thousands per run. ``constants.nat`` is now
+  ``np.datetime64("NaT", "ns")``, the generic form being deprecated and ``ns``
+  being what its only use already cast to; ``environment.yml`` requires
+  ``holoviews >=1.23.0``, the release which dropped the ``nat_as_integer``
+  the warning came from; and ``autotest/pytest.ini`` ignores the
+  ``ndarray.shape`` assignment that netCDF4 <= 1.7.4 makes on every variable
+  write, which is fixed upstream by netcdf4-python PR #1469 but unreleased
+  and so is tracked in ``MAINTENANCE.md``.
+  (:pull:`XXX`) By `James McCreight <https://github.com/jmccreight>`_.
 - Retire ifort and Intel MacOS. The PRMS binaries are no longer checked in to
   ``bin/``; they are compiled from ``prms_src/`` with gfortran (supplied by
   ``environment.yml``) the first time they are needed, by

@@ -8,7 +8,8 @@
     - [Reconcile check_version.yaml with release_preflight.sh](#reconcile-check_versionyaml-with-release_preflightsh)
     - [Retire the GSFLOW ifort binary](#retire-the-gsflow-ifort-binary)
     - [Deliver CI-usage findings to org admins](#deliver-ci-usage-findings-to-org-admins)
-    - [PRMSCanopy grass interception gate: pkwater_ante, not pk_ice + freeh2o](#prmscanopy-grass-interception-gate-pkwater_ante-not-pk_ice--freeh2o)
+    - [PRMSSnow does not reproduce PRMS at threshold magnitudes](#prmssnow-does-not-reproduce-prms-at-threshold-magnitudes)
+    - [Drop the netCDF4 ndarray.shape warning filter](#drop-the-netcdf4-ndarrayshape-warning-filter)
   - [Done](#done)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -107,51 +108,61 @@ check it), **Action** (what to do once unblocked), and optional
   cancellation). Also raise the missing upstream push access /
   "Run workflow" button.
 
-### PRMSCanopy grass interception gate: pkwater_ante, not pk_ice + freeh2o
+### PRMSSnow does not reproduce PRMS at threshold magnitudes
 
-- **Blocked on:** nothing; this is a pywatershed port-fidelity bug, found
-  2026-08-25 while retiring ifort (branch `feat_drop_ifort`).
-- **Action:** in `PRMSCanopy`, take `pkwater_ante` as an input in place of
-  `pk_ice_prev` and `freeh2o_prev`, and gate grass rain interception on
-  `pkwater_ante[i] < dnearzero` (`prms_canopy.py:521`). `pkwater_ante` is
-  already a PRMS output (declared `snowcomp.f90:346-349`, assigned
-  `Pkwater_ante = Pkwater_equiv` at `snowcomp.f90:946`) and already has
-  metadata (`variables.yaml:2663`), so no new diagnostic variable is
-  needed. `PRMSSnow` must also declare `pkwater_ante` so coupled models
-  can supply it; PRMS declares it in snowcomp, so that is faithful to the
-  original design. Regenerate test data afterward: answers change wherever
-  the gate flips.
-- **Notes:** `intcp.f90:416` gates grass interception on
-  `Pkwater_equiv(i) < DNEARZERO` (2.23e-16); `intcp` runs before
-  `snowcomp`, so the value it sees is the previous step's, which is what
-  the `pkwater_ante` output holds. pywatershed instead reconstructs the
-  pack as `pk_ice_prev + freeh2o_prev`. Those are not the same number:
-  PRMS carries `Pkwater_equiv` as its own accumulated double rather than
-  recomputing it as the sum, and in the vanishing tail of a melting pack
-  they diverge by orders of magnitude. At `ucb_2yr:nhm` HRU 257, step 652
-  (1980-10-14), `pkwater_ante = 1.63e-14` while
-  `pk_ice_prev + freeh2o_prev = 1.59e-16` -- straddling the 2.23e-16
-  threshold. PRMS passes the day's rain through; pywatershed intercepts
-  `srain_intcp = 0.013033`, so `net_rain` differs by
-  `covden_sum * srain_intcp = 0.001272829` on that day and the two agree
-  again the next. That fails `test_prms_canopy.py`,
-  `test_prms_above_snow.py`, `test_prms_et_canopy.py`, and
-  `test_prms_et_can_runoff.py` on macOS while Linux passes, because the
-  residuals left by each build land on opposite sides of the threshold.
-  The bug is latent and long-standing; the gfortran mac binary just rolled
-  the dice differently than the ifort one did. The comment at
-  `prms_canopy.py:519` already quotes the PRMS gate as
-  `pkwater_ante(i)<dnearzero`, so the substitution was known when it was
-  made. Caveat: this restores fidelity for the single-process comparisons,
-  which read PRMS's own `pkwater_ante`. Fully coupled pywatershed runs
-  still depend on `PRMSSnow` reproducing PRMS's residual tail to ~1e-16,
-  which it almost certainly does not -- `snowcomp` is full of similar
-  thresholds and `test_prms_snow.py` only checks 1e-3. Making `PRMSSnow`
-  abide by the same standard as the other processes is a much larger lift
-  and a separate item.
+- **Blocked on:** nothing; a large lift rather than an external event.
+  Split out of the PRMSCanopy `pkwater_ante` item (Done, 2026-08-25).
+- **Action:** bring `PRMSSnow` to the standard the other processes meet,
+  i.e. reproduce PRMS's snowpack state to within the 1e-12 tolerance the
+  other process tests use, rather than the 1e-3 that
+  `test_prms_snow.py` checks.
+- **Notes:** `snowcomp` is full of `dnearzero` (2.23e-16) and `nearzero`
+  thresholds tested against an accumulated `Pkwater_equiv`, and
+  pywatershed's residual tail on a melting pack differs from PRMS's by
+  orders of magnitude at those magnitudes. Consequence: single-process
+  comparisons of `PRMSCanopy` are faithful, because they read PRMS's own
+  `pkwater_ante`, but a fully coupled pywatershed run can still land on
+  the other side of a gate from PRMS wherever a vanishing pack is
+  involved. Until this is fixed, coupled-run differences of this kind
+  are expected and are not canopy bugs.
+
+### Drop the netCDF4 ndarray.shape warning filter
+
+- **Blocked on:** a netCDF4 (netcdf4-python) release after 1.7.4, which
+  is the first to contain PR #1469 (merged 2026-02-17). Check:
+  `https://api.github.com/repos/Unidata/netcdf4-python/releases?per_page=5`
+  for a tag above `v1.7.4rel`, then confirm the fix is in it, e.g. the
+  released sdist no longer has `data.shape = tuple(datashape)` in
+  `src/netCDF4/_netCDF4.pyx`.
+- **Action:** remove the
+  `ignore:Setting the shape on a NumPy array has been deprecated`
+  line (and the comment above the key) from `autotest/pytest.ini`, and
+  raise the netCDF4 floor in `environment.yml` to that release.
+- **Notes:** netCDF4 assigns to `ndarray.shape` on every variable write
+  (`_netCDF4.pyx:5616`), which NumPy >= 2.5 deprecates. Nothing on the
+  pywatershed side avoids it: every assignment form was tried
+  (`v[0,:] = a`, `v[0:1,:] = a[np.newaxis, ...]`, `v[0] = a`) and all
+  warn, so the two sites the warning is attributed to,
+  `pywatershed/utils/netcdf_utils.py:660` and
+  `pywatershed/base/budget.py:944`, are correct as written -- the
+  warning is raised in Cython and attributed to the nearest Python
+  frame, which is ours. Observed with netCDF4 1.7.3 and NumPy 2.5.2:
+  ~44,000 warnings in a single `test_prms_canopy.py` run. xarray took
+  the same temporary measure (its PR #11146).
 
 ## Done
 
+- 2026-08-25: PRMSCanopy's grass rain interception gate now uses
+  `pkwater_ante` (an input taken in place of `pk_ice_prev` and
+  `freeh2o_prev`), and PRMSSnow declares `pkwater_ante` to supply it,
+  matching `intcp.f90:416` and `snowcomp.f90:346-349,946`. Fixed on
+  branch `feat_canopy_pkwater_ante`; `test_prms_canopy.py`,
+  `test_prms_above_snow.py`, `test_prms_et_canopy.py`, and
+  `test_prms_et_can_runoff.py` pass on macOS for `ucb_2yr:nhm`, where
+  they had been failing. The caveat in the original item stands and is
+  now its own open item: this restores fidelity for the single-process
+  comparisons, which read PRMS's own `pkwater_ante`; fully coupled runs
+  still depend on PRMSSnow reproducing PRMS's residual tail to ~1e-16.
 - 2026-08-19: conda-forge pywatershed 3.0.0 build 1 published (feedstock
   PR #14: `pyprms >=0.10.0` replaces `packaging <26.3`; verified on
   anaconda.org, uploaded 19:35 UTC). The last `packaging <26.3` pin
