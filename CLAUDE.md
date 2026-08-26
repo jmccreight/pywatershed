@@ -47,9 +47,9 @@ reimplementation of PRMS process representations (see README.md).
 - When drafting a PR body, read `.github/PULL_REQUEST_TEMPLATE.md`
   (fresh each time — it evolves) and conform to it: summary on top,
   then its checklist with applicable items checked, keeping its Docs
-  section. Always carry the checklist over, even when nothing in it
-  applies; in that case keep the items unchecked and add a line saying
-  so, rather than dropping the checklist.
+  section. Always carry the whole checklist over under its own
+  ``## Checklist`` heading; strike through items that do not apply
+  (``- [ ] ~~Tests added~~``) rather than deleting them.
 
 ## Branches and releases
 
