@@ -27,11 +27,30 @@ Bug fixes
 
 Internal changes
 ~~~~~~~~~~~~~~~~
+- Lint Jupyter notebooks. ``[tool.ruff] include`` covered only ``*.py``, so
+  ``ruff check .`` and CI never saw notebooks, while the pre-commit hook
+  passed ``*.ipynb`` paths explicitly (which overrides ``include``) and did.
+  Notebook problems were therefore invisible until someone edited a notebook
+  and was met with errors they had not caused. Notebooks are now in
+  ``include``, with ``E501`` and ``I001`` exempted: they are narrative, and
+  several import a module purely for its side effect (``hvplot.xarray``
+  registers a ``.hvplot`` accessor) and must do so after the module they
+  extend, which sorting undoes. Notebooks are linted but not auto-formatted,
+  for the same line-length reason. This surfaced four broken cells that no
+  test covered: two stray ``)``, a string opened with ``"`` and closed with
+  ``'``, and a use of ``pl.Path`` with no ``import pathlib``. Three notebooks
+  needed further cleanup once the syntax errors stopped masking it: unused
+  imports, unused assignments, a semicolon-joined statement, and bare
+  ``except`` clauses narrowed to ``except AssertionError``. Also repairs
+  four malformed ``# noqa`` directives (including a ``# noaq`` typo) that
+  ruff silently ignored, which meant the unused-import fixer would have
+  deleted the ``hvplot`` imports they were meant to protect.
+  (:pull:`412`) By `James McCreight <https://github.com/jmccreight>`_.
 - Add ``MAINTENANCE.md``, a ledger of maintenance todos blocked on external
   events (dependency releases, cross-repo work), each with a mechanically
   checkable unblock condition; the ``/maintenance`` Claude skill checks them
   live and reports what is actionable.
-  (:pull:`XXX`) By `James McCreight <https://github.com/jmccreight>`_.
+  (:pull:`409`) By `James McCreight <https://github.com/jmccreight>`_.
 - Reduce CI footprint with a skeleton/full split: pushes to any branch (in
   this repository or on forks) run a skeleton — installs, linting, domainless
   tests, the docs build, and example notebooks on ubuntu only — while the
