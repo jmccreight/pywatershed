@@ -10,6 +10,7 @@
     - [Deliver CI-usage findings to org admins](#deliver-ci-usage-findings-to-org-admins)
     - [PRMSSnow does not reproduce PRMS at threshold magnitudes](#prmssnow-does-not-reproduce-prms-at-threshold-magnitudes)
     - [Drop the netCDF4 ndarray.shape warning filter](#drop-the-netcdf4-ndarrayshape-warning-filter)
+    - [Drop the gfortran <16 ceiling (conda-forge win-64 link failure)](#drop-the-gfortran-16-ceiling-conda-forge-win-64-link-failure)
   - [Done](#done)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -149,6 +150,70 @@ check it), **Action** (what to do once unblocked), and optional
   frame, which is ours. Observed with netCDF4 1.7.3 and NumPy 2.5.2:
   ~44,000 warnings in a single `test_prms_canopy.py` run. xarray took
   the same temporary measure (its PR #11146).
+
+### Drop the gfortran <16 ceiling (conda-forge win-64 link failure)
+
+- **Blocked on:** conda-forge restoring `crt2.o` and `default-manifest.o`
+  where the win-64 gfortran driver looks for them. Check: a build newer
+  than `*_11` at
+  `https://api.anaconda.org/package/conda-forge/m2w64-sysroot_win-64`,
+  or the upstream issue below being closed.
+- **Action:** remove `,<16` from the `gfortran` line in
+  `environment.yml` and `environment_w_jupyter.yml`, along with the
+  three comment lines above it.
+- **Notes:** on 2026-08-26 all five Windows domain jobs that compile
+  PRMS failed at the link step with
+  `ld.exe: cannot find crt2.o` and `cannot find default-manifest.o`
+  (PR #414, run 32922976968). Those two files come from
+  `mingw-w64-ucrt-x86_64-crt-git` and
+  `mingw-w64-ucrt-x86_64-windows-default-manifest`, both reached through
+  `m2w64-sysroot_win-64`, which `gcc_impl_win-64` depends on unpinned.
+  Two files from two packages going missing at once points at the
+  sysroot layout, not at either package.
+
+  Timeline (UTC, anaconda.org upload times): the last green Windows
+  compile was develop's CI at 2026-08-20 22:15; `m2w64-sysroot_win-64`
+  build 11 landed at 2026-08-20 23:44 and win-64 `gfortran` 16.2.0
+  build 4 at 2026-08-25 02:50.
+
+  develop stayed green only because the micromamba cache key hashes the
+  environment file: unchanged file, restored env, no re-solve. Any
+  branch that edits `environment.yml` re-solves and hits this.
+
+  **The `<16` ceiling is a probe, not a diagnosis.** Both the sysroot
+  and gcc 16.2.0 landed after the last green run. If Windows still
+  fails with the ceiling in place, the sysroot is the culprit; pin it
+  instead (`m2w64-sysroot_win-64=*=*_10`), checking that a win-64-only
+  package in a shared environment file does not break the macOS and
+  Linux solves.
+
+  Draft report for `conda-forge/mingw-w64-sysroot-feedstock` (the
+  compilers live in `conda-forge/ctng-compilers-feedstock`), not yet
+  filed:
+
+  > **Title:** win-64: `crt2.o` and `default-manifest.o` not found at
+  > link time with `m2w64-sysroot_win-64` build 11
+  >
+  > Linking any Fortran or C program on `windows-latest` fails after
+  > build 11 of `m2w64-sysroot_win-64` (2026-08-20 23:44 UTC):
+  >
+  > ```
+  > gfortran -O -static -o prms *.o libmmf.a -lgfortran -lgcc -lm
+  > .../x86_64-w64-mingw32/bin/ld.exe: cannot find crt2.o: No such file or directory
+  > .../x86_64-w64-mingw32/bin/ld.exe: cannot find default-manifest.o: No such file or directory
+  > collect2.exe: error: ld returned 1 exit status
+  > ```
+  >
+  > Environment: `gfortran` 16.2.0 `hb5e953d_4` (win-64),
+  > `gcc_impl_win-64` 16.2.0, `m2w64-sysroot_win-64` `*_11`, installed
+  > with micromamba on GitHub Actions `windows-latest`. The same link
+  > line succeeded with `gfortran` 15.3.0 build 2 and the build-10
+  > sysroot on 2026-08-20. Both missing files ship in packages the
+  > sysroot depends on
+  > (`mingw-w64-ucrt-x86_64-crt-git`,
+  > `mingw-w64-ucrt-x86_64-windows-default-manifest`), so they appear to
+  > be installed somewhere the driver's default search path no longer
+  > covers.
 
 ## Done
 
