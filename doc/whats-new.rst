@@ -45,12 +45,12 @@ Internal changes
   four malformed ``# noqa`` directives (including a ``# noaq`` typo) that
   ruff silently ignored, which meant the unused-import fixer would have
   deleted the ``hvplot`` imports they were meant to protect.
-  (:pull:`XXX`) By `James McCreight <https://github.com/jmccreight>`_.
+  (:pull:`412`) By `James McCreight <https://github.com/jmccreight>`_.
 - Add ``MAINTENANCE.md``, a ledger of maintenance todos blocked on external
   events (dependency releases, cross-repo work), each with a mechanically
   checkable unblock condition; the ``/maintenance`` Claude skill checks them
   live and reports what is actionable.
-  (:pull:`XXX`) By `James McCreight <https://github.com/jmccreight>`_.
+  (:pull:`409`) By `James McCreight <https://github.com/jmccreight>`_.
 - Reduce CI footprint with a skeleton/full split: pushes to any branch (in
   this repository or on forks) run a skeleton — installs, linting, domainless
   tests, the docs build, and example notebooks on ubuntu only — while the
