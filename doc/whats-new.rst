@@ -26,7 +26,7 @@ Breaking Changes
   variable ``pkwater_ante`` to supply it. Code which supplies
   :class:`PRMSCanopy` its inputs individually must be updated; models
   assembled from process lists or model dictionaries are unaffected.
-  (:pull:`XXX`) By `James McCreight <https://github.com/jmccreight>`_.
+  (:pull:`414`) By `James McCreight <https://github.com/jmccreight>`_.
 
 Bug fixes
 ~~~~~~~~~

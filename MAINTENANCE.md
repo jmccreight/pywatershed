@@ -11,6 +11,7 @@
     - [PRMSSnow does not reproduce PRMS at threshold magnitudes](#prmssnow-does-not-reproduce-prms-at-threshold-magnitudes)
     - [Drop the netCDF4 ndarray.shape warning filter](#drop-the-netcdf4-ndarrayshape-warning-filter)
     - [Drop the gfortran <16 ceiling (conda-forge win-64 link failure)](#drop-the-gfortran-16-ceiling-conda-forge-win-64-link-failure)
+    - [PR #412 follow-ups: pre-commit notebook coverage, holoviews floor](#pr-412-follow-ups-pre-commit-notebook-coverage-holoviews-floor)
   - [Done](#done)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -214,6 +215,26 @@ check it), **Action** (what to do once unblocked), and optional
   > `mingw-w64-ucrt-x86_64-windows-default-manifest`), so they appear to
   > be installed somewhere the driver's default search path no longer
   > covers.
+
+### PR #412 follow-ups: pre-commit notebook coverage, holoviews floor
+
+- **Blocked on:** nothing; both were deferred when #412 (lint notebooks)
+  was merged on 2026-08-26.
+- **Action:**
+  - `.pre-commit-config.yaml`'s `ruff-check` hook has `types: [python]`.
+    pre-commit's `identify` tags `.ipynb` as `jupyter`, not `python`, so
+    a commit staging only notebooks likely skips the hook -- which
+    defeats #412's purpose. Check with
+    `identify-cli examples/snow_errors.ipynb`; if `python` is absent,
+    change to `types_or: [python, jupyter]`.
+  - `pyproject.toml`'s `optional` extra lists `hvplot` but never
+    `holoviews`, so a pip install resolves to whatever hvplot allows
+    (`>=1.19`) and keeps the NumPy 2.5 `nat_as_integer` warning that
+    `holoviews>=1.23.0` in the environment files avoids. Add the floor
+    for parity.
+- **Notes:** the pre-commit hook only ever sees *staged* files while CI
+  runs `ruff check .` over the whole tree. That gap is what let #412's
+  notebook errors reach CI in the first place.
 
 ## Done
 
