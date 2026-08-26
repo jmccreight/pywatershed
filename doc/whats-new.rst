@@ -36,9 +36,12 @@ Internal changes
   several import a module purely for its side effect (``hvplot.xarray``
   registers a ``.hvplot`` accessor) and must do so after the module they
   extend, which sorting undoes. Notebooks are linted but not auto-formatted,
-  for the same line-length reason. This surfaced three broken cells that no
-  test covered: a stray ``)``, a string opened with ``"`` and closed with
-  ``'``, and a use of ``pl.Path`` with no ``import pathlib``. Also repairs
+  for the same line-length reason. This surfaced four broken cells that no
+  test covered: two stray ``)``, a string opened with ``"`` and closed with
+  ``'``, and a use of ``pl.Path`` with no ``import pathlib``. Three notebooks
+  needed further cleanup once the syntax errors stopped masking it: unused
+  imports, unused assignments, a semicolon-joined statement, and bare
+  ``except`` clauses narrowed to ``except AssertionError``. Also repairs
   four malformed ``# noqa`` directives (including a ``# noaq`` typo) that
   ruff silently ignored, which meant the unused-import fixer would have
   deleted the ``hvplot`` imports they were meant to protect.
