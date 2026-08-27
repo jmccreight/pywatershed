@@ -25,7 +25,9 @@ __pywatershed_root__ = pl.Path(__file__).parent
 zero = np.zeros([1])[0]
 one = np.ones([1])[0]
 nan = np.nan
-nat = np.datetime64("NaT")
+# the unit is required: NumPy >= 2.5 deprecates the generic ("NaT") form.
+# ns matches the only use, starfit_parameters.py, which casts to "<M8[ns]".
+nat = np.datetime64("NaT", "ns")
 
 
 def nan1d():

@@ -48,8 +48,7 @@ class PRMSCanopy(ConservativeProcess):
         control: a Control object
         discretization: a discretization of class Parameters
         parameters: a parameter object of class Parameters
-        pk_ice_prev: Previous snowpack ice on each HRU
-        freeh2o_prev: Previous snowpack free water on each HRU
+        pkwater_ante: Previous snowpack water equivalent on each HRU
         transp_on: Flag indicating whether transpiration is occurring
             (0=no;1=yes)
         hru_ppt: Precipitation on each HRU
@@ -96,8 +95,7 @@ class PRMSCanopy(ConservativeProcess):
         control: Control,
         discretization: Parameters,
         parameters: Parameters,
-        pk_ice_prev: adaptable,
-        freeh2o_prev: adaptable,
+        pkwater_ante: adaptable,
         transp_on: adaptable,
         hru_ppt: adaptable,
         hru_rain: adaptable,
@@ -153,8 +151,7 @@ class PRMSCanopy(ConservativeProcess):
     @staticmethod
     def get_inputs() -> tuple:
         return (
-            "pk_ice_prev",
-            "freeh2o_prev",
+            "pkwater_ante",
             "transp_on",
             "hru_ppt",
             "hru_rain",
@@ -287,8 +284,7 @@ class PRMSCanopy(ConservativeProcess):
             #         nb.float64[:],  # net_ppt
             #         nb.float64[:],  # net_rain
             #         nb.float64[:],  # net_snow
-            #         nb.float64[:],  # self.pk_ice_prev
-            #         nb.float64[:],  # self.freeh2o_prev
+            #         nb.float64[:],  # self.pkwater_ante
             #         nb.float64[:],  # potet
             #         nb.float64[:],  # potet_sublim
             #         nb.float64[:],  # snow_intcp
@@ -365,8 +361,7 @@ class PRMSCanopy(ConservativeProcess):
             net_rain=self.net_rain,
             net_snow=self.net_snow,
             pptmix=self.pptmix,
-            pk_ice_prev=self.pk_ice_prev,
-            freeh2o_prev=self.freeh2o_prev,
+            pkwater_ante=self.pkwater_ante,
             potet=self.potet,
             potet_sublim=self.potet_sublim,
             snow_intcp=self.snow_intcp,
@@ -413,8 +408,7 @@ class PRMSCanopy(ConservativeProcess):
         net_rain,
         net_snow,
         pptmix,
-        pk_ice_prev,
-        freeh2o_prev,
+        pkwater_ante,
         potet,
         potet_sublim,
         snow_intcp,
@@ -515,12 +509,19 @@ class PRMSCanopy(ConservativeProcess):
                         elif cov_type[i] == GRASSES:
                             # if there is no snowpack and no snowfall, then
                             # apparently, grasses can intercept rain.
-                            # IF (
-                            #     pkwater_ante(i)<dnearzero
-                            #     .AND. netsnow<nearzero ) THEN
+                            # intcp.f90:416
+                            # IF ( Pkwater_equiv(i)<DNEARZERO .AND.
+                            #      netsnow<NEARZERO ) THEN
+                            # intcp runs before snowcomp, so the
+                            # Pkwater_equiv it sees is the previous
+                            # timestep's value, which is what snowcomp
+                            # publishes as pkwater_ante
+                            # (Pkwater_ante = Pkwater_equiv,
+                            # snowcomp.f90:946).
                             if (
-                                pk_ice_prev[i] + freeh2o_prev[i]
-                            ) < dnearzero and netsnow < nearzero:
+                                pkwater_ante[i] < dnearzero
+                                and netsnow < nearzero
+                            ):
                                 intcpstor, netrain = intercept(
                                     hru_rain[i],
                                     stor_max_rain,

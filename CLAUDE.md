@@ -46,8 +46,10 @@ reimplementation of PRMS process representations (see README.md).
   subpackage `__init__.py`) and listed in `doc/api/*.rst`.
 - When drafting a PR body, read `.github/PULL_REQUEST_TEMPLATE.md`
   (fresh each time — it evolves) and conform to it: summary on top,
-  then its checklist with irrelevant items removed and applicable ones
-  checked, keeping its Docs section.
+  then its checklist with applicable items checked, keeping its Docs
+  section. Always carry the whole checklist over under its own
+  ``## Checklist`` heading; strike through items that do not apply
+  (``- [ ] ~~Tests added~~``) rather than deleting them.
 
 ## Branches and releases
 

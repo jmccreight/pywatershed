@@ -67,23 +67,10 @@ def assert_dicts_equal(dic1, dic2):
 
 
 def detect_prms_exe():
-    import sys
-    from platform import processor
+    """Path to the default PRMS binary, compiling it from source if absent."""
+    from pywatershed.utils import get_or_compile_prms_exe
 
-    platform = sys.platform.lower()
-    if platform == "win32":
-        exe_name = "prms_win_gfort_dbl_prec.exe"
-    elif platform == "darwin":
-        if processor() == "arm":
-            exe_name = "prms_mac_m1_ifort_dbl_prec"
-        else:
-            exe_name = "prms_mac_intel_gfort_dbl_prec"
-    elif platform == "linux":
-        exe_name = "prms_linux_gfort_dbl_prec"
-    else:
-        exe_name = "---"  # this will raise an error
-    exe_pth = pl.Path(f"../bin/{exe_name}")
-    return exe_pth
+    return get_or_compile_prms_exe()
 
 
 def run_prms(
