@@ -121,7 +121,7 @@ def get_prms_exe_name(exe_desc: str = "prms") -> str:
         # checked in rather than compiled on demand.
         return {
             "win": "gsflow_2.4.0_gfortran_windows_dbl_prec.exe",
-            "mac_arm": "gsflow_2.4.0_ifort_apple_silicon_dbl_prec",
+            "mac_arm": "gsflow_2.4.0_gfortran_mac_arm_dbl_prec",
             "linux": "gsflow_2.4.0_gfortran_linux_dbl_prec",
         }[tag]
 

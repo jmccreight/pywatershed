@@ -45,6 +45,12 @@ Bug fixes
 
 Internal changes
 ~~~~~~~~~~~~~~~~
+- Retire the last intel-built artifact, the GSFLOW binary for MacOS, which
+  was x86_64 and required Rosetta 2 on Apple Silicon. All three checked-in
+  GSFLOW 2.4.0 binaries (macOS arm64, Linux, Windows) are now gfortran
+  double-precision builds from a single GSFLOW source commit and CI run,
+  with provenance recorded in ``bin/README.md`` for the first time.
+  (:pull:`XXX`) By `James McCreight <https://github.com/jmccreight>`_.
 - Quiet the test suite's NumPy >= 2.5 deprecation warnings, which numbered
   tens of thousands per run. ``constants.nat`` is now
   ``np.datetime64("NaT", "ns")``, the generic form being deprecated and ``ns``
