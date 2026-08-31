@@ -6,7 +6,6 @@
     - [3.0.1 hotfix release (flopy pin unwind + pyPRMS floor)](#301-hotfix-release-flopy-pin-unwind--pyprms-floor)
     - [pyPRMS upstream: close PR #64, port its regression test](#pyprms-upstream-close-pr-64-port-its-regression-test)
     - [Reconcile check_version.yaml with release_preflight.sh](#reconcile-check_versionyaml-with-release_preflightsh)
-    - [Retire the GSFLOW ifort binary](#retire-the-gsflow-ifort-binary)
     - [Deliver CI-usage findings to org admins](#deliver-ci-usage-findings-to-org-admins)
     - [PRMSSnow does not reproduce PRMS at threshold magnitudes](#prmssnow-does-not-reproduce-prms-at-threshold-magnitudes)
     - [Drop the netCDF4 ndarray.shape warning filter](#drop-the-netcdf4-ndarrayshape-warning-filter)
@@ -71,32 +70,6 @@ check it), **Action** (what to do once unblocked), and optional
   check (exit code 7) into `.github/scripts/release_preflight.sh`, or
   retire `check_version.yaml` in favor of the preflight + release.yaml
   checks.
-
-### Retire the GSFLOW ifort binary
-
-- **Blocked on:** nothing external -- this is the follow-up half of the
-  ifort retirement. Check: `git ls-files bin/` still lists
-  `gsflow_2.4.0_ifort_apple_silicon_dbl_prec`.
-- **Action:** decide what replaces it. GSFLOW source is not in this
-  repository (`gsflow_src/` is gitignored), so unlike PRMS it cannot be
-  compiled on demand; it is the last intel-built artifact here, and it is
-  an **x86_64** binary, so on Apple Silicon it runs under Rosetta 2 --
-  including on the `macos-latest` runners for the three
-  `test_fgr_ag_2yr_*` jobs, which are the only consumers. Options:
-  vendor/point at a GSFLOW source and build it with gfortran the way PRMS
-  now is; ship a gfortran-built arm64 GSFLOW binary; or drop the binary
-  and remove `macos-latest` from the `test_fgr_ag_2yr_*` matrices.
-- **Notes:** `bin/gsflow_2.4.0_ifort_apple_silicon_dbl_prec_og` is
-  byte-identical to the non-`_og` file (verified with `cmp`) and is
-  referenced nowhere -- 11.9 MB of pure duplicate to delete whichever way
-  the decision goes. The PRMS half of this work (binaries compiled on
-  demand from `prms_src/`, ifort and Intel MacOS dropped, `m1` -> `mac_arm`)
-  landed on branch `feat_drop_ifort`. That compile-on-demand scheme is an
-  accepted intermediate step: the intended end state is to move the
-  PRMS/GSFLOW sources into a separate "oracle" repository that publishes
-  binaries for pywatershed to download, which would settle this item too.
-  Prefer a cheap stopgap here over a design that assumes the sources stay
-  in this repository.
 
 ### Deliver CI-usage findings to org admins
 
@@ -238,6 +211,15 @@ check it), **Action** (what to do once unblocked), and optional
 
 ## Done
 
+- 2026-08-31: the GSFLOW ifort binary is retired (branch
+  `feat_gs_flow_bin_gnu_only`). All three platforms now ship gfortran
+  double-precision binaries built from one GSFLOW commit
+  (`7f61c53c0278`) by one CI run — the first time provenance is uniform
+  and recorded (`bin/README.md`). The arm64 macOS binary (no Rosetta)
+  passed the fgr suite locally (`ci_local.sh -ilmosrdu`, 61 + 2 passed);
+  the byte-identical `_og` duplicate and a `.bak_x86_64` copy were
+  deleted (~36 MB). The oracle-repo end state remains the intended
+  destination for GSFLOW/PRMS sources and binaries.
 - 2026-08-25: PRMSCanopy's grass rain interception gate now uses
   `pkwater_ante` (an input taken in place of `pk_ice_prev` and
   `freeh2o_prev`), and PRMSSnow declares `pkwater_ante` to supply it,
