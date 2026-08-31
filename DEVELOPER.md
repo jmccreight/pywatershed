@@ -53,10 +53,10 @@ needed, by `pywatershed.utils.compile_prms()`, and written to `bin/`
 the same function, so there is one build path everywhere.
 
 Intel compilers (icc, ifort) are no longer used or supported, and Intel
-MacOS is no longer detected. The one remaining intel-built artifact is
-`bin/gsflow_2.4.0_ifort_apple_silicon_dbl_prec`: GSFLOW source is not part
-of this repository, so that binary is checked in rather than compiled. It
-is an x86_64 build and therefore needs Rosetta 2 on Apple Silicon.
+MacOS is no longer detected. GSFLOW source is not part of this
+repository, so its binaries are checked in rather than compiled: three
+gfortran double-precision builds (macOS arm64, Linux, Windows), all from
+the same GSFLOW commit and CI run — see `bin/README.md` for provenance.
 
 ### Python
 
