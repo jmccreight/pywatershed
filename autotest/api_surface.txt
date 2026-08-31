@@ -1,0 +1,1383 @@
+control-option: prms-legacy AET_cbh_file
+control-option: prms-legacy ag_frac_dynamic
+control-option: prms-legacy dprst_flag
+control-option: prms-legacy dyn_ag_frac_flag
+control-option: prms-legacy dyn_fallfrost_flag
+control-option: prms-legacy dyn_springfrost_flag
+control-option: prms-legacy end_time
+control-option: prms-legacy executable_desc
+control-option: prms-legacy fallfrost_dynamic
+control-option: prms-legacy init_vars_from_file
+control-option: prms-legacy initial_deltat
+control-option: prms-legacy iter_aet_flag
+control-option: prms-legacy nhruOutBaseFileName
+control-option: prms-legacy nhruOutVar_names
+control-option: prms-legacy nsegmentOutBaseFileName
+control-option: prms-legacy nsegmentOutVar_names
+control-option: prms-legacy param_file
+control-option: prms-legacy print_debug
+control-option: prms-legacy springfrost_dynamic
+control-option: prms-legacy start_time
+control-option: prms-legacy stream_temp_flag
+control-option: prms-legacy stream_temp_shade_flag
+control-option: prms-legacy strmflow_module
+control-option: prms-legacy strmtemp_humidity_flag
+control-option: prms-legacy var_save_file
+control-option: pws AET_cbh_file
+control-option: pws ag_frac_dynamic
+control-option: pws calc_method
+control-option: pws dprst_flag
+control-option: pws dyn_ag_frac_flag
+control-option: pws dyn_fallfrost_flag
+control-option: pws dyn_springfrost_flag
+control-option: pws executable_desc
+control-option: pws fallfrost_dynamic
+control-option: pws imbalance_behavior
+control-option: pws init_vars_from_file
+control-option: pws input_dir
+control-option: pws input_file
+control-option: pws intcp_changeover_in_net_rain
+control-option: pws iter_aet_flag
+control-option: pws netcdf_output_dir
+control-option: pws netcdf_output_separate_files
+control-option: pws netcdf_output_var_names
+control-option: pws parameter_file
+control-option: pws restart_read
+control-option: pws restart_write
+control-option: pws restart_write_freq
+control-option: pws springfrost_dynamic
+control-option: pws start_time
+control-option: pws stream_temp_flag
+control-option: pws stream_temp_shade_flag
+control-option: pws streamflow_module
+control-option: pws strmtemp_humidity_flag
+control-option: pws time_step_units
+control-option: pws var_save_file
+control-option: pws verbosity
+export: Adapter
+export: AdapterNetcdf
+export: Budget
+export: ColorBrewer
+export: Control
+export: ControlVariables
+export: CsvFile
+export: DomainPlot
+export: FlowGraph
+export: FlowNode
+export: FlowNodeMaker
+export: HruNodeFlowExchange
+export: HruSegmentFlowAdapter
+export: HruSegmentFlowAdapter
+export: MakeStarfitParams
+export: MmrToMf6Dfw
+export: Model
+export: ModelGraph
+export: NetCdfRead
+export: NetCdfWrite
+export: ObsInFlowNode
+export: ObsInFlowNodeMaker
+export: Output
+export: PRMSAtmosphere
+export: PRMSAtmosphereTranspFrost
+export: PRMSAtmosphereTranspFrostDynamic
+export: PRMSCanopy
+export: PRMSChannel
+export: PRMSChannelFlowNode
+export: PRMSChannelFlowNodeMaker
+export: PRMSEt
+export: PRMSGroundwater
+export: PRMSGroundwaterNoDprst
+export: PRMSHydraulicGeometryFull
+export: PRMSHydraulicGeometryWidthOnly
+export: PRMSRunoff
+export: PRMSRunoffAg
+export: PRMSRunoffNoDprst
+export: PRMSSnow
+export: PRMSSoilzone
+export: PRMSSoilzoneAg
+export: PRMSSoilzoneAgObsET
+export: PRMSSoilzoneNoDprst
+export: PRMSSolarGeometry
+export: PRMSStreamShadeConstant
+export: PRMSStreamShadeDynamic
+export: PRMSStreamTemp
+export: PRMSStreamTempHumidityCBH
+export: Parameters
+export: PassThroughFlowNode
+export: PassThroughFlowNodeMaker
+export: Process
+export: Soltab
+export: SourceSinkFlowNode
+export: SourceSinkFlowNodeMaker
+export: Starfit
+export: StarfitFlowNode
+export: StarfitFlowNodeMaker
+export: StarfitSourceSinkFlowNode
+export: StarfitSourceSinkFlowNodeMaker
+export: TimeseriesArray
+export: __version__
+export: adapter_factory
+export: addtl_domain_files
+export: gis_files
+export: meta
+export: prms_channel_flow_graph_postprocess
+export: prms_channel_flow_graph_to_model_dict
+export: prms_segment_lateral_inflow_components_to_netcdf
+func: adapter_factory(var, variable_name=None, control=None, load_n_time_batches=1)
+func: prms_channel_flow_graph_postprocess(control, input_dir, prms_channel_dis, prms_channel_params, new_nodes_maker_dict, new_nodes_maker_names, new_nodes_maker_indices, new_nodes_maker_ids, new_nodes_flow_to_nhm_seg, addtl_output_vars=None, allow_disconnected_nodes=False, imbalance_behavior='defer', prms_channel_node_maker_name='prms_channel', type_check_nodes=False)
+func: prms_channel_flow_graph_to_model_dict(model_dict, prms_channel_dis, prms_channel_dis_name, prms_channel_params, new_nodes_maker_dict, new_nodes_maker_names, new_nodes_maker_indices, new_nodes_maker_ids, new_nodes_flow_to_nhm_seg, addtl_output_vars=None, graph_imbalance_behavior='defer', allow_disconnected_nodes=False, prms_channel_node_maker_name='prms_channel')
+func: prms_segment_lateral_inflow_components_to_netcdf(control, parameters, input_dir, nc_out_file_path, output_sum=False)
+init: Adapter(self, variable)
+init: AdapterNetcdf(self, fname, variable, control, load_n_time_batches=1)
+init: Budget(self, control, inputs, outputs, storage_changes, exchanges=None, init_accumulations=None, accum_start_time=None, units=None, time_unit='D', description=None, rtol=1e-05, atol=1e-05, basis='unit', imbalance_fatal=False, ignore_nans=False, unit_desc='', verbose=True)
+init: ColorBrewer(self)
+init: Control(self, start_time, end_time, time_step, init_time=None, options=None, only_warn_invalid=False)
+init: ControlVariables(self, control_dict)
+init: CsvFile(self, path=None, convert=False)
+init: DomainPlot(self, hru_shp_file=None, segment_shp_file=None, hru_parameters=None, segment_parameters=None, hru_parameter_names=None, segment_parameter_names=None, hru_highlight_indices=None, segment_highlight_indices=None, more_layers=None, add_layercontrol=True, crs=4326, start_lat=None, start_lon=None, start_zoom=7, display_plot=True, return_plot=False)
+init: FlowGraph(self, control, discretization, parameters, inflows, node_maker_dict, addtl_output_vars=None, params_not_to_netcdf=None, imbalance_behavior='defer', allow_disconnected_nodes=False, type_check_nodes=False, input_aliases=None, verbose=None)
+init: FlowNode(self, control)
+init: FlowNodeMaker(self, discretization=None, parameters=None)
+init: HruNodeFlowExchange(self, control, discretization, parameters, sroff_vol, ssres_flow_vol, gwres_flow_vol, imbalance_behavior='defer', input_aliases=None, verbose=None)
+init: HruSegmentFlowAdapter(self, parameters, sroff_vol, ssres_flow_vol, gwres_flow_vol)
+init: HruSegmentFlowAdapter(self, parameters, sroff_vol, ssres_flow_vol, gwres_flow_vol)
+init: MakeStarfitParams(self, control_file, grand_file, grand_nhm_seg_crosswalk_file, starfit_param_csv_file, resops_inflow_file, resops_outflow_file, resops_storage_file, seg_shp_file=None, hru_shp_file=None, prms_gpkg_file=None)
+init: MmrToMf6Dfw(self, control_file=None, control=None, start_time=None, end_time=None, tdis_perlen=86400, tdis_nstp=1, param_file=None, params=None, segment_shp_file=None, output_dir=PosixPath('.'), bc_binary_files=False, bc_flows_combined=False, sim_name='mmr_to_dfw', inflow_dir=None, inflow_from_PRMS=True, save_flows=True, time_zone='UTC', write_on_init=False, chd_options=None, cxs_options=None, disv1d_options=None, dfw_options=None, dfw_griddata=None, flw_options=None, ic_options=None, ims_options=None, oc_options=None, sto_options=None)
+init: Model(self, process_list_or_model_dict, control=None, parameters=None, find_input_files=True, write_control=False, output_obj_kwargs_dict=None, input_aliases=None)
+init: ModelGraph(self, model, show_params=False, process_colors=None, node_penwidth=2, edge_penwidth=1.5, edge_arrowsize=1.2, default_edge_color='black', from_file_edge_color=None, hide_variables=True)
+init: NetCdfRead(self, name, start_time=None, end_time=None, nc_read_vars=None, load_n_times=None, load_n_time_batches=1)
+init: NetCdfWrite(self, name, coordinates, variables, var_meta, extra_coords=None, global_attrs=None, time_units='days since 1970-01-01 00:00:00', clobber=True, zlib=True, complevel=4, chunk_sizes={'time': 1, 'hruid': 0})
+init: ObsInFlowNode(self, control, node_obs_data)
+init: ObsInFlowNodeMaker(self, parameters, obs_data)
+init: Output(self, control, model, monthly_accum_var_list=None, noi_var_list=None, noi_ids=None, noi_stats=None, hoi_var_list=None, hoi_ids=None, hoi_stats=None, netcdf_output_action='error', chunked_var_list=None, chunked_output_file=None, chunk_sizes=None, chunk_size_auto_warn=True)
+init: PRMSAtmosphere(self, control, discretization, parameters, prcp, tmax, tmin, soltab_potsw, soltab_horad_potsw, input_aliases=None, verbose=False, restart_read=False, restart_write=False, restart_write_freq=False)
+init: PRMSAtmosphereTranspFrost(self, control, discretization, parameters, prcp, tmax, tmin, soltab_potsw, soltab_horad_potsw, input_aliases=None, verbose=False, restart_read=False, restart_write=False, restart_write_freq=False)
+init: PRMSAtmosphereTranspFrostDynamic(self, control, discretization, parameters, prcp, tmax, tmin, soltab_potsw, soltab_horad_potsw, fall_frost_dyn=None, spring_frost_dyn=None, input_aliases=None, verbose=False, restart_read=False, restart_write=False, restart_write_freq=False)
+init: PRMSCanopy(self, control, discretization, parameters, pkwater_ante, transp_on, hru_ppt, hru_rain, hru_snow, potet, pptmix, imbalance_behavior='defer', calc_method=None, input_aliases=None, verbose=None, restart_read=False, restart_write=False, restart_write_freq=False)
+init: PRMSChannel(self, control, discretization, parameters, sroff_vol, ssres_flow_vol, gwres_flow_vol, imbalance_behavior='defer', calc_method=None, adjust_parameters='warn', input_aliases=None, verbose=None, restart_read=False, restart_write=False, restart_write_freq=False)
+init: PRMSChannelFlowNode(self, control, tsi, ts, c0, c1, c2, calc_method=None)
+init: PRMSChannelFlowNodeMaker(self, discretization, parameters, calc_method=None, verbose=None)
+init: PRMSEt(self, control, discretization, parameters, potet, hru_impervevap, hru_intcpevap, snow_evap, dprst_evap_hru, perv_actet, input_aliases=None, verbose=False, imbalance_behavior='defer')
+init: PRMSGroundwater(self, control, discretization, parameters, soil_to_gw, ssr_to_gw, dprst_seep_hru, dprst_flag=None, imbalance_behavior='defer', calc_method=None, input_aliases=None, verbose=None, restart_read=False, restart_write=False, restart_write_freq=False)
+init: PRMSGroundwaterNoDprst(self, control, discretization, parameters, soil_to_gw, ssr_to_gw, imbalance_behavior='defer', calc_method=None, input_aliases=None, verbose=None, restart_read=False, restart_write=False, restart_write_freq=False)
+init: PRMSHydraulicGeometryFull(self, control, discretization, parameters, seg_outflow, input_aliases=None, verbose=False)
+init: PRMSHydraulicGeometryWidthOnly(self, control, discretization, parameters, seg_outflow, input_aliases=None, verbose=False)
+init: PRMSRunoff(self, control, discretization, parameters, soil_lower_prev, soil_rechr_prev, net_ppt, net_rain, net_snow, potet, snowmelt, snow_evap, pkwater_equiv, pptmix_nopack, snowcov_area, through_rain, hru_intcpevap, intcp_changeover, dprst_flag=None, intcp_changeover_in_net_rain=False, imbalance_behavior='defer', calc_method=None, input_aliases=None, verbose=None, restart_read=False, restart_write=False, restart_write_freq=False)
+init: PRMSRunoffAg(self, control, discretization, parameters, soil_lower_prev, soil_rechr_prev, net_ppt, net_rain, net_snow, potet, snowmelt, snow_evap, pkwater_equiv, pptmix_nopack, snowcov_area, through_rain, hru_intcpevap, intcp_changeover, ag_soil_moist_prev, ag_soil_rechr_prev, ag_frac, dprst_flag=None, intcp_changeover_in_net_rain=None, imbalance_behavior='defer', calc_method=None, input_aliases=None, verbose=None, restart_read=False, restart_write=False, restart_write_freq=False)
+init: PRMSRunoffNoDprst(self, control, discretization, parameters, soil_lower_prev, soil_rechr_prev, net_ppt, net_rain, net_snow, potet, snowmelt, snow_evap, pkwater_equiv, pptmix_nopack, snowcov_area, through_rain, hru_intcpevap, intcp_changeover, intcp_changeover_in_net_rain=False, imbalance_behavior='defer', calc_method=None, input_aliases=None, verbose=None, restart_read=False, restart_write=False, restart_write_freq=False)
+init: PRMSSnow(self, control, discretization, parameters, orad_hru, soltab_horad_potsw, swrad, hru_intcpevap, hru_ppt, potet, pptmix, prmx, tavgc, tmaxc, tminc, net_ppt, net_rain, net_snow, transp_on, imbalance_behavior='defer', calc_method=None, input_aliases=None, verbose=None, restart_read=False, restart_write=False, restart_write_freq=False)
+init: PRMSSoilzone(self, control, discretization, parameters, dprst_evap_hru, dprst_seep_hru, hru_impervevap, hru_intcpevap, infil_hru, sroff, sroff_vol, potet, transp_on, snow_evap, snowcov_area, dprst_flag=None, imbalance_behavior='defer', calc_method=None, adjust_parameters='warn', input_aliases=None, verbose=None, restart_read=False, restart_write=False, restart_write_freq=False)
+init: PRMSSoilzoneAg(self, control, discretization, parameters, dprst_evap_hru, dprst_seep_hru, hru_impervevap, hru_intcpevap, infil, infil_ag, sroff, sroff_vol, potet, transp_on, snow_evap, snowcov_area, ag_frac, dprst_flag=None, imbalance_behavior='defer', calc_method=None, adjust_parameters='warn', input_aliases=None, verbose=None, restart_read=False, restart_write=False, restart_write_freq=False)
+init: PRMSSoilzoneAgObsET(self, control, discretization, parameters, dprst_evap_hru, dprst_seep_hru, hru_impervevap, hru_intcpevap, infil, infil_ag, sroff, sroff_vol, potet, transp_on, snow_evap, snowcov_area, ag_frac, aet_observed, dprst_flag=None, imbalance_behavior='defer', calc_method=None, adjust_parameters='warn', input_aliases=None, verbose=None, restart_read=False, restart_write=False, restart_write_freq=False)
+init: PRMSSoilzoneNoDprst(self, control, discretization, parameters, hru_impervevap, hru_intcpevap, infil_hru, sroff, sroff_vol, potet, transp_on, snow_evap, snowcov_area, imbalance_behavior='defer', calc_method=None, adjust_parameters='warn', input_aliases=None, verbose=None, restart_read=False, restart_write=False, restart_write_freq=False)
+init: PRMSSolarGeometry(self, control, discretization, parameters, input_aliases=None, verbose=False, from_prms_file=None, from_nc_files_dir=None, restart_read=False, restart_write=False, restart_write_freq=False)
+init: PRMSStreamShadeConstant(self, parameters, discretization=None)
+init: PRMSStreamShadeDynamic(self, parameters, discretization=None)
+init: PRMSStreamTemp(self, control, discretization, parameters, seg_outflow, seg_lateral_inflow, swrad, potet, sroff, ssres_flow, gwres_flow, tavgc, snowmelt, hru_rain, soltab_potsw, seg_flow_width=None, seg_flow_depth=None, seg_flow_area=None, seg_flow_velocity=None, stream_shade=None, stream_shade_class=None, stream_shade_parameters=None, calc_method=None, imbalance_behavior='defer', input_aliases=None, verbose=False, use_vectorized_shade=True, track_energy_fluxes=True, atmos_exchange_factor=1.0)
+init: PRMSStreamTempHumidityCBH(self, control, discretization, parameters, seg_outflow, seg_lateral_inflow, swrad, potet, sroff, ssres_flow, gwres_flow, tavgc, snowmelt, hru_rain, soltab_potsw, humidity_hru, seg_flow_width=None, seg_flow_depth=None, seg_flow_area=None, seg_flow_velocity=None, stream_shade=None, stream_shade_class=None, stream_shade_parameters=None, calc_method=None, imbalance_behavior='defer', input_aliases=None, verbose=False, use_vectorized_shade=True, track_energy_fluxes=True, atmos_exchange_factor=1.0)
+init: Parameters(self, dims=None, coords=None, data_vars=None, metadata=None, encoding=None, validate=True, copy=True)
+init: PassThroughFlowNode(self, control)
+init: PassThroughFlowNodeMaker(self)
+init: Process(self, control, discretization, parameters, input_aliases=None, metadata_patches=None, metadata_patch_conflicts='error', restart_read=False, restart_write=False, restart_write_freq=False)
+init: Soltab(self, soltab_file=None, soltab_sunhrs_file=None, soltab_potsw_file=None, soltab_horad_potsw_file=None, output_dir=None, nhm_ids=None, chunk_sizes={'doy': 0, 'nhm_id': 0})
+init: SourceSinkFlowNode(self, control, flow_min, source_sink_data, missing_data_as_zero=False)
+init: SourceSinkFlowNodeMaker(self, parameters, source_sink_df, missing_data_as_zero=False)
+init: Starfit(self, control, discretization, parameters, lake_inflow, imbalance_behavior='defer', input_aliases=None, verbose=False, load_n_time_batches=1, io_in_cfs=True)
+init: StarfitFlowNode(self, control, grand_id, initial_storage, start_time, end_time, inflow_mean, NORhi_min, NORhi_max, NORhi_alpha, NORhi_beta, NORhi_mu, NORlo_min, NORlo_max, NORlo_alpha, NORlo_beta, NORlo_mu, Release_min, Release_max, Release_alpha1, Release_alpha2, Release_beta1, Release_beta2, Release_p1, Release_p2, Release_c, GRanD_CAP_MCM, Obs_MEANFLOW_CUMECS, calc_method=None, io_in_cfs=True, compute_daily=False, nhrs_substep=None, imbalance_behavior=None)
+init: StarfitFlowNodeMaker(self, discretization, parameters, calc_method=None, io_in_cfs=True, verbose=None, compute_daily=False, imbalance_behavior=None, nhrs_substep=None)
+init: StarfitSourceSinkFlowNode(self, control, grand_id, initial_storage, start_time, end_time, inflow_mean, NORhi_min, NORhi_max, NORhi_alpha, NORhi_beta, NORhi_mu, NORlo_min, NORlo_max, NORlo_alpha, NORlo_beta, NORlo_mu, Release_min, Release_max, Release_alpha1, Release_alpha2, Release_beta1, Release_beta2, Release_p1, Release_p2, Release_c, GRanD_CAP_MCM, Obs_MEANFLOW_CUMECS, source_sink_storage_min, source_sink_data, missing_data_as_zero=False, calc_method=None, io_in_cfs=True, nhrs_substep=np.float64(1.0), imbalance_behavior=None)
+init: StarfitSourceSinkFlowNodeMaker(self, discretization, parameters, source_sink_df, missing_data_as_zero=False, calc_method=None, io_in_cfs=True, verbose=None, imbalance_behavior=None, nhrs_substep=1)
+init: TimeseriesArray(self, control, var_name, array, time=None)
+meta-param: K_coef type=F units=hours
+meta-param: adjmix_rain type=F units=decimal fraction
+meta-param: ag_contrib_fraction type=F units=decimal fraction
+meta-param: ag_cov_type type=I units=none
+meta-param: ag_covden_sum type=F units=decimal fraction
+meta-param: ag_covden_win type=F units=decimal fraction
+meta-param: ag_frac type=F units=decimal fraction
+meta-param: ag_soil2gw_max type=F units=inches
+meta-param: ag_soil_moist_init_frac type=F units=decimal fraction
+meta-param: ag_soil_moist_max type=F units=inches
+meta-param: ag_soil_rechr_init_frac type=F units=decimal fraction
+meta-param: ag_soil_rechr_max_frac type=F units=decimal fraction
+meta-param: ag_soil_type type=I units=none
+meta-param: ag_soilwater_deficit_min type=F units=fraction
+meta-param: albedo type=F units=decimal fraction
+meta-param: albset_rna type=F units=decimal fraction
+meta-param: albset_rnm type=F units=decimal fraction
+meta-param: albset_sna type=F units=inches
+meta-param: albset_snm type=F units=inches
+meta-param: alte type=F units=radians
+meta-param: altw type=F units=radians
+meta-param: azrh type=F units=radians
+meta-param: basin_fall_frost type=I units=Solar date
+meta-param: basin_solsta type=I units=none
+meta-param: basin_spring_frost type=I units=Solar date
+meta-param: basin_tsta type=I units=none
+meta-param: carea_max type=F units=decimal fraction
+meta-param: carea_min type=F units=decimal fraction
+meta-param: cascade_flg type=I units=none
+meta-param: cascade_tol type=F units=acres
+meta-param: ccov_intcp type=F units=none
+meta-param: ccov_slope type=F units=none
+meta-param: cecn_coef type=F units=calories per degree Celsius above 0
+meta-param: circle_switch type=I units=none
+meta-param: cov_type type=I units=none
+meta-param: covden_sum type=F units=decimal fraction
+meta-param: covden_win type=F units=decimal fraction
+meta-param: crad_coef type=F units=none
+meta-param: crad_exp type=F units=none
+meta-param: crop_coef type=F units=decimal fraction
+meta-param: dday_intcp type=F units=dday
+meta-param: dday_slope type=F units=dday/temp_units
+meta-param: den_init type=F units=gm/cm3
+meta-param: den_max type=F units=gm/cm3
+meta-param: depth_alpha type=F units=meters
+meta-param: depth_m type=F units=none
+meta-param: dist_max type=F units=feet
+meta-param: doy type=I units=day index
+meta-param: dprst_depth_avg type=F units=inches
+meta-param: dprst_et_coef type=F units=decimal fraction
+meta-param: dprst_flow_coef type=F units=fraction/day
+meta-param: dprst_frac type=F units=decimal fraction
+meta-param: dprst_frac_init type=F units=decimal fraction
+meta-param: dprst_frac_open type=F units=decimal fraction
+meta-param: dprst_seep_rate_clos type=F units=fraction/day
+meta-param: dprst_seep_rate_open type=F units=fraction/day
+meta-param: elev_outflow type=F units=feet
+meta-param: elev_units type=I units=none
+meta-param: elevlake_init type=F units=feet
+meta-param: emis_noppt type=F units=decimal fraction
+meta-param: epan_coef type=F units=decimal fraction
+meta-param: fall_frost type=I units=Solar date
+meta-param: fastcoef_lin type=F units=fraction/day
+meta-param: fastcoef_sq type=F units=none
+meta-param: freeh2o_cap type=F units=decimal fraction
+meta-param: from_segment type=I units=1-based index
+meta-param: from_segment_ends type=I units=1-based index
+meta-param: from_segment_starts type=I units=1-based index
+meta-param: frost_temp type=F units=temp_units
+meta-param: gvr_cell_id type=I units=none
+meta-param: gvr_cell_pct type=F units=decimal fraction
+meta-param: gvr_hru_id type=I units=none
+meta-param: gw_down_id type=I units=none
+meta-param: gw_init type=F units=degrees Celsius
+meta-param: gw_pct_up type=F units=decimal fraction
+meta-param: gw_seep_coef type=F units=fraction/day
+meta-param: gw_strmseg_down_id type=I units=none
+meta-param: gw_tau type=I units=days
+meta-param: gw_up_id type=I units=none
+meta-param: gwflow_coef type=F units=fraction/day
+meta-param: gwsink_coef type=F units=fraction/day
+meta-param: gwstor_init type=F units=inches
+meta-param: gwstor_min type=F units=inches
+meta-param: hamon_coef type=F units=none
+meta-param: hru_area type=F units=acres
+meta-param: hru_aspect type=F units=angular degrees
+meta-param: hru_deplcrv type=I units=none
+meta-param: hru_down_id type=I units=none
+meta-param: hru_elev type=F units=elev_units
+meta-param: hru_humidity_sta type=I units=none
+meta-param: hru_in_to_cf type=F units=cubic feet
+meta-param: hru_lat type=F units=degrees North
+meta-param: hru_lon type=F units=degrees East
+meta-param: hru_pansta type=I units=none
+meta-param: hru_pct_up type=F units=decimal fraction
+meta-param: hru_percent_imperv type=F units=decimal fraction
+meta-param: hru_plaps type=I units=none
+meta-param: hru_psta type=I units=none
+meta-param: hru_segment type=I units=none
+meta-param: hru_segment_nhm type=I units=none
+meta-param: hru_slope type=F units=decimal fraction
+meta-param: hru_solsta type=I units=none
+meta-param: hru_strmseg_down_id type=I units=none
+meta-param: hru_subbasin type=I units=none
+meta-param: hru_tlaps type=I units=none
+meta-param: hru_tsta type=I units=none
+meta-param: hru_type type=I units=none
+meta-param: hru_up_id type=I units=none
+meta-param: hru_windspeed_sta type=I units=none
+meta-param: hru_x type=F units=meters
+meta-param: hru_xlong type=F units=feet
+meta-param: hru_y type=F units=meters
+meta-param: hru_ylat type=F units=feet
+meta-param: hs_krs type=F units=decimal fraction
+meta-param: humidity_percent type=F units=percentage
+meta-param: imperv_stor_max type=F units=inches
+meta-param: irr_type type=I units=none
+meta-param: jh_coef type=F units=per degrees Fahrenheit
+meta-param: jh_coef_hru type=F units=degrees Fahrenheit
+meta-param: lake_coef type=F units=fraction/day
+meta-param: lake_din1 type=F units=cfs
+meta-param: lake_evap_adj type=F units=decimal fraction
+meta-param: lake_hru_id type=I units=none
+meta-param: lake_init type=F units=cfs-days
+meta-param: lake_out2 type=I units=none
+meta-param: lake_out2_a type=F units=cfs/ft
+meta-param: lake_out2_b type=F units=cfs
+meta-param: lake_qro type=F units=cfs
+meta-param: lake_seep_elev type=F units=feet
+meta-param: lake_segment_id type=I units=none
+meta-param: lake_type type=I units=none
+meta-param: lake_vol_init type=F units=acre-feet
+meta-param: lapsemax_max type=F units=temp_units/feet
+meta-param: lapsemax_min type=F units=temp_units/feet
+meta-param: lapsemin_max type=F units=temp_units/feet
+meta-param: lapsemin_min type=F units=temp_units/feet
+meta-param: lat_temp_adj type=F units=decimal fraction
+meta-param: mann_n type=F units=seconds / meter ** (1/3)
+meta-param: mapvars_freq type=I units=none
+meta-param: mapvars_units type=I units=none
+meta-param: max_missing type=I units=none
+meta-param: max_psta type=I units=none
+meta-param: max_soilzone_ag_iter type=I units=none
+meta-param: max_tsta type=I units=none
+meta-param: maxday_prec type=F units=precip_units
+meta-param: maxiter_sntemp type=I units=none
+meta-param: melt_force type=I units=Julian day
+meta-param: melt_look type=I units=Julian day
+meta-param: melt_temp type=F units=degrees Celsius
+meta-param: monmax type=F units=temp_units
+meta-param: monmin type=F units=temp_units
+meta-param: ncol type=I units=none
+meta-param: nhm_deplcrv type=I units=none
+meta-param: nhm_id type=I units=none
+meta-param: nhm_seg type=I units=none
+meta-param: nsos type=I units=none
+meta-param: o2 type=F units=cfs
+meta-param: obsin_segment type=I units=none
+meta-param: obsout_lake type=I units=none
+meta-param: obsout_segment type=I units=none
+meta-param: op_flow_thres type=F units=decimal fraction
+meta-param: outlet_sta type=I units=none
+meta-param: padj_rn type=F units=precip_units
+meta-param: padj_sn type=F units=precip_units
+meta-param: parent_gw type=I units=none
+meta-param: parent_hru type=I units=none
+meta-param: parent_poigages type=I units=none
+meta-param: parent_segment type=I units=none
+meta-param: parent_ssr type=I units=none
+meta-param: pm_d_coef type=F units=seconds/meters
+meta-param: pm_n_coef type=F units=degrees Celsius per day
+meta-param: pmn_mo type=F units=precip_units
+meta-param: poi_gage_id type=S units=none
+meta-param: poi_gage_segment type=I units=none
+meta-param: poi_type type=I units=none
+meta-param: potet_cbh_adj type=F units=decimal fraction
+meta-param: potet_sublim type=F units=decimal fraction
+meta-param: ppt_rad_adj type=F units=inches
+meta-param: ppt_zero_thresh type=F units=inches
+meta-param: precip_units type=I units=none
+meta-param: pref_flow_den type=F units=decimal fraction
+meta-param: pref_flow_infil_frac type=F units=decimal fraction
+meta-param: print_freq type=I units=none
+meta-param: print_type type=I units=none
+meta-param: psta_elev type=F units=elev_units
+meta-param: psta_mon type=F units=precip_units
+meta-param: psta_xlong type=F units=feet
+meta-param: psta_ylat type=F units=feet
+meta-param: pt_alpha type=F units=decimal fraction
+meta-param: rad_conv type=F units=Langleys/radiation units
+meta-param: rad_trncf type=F units=decimal fraction
+meta-param: radadj_intcp type=F units=dday
+meta-param: radadj_slope type=F units=dday/temp_units
+meta-param: radj_sppt type=F units=decimal fraction
+meta-param: radj_wppt type=F units=decimal fraction
+meta-param: radmax type=F units=decimal fraction
+meta-param: rain_adj type=F units=decimal fraction
+meta-param: rain_cbh_adj type=F units=decimal fraction
+meta-param: rain_code type=I units=none
+meta-param: rain_mon type=F units=precip_units
+meta-param: rate_table type=F units=cfs
+meta-param: rate_table2 type=F units=cfs
+meta-param: rate_table3 type=F units=cfs
+meta-param: rate_table4 type=F units=cfs
+meta-param: ratetbl_lake type=I units=none
+meta-param: runoff_units type=I units=none
+meta-param: s2 type=F units=cfs-days
+meta-param: sat_threshold type=F units=inches
+meta-param: seg_close type=I units=none
+meta-param: seg_cum_area type=F units=unknown
+meta-param: seg_depth type=F units=meter
+meta-param: seg_elev type=F units=meters
+meta-param: seg_humidity type=F units=decimal fraction
+meta-param: seg_humidity_sta type=I units=none
+meta-param: seg_lat type=F units=degrees north
+meta-param: seg_length type=F units=meters
+meta-param: seg_slope type=F units=decimal fraction
+meta-param: seg_summer_humidity type=F units=decimal fraction
+meta-param: seg_width type=F units=meter
+meta-param: seg_winter_humidity type=F units=decimal fraction
+meta-param: segment_flow_init type=F units=cfs
+meta-param: segment_type type=I units=none
+meta-param: segshade_sum type=F units=decimal fraction
+meta-param: segshade_win type=F units=decimal fraction
+meta-param: settle_const type=F units=decimal fraction
+meta-param: slowcoef_lin type=F units=fraction/day
+meta-param: slowcoef_sq type=F units=none
+meta-param: smidx_coef type=F units=decimal fraction
+meta-param: smidx_exp type=F units=1.0/inch
+meta-param: snarea_curve type=F units=decimal fraction
+meta-param: snarea_thresh type=F units=inches
+meta-param: snow_adj type=F units=decimal fraction
+meta-param: snow_cbh_adj type=F units=decimal fraction
+meta-param: snow_intcp type=F units=inches
+meta-param: snow_mon type=F units=precip_units
+meta-param: snowinfil_max type=F units=inches/day
+meta-param: snowpack_init type=F units=inches
+meta-param: soil2gw_max type=F units=inches
+meta-param: soil_moist_init_frac type=F units=decimal fraction
+meta-param: soil_moist_max type=F units=inches
+meta-param: soil_rechr_init_frac type=F units=decimal fraction
+meta-param: soil_rechr_max_frac type=F units=decimal fraction
+meta-param: soil_type type=I units=none
+meta-param: soilzone_aet_converge type=F units=unknown
+meta-param: spring_frost type=I units=Solar date
+meta-param: srain_intcp type=F units=inches
+meta-param: sro_to_dprst_imperv type=F units=decimal fraction
+meta-param: sro_to_dprst_perv type=F units=decimal fraction
+meta-param: ss_init type=F units=degrees Celsius
+meta-param: ss_tau type=I units=days
+meta-param: ssr2gw_exp type=F units=none
+meta-param: ssr2gw_rate type=F units=fraction/day
+meta-param: ssstor_init_frac type=F units=decimal fraction
+meta-param: stream_tave_init type=F units=unknown
+meta-param: stream_temp_shade_flag type=I units=none
+meta-param: subbasin_down type=I units=none
+meta-param: tbl_gate type=F units=inches
+meta-param: tbl_gate2 type=F units=inches
+meta-param: tbl_gate3 type=F units=inches
+meta-param: tbl_gate4 type=F units=inches
+meta-param: tbl_stage type=F units=feet
+meta-param: tbl_stage2 type=F units=feet
+meta-param: tbl_stage3 type=F units=feet
+meta-param: tbl_stage4 type=F units=feet
+meta-param: temp_units type=I units=none
+meta-param: tmax_adj type=F units=temp_units
+meta-param: tmax_allrain_offset type=F units=temp_units
+meta-param: tmax_allsnow type=F units=temp_units
+meta-param: tmax_cbh_adj type=F units=temp_units
+meta-param: tmax_index type=F units=temp_units
+meta-param: tmax_lapse type=F units=temp_units/elev_units
+meta-param: tmin_adj type=F units=temp_units
+meta-param: tmin_cbh_adj type=F units=temp_units
+meta-param: tmin_lapse type=F units=temp_units/elev_units
+meta-param: tosegment type=I units=none
+meta-param: tosegment_nhm type=I units=none
+meta-param: transp_beg type=I units=month
+meta-param: transp_end type=I units=month
+meta-param: transp_tmax type=F units=temp_units
+meta-param: tsta_elev type=F units=elev_units
+meta-param: tsta_xlong type=F units=feet
+meta-param: tsta_ylat type=F units=feet
+meta-param: tstorm_mo type=I units=none
+meta-param: va_clos_exp type=F units=none
+meta-param: va_open_exp type=F units=none
+meta-param: vce type=F units=meters
+meta-param: vcw type=F units=meters
+meta-param: vdemn type=F units=decimal fraction
+meta-param: vdemx type=F units=decimal fraction
+meta-param: vdwmn type=F units=decimal fraction
+meta-param: vdwmx type=F units=decimal fraction
+meta-param: vhe type=F units=meters
+meta-param: vhw type=F units=meters
+meta-param: voe type=F units=meters
+meta-param: vow type=F units=meters
+meta-param: weir_coef type=F units=none
+meta-param: weir_len type=F units=feet
+meta-param: width_alpha type=F units=unknown
+meta-param: width_m type=F units=unknown
+meta-param: wrain_intcp type=F units=inches
+meta-param: x_coef type=F units=decimal fraction
+meta-var: AET_external type=float64 units=inches
+meta-var: KKITER type=int32 units=none
+meta-var: actet type=float64 units=inches
+meta-var: aet_observed type=float64 units=inches
+meta-var: ag_actet type=float64 units=inches
+meta-var: ag_aet_external_vol type=float64 units=acre-inches
+meta-var: ag_cap_infil_tot type=float64 units=inches
+meta-var: ag_hortonian type=float64 units=inches
+meta-var: ag_infil_hru type=float64 units=inches
+meta-var: ag_irrigation_add type=float64 units=inches
+meta-var: ag_irrigation_add_vol type=float64 units=acre-inches
+meta-var: ag_irrigation_hru_source type=float64 units=inches
+meta-var: ag_potet_lower type=float64 units=inches
+meta-var: ag_potet_rechr type=float64 units=inches
+meta-var: ag_soil_lower type=float64 units=inches
+meta-var: ag_soil_lower_change type=float64 units=inches
+meta-var: ag_soil_lower_change_hru type=float64 units=inches
+meta-var: ag_soil_lower_stor_max type=float64 units=inches
+meta-var: ag_soil_moist type=float64 units=inches
+meta-var: ag_soil_moist_change type=float64 units=inches
+meta-var: ag_soil_moist_change_hru type=float64 units=inches
+meta-var: ag_soil_moist_prev type=float64 units=inches
+meta-var: ag_soil_moist_redistribution type=float64 units=inches
+meta-var: ag_soil_rechr type=float64 units=inches
+meta-var: ag_soil_rechr_change type=float64 units=inches
+meta-var: ag_soil_rechr_change_hru type=float64 units=inches
+meta-var: ag_soil_rechr_max type=float64 units=inches
+meta-var: ag_soil_rechr_prev type=float64 units=inches
+meta-var: ag_soil_rechr_redistribution type=float64 units=inches
+meta-var: ag_soil_saturated type=int64 units=inches
+meta-var: ag_soil_to_gvr type=float64 units=inches
+meta-var: ag_soil_to_gw type=float64 units=inches
+meta-var: ag_soilwater_deficit type=float64 units=inches
+meta-var: ai type=float64 units=inches
+meta-var: albedo type=float64 units=decimal fraction
+meta-var: atmospheric_longwave type=float64 units=watts
+meta-var: basin_2ndstflow type=float64 units=inches
+meta-var: basin_actet type=float64 units=inches
+meta-var: basin_actet_mo type=float64 units=inches
+meta-var: basin_actet_tot type=float64 units=inches
+meta-var: basin_actet_yr type=float64 units=inches
+meta-var: basin_cap_infil_tot type=float64 units=inches
+meta-var: basin_cap_up_max type=float64 units=inches
+meta-var: basin_capillary_wb type=float64 units=inches
+meta-var: basin_capwaterin type=float64 units=inches
+meta-var: basin_cfs type=float64 units=cfs
+meta-var: basin_cfs_mo type=float64 units=cfs
+meta-var: basin_cfs_tot type=float64 units=inches
+meta-var: basin_cfs_yr type=float64 units=cfs
+meta-var: basin_cloud_cover type=float64 units=decimal fraction
+meta-var: basin_cms type=float64 units=cms
+meta-var: basin_contrib_fraction type=float64 units=decimal fraction
+meta-var: basin_cpr_stor_frac type=float64 units=decimal fraction
+meta-var: basin_dncascadeflow type=float64 units=inches
+meta-var: basin_dndunnianflow type=float64 units=inches
+meta-var: basin_dninterflow type=float64 units=inches
+meta-var: basin_dprst_evap type=float64 units=inches
+meta-var: basin_dprst_seep type=float64 units=inches
+meta-var: basin_dprst_sroff type=float64 units=inches
+meta-var: basin_dprst_volcl type=float64 units=inches
+meta-var: basin_dprst_volop type=float64 units=inches
+meta-var: basin_dprst_wb type=float64 units=inches
+meta-var: basin_dunnian type=float64 units=inches
+meta-var: basin_dunnian_gvr type=float64 units=inches
+meta-var: basin_dunnian_pfr type=float64 units=inches
+meta-var: basin_gravity_wb type=float64 units=inches
+meta-var: basin_gvr2pfr type=float64 units=inches
+meta-var: basin_gvr2sm type=float64 units=inches
+meta-var: basin_gvr_stor_frac type=float64 units=decimal fraction
+meta-var: basin_gwflow type=float64 units=inches
+meta-var: basin_gwflow_cfs type=float64 units=cfs
+meta-var: basin_gwflow_mo type=float64 units=inches
+meta-var: basin_gwflow_tot type=float64 units=inches
+meta-var: basin_gwflow_yr type=float64 units=inches
+meta-var: basin_gwin type=float64 units=inches
+meta-var: basin_gwsink type=float64 units=inches
+meta-var: basin_gwstor type=float64 units=inches
+meta-var: basin_gwstor_minarea_wb type=float64 units=inches
+meta-var: basin_horad type=float64 units=Langleys
+meta-var: basin_hortonian type=float64 units=inches
+meta-var: basin_hortonian_lakes type=float64 units=inches
+meta-var: basin_hru_apply type=float64 units=inches
+meta-var: basin_humidity type=float64 units=percentage
+meta-var: basin_imperv_evap type=float64 units=inches
+meta-var: basin_imperv_stor type=float64 units=inches
+meta-var: basin_infil type=float64 units=inches
+meta-var: basin_intcp_evap type=float64 units=inches
+meta-var: basin_intcp_evap_mo type=float64 units=inches
+meta-var: basin_intcp_evap_tot type=float64 units=inches
+meta-var: basin_intcp_evap_yr type=float64 units=inches
+meta-var: basin_intcp_stor type=float64 units=inches
+meta-var: basin_interflow_max type=float64 units=inches
+meta-var: basin_lake_seep type=float64 units=acre-feet
+meta-var: basin_lake_stor type=float64 units=inches
+meta-var: basin_lakeevap type=float64 units=inches
+meta-var: basin_lakeinsz type=float64 units=inches
+meta-var: basin_lakeprecip type=float64 units=inches
+meta-var: basin_lapse_max type=float64 units=degrees
+meta-var: basin_lapse_min type=float64 units=degrees
+meta-var: basin_max_temp_mo type=float64 units=temp_units
+meta-var: basin_max_temp_tot type=float64 units=temp_units
+meta-var: basin_max_temp_yr type=float64 units=temp_units
+meta-var: basin_min_temp_mo type=float64 units=temp_units
+meta-var: basin_min_temp_tot type=float64 units=temp_units
+meta-var: basin_min_temp_yr type=float64 units=temp_units
+meta-var: basin_net_apply type=float64 units=inches
+meta-var: basin_net_ppt type=float64 units=inches
+meta-var: basin_net_ppt_mo type=float64 units=inches
+meta-var: basin_net_ppt_yr type=float64 units=inches
+meta-var: basin_net_rain type=float64 units=inches
+meta-var: basin_net_snow type=float64 units=inches
+meta-var: basin_obs_ppt type=float64 units=inches
+meta-var: basin_orad type=float64 units=Langleys
+meta-var: basin_perv_et type=float64 units=inches
+meta-var: basin_pfr_stor_frac type=float64 units=decimal fraction
+meta-var: basin_pk_precip type=float64 units=inches
+meta-var: basin_potet type=float64 units=inches
+meta-var: basin_potet_mo type=float64 units=inches
+meta-var: basin_potet_tot type=float64 units=inches
+meta-var: basin_potet_yr type=float64 units=temp_units
+meta-var: basin_potsw type=float64 units=Langleys
+meta-var: basin_ppt type=float64 units=inches
+meta-var: basin_ppt_mo type=float64 units=inches
+meta-var: basin_ppt_tot type=float64 units=inches
+meta-var: basin_ppt_yr type=float64 units=inches
+meta-var: basin_pref_flow_infil type=float64 units=inches
+meta-var: basin_pref_stor type=float64 units=inches
+meta-var: basin_prefflow type=float64 units=inches
+meta-var: basin_pweqv type=float64 units=inches
+meta-var: basin_radadj type=float64 units=decimal fraction
+meta-var: basin_rain type=float64 units=inches
+meta-var: basin_recharge type=float64 units=inches
+meta-var: basin_runoff_ratio type=float64 units=decimal fraction
+meta-var: basin_runoff_ratio_mo type=float64 units=decimal fraction
+meta-var: basin_segment_storage type=float64 units=inches
+meta-var: basin_slowflow type=float64 units=inches
+meta-var: basin_slstor type=float64 units=inches
+meta-var: basin_sm2gvr type=float64 units=inches
+meta-var: basin_sm2gvr_maxin type=float64 units=inches
+meta-var: basin_snow type=float64 units=inches
+meta-var: basin_snowcov type=float64 units=decimal fraction
+meta-var: basin_snowdepth type=float64 units=inches
+meta-var: basin_snowevap type=float64 units=inches
+meta-var: basin_snowmelt type=float64 units=inches
+meta-var: basin_snowmelt_mo type=float64 units=inches
+meta-var: basin_snowmelt_tot type=float64 units=inches
+meta-var: basin_snowmelt_yr type=float64 units=inches
+meta-var: basin_soil_lower_stor_frac type=float64 units=decimal fraction
+meta-var: basin_soil_moist type=float64 units=inches
+meta-var: basin_soil_moist_tot type=float64 units=inches
+meta-var: basin_soil_rechr type=float64 units=inches
+meta-var: basin_soil_rechr_stor_frac type=float64 units=decimal fraction
+meta-var: basin_soil_to_gw type=float64 units=inches
+meta-var: basin_soilzone_wb type=float64 units=inches
+meta-var: basin_sroff type=float64 units=inches
+meta-var: basin_sroff_cfs type=float64 units=cfs
+meta-var: basin_sroff_down type=float64 units=inches
+meta-var: basin_sroff_mo type=float64 units=inches
+meta-var: basin_sroff_tot type=float64 units=inches
+meta-var: basin_sroff_upslope type=float64 units=inches
+meta-var: basin_sroff_yr type=float64 units=inches
+meta-var: basin_sroffi type=float64 units=inches
+meta-var: basin_sroffp type=float64 units=inches
+meta-var: basin_ssflow type=float64 units=inches
+meta-var: basin_ssflow_cfs type=float64 units=cfs
+meta-var: basin_ssflow_mo type=float64 units=inches
+meta-var: basin_ssflow_tot type=float64 units=inches
+meta-var: basin_ssflow_yr type=float64 units=inches
+meta-var: basin_ssin type=float64 units=inches
+meta-var: basin_ssstor type=float64 units=inches
+meta-var: basin_stflow_in type=float64 units=inches
+meta-var: basin_stflow_mo type=float64 units=inches
+meta-var: basin_stflow_out type=float64 units=inches
+meta-var: basin_stflow_tot type=float64 units=inches
+meta-var: basin_stflow_yr type=float64 units=inches
+meta-var: basin_storage type=float64 units=inches
+meta-var: basin_storvol type=float64 units=acre-inches
+meta-var: basin_surface_storage type=float64 units=inches
+meta-var: basin_swale_et type=float64 units=inches
+meta-var: basin_swrad type=float64 units=Langleys
+meta-var: basin_sz2gw type=float64 units=inches
+meta-var: basin_sz_stor_frac type=float64 units=decimal fraction
+meta-var: basin_tcal type=float64 units=Langleys
+meta-var: basin_temp type=float64 units=temp_units
+meta-var: basin_tmax type=float64 units=temp_units
+meta-var: basin_tmin type=float64 units=temp_units
+meta-var: basin_total_storage type=float64 units=inches
+meta-var: basin_transp_on type=int32 units=none
+meta-var: basin_windspeed type=float64 units=meters/second
+meta-var: canopy_covden type=float64 units=decimal fraction
+meta-var: canopy_gain type=float64 units=cfs
+meta-var: canopy_gain_tot type=float64 units=cfs
+meta-var: cap_infil_tot type=float64 units=inches
+meta-var: cap_upflow_max type=float64 units=inches
+meta-var: cap_waterin type=float64 units=inches
+meta-var: cascade_dunnianflow type=float64 units=inches
+meta-var: cascade_interflow type=float64 units=inches
+meta-var: channel_gwres_flow_vol type=float64 units=cubicfeet
+meta-var: channel_outflow_vol type=float64 units=cubicfeet
+meta-var: channel_sroff_vol type=float64 units=cubicfeet
+meta-var: channel_ssres_flow_vol type=float64 units=cubicfeet
+meta-var: cloud_cover_hru type=float64 units=decimal fraction
+meta-var: cloud_radadj type=float64 units=decimal fraction
+meta-var: consumed_gain type=float64 units=cfs
+meta-var: consumed_gain_tot type=float64 units=cfs
+meta-var: contrib_fraction type=float64 units=decimal fraction
+meta-var: convective_exchange type=float64 units=watts
+meta-var: cpr_stor_frac type=float64 units=decimal fraction
+meta-var: din1 type=float64 units=cfs
+meta-var: dlit type=float64 units=hours
+meta-var: dprst_area_clos type=float64 units=acres
+meta-var: dprst_area_clos_max type=float64 units=acres
+meta-var: dprst_area_max type=float64 units=acres
+meta-var: dprst_area_open type=float64 units=acres
+meta-var: dprst_area_open_max type=float64 units=acres
+meta-var: dprst_evap_hru type=float64 units=inches
+meta-var: dprst_gain type=float64 units=cfs
+meta-var: dprst_gain_tot type=float64 units=cfs
+meta-var: dprst_insroff_hru type=float64 units=inches
+meta-var: dprst_seep_hru type=float64 units=inches
+meta-var: dprst_sroff_hru type=float64 units=inches
+meta-var: dprst_stor_hru type=float64 units=inches
+meta-var: dprst_stor_hru_change type=float64 units=inches
+meta-var: dprst_stor_hru_old type=float64 units=inches
+meta-var: dprst_transfer type=float64 units=cfs
+meta-var: dprst_transfer_tot type=float64 units=cfs
+meta-var: dprst_vol_clos type=float64 units=acre-inches
+meta-var: dprst_vol_clos_frac type=float64 units=decimal fraction
+meta-var: dprst_vol_frac type=float64 units=decimal fraction
+meta-var: dprst_vol_open type=float64 units=acre-inches
+meta-var: dprst_vol_open_frac type=float64 units=decimal fraction
+meta-var: dprst_vol_thres_open type=float64 units=unknown
+meta-var: dunnian_flow type=float64 units=inches
+meta-var: elevlake type=float64 units=feet
+meta-var: evaporative_cooling type=float64 units=watts
+meta-var: external_gain type=float64 units=cfs
+meta-var: external_gain_tot type=float64 units=cfs
+meta-var: external_transfer type=float64 units=cfs
+meta-var: external_transfer_tot type=float64 units=cfs
+meta-var: flow_headwater type=float64 units=cfs
+meta-var: flow_in_great_lakes type=float64 units=cfs
+meta-var: flow_in_nation type=float64 units=cfs
+meta-var: flow_in_region type=float64 units=cfs
+meta-var: flow_out type=float64 units=cfs
+meta-var: flow_out_NHM type=float64 units=cfs
+meta-var: flow_out_region type=float64 units=cfs
+meta-var: flow_replacement type=float64 units=cfs
+meta-var: flow_terminus type=float64 units=cfs
+meta-var: flow_to_great_lakes type=float64 units=cfs
+meta-var: flow_to_lakes type=float64 units=cfs
+meta-var: flow_to_ocean type=float64 units=cfs
+meta-var: frac_swe type=float64 units=decimal fraction
+meta-var: freeh2o type=float64 units=inches
+meta-var: freeh2o_change type=float64 units=inches
+meta-var: freeh2o_prev type=float64 units=inches
+meta-var: friction_heat type=float64 units=watts
+meta-var: gate_ht type=float64 units=inches
+meta-var: grav_gwin type=float64 units=inches
+meta-var: gravity_stor_res type=float64 units=inches
+meta-var: groundwater_conduction type=float64 units=watts
+meta-var: gvr2sm type=float64 units=inches
+meta-var: gvr_stor_frac type=float64 units=decimal fraction
+meta-var: gw2sm_grav type=float64 units=inches
+meta-var: gw_in_soil type=float64 units=acre-inches
+meta-var: gw_in_ssr type=float64 units=acre-inches
+meta-var: gw_seep_lakein type=float64 units=acre-feet
+meta-var: gw_upslope type=float64 units=acre-inches
+meta-var: gwr_gain type=float64 units=cfs
+meta-var: gwr_gain_tot type=float64 units=cfs
+meta-var: gwr_transfer type=float64 units=cfs
+meta-var: gwr_transfer_tot type=float64 units=cfs
+meta-var: gwres_flow type=float64 units=inches
+meta-var: gwres_flow_vol type=float64 units=cubicfeet
+meta-var: gwres_sink type=float64 units=inches
+meta-var: gwres_stor type=float64 units=inches
+meta-var: gwres_stor_change type=float64 units=inches
+meta-var: gwres_stor_old type=float64 units=inches
+meta-var: gwstor_minarea_wb type=float64 units=inches
+meta-var: heat_lateral type=float64 units=watts
+meta-var: heat_outflow type=float64 units=watts
+meta-var: heat_upstream type=float64 units=watts
+meta-var: hortonian_flow type=float64 units=inches
+meta-var: hortonian_lakes type=float64 units=inches
+meta-var: hru_actet type=float64 units=inches
+meta-var: hru_ag_actet type=float64 units=inches
+meta-var: hru_et_yr type=float64 units=inches
+meta-var: hru_frac_perv type=float64 units=decimal fraction
+meta-var: hru_gw_cascadeflow type=float64 units=inches
+meta-var: hru_hortn_cascflow type=float64 units=inches
+meta-var: hru_imperv type=float64 units=acres
+meta-var: hru_impervevap type=float64 units=inches
+meta-var: hru_impervstor type=float64 units=inches
+meta-var: hru_impervstor_change type=float64 units=inches
+meta-var: hru_impervstor_old type=float64 units=inches
+meta-var: hru_intcpevap type=float64 units=inches
+meta-var: hru_intcpstor type=float64 units=inches
+meta-var: hru_intcpstor_change type=float64 units=inches
+meta-var: hru_intcpstor_old type=float64 units=inches
+meta-var: hru_lateral_flow type=float64 units=inches
+meta-var: hru_outflow type=float64 units=cfs
+meta-var: hru_perv type=float64 units=acres
+meta-var: hru_perv_actet type=float64 units=inches
+meta-var: hru_ppt type=float64 units=inches
+meta-var: hru_rain type=float64 units=inches
+meta-var: hru_snow type=float64 units=inches
+meta-var: hru_sroff_ag type=float64 units=inches
+meta-var: hru_sroffi type=float64 units=inches
+meta-var: hru_sroffp type=float64 units=inches
+meta-var: hru_storage type=float64 units=inches
+meta-var: hru_streamflow_out type=float64 units=cfs
+meta-var: hru_sz_cascadeflow type=float64 units=inches
+meta-var: humidity type=float64 units=percentage
+meta-var: humidity_hru type=float64 units=percentage
+meta-var: iasw type=bool units=none
+meta-var: imperv_evap type=float64 units=inches
+meta-var: imperv_stor type=float64 units=inches
+meta-var: infil type=float64 units=inches
+meta-var: infil_ag type=float64 units=inches
+meta-var: infil_ag_hru type=float64 units=inches
+meta-var: infil_hru type=float64 units=inches
+meta-var: infil_perv_hru type=float64 units=inches
+meta-var: inflow_ts_prev type=float64 units=cfs
+meta-var: inflows type=float64 units=cfs
+meta-var: inflows_vol type=float64 units=cubicfeet
+meta-var: int_alb type=int32 units=none
+meta-var: intcp_changeover type=float64 units=inches
+meta-var: intcp_changeover_budget type=float64 units=inches
+meta-var: intcp_evap type=float64 units=inches
+meta-var: intcp_form type=int32 units=none
+meta-var: intcp_on type=int32 units=none
+meta-var: intcp_stor type=float64 units=inches
+meta-var: intcp_transp_on type=int32 units=none
+meta-var: interflow_max type=float64 units=inches
+meta-var: iso type=int32 units=none
+meta-var: iter_count type=int32 units=none
+meta-var: iter_end_status type=int32 units=none
+meta-var: lake_2gw type=float64 units=cfs
+meta-var: lake_availability_status type=float64 units=percent
+meta-var: lake_elev type=float64 units=feet
+meta-var: lake_evap type=float64 units=cfs
+meta-var: lake_gain type=float64 units=cfs
+meta-var: lake_gain_tot type=float64 units=cfs
+meta-var: lake_gwflow type=float64 units=cfs
+meta-var: lake_inflow type=float64 units=cubic meters per second
+meta-var: lake_interflow type=float64 units=cfs
+meta-var: lake_invol type=float64 units=acre-feet
+meta-var: lake_lateral_inflow type=float64 units=cfs
+meta-var: lake_outcfs type=float64 units=cfs
+meta-var: lake_outcms type=float64 units=cms
+meta-var: lake_outflow type=float64 units=cubic meters per second
+meta-var: lake_outq2 type=float64 units=cfs
+meta-var: lake_outvol type=float64 units=acre-inches
+meta-var: lake_outvol_ts type=float64 units=acre-inches
+meta-var: lake_precip type=float64 units=cfs
+meta-var: lake_release type=float64 units=cubic meters per second
+meta-var: lake_seep_in type=float64 units=cfs
+meta-var: lake_seepage type=float64 units=acre-feet
+meta-var: lake_seepage_gwr type=float64 units=inches
+meta-var: lake_spill type=float64 units=cubic meters per second
+meta-var: lake_sroff type=float64 units=cfs
+meta-var: lake_sto type=float64 units=cfs-days
+meta-var: lake_storage type=float64 units=cubic meters
+meta-var: lake_storage_change type=float64 units=cubic meters
+meta-var: lake_storage_change_flow_units type=float64 units=cubic meters per second
+meta-var: lake_storage_mcm type=float64 units=million cubic meters
+meta-var: lake_storage_old type=float64 units=cubic meters
+meta-var: lake_stream_in type=float64 units=cfs
+meta-var: lake_transfer type=float64 units=cfs
+meta-var: lake_transfer_tot type=float64 units=cfs
+meta-var: lake_vol type=float64 units=acre-feet
+meta-var: lakein_sz type=float64 units=inches
+meta-var: last_basin_stor type=float64 units=inches
+meta-var: longwave_emission type=float64 units=watts
+meta-var: longwave_vegetation type=float64 units=watts
+meta-var: lso type=int32 units=number of iterations
+meta-var: lst type=int32 units=none
+meta-var: lwrad_net type=float64 units=megajoules/m**2/day
+meta-var: mso type=int32 units=none
+meta-var: net_apply type=float64 units=inches
+meta-var: net_ppt type=float64 units=inches
+meta-var: net_rain type=float64 units=inches
+meta-var: net_snow type=float64 units=inches
+meta-var: newsnow type=int32 units=none
+meta-var: node_negative_sink_source type=float64 units=cfs
+meta-var: node_outflows type=float64 units=cfs
+meta-var: node_sink_source type=float64 units=cfs
+meta-var: node_storage_changes type=float64 units=cfs
+meta-var: node_storages type=float64 units=million cubic feet
+meta-var: node_upstream_inflows type=float64 units=cfs
+meta-var: obs_runoff_mo type=float64 units=cfs
+meta-var: obs_runoff_tot type=float64 units=cfs
+meta-var: obs_runoff_yr type=float64 units=cfs
+meta-var: obsq_inches type=float64 units=inches
+meta-var: obsq_inches_mo type=float64 units=inches
+meta-var: obsq_inches_tot type=float64 units=inches
+meta-var: obsq_inches_yr type=float64 units=inches
+meta-var: orad type=float64 units=Langleys
+meta-var: orad_hru type=float64 units=Langleys
+meta-var: outflow_ts type=float64 units=cfs
+meta-var: outflows type=float64 units=cfs
+meta-var: outflows_vol type=float64 units=cubicfeet
+meta-var: pan_evap type=float64 units=inches
+meta-var: perv_actet type=float64 units=inches
+meta-var: perv_actet_hru type=float64 units=inches
+meta-var: perv_avail_et type=float64 units=inches
+meta-var: perv_infil_hru type=float64 units=inches
+meta-var: perv_soil_to_gvr type=float64 units=inches
+meta-var: perv_soil_to_gw type=float64 units=inches
+meta-var: pet_observed type=float64 units=inches
+meta-var: pfr_stor_frac type=float64 units=decimal fraction
+meta-var: pk_def type=float64 units=Langleys
+meta-var: pk_den type=float64 units=gm/cm3
+meta-var: pk_depth type=float64 units=inches
+meta-var: pk_ice type=float64 units=inches
+meta-var: pk_ice_change type=float64 units=inches
+meta-var: pk_ice_prev type=float64 units=inches
+meta-var: pk_precip type=float64 units=inches
+meta-var: pk_temp type=float64 units=degrees Celsius
+meta-var: pksv type=float64 units=inches
+meta-var: pkwater_ante type=float64 units=inches
+meta-var: pkwater_equiv type=float64 units=inches
+meta-var: pkwater_equiv_change type=float64 units=inches
+meta-var: potet type=float64 units=inches
+meta-var: potet_lower type=float64 units=inches
+meta-var: potet_rechr type=float64 units=inches
+meta-var: pptmix type=int32 units=none
+meta-var: pptmix_nopack type=int32 units=none
+meta-var: prcp type=float64 units=inches
+meta-var: precip type=float64 units=precip_units
+meta-var: pref_flow type=float64 units=inches
+meta-var: pref_flow_in type=float64 units=inches
+meta-var: pref_flow_infil type=float64 units=inches
+meta-var: pref_flow_max type=float64 units=inches
+meta-var: pref_flow_stor type=float64 units=inches
+meta-var: pref_flow_stor_change type=float64 units=inches
+meta-var: pref_flow_stor_prev type=float64 units=inches
+meta-var: pref_flow_thrsh type=float64 units=inches
+meta-var: prmx type=float64 units=decimal fraction
+meta-var: pss type=float64 units=inches
+meta-var: pst type=float64 units=inches
+meta-var: rain_day type=int32 units=none
+meta-var: recharge type=float64 units=inches
+meta-var: release type=float64 units=cfs (unless otherwise requested)
+meta-var: rhavg type=float64 units=percent
+meta-var: runoff type=float64 units=runoff_units
+meta-var: salb type=float64 units=days
+meta-var: scrv type=float64 units=inches
+meta-var: seg_ccov type=float64 units=decimal fraction
+meta-var: seg_flow_area type=float64 units=square meters
+meta-var: seg_flow_depth type=float64 units=meters
+meta-var: seg_flow_velocity type=float64 units=meters per second
+meta-var: seg_flow_width type=float64 units=meters
+meta-var: seg_gwflow type=float64 units=inches
+meta-var: seg_humid type=float64 units=decimal fraction
+meta-var: seg_inflow type=float64 units=cfs
+meta-var: seg_lateral_inflow type=float64 units=cfs
+meta-var: seg_maxtemp type=float64 units=degrees Celsius
+meta-var: seg_melt type=float64 units=inches
+meta-var: seg_outflow type=float64 units=cfs
+meta-var: seg_outflow_substep type=float64 units=cfs
+meta-var: seg_potet type=float64 units=inches
+meta-var: seg_rain type=float64 units=inches
+meta-var: seg_res_time type=float64 units=seconds
+meta-var: seg_shade type=float64 units=decimal fraction
+meta-var: seg_sroff type=float64 units=inches
+meta-var: seg_ssflow type=float64 units=inches
+meta-var: seg_stor_change type=float64 units=cubicfeet
+meta-var: seg_tave_air type=float64 units=degrees Celsius
+meta-var: seg_tave_gw type=float64 units=degrees Celsius
+meta-var: seg_tave_lat type=float64 units=degrees Celsius
+meta-var: seg_tave_ss type=float64 units=degrees Celsius
+meta-var: seg_tave_upstream type=float64 units=degrees Celsius
+meta-var: seg_tave_water type=float64 units=degrees Celsius
+meta-var: seg_upstream_inflow type=float64 units=cfs
+meta-var: seginc_gwflow type=float64 units=cfs
+meta-var: seginc_potet type=float64 units=inches
+meta-var: seginc_sroff type=float64 units=cfs
+meta-var: seginc_ssflow type=float64 units=cfs
+meta-var: seginc_swrad type=float64 units=Langleys
+meta-var: segment_delta_flow type=float64 units=cfs
+meta-var: segment_gain type=float64 units=cfs
+meta-var: segment_gain_tot type=float64 units=cfs
+meta-var: segment_transfer type=float64 units=cfs
+meta-var: segment_transfer_tot type=float64 units=cfs
+meta-var: sinks type=float64 units=cfs
+meta-var: sinks_vol type=float64 units=cubicfeet
+meta-var: slow_flow type=float64 units=inches
+meta-var: slow_stor type=float64 units=inches
+meta-var: slow_stor_change type=float64 units=inches
+meta-var: slow_stor_prev type=float64 units=inches
+meta-var: slow_stor_redistribution type=float64 units=inches
+meta-var: slst type=float64 units=days
+meta-var: sm2gw_grav type=float64 units=inches
+meta-var: snow_evap type=float64 units=inches
+meta-var: snow_free type=float64 units=decimal fraction
+meta-var: snowcov_area type=float64 units=decimal fraction
+meta-var: snowcov_areasv type=float64 units=decimal fraction
+meta-var: snowdepth type=float64 units=inches
+meta-var: snowevap_aet_frac type=float64 units=decimal fraction
+meta-var: snowmelt type=float64 units=inches
+meta-var: snsv type=float64 units=inches
+meta-var: soil_lower type=float64 units=inches
+meta-var: soil_lower_change type=float64 units=inches
+meta-var: soil_lower_change_hru type=float64 units=inches
+meta-var: soil_lower_max type=float64 units=inches
+meta-var: soil_lower_prev type=float64 units=inches
+meta-var: soil_lower_ratio type=float64 units=decimal fraction
+meta-var: soil_lower_redistribution type=float64 units=inches
+meta-var: soil_moist type=float64 units=inches
+meta-var: soil_moist_frac type=float64 units=decimal fraction
+meta-var: soil_moist_prev type=float64 units=inches
+meta-var: soil_moist_tot type=float64 units=inches
+meta-var: soil_rechr type=float64 units=inches
+meta-var: soil_rechr_change type=float64 units=inches
+meta-var: soil_rechr_change_hru type=float64 units=inches
+meta-var: soil_rechr_max type=float64 units=inches
+meta-var: soil_rechr_prev type=float64 units=inches
+meta-var: soil_rechr_ratio type=float64 units=decimal fraction
+meta-var: soil_rechr_redistribution type=float64 units=inches
+meta-var: soil_saturated type=int64 units=inches
+meta-var: soil_to_gw type=float64 units=inches
+meta-var: soil_to_ssr type=float64 units=inches
+meta-var: soil_zone_max type=float64 units=inches
+meta-var: soilzone_gain type=float64 units=cfs
+meta-var: soilzone_gain_tot type=float64 units=cfs
+meta-var: solar_radiation type=float64 units=watts
+meta-var: solrad type=float64 units=Langleys
+meta-var: solrad_tmax type=float64 units=temp_units
+meta-var: solrad_tmin type=float64 units=temp_units
+meta-var: soltab_horad_potsw type=float64 units=Langleys
+meta-var: soltab_potsw type=float64 units=Langleys
+meta-var: soltab_sunhrs type=float64 units=hours
+meta-var: spill type=float64 units=cfs (unless otherwise requested)
+meta-var: sroff type=float64 units=inches
+meta-var: sroff_vol type=float64 units=cubicfeet
+meta-var: ssr_to_gw type=float64 units=inches
+meta-var: ssres_flow type=float64 units=inches
+meta-var: ssres_flow_vol type=float64 units=cubicfeet
+meta-var: ssres_in type=float64 units=inches
+meta-var: ssres_stor type=float64 units=inches
+meta-var: streamflow_cfs type=float64 units=cfs
+meta-var: streamflow_cms type=float64 units=cms
+meta-var: strm_seg_in type=float64 units=cfs
+meta-var: sub_cfs type=float64 units=cfs
+meta-var: sub_cms type=float64 units=cms
+meta-var: sub_gwflow type=float64 units=cfs
+meta-var: sub_inq type=float64 units=cfs
+meta-var: sub_interflow type=float64 units=cfs
+meta-var: sub_sroff type=float64 units=cfs
+meta-var: subinc_actet type=float64 units=inches
+meta-var: subinc_capstor_frac type=float64 units=decimal fraction
+meta-var: subinc_deltastor type=float64 units=inches
+meta-var: subinc_gwflow type=float64 units=cfs
+meta-var: subinc_interflow type=float64 units=cfs
+meta-var: subinc_pkweqv type=float64 units=inches
+meta-var: subinc_potet type=float64 units=inches
+meta-var: subinc_precip type=float64 units=inches
+meta-var: subinc_rain type=float64 units=inches
+meta-var: subinc_recharge type=float64 units=inches
+meta-var: subinc_snow type=float64 units=inches
+meta-var: subinc_snowcov type=float64 units=decimal fraction
+meta-var: subinc_snowmelt type=float64 units=inches
+meta-var: subinc_sroff type=float64 units=cfs
+meta-var: subinc_stor type=float64 units=inches
+meta-var: subinc_swrad type=float64 units=Langleys
+meta-var: subinc_szstor_frac type=float64 units=decimal fraction
+meta-var: subinc_tavgc type=float64 units=degrees Celsius
+meta-var: subinc_tmaxc type=float64 units=degrees Celsius
+meta-var: subinc_tminc type=float64 units=degrees Celsius
+meta-var: subinc_wb type=float64 units=inches
+meta-var: swale_actet type=float64 units=inches
+meta-var: swrad type=float64 units=Langleys
+meta-var: t_ground type=float64 units=degrees C
+meta-var: t_gw type=float64 units=degrees C
+meta-var: t_roff type=float64 units=degrees Celsius
+meta-var: t_ss type=float64 units=degrees C
+meta-var: tavgc type=float64 units=degrees Celsius
+meta-var: tavgf type=float64 units=degrees Fahrenheit
+meta-var: tcal type=float64 units=Langleys
+meta-var: temp_avg type=float64 units=degrees Celsius
+meta-var: tempc_dewpt type=float64 units=degrees Celsius
+meta-var: through_rain type=float64 units=inches
+meta-var: tmax type=float64 units=degrees Fahrenheit
+meta-var: tmax_hru type=float64 units=degC
+meta-var: tmax_sta type=float64 units=degC
+meta-var: tmax_sum type=float64 units=degF
+meta-var: tmaxc type=float64 units=degrees Celsius
+meta-var: tmaxf type=float64 units=degrees Fahrenheit
+meta-var: tmin type=float64 units=degrees Fahrenheit
+meta-var: tmin_hru type=float64 units=degC
+meta-var: tmin_sta type=float64 units=degC
+meta-var: tminc type=float64 units=degrees Celsius
+meta-var: tminf type=float64 units=degrees Fahrenheit
+meta-var: total_canopy_gain type=float64 units=cfs
+meta-var: total_consumed_gain type=float64 units=cfs
+meta-var: total_dprst_gain type=float64 units=cfs
+meta-var: total_dprst_transfer type=float64 units=cfs
+meta-var: total_external_gain type=float64 units=cfs
+meta-var: total_external_transfer type=float64 units=cfs
+meta-var: total_gwr_gain type=float64 units=cfs
+meta-var: total_gwr_transfer type=float64 units=cfs
+meta-var: total_lake_gain type=float64 units=cfs
+meta-var: total_lake_transfer type=float64 units=cfs
+meta-var: total_segment_gain type=float64 units=cfs
+meta-var: total_segment_transfer type=float64 units=cfs
+meta-var: total_soilzone_gain type=float64 units=cfs
+meta-var: total_transfers type=float64 units=cfs
+meta-var: transfer_rate type=float64 units=cfs
+meta-var: transp_on type=int32 units=none
+meta-var: unused_ag_et type=float64 units=inches
+meta-var: unused_potet type=float64 units=inches
+meta-var: upslope_dunnianflow type=float64 units=inches
+meta-var: upslope_hortonian type=float64 units=inches
+meta-var: upslope_interflow type=float64 units=inches
+meta-var: upstrm_temp type=float64 units=degrees Celsius
+meta-var: vp_actual type=float64 units=kilopascals
+meta-var: vp_sat type=float64 units=kilopascals
+meta-var: vp_slope type=float64 units=kilopascals/degrees Celsius
+meta-var: watbal_sum type=float64 units=inches
+meta-var: wind_speed type=float64 units=mph
+meta-var: windspeed_hru type=float64 units=meters/second
+set: ControlVariables.get_variables raises TypeError
+set: FlowGraph.get_dimensions tuple: nnodes
+set: FlowGraph.get_energy_budget_terms inputs: 
+set: FlowGraph.get_energy_budget_terms outputs: 
+set: FlowGraph.get_energy_budget_terms storage_changes: 
+set: FlowGraph.get_init_values dict-keys: node_negative_sink_source node_outflows node_sink_source node_storage_changes node_storages node_upstream_inflows outflows
+set: FlowGraph.get_inputs tuple: inflows
+set: FlowGraph.get_mass_budget_terms inputs: inflows
+set: FlowGraph.get_mass_budget_terms outputs: outflows
+set: FlowGraph.get_mass_budget_terms storage_changes: node_negative_sink_source node_storage_changes
+set: FlowGraph.get_parameters tuple: node_maker_id node_maker_index node_maker_name to_graph_index
+set: FlowGraph.get_restart_variables raises NotImplementedError
+set: FlowGraph.get_variables list: node_negative_sink_source node_outflows node_sink_source node_storage_changes node_storages node_upstream_inflows outflows
+set: HruNodeFlowExchange.get_dimensions tuple: nhru nnodes
+set: HruNodeFlowExchange.get_energy_budget_terms inputs: 
+set: HruNodeFlowExchange.get_energy_budget_terms outputs: 
+set: HruNodeFlowExchange.get_energy_budget_terms storage_changes: 
+set: HruNodeFlowExchange.get_init_values dict-keys: inflows inflows_vol sinks sinks_vol
+set: HruNodeFlowExchange.get_inputs tuple: gwres_flow_vol sroff_vol ssres_flow_vol
+set: HruNodeFlowExchange.get_mass_budget_terms inputs: gwres_flow_vol sroff_vol ssres_flow_vol
+set: HruNodeFlowExchange.get_mass_budget_terms outputs: inflows_vol sinks_vol
+set: HruNodeFlowExchange.get_mass_budget_terms storage_changes: 
+set: HruNodeFlowExchange.get_parameters tuple: hru_segment node_coord
+set: HruNodeFlowExchange.get_restart_variables raises NotImplementedError
+set: HruNodeFlowExchange.get_variables list: inflows inflows_vol sinks sinks_vol
+set: PRMSAtmosphere.get_dimensions tuple: ndoy nhru nmonth ntime
+set: PRMSAtmosphere.get_init_values dict-keys: hru_ppt hru_rain hru_snow orad_hru potet pptmix prmx swrad tavgc tmax_sum tmaxc tmaxf tminc tminf transp_on
+set: PRMSAtmosphere.get_inputs tuple: prcp soltab_horad_potsw soltab_potsw tmax tmin
+set: PRMSAtmosphere.get_parameters tuple: adjmix_rain dday_intcp dday_intcp dday_slope dday_slope doy hru_area hru_area hru_aspect hru_lat hru_lat hru_slope hru_slope jh_coef jh_coef_hru ppt_rad_adj ppt_rad_adj radadj_intcp radadj_intcp radadj_slope radadj_slope radj_sppt radj_sppt radj_wppt radj_wppt radmax radmax rain_cbh_adj snow_cbh_adj temp_units tmax_allrain_offset tmax_allrain_offset tmax_allrain_offset tmax_allsnow tmax_allsnow tmax_allsnow tmax_cbh_adj tmax_index tmax_index tmin_cbh_adj transp_beg transp_end transp_tmax
+set: PRMSAtmosphere.get_restart_variables list: tmax_sum transp_on
+set: PRMSAtmosphere.get_variables list: hru_ppt hru_rain hru_snow orad_hru potet pptmix prmx swrad tavgc tmax_sum tmaxc tmaxf tminc tminf transp_on
+set: PRMSAtmosphereTranspFrost.get_dimensions tuple: ndoy nhru nmonth ntime
+set: PRMSAtmosphereTranspFrost.get_init_values dict-keys: hru_ppt hru_rain hru_snow orad_hru potet pptmix prmx swrad tavgc tmax_sum tmaxc tmaxf tminc tminf transp_on
+set: PRMSAtmosphereTranspFrost.get_inputs tuple: prcp soltab_horad_potsw soltab_potsw tmax tmin
+set: PRMSAtmosphereTranspFrost.get_parameters tuple: adjmix_rain dday_intcp dday_intcp dday_slope dday_slope doy fall_frost hru_area hru_area hru_aspect hru_lat hru_lat hru_slope hru_slope jh_coef jh_coef_hru ppt_rad_adj ppt_rad_adj radadj_intcp radadj_intcp radadj_slope radadj_slope radj_sppt radj_sppt radj_wppt radj_wppt radmax radmax rain_cbh_adj snow_cbh_adj spring_frost temp_units tmax_allrain_offset tmax_allrain_offset tmax_allrain_offset tmax_allsnow tmax_allsnow tmax_allsnow tmax_cbh_adj tmax_index tmax_index tmin_cbh_adj
+set: PRMSAtmosphereTranspFrost.get_restart_variables list: tmax_sum transp_on
+set: PRMSAtmosphereTranspFrost.get_variables list: hru_ppt hru_rain hru_snow orad_hru potet pptmix prmx swrad tavgc tmax_sum tmaxc tmaxf tminc tminf transp_on
+set: PRMSAtmosphereTranspFrostDynamic.get_dimensions tuple: ndoy nhru nmonth ntime
+set: PRMSAtmosphereTranspFrostDynamic.get_init_values dict-keys: hru_ppt hru_rain hru_snow orad_hru potet pptmix prmx swrad tavgc tmax_sum tmaxc tmaxf tminc tminf transp_on
+set: PRMSAtmosphereTranspFrostDynamic.get_inputs tuple: prcp soltab_horad_potsw soltab_potsw tmax tmin
+set: PRMSAtmosphereTranspFrostDynamic.get_parameters tuple: adjmix_rain dday_intcp dday_intcp dday_slope dday_slope doy fall_frost hru_area hru_area hru_aspect hru_lat hru_lat hru_slope hru_slope jh_coef jh_coef_hru ppt_rad_adj ppt_rad_adj radadj_intcp radadj_intcp radadj_slope radadj_slope radj_sppt radj_sppt radj_wppt radj_wppt radmax radmax rain_cbh_adj snow_cbh_adj spring_frost temp_units tmax_allrain_offset tmax_allrain_offset tmax_allrain_offset tmax_allsnow tmax_allsnow tmax_allsnow tmax_cbh_adj tmax_index tmax_index tmin_cbh_adj
+set: PRMSAtmosphereTranspFrostDynamic.get_restart_variables list: tmax_sum transp_on
+set: PRMSAtmosphereTranspFrostDynamic.get_variables list: hru_ppt hru_rain hru_snow orad_hru potet pptmix prmx swrad tavgc tmax_sum tmaxc tmaxf tminc tminf transp_on
+set: PRMSCanopy.get_dimensions tuple: nhru
+set: PRMSCanopy.get_energy_budget_terms inputs: 
+set: PRMSCanopy.get_energy_budget_terms outputs: 
+set: PRMSCanopy.get_energy_budget_terms storage_changes: 
+set: PRMSCanopy.get_init_values dict-keys: hru_intcpevap hru_intcpstor hru_intcpstor_change hru_intcpstor_old intcp_changeover intcp_evap intcp_form intcp_stor intcp_transp_on net_ppt net_rain net_snow
+set: PRMSCanopy.get_inputs tuple: hru_ppt hru_rain hru_snow pkwater_ante potet pptmix transp_on
+set: PRMSCanopy.get_mass_budget_terms inputs: hru_rain hru_snow
+set: PRMSCanopy.get_mass_budget_terms outputs: hru_intcpevap intcp_changeover net_rain net_snow
+set: PRMSCanopy.get_mass_budget_terms storage_changes: hru_intcpstor_change
+set: PRMSCanopy.get_parameters tuple: cov_type covden_sum covden_win potet_sublim snow_intcp srain_intcp wrain_intcp
+set: PRMSCanopy.get_restart_variables list: hru_intcpstor intcp_stor intcp_transp_on
+set: PRMSCanopy.get_variables list: hru_intcpevap hru_intcpstor hru_intcpstor_change hru_intcpstor_old intcp_changeover intcp_evap intcp_form intcp_stor intcp_transp_on net_ppt net_rain net_snow
+set: PRMSChannel.get_dimensions tuple: nhru nsegment
+set: PRMSChannel.get_energy_budget_terms inputs: 
+set: PRMSChannel.get_energy_budget_terms outputs: 
+set: PRMSChannel.get_energy_budget_terms storage_changes: 
+set: PRMSChannel.get_init_values dict-keys: channel_gwres_flow_vol channel_outflow_vol channel_sroff_vol channel_ssres_flow_vol inflow_ts_prev outflow_ts seg_inflow seg_lateral_inflow seg_outflow seg_stor_change seg_upstream_inflow
+set: PRMSChannel.get_inputs tuple: gwres_flow_vol sroff_vol ssres_flow_vol
+set: PRMSChannel.get_mass_budget_terms inputs: channel_gwres_flow_vol channel_sroff_vol channel_ssres_flow_vol
+set: PRMSChannel.get_mass_budget_terms outputs: channel_outflow_vol
+set: PRMSChannel.get_mass_budget_terms storage_changes: seg_stor_change
+set: PRMSChannel.get_parameters tuple: hru_area hru_segment mann_n obsin_segment obsout_segment seg_depth seg_length seg_slope segment_flow_init segment_type tosegment tosegment_nhm x_coef
+set: PRMSChannel.get_restart_variables list: outflow_ts seg_inflow
+set: PRMSChannel.get_variables list: channel_gwres_flow_vol channel_outflow_vol channel_sroff_vol channel_ssres_flow_vol inflow_ts_prev outflow_ts seg_inflow seg_lateral_inflow seg_outflow seg_stor_change seg_upstream_inflow
+set: PRMSChannelFlowNodeMaker.get_dimensions tuple: nsegment
+set: PRMSChannelFlowNodeMaker.get_parameters tuple: mann_n seg_depth seg_length seg_slope segment_flow_init segment_type tosegment tosegment_nhm x_coef
+set: PRMSEt.get_dimensions tuple: nhru
+set: PRMSEt.get_init_values dict-keys: hru_actet hru_perv_actet unused_potet
+set: PRMSEt.get_inputs tuple: dprst_evap_hru hru_impervevap hru_intcpevap perv_actet potet snow_evap
+set: PRMSEt.get_parameters tuple: dprst_frac hru_percent_imperv
+set: PRMSEt.get_restart_variables raises NotImplementedError
+set: PRMSEt.get_variables tuple: hru_actet hru_perv_actet unused_potet
+set: PRMSGroundwater.get_dimensions tuple: nhru
+set: PRMSGroundwater.get_energy_budget_terms inputs: 
+set: PRMSGroundwater.get_energy_budget_terms outputs: 
+set: PRMSGroundwater.get_energy_budget_terms storage_changes: 
+set: PRMSGroundwater.get_init_values dict-keys: gwres_flow gwres_flow_vol gwres_sink gwres_stor gwres_stor_change gwres_stor_old
+set: PRMSGroundwater.get_inputs tuple: dprst_seep_hru soil_to_gw ssr_to_gw
+set: PRMSGroundwater.get_mass_budget_terms inputs: dprst_seep_hru soil_to_gw ssr_to_gw
+set: PRMSGroundwater.get_mass_budget_terms outputs: gwres_flow
+set: PRMSGroundwater.get_mass_budget_terms storage_changes: gwres_stor_change
+set: PRMSGroundwater.get_parameters tuple: gwflow_coef gwsink_coef gwstor_init gwstor_min hru_area hru_in_to_cf
+set: PRMSGroundwater.get_restart_variables list: gwres_stor
+set: PRMSGroundwater.get_variables list: gwres_flow gwres_flow_vol gwres_sink gwres_stor gwres_stor_change gwres_stor_old
+set: PRMSGroundwaterNoDprst.get_dimensions tuple: nhru
+set: PRMSGroundwaterNoDprst.get_energy_budget_terms inputs: 
+set: PRMSGroundwaterNoDprst.get_energy_budget_terms outputs: 
+set: PRMSGroundwaterNoDprst.get_energy_budget_terms storage_changes: 
+set: PRMSGroundwaterNoDprst.get_init_values dict-keys: gwres_flow gwres_flow_vol gwres_sink gwres_stor gwres_stor_change gwres_stor_old
+set: PRMSGroundwaterNoDprst.get_inputs tuple: soil_to_gw ssr_to_gw
+set: PRMSGroundwaterNoDprst.get_mass_budget_terms inputs: soil_to_gw ssr_to_gw
+set: PRMSGroundwaterNoDprst.get_mass_budget_terms outputs: gwres_flow
+set: PRMSGroundwaterNoDprst.get_mass_budget_terms storage_changes: gwres_stor_change
+set: PRMSGroundwaterNoDprst.get_parameters tuple: gwflow_coef gwsink_coef gwstor_init gwstor_min hru_area hru_in_to_cf
+set: PRMSGroundwaterNoDprst.get_restart_variables list: gwres_stor
+set: PRMSGroundwaterNoDprst.get_variables list: gwres_flow gwres_flow_vol gwres_sink gwres_stor gwres_stor_change gwres_stor_old
+set: PRMSHydraulicGeometryFull.get_dimensions tuple: nsegment
+set: PRMSHydraulicGeometryFull.get_init_values dict-keys: seg_flow_area seg_flow_depth seg_flow_velocity seg_flow_width seg_res_time
+set: PRMSHydraulicGeometryFull.get_inputs tuple: seg_outflow
+set: PRMSHydraulicGeometryFull.get_parameters tuple: depth_alpha depth_m seg_length width_alpha width_m
+set: PRMSHydraulicGeometryFull.get_restart_variables raises NotImplementedError
+set: PRMSHydraulicGeometryFull.get_variables tuple: seg_flow_area seg_flow_depth seg_flow_velocity seg_flow_width seg_res_time
+set: PRMSHydraulicGeometryWidthOnly.get_dimensions tuple: nsegment
+set: PRMSHydraulicGeometryWidthOnly.get_init_values dict-keys: seg_flow_area seg_flow_depth seg_flow_velocity seg_flow_width seg_res_time
+set: PRMSHydraulicGeometryWidthOnly.get_inputs tuple: seg_outflow
+set: PRMSHydraulicGeometryWidthOnly.get_parameters tuple: seg_length width_alpha width_m
+set: PRMSHydraulicGeometryWidthOnly.get_restart_variables raises NotImplementedError
+set: PRMSHydraulicGeometryWidthOnly.get_variables tuple: seg_flow_area seg_flow_depth seg_flow_velocity seg_flow_width seg_res_time
+set: PRMSRunoff.get_dimensions tuple: nhru
+set: PRMSRunoff.get_energy_budget_terms inputs: 
+set: PRMSRunoff.get_energy_budget_terms outputs: 
+set: PRMSRunoff.get_energy_budget_terms storage_changes: 
+set: PRMSRunoff.get_init_values dict-keys: contrib_fraction dprst_area_clos dprst_area_clos_max dprst_area_open dprst_area_open_max dprst_evap_hru dprst_insroff_hru dprst_seep_hru dprst_sroff_hru dprst_stor_hru dprst_stor_hru_change dprst_stor_hru_old dprst_vol_clos dprst_vol_clos_frac dprst_vol_frac dprst_vol_open dprst_vol_open_frac dprst_vol_thres_open hru_impervevap hru_impervstor hru_impervstor_change hru_impervstor_old hru_sroffi hru_sroffp imperv_evap imperv_stor infil infil_hru sroff sroff_vol
+set: PRMSRunoff.get_inputs tuple: hru_intcpevap intcp_changeover net_ppt net_rain net_snow pkwater_equiv potet pptmix_nopack snow_evap snowcov_area snowmelt soil_lower_prev soil_rechr_prev through_rain
+set: PRMSRunoff.get_mass_budget_terms inputs: intcp_changeover snowmelt through_rain
+set: PRMSRunoff.get_mass_budget_terms outputs: dprst_evap_hru dprst_seep_hru dprst_sroff_hru hru_impervevap hru_sroffi hru_sroffp infil_hru
+set: PRMSRunoff.get_mass_budget_terms storage_changes: dprst_stor_hru_change hru_impervstor_change
+set: PRMSRunoff.get_parameters tuple: carea_max dprst_depth_avg dprst_et_coef dprst_flow_coef dprst_frac dprst_frac_init dprst_frac_open dprst_seep_rate_clos dprst_seep_rate_open hru_area hru_in_to_cf hru_percent_imperv hru_type imperv_stor_max op_flow_thres smidx_coef smidx_exp snowinfil_max soil_moist_max sro_to_dprst_imperv sro_to_dprst_perv va_clos_exp va_open_exp
+set: PRMSRunoff.get_restart_variables list: dprst_area_clos dprst_area_open dprst_stor_hru dprst_vol_clos dprst_vol_open dprst_vol_thres_open hru_impervstor imperv_stor
+set: PRMSRunoff.get_variables list: contrib_fraction dprst_area_clos dprst_area_clos_max dprst_area_open dprst_area_open_max dprst_evap_hru dprst_insroff_hru dprst_seep_hru dprst_sroff_hru dprst_stor_hru dprst_stor_hru_change dprst_stor_hru_old dprst_vol_clos dprst_vol_clos_frac dprst_vol_frac dprst_vol_open dprst_vol_open_frac dprst_vol_thres_open hru_impervevap hru_impervstor hru_impervstor_change hru_impervstor_old hru_sroffi hru_sroffp imperv_evap imperv_stor infil infil_hru sroff sroff_vol
+set: PRMSRunoffAg.get_dimensions tuple: nhru
+set: PRMSRunoffAg.get_energy_budget_terms inputs: 
+set: PRMSRunoffAg.get_energy_budget_terms outputs: 
+set: PRMSRunoffAg.get_energy_budget_terms storage_changes: 
+set: PRMSRunoffAg.get_init_values dict-keys: contrib_fraction dprst_area_clos dprst_area_clos_max dprst_area_open dprst_area_open_max dprst_evap_hru dprst_insroff_hru dprst_seep_hru dprst_sroff_hru dprst_stor_hru dprst_stor_hru_change dprst_stor_hru_old dprst_vol_clos dprst_vol_clos_frac dprst_vol_frac dprst_vol_open dprst_vol_open_frac dprst_vol_thres_open hru_impervevap hru_impervstor hru_impervstor_change hru_impervstor_old hru_sroff_ag hru_sroffi hru_sroffp imperv_evap imperv_stor infil infil_ag infil_ag_hru infil_hru infil_perv_hru intcp_changeover_budget sroff sroff_vol
+set: PRMSRunoffAg.get_inputs tuple: ag_frac ag_soil_moist_prev ag_soil_rechr_prev hru_intcpevap intcp_changeover net_ppt net_rain net_snow pkwater_equiv potet pptmix_nopack snow_evap snowcov_area snowmelt soil_lower_prev soil_rechr_prev through_rain
+set: PRMSRunoffAg.get_mass_budget_terms inputs: intcp_changeover_budget snowmelt through_rain
+set: PRMSRunoffAg.get_mass_budget_terms outputs: dprst_evap_hru dprst_seep_hru dprst_sroff_hru hru_impervevap hru_sroff_ag hru_sroffi hru_sroffp infil_ag_hru infil_perv_hru
+set: PRMSRunoffAg.get_mass_budget_terms storage_changes: dprst_stor_hru_change hru_impervstor_change
+set: PRMSRunoffAg.get_parameters tuple: ag_soil_moist_max ag_soil_rechr_max_frac carea_max dprst_depth_avg dprst_et_coef dprst_flow_coef dprst_frac dprst_frac_init dprst_frac_open dprst_seep_rate_clos dprst_seep_rate_open hru_area hru_in_to_cf hru_percent_imperv hru_type imperv_stor_max op_flow_thres sat_threshold smidx_coef smidx_exp snowinfil_max soil_moist_max sro_to_dprst_imperv sro_to_dprst_perv va_clos_exp va_open_exp
+set: PRMSRunoffAg.get_restart_variables list: dprst_area_clos dprst_area_open dprst_stor_hru dprst_vol_clos dprst_vol_open dprst_vol_thres_open hru_impervstor imperv_stor
+set: PRMSRunoffAg.get_variables list: contrib_fraction dprst_area_clos dprst_area_clos_max dprst_area_open dprst_area_open_max dprst_evap_hru dprst_insroff_hru dprst_seep_hru dprst_sroff_hru dprst_stor_hru dprst_stor_hru_change dprst_stor_hru_old dprst_vol_clos dprst_vol_clos_frac dprst_vol_frac dprst_vol_open dprst_vol_open_frac dprst_vol_thres_open hru_impervevap hru_impervstor hru_impervstor_change hru_impervstor_old hru_sroff_ag hru_sroffi hru_sroffp imperv_evap imperv_stor infil infil_ag infil_ag_hru infil_hru infil_perv_hru intcp_changeover_budget sroff sroff_vol
+set: PRMSRunoffNoDprst.get_dimensions tuple: nhru
+set: PRMSRunoffNoDprst.get_energy_budget_terms inputs: 
+set: PRMSRunoffNoDprst.get_energy_budget_terms outputs: 
+set: PRMSRunoffNoDprst.get_energy_budget_terms storage_changes: 
+set: PRMSRunoffNoDprst.get_init_values dict-keys: contrib_fraction hru_impervevap hru_impervstor hru_impervstor_change hru_impervstor_old hru_sroffi hru_sroffp imperv_evap imperv_stor infil infil_hru sroff sroff_vol
+set: PRMSRunoffNoDprst.get_inputs tuple: hru_intcpevap intcp_changeover net_ppt net_rain net_snow pkwater_equiv potet pptmix_nopack snow_evap snowcov_area snowmelt soil_lower_prev soil_rechr_prev through_rain
+set: PRMSRunoffNoDprst.get_mass_budget_terms inputs: intcp_changeover snowmelt through_rain
+set: PRMSRunoffNoDprst.get_mass_budget_terms outputs: hru_impervevap hru_sroffi hru_sroffp infil_hru
+set: PRMSRunoffNoDprst.get_mass_budget_terms storage_changes: hru_impervstor_change
+set: PRMSRunoffNoDprst.get_parameters tuple: carea_max hru_area hru_in_to_cf hru_percent_imperv hru_type imperv_stor_max smidx_coef smidx_exp snowinfil_max soil_moist_max
+set: PRMSRunoffNoDprst.get_restart_variables list: hru_impervstor imperv_stor
+set: PRMSRunoffNoDprst.get_variables list: contrib_fraction hru_impervevap hru_impervstor hru_impervstor_change hru_impervstor_old hru_sroffi hru_sroffp imperv_evap imperv_stor infil infil_hru sroff sroff_vol
+set: PRMSSnow.get_dimensions tuple: ndeplval ndoy nhru nmonth
+set: PRMSSnow.get_energy_budget_terms inputs: 
+set: PRMSSnow.get_energy_budget_terms outputs: 
+set: PRMSSnow.get_energy_budget_terms storage_changes: 
+set: PRMSSnow.get_init_values dict-keys: ai albedo frac_swe freeh2o freeh2o_change freeh2o_prev iasw int_alb iso lso lst mso newsnow pk_def pk_den pk_depth pk_ice pk_ice_change pk_ice_prev pk_precip pk_temp pksv pkwater_ante pkwater_equiv pptmix_nopack pss pst salb scrv slst snow_evap snowcov_area snowcov_areasv snowmelt snsv tcal through_rain
+set: PRMSSnow.get_inputs tuple: hru_intcpevap hru_ppt net_ppt net_rain net_snow orad_hru potet pptmix prmx soltab_horad_potsw swrad tavgc tmaxc tminc transp_on
+set: PRMSSnow.get_mass_budget_terms inputs: net_rain net_snow
+set: PRMSSnow.get_mass_budget_terms outputs: snow_evap snowmelt through_rain
+set: PRMSSnow.get_mass_budget_terms storage_changes: freeh2o_change pk_ice_change
+set: PRMSSnow.get_parameters tuple: albset_rna albset_rnm albset_sna albset_snm cecn_coef cov_type covden_sum covden_win den_init den_max doy emis_noppt freeh2o_cap hru_deplcrv hru_type melt_force melt_look potet_sublim rad_trncf settle_const snarea_curve snarea_thresh snowpack_init tmax_allsnow tstorm_mo
+set: PRMSSnow.get_restart_variables list: freeh2o iasw pk_def pk_den pk_depth pk_ice pksv pkwater_equiv pss pst scrv slst snowcov_area snowcov_areasv
+set: PRMSSnow.get_variables list: ai albedo frac_swe freeh2o freeh2o_change freeh2o_prev iasw int_alb iso lso lst mso newsnow pk_def pk_den pk_depth pk_ice pk_ice_change pk_ice_prev pk_precip pk_temp pksv pkwater_ante pkwater_equiv pptmix_nopack pss pst salb scrv slst snow_evap snowcov_area snowcov_areasv snowmelt snsv tcal through_rain
+set: PRMSSoilzone.get_dimensions tuple: nhru
+set: PRMSSoilzone.get_energy_budget_terms inputs: 
+set: PRMSSoilzone.get_energy_budget_terms outputs: 
+set: PRMSSoilzone.get_energy_budget_terms storage_changes: 
+set: PRMSSoilzone.get_init_values dict-keys: cap_infil_tot cap_waterin dunnian_flow hru_actet perv_actet perv_actet_hru potet_lower potet_rechr pref_flow pref_flow_in pref_flow_infil pref_flow_max pref_flow_stor pref_flow_stor_change pref_flow_stor_prev pref_flow_thrsh recharge slow_flow slow_stor slow_stor_change slow_stor_prev soil_lower soil_lower_change soil_lower_change_hru soil_lower_max soil_lower_prev soil_lower_ratio soil_moist soil_moist_tot soil_rechr soil_rechr_change soil_rechr_change_hru soil_rechr_prev soil_to_gw soil_to_ssr soil_zone_max ssr_to_gw ssres_flow ssres_flow_vol ssres_in ssres_stor swale_actet unused_potet
+set: PRMSSoilzone.get_inputs tuple: dprst_evap_hru dprst_seep_hru hru_impervevap hru_intcpevap infil_hru potet snow_evap snowcov_area sroff sroff_vol transp_on
+set: PRMSSoilzone.get_mass_budget_terms inputs: infil_hru
+set: PRMSSoilzone.get_mass_budget_terms outputs: dunnian_flow perv_actet_hru pref_flow slow_flow soil_to_gw ssr_to_gw
+set: PRMSSoilzone.get_mass_budget_terms storage_changes: pref_flow_stor_change slow_stor_change soil_lower_change_hru soil_rechr_change_hru
+set: PRMSSoilzone.get_parameters tuple: cov_type dprst_frac fastcoef_lin fastcoef_sq hru_area hru_in_to_cf hru_percent_imperv hru_type pref_flow_den pref_flow_infil_frac sat_threshold slowcoef_lin slowcoef_sq soil2gw_max soil_moist_init_frac soil_moist_max soil_rechr_init_frac soil_rechr_max_frac soil_type ssr2gw_exp ssr2gw_rate ssstor_init_frac
+set: PRMSSoilzone.get_restart_variables list: slow_stor soil_moist soil_rechr
+set: PRMSSoilzone.get_variables list: cap_infil_tot cap_waterin dunnian_flow hru_actet perv_actet perv_actet_hru potet_lower potet_rechr pref_flow pref_flow_in pref_flow_infil pref_flow_max pref_flow_stor pref_flow_stor_change pref_flow_stor_prev pref_flow_thrsh recharge slow_flow slow_stor slow_stor_change slow_stor_prev soil_lower soil_lower_change soil_lower_change_hru soil_lower_max soil_lower_prev soil_lower_ratio soil_moist soil_moist_tot soil_rechr soil_rechr_change soil_rechr_change_hru soil_rechr_prev soil_to_gw soil_to_ssr soil_zone_max ssr_to_gw ssres_flow ssres_flow_vol ssres_in ssres_stor swale_actet unused_potet
+set: PRMSSoilzoneAg.get_dimensions tuple: nhru
+set: PRMSSoilzoneAg.get_energy_budget_terms inputs: 
+set: PRMSSoilzoneAg.get_energy_budget_terms outputs: 
+set: PRMSSoilzoneAg.get_energy_budget_terms storage_changes: 
+set: PRMSSoilzoneAg.get_init_values dict-keys: AET_external ag_actet ag_aet_external_vol ag_cap_infil_tot ag_hortonian ag_infil_hru ag_irrigation_add ag_irrigation_add_vol ag_irrigation_hru_source ag_potet_lower ag_potet_rechr ag_soil_lower ag_soil_lower_change ag_soil_lower_change_hru ag_soil_lower_stor_max ag_soil_moist ag_soil_moist_change ag_soil_moist_change_hru ag_soil_moist_prev ag_soil_moist_redistribution ag_soil_rechr ag_soil_rechr_change ag_soil_rechr_change_hru ag_soil_rechr_max ag_soil_rechr_prev ag_soil_rechr_redistribution ag_soil_saturated ag_soil_to_gvr ag_soil_to_gw ag_soilwater_deficit cap_infil_tot cap_waterin dunnian_flow hru_actet hru_ag_actet iter_count iter_end_status perv_actet perv_actet_hru perv_infil_hru perv_soil_to_gvr perv_soil_to_gw potet_lower potet_rechr pref_flow pref_flow_in pref_flow_infil pref_flow_max pref_flow_stor pref_flow_stor_change pref_flow_stor_prev pref_flow_thrsh recharge slow_flow slow_stor slow_stor_change slow_stor_prev slow_stor_redistribution soil_lower soil_lower_change soil_lower_change_hru soil_lower_max soil_lower_prev soil_lower_ratio soil_lower_redistribution soil_moist soil_moist_tot soil_rechr soil_rechr_change soil_rechr_change_hru soil_rechr_prev soil_rechr_redistribution soil_saturated soil_to_gw soil_to_ssr soil_zone_max ssr_to_gw ssres_flow ssres_flow_vol ssres_in ssres_stor swale_actet unused_ag_et unused_potet
+set: PRMSSoilzoneAg.get_inputs tuple: ag_frac dprst_evap_hru dprst_seep_hru hru_impervevap hru_intcpevap infil infil_ag potet snow_evap snowcov_area sroff sroff_vol transp_on
+set: PRMSSoilzoneAg.get_mass_budget_terms inputs: ag_infil_hru perv_infil_hru
+set: PRMSSoilzoneAg.get_mass_budget_terms outputs: ag_soil_to_gw dunnian_flow hru_ag_actet perv_actet_hru perv_soil_to_gw pref_flow slow_flow ssr_to_gw
+set: PRMSSoilzoneAg.get_mass_budget_terms storage_changes: ag_soil_lower_change_hru ag_soil_rechr_change_hru pref_flow_stor_change slow_stor_change soil_lower_change_hru soil_rechr_change_hru
+set: PRMSSoilzoneAg.get_parameters tuple: ag_cov_type ag_covden_sum ag_covden_win ag_soil2gw_max ag_soil_moist_init_frac ag_soil_moist_max ag_soil_rechr_init_frac ag_soil_rechr_max_frac ag_soil_type ag_soilwater_deficit_min cov_type dprst_frac fastcoef_lin fastcoef_sq hru_area hru_in_to_cf hru_percent_imperv hru_type max_soilzone_ag_iter pref_flow_den pref_flow_infil_frac sat_threshold slowcoef_lin slowcoef_sq soil2gw_max soil_moist_init_frac soil_moist_max soil_rechr_init_frac soil_rechr_max_frac soil_type soilzone_aet_converge ssr2gw_exp ssr2gw_rate ssstor_init_frac
+set: PRMSSoilzoneAg.get_restart_variables list: ag_soil_moist ag_soil_rechr slow_stor soil_lower soil_moist soil_rechr
+set: PRMSSoilzoneAg.get_variables tuple: ag_actet ag_cap_infil_tot ag_hortonian ag_infil_hru ag_potet_lower ag_potet_rechr ag_soil_lower ag_soil_lower_change ag_soil_lower_change_hru ag_soil_lower_stor_max ag_soil_moist ag_soil_moist_change ag_soil_moist_change_hru ag_soil_moist_prev ag_soil_moist_redistribution ag_soil_rechr ag_soil_rechr_change ag_soil_rechr_change_hru ag_soil_rechr_max ag_soil_rechr_prev ag_soil_rechr_redistribution ag_soil_saturated ag_soil_to_gvr ag_soil_to_gw ag_soilwater_deficit cap_infil_tot cap_waterin dunnian_flow hru_actet hru_ag_actet perv_actet perv_actet_hru perv_infil_hru perv_soil_to_gvr perv_soil_to_gw potet_lower potet_rechr pref_flow pref_flow_in pref_flow_infil pref_flow_max pref_flow_stor pref_flow_stor_change pref_flow_stor_prev pref_flow_thrsh recharge slow_flow slow_stor slow_stor_change slow_stor_prev slow_stor_redistribution soil_lower soil_lower_change soil_lower_change_hru soil_lower_max soil_lower_prev soil_lower_ratio soil_lower_redistribution soil_moist soil_moist_tot soil_rechr soil_rechr_change soil_rechr_change_hru soil_rechr_prev soil_rechr_redistribution soil_saturated soil_to_gw soil_to_ssr soil_zone_max ssr_to_gw ssres_flow ssres_flow_vol ssres_in ssres_stor swale_actet unused_ag_et unused_potet
+set: PRMSSoilzoneAgObsET.get_dimensions tuple: nhru
+set: PRMSSoilzoneAgObsET.get_energy_budget_terms inputs: 
+set: PRMSSoilzoneAgObsET.get_energy_budget_terms outputs: 
+set: PRMSSoilzoneAgObsET.get_energy_budget_terms storage_changes: 
+set: PRMSSoilzoneAgObsET.get_init_values dict-keys: AET_external ag_actet ag_aet_external_vol ag_cap_infil_tot ag_hortonian ag_infil_hru ag_irrigation_add ag_irrigation_add_vol ag_irrigation_hru_source ag_potet_lower ag_potet_rechr ag_soil_lower ag_soil_lower_change ag_soil_lower_change_hru ag_soil_lower_stor_max ag_soil_moist ag_soil_moist_change ag_soil_moist_change_hru ag_soil_moist_prev ag_soil_moist_redistribution ag_soil_rechr ag_soil_rechr_change ag_soil_rechr_change_hru ag_soil_rechr_max ag_soil_rechr_prev ag_soil_rechr_redistribution ag_soil_saturated ag_soil_to_gvr ag_soil_to_gw ag_soilwater_deficit cap_infil_tot cap_waterin dunnian_flow hru_actet hru_ag_actet iter_count iter_end_status perv_actet perv_actet_hru perv_infil_hru perv_soil_to_gvr perv_soil_to_gw potet_lower potet_rechr pref_flow pref_flow_in pref_flow_infil pref_flow_max pref_flow_stor pref_flow_stor_change pref_flow_stor_prev pref_flow_thrsh recharge slow_flow slow_stor slow_stor_change slow_stor_prev slow_stor_redistribution soil_lower soil_lower_change soil_lower_change_hru soil_lower_max soil_lower_prev soil_lower_ratio soil_lower_redistribution soil_moist soil_moist_tot soil_rechr soil_rechr_change soil_rechr_change_hru soil_rechr_prev soil_rechr_redistribution soil_saturated soil_to_gw soil_to_ssr soil_zone_max ssr_to_gw ssres_flow ssres_flow_vol ssres_in ssres_stor swale_actet unused_ag_et unused_potet
+set: PRMSSoilzoneAgObsET.get_inputs tuple: aet_observed ag_frac dprst_evap_hru dprst_seep_hru hru_impervevap hru_intcpevap infil infil_ag potet snow_evap snowcov_area sroff sroff_vol transp_on
+set: PRMSSoilzoneAgObsET.get_mass_budget_terms inputs: ag_infil_hru ag_irrigation_hru_source perv_infil_hru
+set: PRMSSoilzoneAgObsET.get_mass_budget_terms outputs: ag_soil_to_gw dunnian_flow hru_ag_actet perv_actet_hru perv_soil_to_gw pref_flow slow_flow ssr_to_gw
+set: PRMSSoilzoneAgObsET.get_mass_budget_terms storage_changes: ag_soil_lower_change_hru ag_soil_rechr_change_hru pref_flow_stor_change slow_stor_change soil_lower_change_hru soil_rechr_change_hru
+set: PRMSSoilzoneAgObsET.get_parameters tuple: ag_cov_type ag_covden_sum ag_covden_win ag_soil2gw_max ag_soil_moist_init_frac ag_soil_moist_max ag_soil_rechr_init_frac ag_soil_rechr_max_frac ag_soil_type ag_soilwater_deficit_min cov_type dprst_frac fastcoef_lin fastcoef_sq hru_area hru_in_to_cf hru_percent_imperv hru_type max_soilzone_ag_iter pref_flow_den pref_flow_infil_frac sat_threshold slowcoef_lin slowcoef_sq soil2gw_max soil_moist_init_frac soil_moist_max soil_rechr_init_frac soil_rechr_max_frac soil_type soilzone_aet_converge ssr2gw_exp ssr2gw_rate ssstor_init_frac
+set: PRMSSoilzoneAgObsET.get_restart_variables list: ag_soil_moist ag_soil_rechr slow_stor soil_lower soil_moist soil_rechr
+set: PRMSSoilzoneAgObsET.get_variables list: AET_external ag_actet ag_aet_external_vol ag_cap_infil_tot ag_hortonian ag_infil_hru ag_irrigation_add ag_irrigation_add_vol ag_irrigation_hru_source ag_potet_lower ag_potet_rechr ag_soil_lower ag_soil_lower_change ag_soil_lower_change_hru ag_soil_lower_stor_max ag_soil_moist ag_soil_moist_change ag_soil_moist_change_hru ag_soil_moist_prev ag_soil_moist_redistribution ag_soil_rechr ag_soil_rechr_change ag_soil_rechr_change_hru ag_soil_rechr_max ag_soil_rechr_prev ag_soil_rechr_redistribution ag_soil_saturated ag_soil_to_gvr ag_soil_to_gw ag_soilwater_deficit cap_infil_tot cap_waterin dunnian_flow hru_actet hru_ag_actet iter_count iter_end_status perv_actet perv_actet_hru perv_infil_hru perv_soil_to_gvr perv_soil_to_gw potet_lower potet_rechr pref_flow pref_flow_in pref_flow_infil pref_flow_max pref_flow_stor pref_flow_stor_change pref_flow_stor_prev pref_flow_thrsh recharge slow_flow slow_stor slow_stor_change slow_stor_prev slow_stor_redistribution soil_lower soil_lower_change soil_lower_change_hru soil_lower_max soil_lower_prev soil_lower_ratio soil_lower_redistribution soil_moist soil_moist_tot soil_rechr soil_rechr_change soil_rechr_change_hru soil_rechr_prev soil_rechr_redistribution soil_saturated soil_to_gw soil_to_ssr soil_zone_max ssr_to_gw ssres_flow ssres_flow_vol ssres_in ssres_stor swale_actet unused_ag_et unused_potet
+set: PRMSSoilzoneNoDprst.get_dimensions tuple: nhru
+set: PRMSSoilzoneNoDprst.get_energy_budget_terms inputs: 
+set: PRMSSoilzoneNoDprst.get_energy_budget_terms outputs: 
+set: PRMSSoilzoneNoDprst.get_energy_budget_terms storage_changes: 
+set: PRMSSoilzoneNoDprst.get_init_values dict-keys: cap_infil_tot cap_waterin dunnian_flow hru_actet perv_actet perv_actet_hru potet_lower potet_rechr pref_flow pref_flow_in pref_flow_infil pref_flow_max pref_flow_stor pref_flow_stor_change pref_flow_stor_prev pref_flow_thrsh recharge slow_flow slow_stor slow_stor_change slow_stor_prev soil_lower soil_lower_change soil_lower_change_hru soil_lower_max soil_lower_prev soil_lower_ratio soil_moist soil_moist_tot soil_rechr soil_rechr_change soil_rechr_change_hru soil_rechr_prev soil_to_gw soil_to_ssr soil_zone_max ssr_to_gw ssres_flow ssres_flow_vol ssres_in ssres_stor swale_actet unused_potet
+set: PRMSSoilzoneNoDprst.get_inputs tuple: hru_impervevap hru_intcpevap infil_hru potet snow_evap snowcov_area sroff sroff_vol transp_on
+set: PRMSSoilzoneNoDprst.get_mass_budget_terms inputs: infil_hru
+set: PRMSSoilzoneNoDprst.get_mass_budget_terms outputs: dunnian_flow perv_actet_hru pref_flow slow_flow soil_to_gw ssr_to_gw
+set: PRMSSoilzoneNoDprst.get_mass_budget_terms storage_changes: pref_flow_stor_change slow_stor_change soil_lower_change_hru soil_rechr_change_hru
+set: PRMSSoilzoneNoDprst.get_parameters tuple: cov_type fastcoef_lin fastcoef_sq hru_area hru_in_to_cf hru_percent_imperv hru_type pref_flow_den pref_flow_infil_frac sat_threshold slowcoef_lin slowcoef_sq soil2gw_max soil_moist_init_frac soil_moist_max soil_rechr_init_frac soil_rechr_max_frac soil_type ssr2gw_exp ssr2gw_rate ssstor_init_frac
+set: PRMSSoilzoneNoDprst.get_restart_variables raises NotImplementedError
+set: PRMSSoilzoneNoDprst.get_variables list: cap_infil_tot cap_waterin dunnian_flow hru_actet perv_actet perv_actet_hru potet_lower potet_rechr pref_flow pref_flow_in pref_flow_infil pref_flow_max pref_flow_stor pref_flow_stor_change pref_flow_stor_prev pref_flow_thrsh recharge slow_flow slow_stor slow_stor_change slow_stor_prev soil_lower soil_lower_change soil_lower_change_hru soil_lower_max soil_lower_prev soil_lower_ratio soil_moist soil_moist_tot soil_rechr soil_rechr_change soil_rechr_change_hru soil_rechr_prev soil_to_gw soil_to_ssr soil_zone_max ssr_to_gw ssres_flow ssres_flow_vol ssres_in ssres_stor swale_actet unused_potet
+set: PRMSSolarGeometry.get_dimensions tuple: ndoy nhru
+set: PRMSSolarGeometry.get_init_values dict-keys: soltab_horad_potsw soltab_potsw soltab_sunhrs
+set: PRMSSolarGeometry.get_inputs tuple: 
+set: PRMSSolarGeometry.get_parameters tuple: doy hru_area hru_aspect hru_lat hru_slope radj_sppt radj_wppt
+set: PRMSSolarGeometry.get_restart_variables list: 
+set: PRMSSolarGeometry.get_variables tuple: soltab_horad_potsw soltab_potsw soltab_sunhrs
+set: PRMSStreamShadeConstant.get_parameters tuple: seg_lat segshade_sum segshade_win
+set: PRMSStreamShadeDynamic.get_parameters tuple: alte altw azrh maxiter_sntemp seg_lat vce vcw vdemn vdemx vdwmn vdwmx vhe vhw voe vow
+set: PRMSStreamTemp.get_dimensions tuple: ndoy nhru nmonth nsegment
+set: PRMSStreamTemp.get_energy_budget_terms exchanges: convective_exchange
+set: PRMSStreamTemp.get_energy_budget_terms inputs: atmospheric_longwave friction_heat groundwater_conduction heat_lateral heat_upstream solar_radiation
+set: PRMSStreamTemp.get_energy_budget_terms outputs: evaporative_cooling heat_outflow longwave_emission longwave_vegetation
+set: PRMSStreamTemp.get_energy_budget_terms storage_changes: 
+set: PRMSStreamTemp.get_init_values dict-keys: atmospheric_longwave convective_exchange evaporative_cooling friction_heat groundwater_conduction heat_lateral heat_outflow heat_upstream longwave_emission longwave_vegetation seg_ccov seg_humid seg_melt seg_potet seg_rain seg_shade seg_tave_air seg_tave_gw seg_tave_lat seg_tave_ss seg_tave_upstream seg_tave_water seginc_gwflow seginc_sroff seginc_ssflow seginc_swrad solar_radiation
+set: PRMSStreamTemp.get_inputs tuple: gwres_flow hru_rain potet seg_flow_area seg_flow_depth seg_flow_velocity seg_flow_width seg_lateral_inflow seg_outflow snowmelt soltab_potsw sroff ssres_flow swrad tavgc
+set: PRMSStreamTemp.get_mass_budget_terms inputs: 
+set: PRMSStreamTemp.get_mass_budget_terms outputs: 
+set: PRMSStreamTemp.get_mass_budget_terms storage_changes: 
+set: PRMSStreamTemp.get_parameters tuple: albedo doy gw_tau hru_area hru_segment hru_slope lat_temp_adj maxiter_sntemp melt_temp seg_close seg_elev seg_humidity seg_lat seg_length seg_slope ss_tau stream_tave_init tosegment
+set: PRMSStreamTemp.get_restart_variables raises NotImplementedError
+set: PRMSStreamTemp.get_variables list: atmospheric_longwave convective_exchange evaporative_cooling friction_heat groundwater_conduction heat_lateral heat_outflow heat_upstream longwave_emission longwave_vegetation seg_ccov seg_humid seg_melt seg_potet seg_rain seg_shade seg_tave_air seg_tave_gw seg_tave_lat seg_tave_ss seg_tave_upstream seg_tave_water seginc_gwflow seginc_sroff seginc_ssflow seginc_swrad solar_radiation
+set: PRMSStreamTempHumidityCBH.get_dimensions tuple: ndoy nhru nmonth nsegment
+set: PRMSStreamTempHumidityCBH.get_energy_budget_terms exchanges: convective_exchange
+set: PRMSStreamTempHumidityCBH.get_energy_budget_terms inputs: atmospheric_longwave friction_heat groundwater_conduction heat_lateral heat_upstream solar_radiation
+set: PRMSStreamTempHumidityCBH.get_energy_budget_terms outputs: evaporative_cooling heat_outflow longwave_emission longwave_vegetation
+set: PRMSStreamTempHumidityCBH.get_energy_budget_terms storage_changes: 
+set: PRMSStreamTempHumidityCBH.get_init_values dict-keys: atmospheric_longwave convective_exchange evaporative_cooling friction_heat groundwater_conduction heat_lateral heat_outflow heat_upstream longwave_emission longwave_vegetation seg_ccov seg_humid seg_melt seg_potet seg_rain seg_shade seg_tave_air seg_tave_gw seg_tave_lat seg_tave_ss seg_tave_upstream seg_tave_water seginc_gwflow seginc_sroff seginc_ssflow seginc_swrad solar_radiation
+set: PRMSStreamTempHumidityCBH.get_inputs tuple: gwres_flow hru_rain humidity_hru potet seg_flow_area seg_flow_depth seg_flow_velocity seg_flow_width seg_lateral_inflow seg_outflow snowmelt soltab_potsw sroff ssres_flow swrad tavgc
+set: PRMSStreamTempHumidityCBH.get_mass_budget_terms inputs: 
+set: PRMSStreamTempHumidityCBH.get_mass_budget_terms outputs: 
+set: PRMSStreamTempHumidityCBH.get_mass_budget_terms storage_changes: 
+set: PRMSStreamTempHumidityCBH.get_parameters tuple: albedo doy gw_tau hru_area hru_segment hru_slope lat_temp_adj maxiter_sntemp melt_temp seg_close seg_elev seg_lat seg_length seg_slope ss_tau stream_tave_init tosegment
+set: PRMSStreamTempHumidityCBH.get_restart_variables raises NotImplementedError
+set: PRMSStreamTempHumidityCBH.get_variables list: atmospheric_longwave convective_exchange evaporative_cooling friction_heat groundwater_conduction heat_lateral heat_outflow heat_upstream longwave_emission longwave_vegetation seg_ccov seg_humid seg_melt seg_potet seg_rain seg_shade seg_tave_air seg_tave_gw seg_tave_lat seg_tave_ss seg_tave_upstream seg_tave_water seginc_gwflow seginc_sroff seginc_ssflow seginc_swrad solar_radiation
+set: Process.get_dimensions raises NotImplementedError
+set: Process.get_init_values raises NotImplementedError
+set: Process.get_inputs raises NotImplementedError
+set: Process.get_parameters raises NotImplementedError
+set: Process.get_restart_variables raises NotImplementedError
+set: Process.get_variables raises NotImplementedError
+set: SourceSinkFlowNodeMaker.get_dimensions tuple: nreservoirs
+set: SourceSinkFlowNodeMaker.get_parameters tuple: source_sink_storage_min
+set: Starfit.get_dimensions tuple: nreservoirs
+set: Starfit.get_energy_budget_terms inputs: 
+set: Starfit.get_energy_budget_terms outputs: 
+set: Starfit.get_energy_budget_terms storage_changes: 
+set: Starfit.get_init_values dict-keys: lake_availability_status lake_inflow lake_outflow lake_release lake_spill lake_storage lake_storage_change lake_storage_change_flow_units lake_storage_old
+set: Starfit.get_inputs tuple: lake_inflow
+set: Starfit.get_mass_budget_terms inputs: lake_inflow
+set: Starfit.get_mass_budget_terms outputs: lake_release lake_spill
+set: Starfit.get_mass_budget_terms storage_changes: lake_storage_change_flow_units
+set: Starfit.get_parameters tuple: GRanD_CAP_MCM NORhi_alpha NORhi_beta NORhi_max NORhi_min NORhi_mu NORlo_alpha NORlo_beta NORlo_max NORlo_min NORlo_mu Obs_MEANFLOW_CUMECS Release_alpha1 Release_alpha2 Release_beta1 Release_beta2 Release_c Release_max Release_min Release_p1 Release_p2 end_time grand_id inflow_mean initial_storage start_time
+set: Starfit.get_restart_variables raises NotImplementedError
+set: Starfit.get_variables list: lake_availability_status lake_inflow lake_outflow lake_release lake_spill lake_storage lake_storage_change lake_storage_change_flow_units lake_storage_old
+set: StarfitFlowNode.get_mass_budget_terms inputs: _lake_inflow
+set: StarfitFlowNode.get_mass_budget_terms outputs: _lake_release _lake_spill
+set: StarfitFlowNode.get_mass_budget_terms storage_changes: _lake_storage_change_flow_units
+set: StarfitFlowNodeMaker.get_dimensions tuple: nreservoirs
+set: StarfitFlowNodeMaker.get_parameters tuple: GRanD_CAP_MCM NORhi_alpha NORhi_beta NORhi_max NORhi_min NORhi_mu NORlo_alpha NORlo_beta NORlo_max NORlo_min NORlo_mu Obs_MEANFLOW_CUMECS Release_alpha1 Release_alpha2 Release_beta1 Release_beta2 Release_c Release_max Release_min Release_p1 Release_p2 end_time grand_id inflow_mean initial_storage start_time
+set: StarfitSourceSinkFlowNode.get_mass_budget_terms inputs: _lake_inflow
+set: StarfitSourceSinkFlowNode.get_mass_budget_terms outputs: _lake_release _lake_spill
+set: StarfitSourceSinkFlowNode.get_mass_budget_terms storage_changes: _lake_storage_change_flow_units _negative_sink_source
+set: StarfitSourceSinkFlowNodeMaker.get_dimensions tuple: nreservoirs
+set: StarfitSourceSinkFlowNodeMaker.get_parameters tuple: GRanD_CAP_MCM NORhi_alpha NORhi_beta NORhi_max NORhi_min NORhi_mu NORlo_alpha NORlo_beta NORlo_max NORlo_min NORlo_mu Obs_MEANFLOW_CUMECS Release_alpha1 Release_alpha2 Release_beta1 Release_beta2 Release_c Release_max Release_min Release_p1 Release_p2 end_time grand_id inflow_mean initial_storage source_sink_storage_min start_time
