@@ -24,7 +24,7 @@ New Features
   followed by a person or handed whole to an AI assistant. Retroactive
   additions to the v3.0.0 Breaking Changes section below record five changes
   it documents that were found undocumented.
-  (:pull:`XXX`) By `James McCreight <https://github.com/jmccreight>`_.
+  (:pull:`416`) By `James McCreight <https://github.com/jmccreight>`_.
 
 Breaking Changes
 ~~~~~~~~~~~~~~~~
@@ -60,7 +60,7 @@ Internal changes
   until the baseline is regenerated with the script's ``--write`` option —
   and, if any existing line changed or was removed, documented under
   Breaking Changes.
-  (:pull:`XXX`) By `James McCreight <https://github.com/jmccreight>`_.
+  (:pull:`416`) By `James McCreight <https://github.com/jmccreight>`_.
 - Retire the last intel-built artifact, the GSFLOW binary for MacOS, which
   was x86_64 and required Rosetta 2 on Apple Silicon. All three checked-in
   GSFLOW 2.4.0 binaries (macOS arm64, Linux, Windows) are now gfortran
