@@ -55,7 +55,12 @@ def _format_signature(func) -> str:
         elif p.kind is inspect.Parameter.VAR_KEYWORD:
             name = "**" + name
         if p.default is not inspect.Parameter.empty:
-            name += f"={p.default!r}"
+            if isinstance(p.default, pl.PurePath):
+                # repr is PosixPath/WindowsPath, which varies by
+                # platform; the baseline must not.
+                name += f"=Path('{p.default.as_posix()}')"
+            else:
+                name += f"={p.default!r}"
         parts.append(name)
     return "(" + ", ".join(parts) + ")"
 
