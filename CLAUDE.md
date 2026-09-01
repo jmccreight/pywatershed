@@ -46,8 +46,10 @@ reimplementation of PRMS process representations (see README.md).
   subpackage `__init__.py`) and listed in `doc/api/*.rst`.
 - When drafting a PR body, read `.github/PULL_REQUEST_TEMPLATE.md`
   (fresh each time — it evolves) and conform to it: summary on top,
-  then its checklist with irrelevant items removed and applicable ones
-  checked, keeping its Docs section.
+  then its checklist with applicable items checked, keeping its Docs
+  section. Always carry the whole checklist over under its own
+  ``## Checklist`` heading; strike through items that do not apply
+  (``- [ ] ~~Tests added~~``) rather than deleting them.
 
 ## Branches and releases
 
@@ -78,7 +80,14 @@ skills:
   develop, or a PR number): pywatershed's mechanical convention checks
   plus the harness's built-in `code-review` for correctness, merged
   into one findings-only report written to `review_<target>.md` in
-  the repo root; offers `/code-review ultra` for big diffs.
+  the repo root; offers `/code-review ultra` for big diffs. Also runs a
+  blind second pass (`review_<target>_second.md`) and fuses two passes
+  into one comprehensive `review_<target>_fused.md`.
+- `/migrate-v2-v3` — helps migrate a user's project from pywatershed
+  2.x to 3.x, following the portable guide
+  `version_migration_guides/v2_to_v3.md` (the authoritative breaking-
+  change list for that hop; usable standalone by humans or other AI
+  agents).
 
 Claude: in your first reply of a session, briefly show the user this
 bullet list of available skills (many users don't know skills exist).

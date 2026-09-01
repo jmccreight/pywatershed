@@ -93,17 +93,22 @@ endif
 # Define the C compile flags
 # -D_UF defines UNIX naming conventions for mixed language compilation.
 ##########################################################
+# -std=gnu17: the C sources use K&R-style prototypes such as
+# `static char *open_parameter_file();` and then call them with
+# arguments. Under C23 -- the default since gcc 15 / clang 15 -- an
+# empty parameter list means "takes no arguments", so those calls
+# become hard errors. gnu17 keeps the old meaning.
 # set the C flags
 # CFLTDBL is C floats to double: promote all floats to 64bit
 # This is a shortcut to alleviate errors when parsing parameter inputs in soltab.
 
 ifeq ($(detected_OS), Windows)
 	ifeq ($(CC), gcc)
-		CFLAGS = -std=gnu99 -Dfloat=double $(OPTLEVEL) -D$(ARC) -D_UF -Wall
+		CFLAGS = -Dfloat=double $(OPTLEVEL) -D$(ARC) -D_UF -Wall -std=gnu17
 	endif
 else
 	ifeq ($(CC), gcc)
-		CFLAGS = -std=gnu99 -Dfloat=double $(OPTLEVEL) -D$(ARC) -D_UF -Wall
+		CFLAGS = -Dfloat=double $(OPTLEVEL) -D$(ARC) -D_UF -Wall -std=gnu17
 	endif
 	ifeq ($(CC), $(filter $(CC), icc mpiicc))
 		CFLAGS = $(OPTLEVEL) -Dfloat=double -D$(ARC) -D_UF -Wall
