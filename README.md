@@ -20,6 +20,7 @@
 
 - [About](#about)
 - [Installation](#installation)
+- [Upgrading between major versions](#upgrading-between-major-versions)
 - [Getting started / Example notebooks](#getting-started--example-notebooks)
 - [Community engagement](#community-engagement)
 - [How to Cite](#how-to-cite)
@@ -100,6 +101,16 @@ you will also need to activate this environment by name.)
 
 We install the `environment_w_jupyter.yml` to provide all known dependencies
 including those for running the example notebooks.
+
+## Upgrading between major versions
+
+Breaking changes arrive only at major versions. For each major hop, a
+self-contained migration guide lives in
+[`version_migration_guides/`](version_migration_guides/) — written to
+be followed by a person or handed whole to an AI assistant to migrate
+a project's code ("read this guide and migrate my project"):
+
+- [v2.x to v3.x](version_migration_guides/v2_to_v3.md)
 
 ## Getting started / Example notebooks
 

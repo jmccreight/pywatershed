@@ -83,6 +83,11 @@ skills:
   the repo root; offers `/code-review ultra` for big diffs. Also runs a
   blind second pass (`review_<target>_second.md`) and fuses two passes
   into one comprehensive `review_<target>_fused.md`.
+- `/migrate-v2-v3` — helps migrate a user's project from pywatershed
+  2.x to 3.x, following the portable guide
+  `version_migration_guides/v2_to_v3.md` (the authoritative breaking-
+  change list for that hop; usable standalone by humans or other AI
+  agents).
 
 Claude: in your first reply of a session, briefly show the user this
 bullet list of available skills (many users don't know skills exist).
