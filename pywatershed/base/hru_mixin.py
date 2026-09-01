@@ -8,34 +8,30 @@ from ..utils.preprocess_gridded import get_active_hru_params
 class HruMixin:
     """Mixin for HRU functionalities."""
 
-    def _set_active_hrus(self):
-        """Set _active_hru_mask _wh_active_hrus, and _nactive_hrus.
+    def _set_active_hrus(self) -> None:
+        """Set _active_hru_mask, _wh_active_hrus, and _nactive_hrus.
 
-        These are set on self as derived parameters and not tracked in the
-        Parameter object. However, the variables may be supplied in the
-        Parameter object and will be used if present..
+        All three are derived from the hru_type parameter, via
+        :func:`~pywatershed.utils.preprocess_gridded.get_active_hru_params`,
+        every time this method is called. They are set on self as private,
+        derived quantities; they are neither read from nor tracked in the
+        Parameters object. Values of the same names present in a Parameters
+        object are ignored: hru_type is the single source of truth for which
+        HRUs are active.
 
         Returns:
             None
         """
-        param_keys = self._params.parameters.keys()
-        var_keys = ["active_hru_mask", "wh_active_hrus", "nactive_hrus"]
-        for kk in var_keys:
-            if kk in param_keys:
-                self[f"_{kk}"] = self._params.parameters[kk]
+        result = get_active_hru_params(self._params.parameters["hru_type"])
+        for kk in ("active_hru_mask", "wh_active_hrus", "nactive_hrus"):
+            self[f"_{kk}"] = result[kk]
 
-        have_all_vars = [hasattr(self, kk) for kk in var_keys]
-        if not all(have_all_vars):
-            result = get_active_hru_params(self._params.parameters["hru_type"])
-            for kk in var_keys:
-                self[f"_{kk}"] = result[kk]
+        return
 
-        if isinstance(self._wh_active_hrus, tuple):
-            self._wh_active_hrus = self._wh_active_hrus[0]
-
-    def _mask_inactive_hrus(self):
+    def _mask_inactive_hrus(self) -> None:
         """Set all variables to missing values outside of _active_hru_mask."""
-        if self._nactive_hrus == 0:
+        if self._active_hru_mask.all():
+            # nothing to mask
             return
 
         # TODO: use constants.fill_values_dict here for different types.
