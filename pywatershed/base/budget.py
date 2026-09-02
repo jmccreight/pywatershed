@@ -24,6 +24,9 @@ from .parameters import Parameters
 class Budget(Accessor):
     """Budget class for mass and energy conservation.
 
+    ``active_mask`` restricts the balance check to active HRUs: a boolean
+    array over ``nhru``, or ``False`` (the default) to check every HRU.
+
     Currently no energy budget has been implmenented, todo.
     """
 

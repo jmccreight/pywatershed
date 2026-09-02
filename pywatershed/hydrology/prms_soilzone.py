@@ -63,6 +63,8 @@ class PRMSSoilzone(ConservativeProcess, HruMixin):
         snow_evap: Evaporation and sublimation from snowpack on each HRU
         snowcov_area: Snow-covered area on each HRU prior to melt and
             sublimation unless snowpack
+        stream_seg_in: Flow into each stream segment from cascading flow
+            (cfs), accumulated across HRUs during the timestep
         dprst_flag: use depression storage or not? None uses value in control
             file, which otherwise defaults to True.
         imbalance_behavior: one of ["defer", None, "warn", "error"]

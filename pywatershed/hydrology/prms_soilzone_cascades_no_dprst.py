@@ -41,6 +41,8 @@ class PRMSSoilzoneCascadesNoDprst(PRMSSoilzone):
         snow_evap: Evaporation and sublimation from snowpack on each HRU
         snowcov_area: Snow-covered area on each HRU prior to melt and
             sublimation unless snowpack
+        stream_seg_in: Flow into each stream segment from cascading flow
+            (cfs), accumulated across HRUs during the timestep
         imbalance_behavior: one of ["defer", None, "warn", "error"]
             with "defer" being the default and defering to
             control.options["imbalance_behavior"] when available. When
