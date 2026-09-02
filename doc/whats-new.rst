@@ -54,6 +54,24 @@ Breaking Changes
   :class:`PRMSCanopy` its inputs individually must be updated; models
   assembled from process lists or model dictionaries are unaffected.
   (:pull:`414`) By `James McCreight <https://github.com/jmccreight>`_.
+- ``hru_type`` is now a declared parameter of :class:`PRMSAtmosphere`,
+  :class:`PRMSAtmosphereTranspFrost`,
+  :class:`PRMSAtmosphereTranspFrostDynamic`, :class:`PRMSSolarGeometry`,
+  :class:`PRMSCanopy`, :class:`PRMSGroundwater` and
+  :class:`PRMSGroundwaterNoDprst`, which use it (through
+  :class:`base.HruMixin`) to identify inactive HRUs. A :class:`Parameters`
+  object built by hand for one of these processes must now include
+  ``hru_type``; PRMS parameter files and the ``parameters_dis_hru.nc``
+  discretization file written by
+  :func:`~utils.separate_nhm_params.separate_domain_params_dis_to_ncdf`
+  already carry it.
+  (:pull:`407`) By `James McCreight <https://github.com/jmccreight>`_.
+- Keyword arguments were inserted mid-signature: ``stream_seg_in=None``
+  now precedes ``dprst_flag`` in :class:`PRMSSoilzone` and
+  :class:`PRMSSoilzoneNoDprst`, and ``active_mask=False`` precedes
+  ``unit_desc`` in :class:`base.Budget`. Code passing those or any later
+  arguments positionally must switch to keywords.
+  (:pull:`407`) By `James McCreight <https://github.com/jmccreight>`_.
 
 Bug fixes
 ~~~~~~~~~
