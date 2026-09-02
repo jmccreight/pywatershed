@@ -69,6 +69,13 @@ Bug fixes
   intercepted. :class:`PRMSSnow` now declares ``pkwater_ante``, as
   ``snowcomp`` does (``snowcomp.f90:346-349``), so coupled models supply it.
   (:pull:`414`) By `James McCreight <https://github.com/jmccreight>`_.
+- :class:`Model` reports both candidate filenames when an input file is
+  missing. Input discovery looks for ``<variable>.nc`` in the input directory
+  and, failing that, retries the same name as ``<variable>.param``; only the
+  second name reached the error, so a missing netCDF input was reported as a
+  not-found dynamic parameter file. Both lookups are now checked up front and
+  a missing input raises naming both candidates.
+  (:pull:`407`) By `James McCreight <https://github.com/jmccreight>`_.
 
 Internal changes
 ~~~~~~~~~~~~~~~~
