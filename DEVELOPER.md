@@ -40,19 +40,23 @@ is a good source of information.
 
 ### Compilers
 
-C and Fortran compilers are required. We are currently using gnu (gcc,
-gfortran) 11 and 12 as well as intel (icc, ifort) 2021 on Windows, Linux, and
-MacOS (including Apple Silicon). Both of these are freely obtainable but the
-installation process varies widely. We are looking for a conda-based approach
-to obtaining compilers, but currently do not have a solution. Compilers are
-needed for two applications:
+C and Fortran compilers are required. We use gnu (gcc, gfortran)
+exclusively, on Windows, Linux, and Apple Silicon MacOS. The mamba/conda
+environment described below supplies them (`gfortran>=15.2.0` in
+`environment.yml`), so no separate compiler installation is needed.
+Compilers are needed for compiling and running C/Fortran PRMS code to generate testing/verification data.
 
-  1. Compiling and running C/Fortran PRMS code to generate testing/verification
-  data 2. Compiling (installing) and running fortran backends/kernels for some
-  hydrological process representations in pywatershed
+The PRMS binaries used to generate test data are not kept in the
+repository. They are compiled from `prms_src/` the first time they are
+needed, by `pywatershed.utils.compile_prms()`, and written to `bin/`
+(which is gitignored for these). `autotest/ci_local.sh` and `ci.yaml` call
+the same function, so there is one build path everywhere.
 
-On Apple Silicon, the PRMS source code is only currently known to compile with
-intel while the fortran kernels in pywatershed only compile with gnu.
+Intel compilers (icc, ifort) are no longer used or supported, and Intel
+MacOS is no longer detected. GSFLOW source is not part of this
+repository, so its binaries are checked in rather than compiled: three
+gfortran double-precision builds (macOS arm64, Linux, Windows), all from
+the same GSFLOW commit and CI run — see `bin/README.md` for provenance.
 
 ### Python
 
@@ -84,7 +88,7 @@ To install all dependencies with `pip`:
 pip install ".[all]"
 ```
 
-Several  dependency groups are defined in `pyproject.toml` and can be selected
+Several dependency groups are defined in `pyproject.toml` and can be selected
 instead of `all` for a more lightweight environment:
 
 - `lint`
@@ -100,8 +104,7 @@ in the root, `source venv/bin/activate`), `pywatershed` can be installed in
 mode](https://setuptools.pypa.io/en/latest/userguide/development_mode.html)
 with:
 
-``` pip install -e .  ```
-
+`pip install -e . `
 
 #### F2PY
 
@@ -111,7 +114,7 @@ numpy](https://numpy.org/doc/stable/f2py/index.html). This repository is
 configured NOT to compile on install by default. Currently, we have not
 established this compilation procedure for Windows. On Linux and MacOS,
 compilation of fortran kernels on package installation is achieved by setting
-several environent variables before installing the `pywatershed` module.  For
+several environent variables before installing the `pywatershed` module. For
 instance, from the project root:
 
 ```
@@ -124,8 +127,8 @@ pip install -e .
 
 Note that an editable (`-e` above) is required to compile the fotran code.
 
-
 ## Branching model
+
 This project uses the [git
 flow](https://nvie.com/posts/a-successful-git-branching-model/): development
 occurs on the `develop` branch, while `main` is reserved for the state of the
@@ -133,16 +136,16 @@ latest release. Development PRs are typically squashed to `develop`, to avoid
 merge commits. At release time, release branches are merged to `main`, and then
 `main` is merged back into `develop`.
 
-
 ## Maintenance ledger
+
 Maintenance todos that are blocked on external events (dependency
 releases, cross-repo work like conda-forge feedstocks) are tracked in
 [`MAINTENANCE.md`](MAINTENANCE.md) at the repo root, with mechanically
 checkable unblock conditions. The `/maintenance` Claude skill checks
 them live and reports what is actionable.
 
-
 ## CI
+
 The automated practices of installing, linting, and testing described below are
 all formally encoded in `.github/workflows/ci.yaml` and
 `.github/workflows/ci_examples.yaml` files.
@@ -166,7 +169,7 @@ The two variants complement each other:
   with no memory of earlier pushes: a push whose head commit message contains
   `ci-drb` runs the drb job for that push only, even on a branch previously
   pushed without any token, and later pushes without a token drop back to the
-  skeleton. Only the *head* (most recent) commit of a push is checked — when
+  skeleton. Only the _head_ (most recent) commit of a push is checked — when
   pushing several commits at once, the token must be in the last one. To
   trigger a domain run on the current state without changing any code, push
   an empty commit:
@@ -185,7 +188,7 @@ lists, separators, or suffixes. Consequences:
 - Tokens can only add jobs, never subtract them: appending to a token
   (`ci-sagehen_gridded`) does not narrow the selection, it matches the
   `ci-sagehen` token and triggers every job in that family.
-- A commit message that merely *mentions* a token triggers it — easy to do
+- A commit message that merely _mentions_ a token triggers it — easy to do
   accidentally in a commit message about the CI configuration itself. Write
   `ci-<token>` (as in this file) rather than a literal token when referring
   to the mechanism.
@@ -204,8 +207,8 @@ Notes for maintaining the gates in `ci.yaml`:
   tokens, e.g. `ci-sagehen-5yr`, `ci-sagehen-gridded`, and `ci-sagehen-all`
   for the whole family.
 
-
 ## Testing
+
 Once the dependencies are available, we want to verify the software by running
 its test suite. However, we first need to generate the test data. This consists
 of running binaries (PRMS) and then converting the output to netcdf files used
@@ -231,9 +234,10 @@ machine.
 
 For more details on the autotests, see [`autotest/README.md`](autotest/README.md).
 
-
 ## Linting
+
 Automated linting procedures are performed in CI and enforced, these are
+
 ```shell
 ruff check .
 ruff format .
@@ -241,12 +245,12 @@ ruff format .
 
 And you'll need to run these locally to pass CI checks.
 
-
 ## Committing Jupyter Notebooks
+
 All outputs are required to be stripped from jupyter notebooks prior to
 committing. To facilitate this we have
 [pre-commit hooks](https://pre-commit.com/) which will strip
-outputs and metadata from jupyter notebooks.  When a `git commit` is attempted,
+outputs and metadata from jupyter notebooks. When a `git commit` is attempted,
 the hook will check all staged `*.ipynb` files. If the file is modified after
 running the hook (which runs
 [nbstripout](https://github.com/kynan/nbstripout)), then the
@@ -260,6 +264,7 @@ time to keep very large diffs out of the repository history. If you are using
 The maximal amount of metadata can be stripped from Jupyter notebooks by following the example configuration found in the [nbstripout section on stripping metadata](https://github.com/kynan/nbstripout#stripping-metadata).
 
 ## pre-commit hooks
+
 Pre-commit hooks apply actionas at commit-time. These are available when
 `pre-commit` is installed in the environment, as in the `environment.yml`
 supplied. To install yourself
@@ -271,23 +276,20 @@ pre-commit install
 As specified in `.pre-commit-config.yaml`, we adopt the following pre-commit
 hooks
 
-* [nbstripout](https://github.com/kynan/nbstripout):
+- [nbstripout](https://github.com/kynan/nbstripout):
   strip outputs from jupyter notebooks
-* [blackdoc](https://github.com/keewis/blackdoc):
+- [blackdoc](https://github.com/keewis/blackdoc):
   apply black within documentation
-* [doctoc](https://github.com/thlorenz/doctoc): auto generate tables of
+- [doctoc](https://github.com/thlorenz/doctoc): auto generate tables of
   contents in markdown docs
 
-
 ## Documentation
+
 [Google-style docstrings](https://google.github.io/styleguide/pyguide.html#38-comments-and-docstrings)
 are used for documenting source code. (Though numpy style is supposedly handled
 as well by Napolean, preference is for google-style.)
 
-
-
 ## Miscellaneous
-
 
 ### Locating the root
 
@@ -299,4 +301,4 @@ for file access, rather than using relative paths (e.g., `../some/path`).
 For a script in a subdirectory of the root, for instance, the conventional
 approach would be:
 
-```Python project_root_path = Path(__file__).parent.parent ```
+`Python project_root_path = Path(__file__).parent.parent `

@@ -1,11 +1,14 @@
-<!-- Feel free to remove check-list items aren't relevant to your change -->
+## Checklist
+
+<!-- Strike through items that aren't relevant to your change, e.g.
+     - [ ] ~~Tests added~~ ; keep them in the list rather than deleting. -->
 
 - [ ] Closes #xxxx
 - [ ] Tests added
-- [ ] Performance benchmarks added
-- [ ] Performance regression benchmarks run
+- [ ] Performance benchmarks added or run
 - [ ] User visible changes (including notable bug fixes) are documented in `whats-new.rst`
-- [ ] New functions/methods are listed in `api.rst` or it's sub rsts?
+- [ ] The ``(:pull:`XXX`)`` placeholder in `whats-new.rst` is replaced with this PR's number
+- [ ] New public classes/functions are exported in `pywatershed/__init__.py` and listed in `doc/api/*.rst`
 
 ## Docs
 

@@ -22,7 +22,9 @@ if [ $? -ne 0 ]; then
 fi
 
 echo "Running ruff format on staged files..."
-echo "$STAGED_FILES" | xargs ruff format
+# --force-exclude so the [tool.ruff.format] exclude is honored even
+# though paths are passed explicitly (notebooks are linted, not formatted)
+echo "$STAGED_FILES" | xargs ruff format --force-exclude
 if [ $? -ne 0 ]; then
     echo "ruff format failed. Please fix errors before committing."
     exit 1
