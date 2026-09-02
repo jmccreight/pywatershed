@@ -128,11 +128,10 @@ def exe(simulation, request):
         return exe_pth
 
     exe_desc = get_ctl_exe_desc(simulation["control_file"])
-    try:
-        # compiles from prms_src on demand for compilable variants
-        return pws.utils.get_or_compile_prms_exe(exe_desc)
-    except NotImplementedError as e:
-        pytest.skip(str(e))
+    # PRMS binaries are compiled from prms_src/ on first use; the GSFLOW
+    # binaries are checked in to bin/ because their source is not in this
+    # repository.
+    return pws.utils.get_or_compile_prms_exe(exe_desc)
 
 
 def scheduler_active():

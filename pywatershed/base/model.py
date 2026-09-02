@@ -686,7 +686,16 @@ class Model:
                 nc_path = self._input_path / f"{file_var_name}.nc"
                 # currently netcdf files or dynamic parameter files accepted
                 if not nc_path.exists():
-                    nc_path = self._input_path / f"{file_var_name}.param"
+                    param_path = self._input_path / f"{file_var_name}.param"
+                    if not param_path.exists():
+                        aka = "" if file_var_name == name else f" (as {name})"
+                        msg = (
+                            f"No input file found for '{file_var_name}'"
+                            f"{aka} in {self._input_path}: looked for "
+                            f"'{nc_path.name}' and '{param_path.name}'."
+                        )
+                        raise FileNotFoundError(msg)
+                    nc_path = param_path
             else:
                 nc_path = self._input_path
             input_adapters[name] = adapter_factory(

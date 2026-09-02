@@ -314,7 +314,7 @@ nhruOutON_OFF
 nhruOutVars
 1
 1
-79
+80
 ####
 nhruOut_freq
 1
@@ -327,7 +327,7 @@ nhruOut_format
 4
 ####
 nhruOutVar_names
-79
+80
 4
 cap_infil_tot
 cap_waterin
@@ -364,6 +364,7 @@ net_snow
 orad_hru
 perv_actet
 pk_ice
+pkwater_ante
 pkwater_equiv
 potet
 potet_lower
