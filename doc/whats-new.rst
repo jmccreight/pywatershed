@@ -32,7 +32,8 @@ New Features
   :class:`PRMSSoilzoneCascadesNoDprst`, cascade parameter preprocessing
   from PRMS parameter files
   (:func:`~utils.preprocess_cascades.preprocess_cascade_params`), and
-  support for inactive HRUs via :class:`base.HruMixin` (results at
+  support for inactive HRUs via :class:`base.HruMixin` (which HRUs are
+  active is always derived from the ``hru_type`` parameter; results at
   inactive HRUs are masked to ``nan`` and excluded from mass-balance
   checks by the new ``active_mask`` capability of :class:`base.Budget`).
   Verified against PRMS 5.2.1 on the ``sagehen_5yr``
@@ -75,23 +76,6 @@ Breaking Changes
 
 Bug fixes
 ~~~~~~~~~
-- :func:`~utils.preprocess_gridded.preprocess_gridded_params` raised
-  ``ValueError: Tuple (...) is not in the form (dims, data[, attrs])`` on every
-  input and so had never worked. The derived active-HRU variables are now
-  assigned with explicit dimensions (``nhru`` for ``active_hru_mask``,
-  ``nactive_hru`` for ``wh_active_hrus``, ``scalar`` for ``nactive_hrus``) and
-  ``wh_active_hrus`` is a 1-D index array rather than the tuple returned by
-  ``np.where``. (:pull:`407`) By `James McCreight <https://github.com/jmccreight>`_.
-- The early return in the inactive-HRU masking of :class:`base.HruMixin` was
-  inverted: it skipped masking when all HRUs were inactive, exactly when
-  everything should have been masked, and took no shortcut when there was
-  nothing to mask. Relatedly, the active-HRU mask, indices and count are
-  documented and implemented as always derived from the ``hru_type``
-  parameter; a previous docstring claimed values of those names supplied in a
-  :class:`Parameters` object would be used instead, which never happened and
-  is now explicitly not the contract. ``hru_type`` is the single source of
-  truth. All-active domains are unaffected by either change.
-  (:pull:`407`) By `James McCreight <https://github.com/jmccreight>`_.
 - :class:`PRMSCanopy` gates rain interception by grasses on the antecedent
   snowpack, ``pkwater_ante``, as PRMS does (``intcp.f90:416``, which tests
   ``Pkwater_equiv`` before ``snowcomp`` updates it for the timestep;
