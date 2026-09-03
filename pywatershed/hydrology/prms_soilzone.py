@@ -144,7 +144,8 @@ class PRMSSoilzone(ConservativeProcess, HruMixin):
             restart_write=restart_write,
             restart_write_freq=restart_write_freq,
         )
-        self.name = "PRMSSoilzone"
+        if not hasattr(self, "name"):
+            self.name = "PRMSSoilzone"
 
         self._set_active_hrus()
         self._mask_inactive_hrus()

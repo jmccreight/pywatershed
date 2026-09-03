@@ -155,7 +155,8 @@ class PRMSRunoff(ConservativeProcess, HruMixin):
             restart_write_freq=restart_write_freq,
         )
 
-        self.name = "PRMSRunoff"
+        if not hasattr(self, "name"):
+            self.name = "PRMSRunoff"
 
         self._set_active_hrus()
         self._mask_inactive_hrus()
