@@ -34,6 +34,8 @@ def expand_scalar_to_dims(param_dict, param_dim_dict):
             dims = meta.find_variables(param_name)[param_name]["dims"]
             full_param_shape = tuple([param_dict[dd] for dd in dims])
             param_vals = param_dict[param_name]
+            # dimension names declared for this parameter in the file
+            file_dims = param_dim_dict[param_name]
             param_dim_dict[param_name] = dims
             if param_shape == full_param_shape:
                 continue
@@ -42,7 +44,7 @@ def expand_scalar_to_dims(param_dict, param_dim_dict):
                     np.zeros(full_param_shape, dtype=param_vals.dtype)
                     + param_vals
                 )
-            elif param_shape == (12,):
+            elif file_dims == ("nmonth",):
                 if len(full_param_shape) != 2:
                     msg = (
                         f"Expansion of monthly variable {param_name} to "
@@ -63,11 +65,8 @@ def expand_scalar_to_dims(param_dict, param_dim_dict):
                 )
 
             else:
-                msg = (
-                    f"Expansion of variable {param_name} with shape "
-                    f"{param_shape} is not yet implemented."
-                )
-                raise ValueError(msg)
+                # Shapes not handled above are passed through unchanged.
+                continue
 
     return param_dict, param_dim_dict
 

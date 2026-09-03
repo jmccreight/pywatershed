@@ -95,6 +95,19 @@ Bug fixes
   not-found dynamic parameter file. Both lookups are now checked up front and
   a missing input raises naming both candidates.
   (:pull:`407`) By `James McCreight <https://github.com/jmccreight>`_.
+- Integer variables written by :func:`dd_to_nc4_ds` (and so by
+  :class:`DatasetDict` and :func:`separate_nhm_params`) no longer carry a
+  default ``_FillValue`` of -9999, which made xarray promote them to float
+  on read and turn legitimate -9999 values into NaN. The in-memory fill used
+  to mask inactive HRUs is now the separate ``mask_fill_values_dict``.
+  (:pull:`407`) By `James McCreight <https://github.com/jmccreight>`_.
+- Reading a PRMS parameter file no longer raises for a parameter with an
+  expandable scalar form that is supplied at some other, unhandled shape;
+  such parameters pass through unchanged as before. A monthly parameter is
+  now recognized by its declared ``nmonth`` dimension rather than by having
+  12 values, so a per-HRU array on a 12-HRU domain is no longer misread as
+  monthly.
+  (:pull:`407`) By `James McCreight <https://github.com/jmccreight>`_.
 
 Internal changes
 ~~~~~~~~~~~~~~~~

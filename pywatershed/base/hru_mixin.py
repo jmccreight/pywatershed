@@ -1,7 +1,7 @@
 from pywatershed.base.timeseries import TimeseriesArray
 
 from ..base import meta
-from ..constants import fill_values_dict
+from ..constants import mask_fill_values_dict
 from ..utils.preprocess_gridded import get_active_hru_params
 
 
@@ -34,7 +34,6 @@ class HruMixin:
             # nothing to mask
             return
 
-        # TODO: use constants.fill_values_dict here for different types.
         for var_name in self.get_variables():
             var_dims = list(meta.get_dimensions(var_name).values())[0]
             if "nhru" not in var_dims:
@@ -43,13 +42,13 @@ class HruMixin:
             var = self[var_name]
             if isinstance(var, TimeseriesArray):
                 # data are (ntimes, nhru)
-                var.data[:, ~self._active_hru_mask] = fill_values_dict[
+                var.data[:, ~self._active_hru_mask] = mask_fill_values_dict[
                     var.data.dtype
                 ]
             else:
                 axis = var_dims.index("nhru")
                 index = [slice(None)] * var.ndim
                 index[axis] = ~self._active_hru_mask
-                var[tuple(index)] = fill_values_dict[var.dtype]
+                var[tuple(index)] = mask_fill_values_dict[var.dtype]
 
         return

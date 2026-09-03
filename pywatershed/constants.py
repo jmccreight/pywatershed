@@ -48,15 +48,29 @@ closezero = epsilon32
 fill_value_f4 = 9.96921e36
 
 # work in progress...
+# Default netcdf _FillValue by dtype (used by dd_to_nc4_ds). Ints have no
+# default: an int _FillValue makes xarray promote the variable to float on
+# read and turns legitimate sentinel values (e.g. -9999) into NaN.
 fill_values_dict = {
     np.dtype("float64"): np.nan,
     np.dtype("float32"): np.nan,
     np.dtype("float16"): np.nan,
+    np.dtype("int64"): None,
+    np.dtype("int32"): None,
+    np.dtype("int16"): None,
+    np.dtype("int8"): None,
+    np.dtype("bool"): None,
+}
+
+# In-memory fill values for masking inactive HRUs (HruMixin). Not a netcdf
+# encoding default.
+mask_fill_values_dict = {
+    **fill_values_dict,
     np.dtype("int64"): -9999,
     np.dtype("int32"): -9999,
     np.dtype("int16"): -9999,
     np.dtype("int8"): -9999,
-    np.dtype("bool"): None,
+    np.dtype("bool"): False,
 }
 
 np_type_to_netcdf_type_dict = {
