@@ -59,6 +59,8 @@ class PRMSSoilzoneCascadesNoDprst(PRMSSoilzone):
         verbose: Print extra information or not?
     """
 
+    _nb_parallel_ok = False
+
     def __init__(
         self,
         control: Control,
@@ -86,12 +88,8 @@ class PRMSSoilzoneCascadesNoDprst(PRMSSoilzone):
         # it wasnt by prms, we'll make it optional and add it here if missing.
         # TODO: with a warning and/or better criteria for the if
         if "hru_route_order" not in parameters.parameters.keys():
-            if verbose is None:
-                verbose_pass = 1
-            else:
-                verbose_pass = 0
             parameters = preprocess_cascade_params(
-                control, parameters, verbosity=verbose_pass
+                control, parameters, verbosity=int(bool(verbose))
             )
 
         super().__init__(

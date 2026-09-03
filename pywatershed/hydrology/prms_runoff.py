@@ -112,6 +112,10 @@ class PRMSRunoff(ConservativeProcess, HruMixin):
             restart_write_freq is False, the default of "f" is used.
     """
 
+    # Cascades make the HRU loop order-dependent. Subclasses that route
+    # cascades set this False so numba never parallelizes the kernel.
+    _nb_parallel_ok = True
+
     def __init__(
         self,
         control: Control,
@@ -508,8 +512,10 @@ class PRMSRunoff(ConservativeProcess, HruMixin):
             import numba as nb
 
             numba_msg = f"{self.name} jit compiling with numba "
-            nb_parallel = (numba_num_threads is not None) and (
-                numba_num_threads > 1
+            nb_parallel = (
+                (numba_num_threads is not None)
+                and (numba_num_threads > 1)
+                and self._nb_parallel_ok
             )
             if nb_parallel:
                 numba_msg += f"and using {numba_num_threads} threads"
