@@ -1,3 +1,4 @@
+import networkx as nx
 import numpy as np
 import xarray as xr
 
@@ -51,11 +52,11 @@ def calc_hru_route_order(parameters: Parameters) -> Parameters:
     hru_type = parameters.parameters["hru_type"]
     hru_route_order = np.zeros(nhru, dtype=np.int32)
 
-    nlake = 0
+    nlake = parameters.dims.get("nlake", 0)
+    numlake_hrus = 0  # to verify we have all the lakes
+    numlakes_check = 0
     if nlake > 0:
-        numlake_hrus = 0  # to verify we have all the lakes
-        numlakes_check = 0
-        lake_hru_id = parameters.parameters["hru_lake_id"]
+        lake_hru_id = parameters.parameters["lake_hru_id"]
 
     frozen_flag = HruType.INACTIVE.value  # until further notice
 
@@ -67,19 +68,18 @@ def calc_hru_route_order(parameters: Parameters) -> Parameters:
         # ?? need to fix for lakes with multiple HRUs and PRMS lake routing ??
         if hru_type[ii] == HruType.LAKE.value:
             numlake_hrus = numlake_hrus + 1
+            if nlake == 0:
+                msg = (
+                    f"ERROR, hru_type = 2 for HRU: {ii} "
+                    "and dimension nlake = 0"
+                )
+                raise ValueError(msg)
             lakeid = lake_hru_id[ii]
             if lakeid > 0:
                 if lakeid > numlakes_check:
                     numlakes_check = lakeid
             else:
                 msg = f"ERROR, hru_type = 2 for HRU: {ii} and lake_hru_id = 0"
-                raise ValueError(msg)
-
-            if nlake == 0:
-                msg = (
-                    f"ERROR, hru_type = 2 for HRU: {ii} "
-                    "and dimension nlake = 0"
-                )
                 raise ValueError(msg)
 
         else:
@@ -109,9 +109,9 @@ def calc_hru_route_order(parameters: Parameters) -> Parameters:
     if nlake > 0:
         if numlakes_check != nlake:
             msg = (
-                "ERROR, number of lakes specified in lake_hru_id"
+                "ERROR, number of lakes specified in lake_hru_id "
                 f"does not equal dimension nlake: {nlake} number of "
-                "lakes: numlakes_check. For PRMS lake routing each lake "
+                f"lakes: {numlakes_check}. For PRMS lake routing each lake "
                 "must be a single HRU."
             )
             raise ValueError(msg)
@@ -463,7 +463,6 @@ def order_hrus(
     up_id_count = np.zeros(nhru, dtype="int64")
     dn_id_count = np.zeros(nhru, dtype="int64")
     roots = np.zeros(nhru, dtype="int64")
-    path = np.zeros(nhru, dtype="int64")
     is_hru_on_list = np.zeros(nhru, dtype="int64")
 
     for ii in range(active_hrus):
@@ -537,28 +536,26 @@ def order_hrus(
     # not going to write the file in the type_flag ==1 case. We are returning
     # a new parameter object here.
 
-    # iret = 0
-    #  check for circles when circle_switch = 1
+    # check for circles when circle_switch = 1. cascade.f90 walks up from
+    # each root recursively (up_tree/check_path); a directed-graph cycle
+    # search is equivalent and also catches a cycle with no root above it.
     if circle_switch == ACTIVE:
-        circle_flg = 0
-        for i in range(nroots):
-            ihru = roots[i]
-            path[0] = ihru
-            npath = 1
-            circle_flg = 0
-
-            npath, path = up_tree(
-                nhru,
-                ihru,
-                up_id_count,
-                hrus_up_list,
-                npath,
-                path,
-                max_up_id_count,
+        graph = nx.DiGraph()
+        for ii in range(active_hrus):
+            i = hru_route_order[ii]
+            for k in range(ncascade_hru[i - 1]):
+                dnhru = hru_down[k, i - 1]
+                if dnhru > 0:
+                    graph.add_edge(i, dnhru)
+        try:
+            cycle = nx.find_cycle(graph)
+        except nx.NetworkXNoCycle:
+            pass
+        else:
+            msg = (
+                "Circular cascading path specified among HRUs: "
+                f"{[edge[0] for edge in cycle]}"
             )
-
-        if circle_flg == 1:
-            msg = "ERROR, circular HRU path found"
             raise ValueError(msg)
 
     # <<
@@ -641,54 +638,3 @@ def order_hrus(
         raise ValueError(msg)
 
     return iorder, hru_type, hru_route_order
-
-
-def up_tree(
-    num: int,
-    n: int,
-    down_id: np.ndarray,
-    up_list: np.ndarray,
-    npath: int,
-    path: np.ndarray,
-    imx: int,
-) -> tuple:
-    """Recursive walk up a tree of cascading spatial units."""
-    # INTEGER, INTENT(IN) :: Num, N, Imx
-    # INTEGER, INTENT(IN) :: Down_id(Num), Up_list(Imx, Num)
-    # INTEGER, INTENT(INOUT) :: Npath, Path(Num), Circle_flg
-    nup = down_id[n - 1]
-    for i in range(nup):
-        npath += 1
-        parent = up_list[i, n - 1]
-        path[npath] = parent
-        _ = check_path(npath, path, nup)  # will error if necessary
-        (npath, path) = up_tree(
-            num, parent, down_id, up_list, npath, path, imx
-        )
-
-    # <
-    if nup == 0:
-        _ = check_path(npath, path, nup)
-
-    npath = npath - 1
-
-    return npath, path
-
-
-def check_path(npath: int, path: np.ndarray, nup: int) -> None:
-    """Check for circular path.
-
-    Raises an error with an informative message if needed.
-
-    Returns:
-        None
-    """
-    for j in range(npath - 1):
-        for i in range(j + 1, npath + 1):
-            if (path[j] == path[i]) or (np == 0):
-                msg = (
-                    "Circular cascade path specified, {path[j]=} == {path[i]=}"
-                )
-                raise ValueError(msg)
-
-    return None

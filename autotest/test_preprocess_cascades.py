@@ -6,6 +6,7 @@ from pywatershed.parameters import Parameters, PrmsParameters
 from pywatershed.utils.preprocess_cascades import (
     calc_hru_route_order,
     init_cascade_params,
+    order_hrus,
 )
 
 # TODO: These tests are only valid for sagehen_5yr and certain configurations
@@ -179,3 +180,37 @@ def test_preprocess(control, parameters):
 
     assert (flat_hru_down == answer_hru_down_flat).all()
     assert (abs(flat_hru_down_frac - answer_hru_down_frac_flat) < 1e-8).all()
+
+
+def test_order_hrus_circle():
+    # HRU 1 is a swale root; HRU 2 cascades to HRU 3 and HRU 1; HRU 3
+    # cascades back to HRU 2.
+    nhru = 3
+    hru_route_order = np.array([1, 2, 3], dtype="int64")
+    ncascade_hru = np.array([0, 2, 1], dtype="int64")
+    hru_down = np.array([[0, 3, 2], [0, 1, 0]], dtype="int64")
+    hru_type = np.array([3, 1, 1], dtype="int64")
+    with pytest.raises(ValueError, match="Circular cascading path"):
+        order_hrus(
+            nhru,
+            nhru,
+            hru_route_order,
+            ncascade_hru,
+            hru_down,
+            hru_type,
+            circle_switch=1,
+        )
+
+
+def test_calc_hru_route_order_lake():
+    # a lake HRU without an nlake dimension gets the PRMS diagnostic
+    nhru = 2
+    params = Parameters(
+        dims={"nhru": nhru},
+        coords={"nhru": np.arange(nhru)},
+        data_vars={"hru_type": np.array([1, 2], dtype="int64")},
+        metadata={"nhru": {"dims": ["nhru"]}, "hru_type": {"dims": ["nhru"]}},
+        validate=True,
+    )
+    with pytest.raises(ValueError, match="nlake = 0"):
+        calc_hru_route_order(params)
