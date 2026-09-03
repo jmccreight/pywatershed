@@ -238,8 +238,7 @@ def test_model(simulation, model_args, tmp_path):
         comparison_vars_dict_all[f"{vv}NoDprst"] = comparison_vars_dict_all[vv]
 
     comparison_vars_dict_all["PRMSRunoffCascadesNoDprst"] = list(
-        set(pywatershed.PRMSRunoffCascadesNoDprst.get_variables())
-        - {"stream_seg_in"}
+        pywatershed.PRMSRunoffCascadesNoDprst.get_variables()
     )
     comparison_vars_dict_all["PRMSSoilzoneCascadesNoDprst"] = (
         comparison_vars_dict_all["PRMSSoilzone"]

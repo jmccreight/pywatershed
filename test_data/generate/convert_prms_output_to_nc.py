@@ -15,6 +15,7 @@ rename_vars = {
     "seg_depth": "seg_flow_depth",
     "seg_velocity": "seg_flow_velocity",
     "seg_width": "seg_flow_width",
+    "strm_seg_in": "stream_seg_in",
 }
 
 

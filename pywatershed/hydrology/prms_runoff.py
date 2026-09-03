@@ -758,7 +758,10 @@ class PRMSRunoff(ConservativeProcess, HruMixin):
         hru_horton_cascflow = np.zeros(nhru, dtype="float64")
         ncascade_hru_active = ~np.isnan(ncascade_hru).all()
         if ncascade_hru_active:
+            # PRMS zeroes both every timestep in srunoffrun (srunoff.f90).
+            # Soilzone adds to stream_seg_in later in the same step.
             upslope_hortonian[:] = zero
+            stream_seg_in[:] = zero
 
         dprst_chk = 0
         infil[:] = 0.0
