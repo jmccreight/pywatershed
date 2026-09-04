@@ -65,7 +65,11 @@ Breaking Changes
   ``hru_type``; PRMS parameter files and the ``parameters_dis_hru.nc``
   discretization file written by
   :func:`~utils.separate_nhm_params.separate_domain_params_dis_to_ncdf`
-  already carry it.
+  already carry it. As a consequence, :class:`PRMSCanopy` now applies
+  PRMS's lake treatment to HRUs with ``hru_type`` lake (no interception),
+  where it previously treated every HRU as land; results change on domains
+  with lake HRUs. Note that lake HRUs are currently untested in pywatershed:
+  no test domain contains one.
   (:pull:`407`) By `James McCreight <https://github.com/jmccreight>`_.
 - Keyword arguments were inserted mid-signature: ``stream_seg_in=None``
   now precedes ``dprst_flag`` in :class:`PRMSSoilzone` and
