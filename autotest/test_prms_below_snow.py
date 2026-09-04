@@ -245,9 +245,13 @@ def test_model(simulation, model_args, tmp_path):
     comparison_vars_dict_all["PRMSRunoffCascadesNoDprst"] = list(
         pywatershed.PRMSRunoffCascadesNoDprst.get_variables()
     )
-    comparison_vars_dict_all["PRMSSoilzoneCascadesNoDprst"] = (
+    comparison_vars_dict_all["PRMSSoilzoneCascadesNoDprst"] = list(
         comparison_vars_dict_all["PRMSSoilzone"]
-    )
+    ) + [
+        "hru_sz_cascadeflow",
+        "upslope_dunnianflow",
+        "upslope_interflow",
+    ]
 
     comparison_vars_dict = {}
 

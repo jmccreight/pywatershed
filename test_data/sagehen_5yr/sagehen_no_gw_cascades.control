@@ -184,7 +184,7 @@ nhruOutON_OFF
 nhruOutVars
 1
 1
-90
+92
 ####
 nhruOut_freq
 1
@@ -197,7 +197,7 @@ nhruOut_format
 4
 ####
 nhruOutVar_names
-90
+92
 4
 albedo
 cap_infil_tot
@@ -288,7 +288,9 @@ tminc
 tminf
 transp_on
 unused_potet
+upslope_dunnianflow
 upslope_hortonian
+upslope_interflow
 ####
 nhruOutBaseFileName
 1
