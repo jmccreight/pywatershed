@@ -110,10 +110,12 @@ check it), **Action** (what to do once unblocked), and optional
   for a tag above `v1.7.4rel`, then confirm the fix is in it, e.g. the
   released sdist no longer has `data.shape = tuple(datashape)` in
   `src/netCDF4/_netCDF4.pyx`.
-- **Action:** remove the
-  `ignore:Setting the shape on a NumPy array has been deprecated`
-  line (and the comment above the key) from `autotest/pytest.ini`, and
-  raise the netCDF4 floor in `environment.yml` to that release.
+- **Action:** remove `suppress_netcdf4_shape_warning` from
+  `pywatershed/utils/netcdf_utils.py` and its three uses (two there,
+  one in `pywatershed/base/budget.py`), and raise the netCDF4 floor in
+  `environment.yml` to that release. (Until 2026-09-04 this was a
+  `filterwarnings` line in `autotest/pytest.ini`, which did not reach
+  the notebook subprocesses or users' own scripts.)
 - **Notes:** netCDF4 assigns to `ndarray.shape` on every variable write
   (`_netCDF4.pyx:5616`), which NumPy >= 2.5 deprecates. Nothing on the
   pywatershed side avoids it: every assignment form was tried
