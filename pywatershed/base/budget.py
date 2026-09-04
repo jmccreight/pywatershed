@@ -431,7 +431,10 @@ class Budget(Accessor):
             if self._ignore_nans:
                 close = np.where(np.isnan(abs_diff), True, close)
 
-            wh_not_close = np.where(~close)
+            wh_not_close = np.where(~close)[0]
+            if self.active_mask is not False:
+                # map compressed positions back to full HRU indices
+                wh_not_close = np.flatnonzero(self.active_mask)[wh_not_close]
 
             msg = (
                 "The flux unit balance not equal to the change in unit "
