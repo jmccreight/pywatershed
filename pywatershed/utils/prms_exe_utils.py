@@ -196,6 +196,8 @@ def compile_prms(
     ------
     ValueError
         If *source* is not a supported value.
+    FileNotFoundError
+        If make, gcc, or gfortran is not found on the PATH.
     RuntimeError
         If compilation succeeds but the expected output binary is missing.
     subprocess.CalledProcessError
@@ -237,6 +239,18 @@ def compile_prms(
         env_bin = pl.Path(sys.prefix) / "bin"
         if (env_bin / "gfortran").exists():
             sub_env["PATH"] = str(env_bin) + os.pathsep + sub_env["PATH"]
+
+        missing = [
+            tool
+            for tool in ("make", "gcc", "gfortran")
+            if shutil.which(tool, path=sub_env["PATH"]) is None
+        ]
+        if missing:
+            raise FileNotFoundError(
+                f"Cannot compile PRMS {source}: {', '.join(missing)} not "
+                "found on PATH. A gcc/gfortran/make toolchain is required "
+                "(e.g. from conda-forge); see DEVELOPER.md."
+            )
 
         orig_dir = pl.Path.cwd()
         try:
