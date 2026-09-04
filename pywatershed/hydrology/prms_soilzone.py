@@ -139,6 +139,9 @@ class PRMSSoilzone(ConservativeProcess, HruMixin):
         restart_write: Union[pl.Path, bool] = False,
         restart_write_freq: Literal["y", "m", "d", "f", False] = False,
     ):
+        if not hasattr(self, "name"):
+            self.name = "PRMSSoilzone"
+
         super().__init__(
             control=control,
             discretization=discretization,
@@ -148,9 +151,6 @@ class PRMSSoilzone(ConservativeProcess, HruMixin):
             restart_write=restart_write,
             restart_write_freq=restart_write_freq,
         )
-        if not hasattr(self, "name"):
-            self.name = "PRMSSoilzone"
-
         self._set_active_hrus()
         self._mask_inactive_hrus()
         self._set_inputs(locals())

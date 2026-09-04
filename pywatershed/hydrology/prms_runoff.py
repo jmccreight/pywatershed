@@ -149,6 +149,9 @@ class PRMSRunoff(ConservativeProcess, HruMixin):
         if self._dprst_flag is None:
             self._dprst_flag = True
 
+        if not hasattr(self, "name"):
+            self.name = "PRMSRunoff"
+
         super().__init__(
             control=control,
             discretization=discretization,
@@ -158,9 +161,6 @@ class PRMSRunoff(ConservativeProcess, HruMixin):
             restart_write=restart_write,
             restart_write_freq=restart_write_freq,
         )
-
-        if not hasattr(self, "name"):
-            self.name = "PRMSRunoff"
 
         self._set_active_hrus()
         self._mask_inactive_hrus()

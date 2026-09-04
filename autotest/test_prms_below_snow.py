@@ -226,10 +226,10 @@ def test_model(simulation, model_args, tmp_path):
 
     model = Model(**model_args, write_control=model_out_dir)
 
-    # subclasses that set self.name before super().__init__() keep it
+    # every process, including subclasses that set self.name before
+    # super().__init__(), reports its own class name
     for proc in model.processes.values():
-        if "Cascades" in proc.__class__.__name__:
-            assert proc.name == proc.__class__.__name__
+        assert proc.name == proc.__class__.__name__
 
     # check that control yaml file was written
     control_yaml_file = sorted(model_out_dir.glob("*model_control.yaml"))
