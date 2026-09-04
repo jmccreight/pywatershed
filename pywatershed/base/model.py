@@ -69,7 +69,7 @@ class Model:
 
     * process_list_or_model_dict: A process list of PRMS model components.
     * control: A Control object.
-    * parameters: A PrmsParameters object.
+    * parameters: A Parameters object (e.g. PrmsParameters).
 
     The first example below provides details. An extended example is given by
     `examples/02_prms_legacy_models.ipynb <https://github.com/DOI-USGS/pywatershed/blob/develop/examples/02_prms_legacy_models.ipynb>`__.
