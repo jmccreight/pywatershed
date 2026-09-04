@@ -423,6 +423,21 @@ class Process(Accessor):
         return
 
     def _set_inputs(self, args):
+        # An argument naming a model variable that is not one of this
+        # class's inputs would otherwise be silently ignored.
+        dropped = [
+            kk
+            for kk, vv in args.items()
+            if vv is not None
+            and kk in meta.variables
+            and kk not in self.inputs
+        ]
+        if dropped:
+            raise ValueError(
+                f"{type(self).__name__} does not take {dropped} as "
+                "input(s); they are not in its get_inputs()."
+            )
+
         self._input_variables_dict = {}
         for ii in self.inputs:
             if args[ii] is None:
