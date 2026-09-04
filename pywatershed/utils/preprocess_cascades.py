@@ -153,14 +153,14 @@ def init_cascade_params(
     nsegment = params.dims["nsegment"]
     ncascade = params.dims["ncascade"]
     hru_type = params.data_vars["hru_type"]
-    cascade_tol = params.data_vars["cascade_tol"]
+    cascade_tol = params.data_vars["cascade_tol"][0]
     active_hrus = params.data_vars["active_hrus"][0]
     hru_route_order = params.data_vars["hru_route_order"]
     circle_switch = params.data_vars["circle_switch"][0]
     ndown = 1
 
     # brilliant
-    cascade_flg = params.data_vars["cascade_flg"]
+    cascade_flg = params.data_vars["cascade_flg"][0]
     cascade_flag = control.options["cascade_flag"]
 
     ncascade_hru = np.zeros([nhru], dtype="int64")
