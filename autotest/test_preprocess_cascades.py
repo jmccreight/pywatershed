@@ -26,8 +26,8 @@ def control(simulation):
     control = Control.load_prms(
         simulation["control_file"], warn_unused_options=False
     )
-    if "cascade_flag" not in control.options.keys():
-        pytest.skip("cascade_flag not present")
+    if not control.options.get("cascade_flag", 0):
+        pytest.skip("cascade_flag absent or 0")
     return control
 
 

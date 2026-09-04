@@ -336,6 +336,7 @@ if [ -z "${t}" ]; then
             --ignore=test_obsin_flow_node.py \
             --ignore=test_output.py \
             --ignore=test_pass_through_flow_graph.py \
+            --ignore=test_preprocess_cascades.py \
             --ignore=test_prms_atmosphere_transp_frost.py \
             --ignore=test_prms_atmosphere_transp_frost_dynamic.py \
             --ignore=test_prms_channel.py \
