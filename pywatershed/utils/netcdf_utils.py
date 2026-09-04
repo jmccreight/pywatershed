@@ -98,8 +98,10 @@ class NetCdfRead(Accessor):
         self.close()
 
     def close(self):
-        if self.dataset.isopen():
-            self.dataset.close()
+        # __init__ may have failed before the file was opened
+        dataset = getattr(self, "dataset", None)
+        if dataset is not None and dataset.isopen():
+            dataset.close()
 
     def _open_nc_file(self):
         self.dataset = nc4.Dataset(self._nc_file, "r")
@@ -657,8 +659,10 @@ class NetCdfWrite(Accessor):
         return
 
     def close(self):
-        if self.dataset.isopen():
-            self.dataset.close()
+        # __init__ may have failed before the file was opened
+        dataset = getattr(self, "dataset", None)
+        if dataset is not None and dataset.isopen():
+            dataset.close()
             return
 
     def add_simulation_time(self, itime_step: int, simulation_time: float):
