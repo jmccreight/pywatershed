@@ -52,11 +52,12 @@ def at_a_station_hydraulic_geometry(
         return_bankfull: also return diagnostics.
 
     Returns:
-        A new Parameters object, a copy of the input with ``width_alpha``,
-        ``width_m``, ``depth_alpha`` and ``depth_m`` set (overwriting any
-        existing values). With ``return_bankfull=True`` a tuple of that
-        object and a dict with ``bankfull_flow`` (m^3/s),
-        ``bankfull_velocity`` (m/s) and ``velocity_exp``.
+        A new object of the same class as ``parameters``, a copy of the
+        input with ``width_alpha``, ``width_m``, ``depth_alpha`` and
+        ``depth_m`` set (overwriting any existing values). With
+        ``return_bankfull=True`` a tuple of that object and a dict with
+        ``bankfull_flow`` (m^3/s), ``bankfull_velocity`` (m/s) and
+        ``velocity_exp``.
 
     Raises:
         ValueError: a required parameter is missing or not positive.
@@ -106,7 +107,7 @@ def at_a_station_hydraulic_geometry(
             "dims": ("nsegment",),
             "attrs": dict(_NEW_META[name]),
         }
-    new_params = Parameters(**dd.data)
+    new_params = type(parameters)(**dd.data)
 
     if not return_bankfull:
         return new_params

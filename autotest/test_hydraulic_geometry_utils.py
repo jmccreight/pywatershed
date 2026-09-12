@@ -217,6 +217,7 @@ def test_at_a_station_drb_bankfull_round_trip():
     new, bankfull = at_a_station_hydraulic_geometry(
         params, return_bankfull=True
     )
+    assert isinstance(new, pws.parameters.PrmsParameters)
     p = params.parameters
     q_cms = bankfull["bankfull_flow"]
     # mirror PRMSHydraulicGeometryFull: flow_cms = seg_outflow_cfs * CFS_TO_CMS
