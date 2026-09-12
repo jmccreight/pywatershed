@@ -395,4 +395,99 @@ def export_network_hydraulics(
 def _polyline_block(
     segment_shp_file, shp_id_col, reach_id, to_index, connect_tol
 ):
-    raise NotImplementedError("added in the next task")
+    """Vertex arrays for each reach's polyline, oriented downstream."""
+    from .optional_import import import_optional_dependency
+
+    gpd = import_optional_dependency("geopandas")
+    gdf = gpd.read_file(segment_shp_file)
+    if shp_id_col not in gdf.columns:
+        raise ValueError(
+            f"Column {shp_id_col} not in {segment_shp_file}; "
+            f"columns are {list(gdf.columns)}"
+        )
+    shp_ids = gdf[shp_id_col].to_numpy().astype(np.int64)
+    if set(shp_ids) != set(reach_id) or len(shp_ids) != len(reach_id):
+        raise ValueError(
+            f"Shapefile column {shp_id_col} identifiers do not match the "
+            "parameters' nhm_seg identifiers"
+        )
+    order = {rid: ii for ii, rid in enumerate(shp_ids)}
+    geoms = [gdf.geometry.iloc[order[rid]] for rid in reach_id]
+    coords = [np.asarray(gg.coords, dtype=float)[:, :2] for gg in geoms]
+
+    # orient each line so its end is nearest its downstream reach
+    def _min_end_dist(point, line_coords):
+        return min(
+            np.hypot(*(point - line_coords[0])),
+            np.hypot(*(point - line_coords[-1])),
+        )
+
+    for ii, down in enumerate(to_index):
+        if down < 0:
+            continue
+        d_start = _min_end_dist(coords[ii][0], coords[down])
+        d_end = _min_end_dist(coords[ii][-1], coords[down])
+        if d_start < d_end:
+            coords[ii] = coords[ii][::-1]
+
+    n_unconnected = 0
+    for ii, down in enumerate(to_index):
+        if down < 0:
+            continue
+        if np.hypot(*(coords[ii][-1] - coords[down][0])) > connect_tol:
+            n_unconnected += 1
+
+    counts = np.array([len(cc) for cc in coords], dtype=np.int32)
+    starts = np.concatenate([[0], np.cumsum(counts)[:-1]]).astype(np.int64)
+    vertex_x = np.concatenate([cc[:, 0] for cc in coords])
+    vertex_y = np.concatenate([cc[:, 1] for cc in coords])
+    dists = []
+    x_mid = np.empty(len(coords))
+    y_mid = np.empty(len(coords))
+    for ii, cc in enumerate(coords):
+        step = np.hypot(np.diff(cc[:, 0]), np.diff(cc[:, 1]))
+        dist = np.concatenate([[0.0], np.cumsum(step)])
+        dists.append(dist)
+        half = dist[-1] / 2.0
+        x_mid[ii] = np.interp(half, dist, cc[:, 0])
+        y_mid[ii] = np.interp(half, dist, cc[:, 1])
+    vertex_dist = np.concatenate(dists)
+
+    crs_units = "m"
+    crs_wkt = gdf.crs.to_wkt() if gdf.crs is not None else ""
+
+    def vvar(values, dims, units, long_name):
+        return xr.DataArray(
+            values, dims=dims, attrs={"units": units, "long_name": long_name}
+        )
+
+    poly_vars = {
+        "vertex_x": vvar(
+            vertex_x, ("vertex",), crs_units, "vertex x in the CRS"
+        ),
+        "vertex_y": vvar(
+            vertex_y, ("vertex",), crs_units, "vertex y in the CRS"
+        ),
+        "vertex_dist": vvar(
+            vertex_dist,
+            ("vertex",),
+            "m",
+            "cumulative arc length from the reach's upstream end",
+        ),
+        "reach_vertex_start": vvar(
+            starts, ("reach",), "-", "index of the reach's first vertex"
+        ),
+        "reach_vertex_count": vvar(
+            counts,
+            ("reach",),
+            "-",
+            "number of vertices in the reach polyline",
+        ),
+        "x_mid": vvar(
+            x_mid, ("reach",), crs_units, "x at half the polyline arc length"
+        ),
+        "y_mid": vvar(
+            y_mid, ("reach",), crs_units, "y at half the polyline arc length"
+        ),
+    }
+    return poly_vars, n_unconnected, crs_wkt

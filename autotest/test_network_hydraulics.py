@@ -1,8 +1,10 @@
 import pathlib as pl
 
+import geopandas as gpd
 import numpy as np
 import pytest
 import xarray as xr
+from shapely.geometry import LineString
 
 from pywatershed.base.parameters import Parameters
 
@@ -292,4 +294,117 @@ def test_export_reach_order_mismatch_raises(
     with pytest.raises(ValueError, match="nhm_seg"):
         export_network_hydraulics(
             synthetic_params, synthetic_run_dir, tmp_path / "net.nc"
+        )
+
+
+def _write_segments_shp(path, lines, ids, crs="EPSG:5070"):
+    gdf = gpd.GeoDataFrame(
+        {"nsegment_v": ids, "model_idx": np.arange(1, len(ids) + 1)},
+        geometry=[LineString(ll) for ll in lines],
+        crs=crs,
+    )
+    gdf.to_file(path)
+
+
+@pytest.fixture
+def synthetic_lines():
+    # reach 0: two-vertex line ending at the junction (0, 0)
+    # reach 1: three-vertex line, digitized BACKWARDS (starts at junction)
+    # reach 2: outlet, from the junction to (0, -1500)
+    return [
+        [(-1000.0, 0.0), (0.0, 0.0)],
+        [(0.0, 0.0), (500.0, 1000.0), (1000.0, 2000.0)],
+        [(0.0, 0.0), (0.0, -1500.0)],
+    ]
+
+
+@pytest.mark.domainless
+def test_export_polyline_block(
+    synthetic_params, synthetic_run_dir, synthetic_lines, tmp_path
+):
+    from pywatershed.utils.network_hydraulics import (
+        export_network_hydraulics,
+    )
+
+    shp = tmp_path / "segs.shp"
+    # shuffle the shapefile row order to prove matching is by id
+    _write_segments_shp(
+        shp,
+        [synthetic_lines[2], synthetic_lines[0], synthetic_lines[1]],
+        [103, 101, 102],
+    )
+    ds = xr.open_dataset(
+        export_network_hydraulics(
+            synthetic_params,
+            synthetic_run_dir,
+            tmp_path / "net.nc",
+            segment_shp_file=shp,
+        )
+    )
+    assert ds.attrs["n_unconnected"] == 0
+    assert "5070" in ds.attrs["crs_wkt"] or "Albers" in ds.attrs["crs_wkt"]
+    np.testing.assert_array_equal(ds["reach_vertex_count"], [2, 3, 2])
+    np.testing.assert_array_equal(ds["reach_vertex_start"], [0, 2, 5])
+    assert ds.sizes["vertex"] == 7
+    vx = ds["vertex_x"].values
+    vy = ds["vertex_y"].values
+    vd = ds["vertex_dist"].values
+    # reach 0 as digitized
+    np.testing.assert_allclose(vx[0:2], [-1000.0, 0.0])
+    np.testing.assert_allclose(vd[0:2], [0.0, 1000.0])
+    # reach 1 was reversed so that it ends at the junction
+    np.testing.assert_allclose(vx[2:5], [1000.0, 500.0, 0.0])
+    np.testing.assert_allclose(vy[2:5], [2000.0, 1000.0, 0.0])
+    seg = np.hypot(500.0, 1000.0)
+    np.testing.assert_allclose(vd[2:5], [0.0, seg, 2 * seg])
+    # reach 2 (outlet) untouched
+    np.testing.assert_allclose(vy[5:7], [0.0, -1500.0])
+    np.testing.assert_allclose(vd[5:7], [0.0, 1500.0])
+    # midpoints at half arc length
+    np.testing.assert_allclose(ds["x_mid"], [-500.0, 500.0, 0.0])
+    np.testing.assert_allclose(ds["y_mid"], [0.0, 1000.0, -750.0])
+    assert ds["vertex_dist"].attrs["units"] == "m"
+    ds.close()
+
+
+@pytest.mark.domainless
+def test_export_polyline_unconnected_counted(
+    synthetic_params, synthetic_run_dir, synthetic_lines, tmp_path
+):
+    from pywatershed.utils.network_hydraulics import (
+        export_network_hydraulics,
+    )
+
+    lines = [list(ll) for ll in synthetic_lines]
+    lines[0] = [(-1000.0, 50.0), (0.0, 50.0)]  # displaced by 50 m
+    shp = tmp_path / "segs.shp"
+    _write_segments_shp(shp, lines, [101, 102, 103])
+    with pytest.warns(UserWarning, match="1 reach polyline"):
+        out = export_network_hydraulics(
+            synthetic_params,
+            synthetic_run_dir,
+            tmp_path / "net.nc",
+            segment_shp_file=shp,
+        )
+    ds = xr.open_dataset(out)
+    assert ds.attrs["n_unconnected"] == 1
+    ds.close()
+
+
+@pytest.mark.domainless
+def test_export_polyline_id_mismatch_raises(
+    synthetic_params, synthetic_run_dir, synthetic_lines, tmp_path
+):
+    from pywatershed.utils.network_hydraulics import (
+        export_network_hydraulics,
+    )
+
+    shp = tmp_path / "segs.shp"
+    _write_segments_shp(shp, synthetic_lines, [101, 102, 999])
+    with pytest.raises(ValueError, match="nsegment_v"):
+        export_network_hydraulics(
+            synthetic_params,
+            synthetic_run_dir,
+            tmp_path / "net.nc",
+            segment_shp_file=shp,
         )
