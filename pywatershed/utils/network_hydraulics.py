@@ -6,9 +6,16 @@ in SI units for consumers such as 1D network particle trackers. See
 ``docs/superpowers/specs/2026-09-11-network-hydraulics-export-design.md``.
 """
 
+import datetime
+import pathlib as pl
+from warnings import warn
+
 import numpy as np
+import xarray as xr
 
 from ..base.parameters import Parameters
+from ..hydrology.prms_hydraulic_geometry import CFS_TO_CMS
+from ..version import __version__
 
 G = 9.80665
 """Gravitational acceleration (m/s^2)."""
@@ -81,3 +88,311 @@ def calculate_seg_mid_elevations(
                 seg_y[seg] = seg_dy[seg] + seg_y[down]
 
     return seg_y - seg_dy / 2, outlet_mid
+
+
+REQUIRED_RUN_VARS = (
+    "seg_outflow",
+    "seg_inflow",
+    "seg_flow_width",
+    "seg_flow_depth",
+    "seg_flow_velocity",
+    "seg_res_time",
+)
+"""Output variables the exporter requires in ``run_dir``."""
+
+OPTIONAL_RUN_VARS = ("seg_tave_water",)
+"""Output variables the exporter includes when present in ``run_dir``."""
+
+_GEOMETRY_METHOD = "power_law_at_a_station"
+
+# export name: (source name, units, long_name, method, scale factor)
+_TIME_VARS = {
+    "flow_out": (
+        "seg_outflow",
+        "m3 s-1",
+        "flow leaving the reach",
+        "routed",
+        CFS_TO_CMS,
+    ),
+    "flow_in": (
+        "seg_inflow",
+        "m3 s-1",
+        "flow entering the reach",
+        "routed",
+        CFS_TO_CMS,
+    ),
+    "velocity": (
+        "seg_flow_velocity",
+        "m s-1",
+        "mean flow velocity",
+        _GEOMETRY_METHOD,
+        1.0,
+    ),
+    "depth": (
+        "seg_flow_depth",
+        "m",
+        "mean flow depth",
+        _GEOMETRY_METHOD,
+        1.0,
+    ),
+    "width": (
+        "seg_flow_width",
+        "m",
+        "flow width",
+        _GEOMETRY_METHOD,
+        1.0,
+    ),
+    "residence_time": (
+        "seg_res_time",
+        "s",
+        "mean residence time of water in the reach",
+        "area*length/flow_out",
+        1.0,
+    ),
+    "water_temperature": (
+        "seg_tave_water",
+        "degC",
+        "mean water temperature",
+        "PRMS stream temperature",
+        1.0,
+    ),
+}
+
+
+def _read_run_vars(
+    run_dir: pl.Path,
+    reach_id: np.ndarray,
+    start_time,
+    end_time,
+) -> dict[str, xr.DataArray]:
+    run_dir = pl.Path(run_dir)
+    missing = [
+        nm for nm in REQUIRED_RUN_VARS if not (run_dir / f"{nm}.nc").exists()
+    ]
+    if missing:
+        raise FileNotFoundError(
+            f"Required output files missing from {run_dir}: {missing}"
+        )
+    names = list(REQUIRED_RUN_VARS) + [
+        nm for nm in OPTIONAL_RUN_VARS if (run_dir / f"{nm}.nc").exists()
+    ]
+    result = {}
+    for nm in names:
+        da = xr.open_dataarray(run_dir / f"{nm}.nc").load()
+        if "nhm_seg" in da.coords and not np.array_equal(
+            da["nhm_seg"].values, reach_id
+        ):
+            raise ValueError(
+                f"{nm}.nc coordinate nhm_seg does not match the "
+                "parameters' nhm_seg order"
+            )
+        if start_time is not None or end_time is not None:
+            da = da.sel(time=slice(start_time, end_time))
+        result[nm] = da
+    return result
+
+
+def export_network_hydraulics(
+    parameters: Parameters,
+    run_dir: pl.Path,
+    out_file: pl.Path,
+    segment_shp_file: pl.Path | None = None,
+    shp_id_col: str = "nsegment_v",
+    connect_tol: float = 1.0,
+    start_time: np.datetime64 | None = None,
+    end_time: np.datetime64 | None = None,
+) -> pl.Path:
+    """Write a model-agnostic network hydraulics NetCDF from a PRMS run.
+
+    The file carries reach topology, optional planform polylines, and
+    per-reach time series of flow, velocity, depth, width, shear
+    velocity and residence time in SI units, for consumers such as 1D
+    network particle trackers. Hydraulics are taken from the
+    :class:`PRMSHydraulicGeometryFull` outputs in ``run_dir``; only shear
+    velocity is computed here.
+
+    Args:
+        parameters: the run's parameters (needs ``nhm_seg``,
+            ``tosegment``, ``tosegment_nhm``, ``seg_length``,
+            ``seg_slope``, ``mann_n``, ``seg_width``, ``seg_depth``,
+            ``hru_segment``, ``hru_elev``).
+        run_dir: pywatershed NetCDF output directory containing
+            ``seg_outflow``, ``seg_inflow``, ``seg_flow_width``,
+            ``seg_flow_depth``, ``seg_flow_velocity`` and ``seg_res_time``
+            (``seg_tave_water`` is included when present).
+        out_file: path of the NetCDF file to write.
+        segment_shp_file: optional shapefile of segment LineStrings; adds
+            the ``vertex`` block and reach midpoints.
+        shp_id_col: shapefile column holding ``nhm_seg`` identifiers.
+        connect_tol: distance (CRS units) within which a reach's last
+            vertex must meet its downstream reach's first vertex.
+        start_time: optional first time to include.
+        end_time: optional last time to include.
+
+    Returns:
+        ``out_file`` as a Path.
+    """
+    params = parameters.parameters
+    reach_id = np.asarray(params["nhm_seg"], dtype=np.int64)
+    to_index = (np.asarray(params["tosegment"], dtype=np.int64) - 1).astype(
+        np.int32
+    )
+    is_outlet = (to_index < 0).astype(np.int8)
+    elevation_mid, _ = calculate_seg_mid_elevations(parameters)
+
+    run_vars = _read_run_vars(run_dir, reach_id, start_time, end_time)
+    time = run_vars["seg_outflow"]["time"].values
+
+    def static(values, dtype, units, long_name, source_name):
+        return xr.DataArray(
+            np.asarray(values, dtype=dtype),
+            dims=("reach",),
+            attrs={
+                "units": units,
+                "long_name": long_name,
+                "source_name": source_name,
+            },
+        )
+
+    data_vars = {
+        "reach_id": static(
+            reach_id, np.int64, "-", "reach identifier", "nhm_seg"
+        ),
+        "to_id": static(
+            params["tosegment_nhm"],
+            np.int64,
+            "-",
+            "downstream reach identifier (0 = outlet)",
+            "tosegment_nhm",
+        ),
+        "to_index": static(
+            to_index,
+            np.int32,
+            "-",
+            "zero-based index of the downstream reach (-1 = outlet)",
+            "tosegment",
+        ),
+        "is_outlet": static(
+            is_outlet,
+            np.int8,
+            "-",
+            "1 where the reach drains out of the network",
+            "tosegment",
+        ),
+        "length": static(
+            params["seg_length"],
+            np.float64,
+            "m",
+            "reach hydraulic length",
+            "seg_length",
+        ),
+        "slope": static(
+            params["seg_slope"],
+            np.float64,
+            "m m-1",
+            "reach slope",
+            "seg_slope",
+        ),
+        "mann_n": static(
+            params["mann_n"],
+            np.float64,
+            "s m-1/3",
+            "Manning roughness",
+            "mann_n",
+        ),
+        "elevation_mid": static(
+            elevation_mid,
+            np.float64,
+            "m",
+            "elevation at the reach midpoint, walked up from outlets",
+            "seg_slope*seg_length, hru_elev",
+        ),
+        "bankfull_width": static(
+            params["seg_width"],
+            np.float64,
+            "m",
+            "bankfull width",
+            "seg_width",
+        ),
+        "bankfull_depth": static(
+            params["seg_depth"],
+            np.float64,
+            "m",
+            "bankfull depth",
+            "seg_depth",
+        ),
+    }
+
+    slope = np.asarray(params["seg_slope"], dtype=float)
+    for name, (src, units, long_name, method, scale) in _TIME_VARS.items():
+        if src not in run_vars:
+            continue
+        values = run_vars[src].values * scale
+        data_vars[name] = xr.DataArray(
+            values,
+            dims=("time", "reach"),
+            attrs={
+                "units": units,
+                "long_name": long_name,
+                "source_name": src,
+                "method": method,
+            },
+        )
+    data_vars["ustar"] = xr.DataArray(
+        shear_velocity(data_vars["depth"].values, slope[None, :]),
+        dims=("time", "reach"),
+        attrs={
+            "units": "m s-1",
+            "long_name": "shear velocity",
+            "source_name": "seg_flow_depth, seg_slope",
+            "method": "sqrt(g*depth*slope)",
+        },
+    )
+
+    n_unconnected = -1
+    crs_wkt = ""
+    if segment_shp_file is not None:
+        poly_vars, n_unconnected, crs_wkt = _polyline_block(
+            segment_shp_file, shp_id_col, reach_id, to_index, connect_tol
+        )
+        data_vars.update(poly_vars)
+
+    ds = xr.Dataset(
+        data_vars=data_vars,
+        coords={"time": ("time", time)},
+        attrs={
+            "title": "Network hydraulics for 1D river-network transport",
+            "source_model": "pywatershed PRMS",
+            "source_model_version": __version__,
+            "pywatershed_version": __version__,
+            "geometry_method": _GEOMETRY_METHOD,
+            "created": datetime.datetime.now(
+                datetime.timezone.utc
+            ).isoformat(),
+            "n_unconnected": n_unconnected,
+            "crs_wkt": crs_wkt,
+            "conventions_note": (
+                "Particle state is (reach index, s) with 0 <= s <= length "
+                "from the reach's upstream end. When s exceeds length the "
+                "particle moves to to_index carrying the unused fraction of "
+                "the time step; to_index == -1 is an outlet. Map position "
+                "scales s/length onto the polyline's vertex_dist."
+            ),
+        },
+    )
+    out_file = pl.Path(out_file)
+    ds.to_netcdf(out_file)
+    ds.close()
+    if n_unconnected > 0:
+        warn(
+            f"{n_unconnected} reach polyline(s) do not meet their "
+            f"downstream reach within {connect_tol}; see the "
+            "n_unconnected global attribute"
+        )
+    return out_file
+
+
+def _polyline_block(
+    segment_shp_file, shp_id_col, reach_id, to_index, connect_tol
+):
+    raise NotImplementedError("added in the next task")
