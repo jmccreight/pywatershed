@@ -262,24 +262,40 @@ example water-quality particles):
 
 ## Section 3: notebook and packaging changes
 
-Notebook `examples/02_prms_legacy_models.ipynb`:
+New notebook `examples/02a_network_hydraulics_export.ipynb`, an add-on
+to `02_prms_legacy_models.ipynb`, which is left unchanged. It is
+self-contained (it does not depend on `02` having been run) and is
+picked up automatically by `autotest_exs/test_notebooks.py`, which
+globs every notebook whose name starts with a digit; `02a_` sorts
+directly after `02_`. It writes to `examples/02a_network_hydraulics_export/`.
 
-- After loading `params`, derive geometry:
+Contents, in order:
+
+- Introduction: why hydraulic geometry matters for particle tracking,
+  the thin default geometry in the DRB parameter file, and the plan
+  (bankfull-anchored at-a-station relations, then export).
+- Setup mirroring `02`: preprocess the CBH files to NetCDF into the
+  notebook's own output directory, load the PRMS parameters and the
+  `nhm_stream_temp.control` control file, truncate to the same six
+  months.
+- Derive geometry:
   `params, bankfull = pws.utils.at_a_station_hydraulic_geometry(params, return_bankfull=True)`,
-  with a markdown cell explaining bankfull anchoring and the exponents.
-- Replace `PRMSHydraulicGeometryWidthOnly` with
-  `PRMSHydraulicGeometryFull` in `nhm_processes`.
-- Add `seg_flow_width`, `seg_flow_depth`, `seg_flow_area`,
-  `seg_flow_velocity`, `seg_res_time` to
-  `control.options["netcdf_output_var_names"]`.
-- New closing section "Exporting network hydraulics for particle
-  tracking": call `export_network_hydraulics` on the `nhm` run
-  directory with the segment shapefile, open the result, and plot
-  last-day velocity and depth on the network map with `ProcessPlot`-
-  style rendering; state that this file is the interface to
-  fluvial-particle.
-- The `nhm` versus `nhm_submodel` equality check at the end of the
-  notebook is unaffected (the submodel runs `PRMSChannel` only).
+  with a markdown cell on bankfull anchoring and the exponents, and a
+  plot of bankfull discharge and velocity on the network map.
+- Run the NHM process list from `02` with
+  `PRMSHydraulicGeometryFull` in place of
+  `PRMSHydraulicGeometryWidthOnly`, and with `seg_flow_width`,
+  `seg_flow_depth`, `seg_flow_area`, `seg_flow_velocity`,
+  `seg_res_time` added to `control.options["netcdf_output_var_names"]`.
+- Compare the derived geometry with the PRMS-default geometry that `02`
+  used: velocity and depth for the last day side by side on the map,
+  and a scatter of the two velocity estimates, so the reader sees what
+  the new parameterization changed.
+- Export: call `export_network_hydraulics` on the run directory with
+  the segment shapefile, open the result, print its structure, and
+  plot last-day velocity and depth from the file. State that this file
+  is the interface to fluvial-particle and summarize the
+  particle-position convention.
 
 Packaging:
 
@@ -323,7 +339,7 @@ CI step without `--domain`.
 - `calculate_seg_mid_elevations` on the synthetic network matches a
   hand-walked result; `MmrToMf6Dfw` tests continue to pass unchanged.
 
-The executed notebook in CI exercises the DRB end to end.
+The executed `02a` notebook in CI exercises the DRB end to end.
 
 ## Follow-on work (not in this PR)
 
