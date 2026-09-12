@@ -80,9 +80,10 @@ def at_a_station_hydraulic_geometry(
     for name, arr in (
         ("seg_width", width),
         ("seg_depth", depth),
+        ("seg_slope", slope),
         ("mann_n", mann_n),
     ):
-        n_bad = int(np.sum(~(arr > 0.0)))
+        n_bad = int(np.sum(~(np.isfinite(arr) & (arr > 0.0))))
         if n_bad:
             raise ValueError(
                 f"Parameter {name} must be positive; "

@@ -80,6 +80,21 @@ def test_calculate_seg_mid_elevations(synthetic_params):
     assert outlet_mid == {2: 101.5}
 
 
+@pytest.mark.domainless
+def test_calculate_seg_mid_elevations_two_outlets(synthetic_params):
+    from pywatershed.utils.network_hydraulics import (
+        calculate_seg_mid_elevations,
+    )
+
+    dd = synthetic_params.to_dd()
+    dd.data_vars["tosegment"] = np.array([3, 0, 0], dtype=np.int64)
+    two_outlets = Parameters(**dd.data)
+
+    mid, outlet_mid = calculate_seg_mid_elevations(two_outlets)
+    np.testing.assert_allclose(mid, np.array([108.0, 115.0, 101.5]))
+    assert outlet_mid == {1: 115.0, 2: 101.5}
+
+
 NTIME = 4
 TIMES = np.arange(
     np.datetime64("1979-01-01"), np.datetime64("1979-01-05")
@@ -160,6 +175,27 @@ def test_export_static_fields(synthetic_params, synthetic_run_dir, tmp_path):
     assert ds.attrs["source_model"] == "pywatershed PRMS"
     assert "pywatershed_version" in ds.attrs
     assert ds.attrs["n_unconnected"] == -1  # no polyline supplied
+    ds.close()
+
+
+@pytest.mark.domainless
+def test_export_static_fields_to_id_derived_without_tosegment_nhm(
+    synthetic_params, synthetic_run_dir, tmp_path
+):
+    from pywatershed.utils.network_hydraulics import (
+        export_network_hydraulics,
+    )
+
+    dd = synthetic_params.to_dd()
+    del dd.data_vars["tosegment_nhm"]
+    del dd.metadata["tosegment_nhm"]
+    no_tosegment_nhm = Parameters(**dd.data)
+
+    out = export_network_hydraulics(
+        no_tosegment_nhm, synthetic_run_dir, tmp_path / "net.nc"
+    )
+    ds = xr.open_dataset(out)
+    np.testing.assert_array_equal(ds["to_id"], np.array([103, 103, 0]))
     ds.close()
 
 
@@ -369,6 +405,35 @@ def test_export_polyline_block(
 
 
 @pytest.mark.domainless
+def test_export_polyline_backwards_outlet_reversed(
+    synthetic_params, synthetic_run_dir, synthetic_lines, tmp_path
+):
+    from pywatershed.utils.network_hydraulics import (
+        export_network_hydraulics,
+    )
+
+    lines = [list(ll) for ll in synthetic_lines]
+    lines[2] = [(0.0, -1500.0), (0.0, 0.0)]  # outlet digitized backwards
+    shp = tmp_path / "segs.shp"
+    _write_segments_shp(shp, lines, [101, 102, 103])
+    ds = xr.open_dataset(
+        export_network_hydraulics(
+            synthetic_params,
+            synthetic_run_dir,
+            tmp_path / "net.nc",
+            segment_shp_file=shp,
+        )
+    )
+    vy = ds["vertex_y"].values
+    vd = ds["vertex_dist"].values
+    np.testing.assert_allclose(vy[5:7], [0.0, -1500.0])
+    np.testing.assert_allclose(vd[5:7], [0.0, 1500.0])
+    np.testing.assert_allclose(ds["y_mid"][2], -750.0)
+    assert ds.attrs["n_unconnected"] == 0
+    ds.close()
+
+
+@pytest.mark.domainless
 def test_export_polyline_unconnected_counted(
     synthetic_params, synthetic_run_dir, synthetic_lines, tmp_path
 ):
@@ -388,6 +453,31 @@ def test_export_polyline_unconnected_counted(
             segment_shp_file=shp,
         )
     ds = xr.open_dataset(out)
+    assert ds.attrs["n_unconnected"] == 1
+    ds.close()
+
+
+@pytest.mark.domainless
+def test_export_polyline_zero_length_line_midpoint(
+    synthetic_params, synthetic_run_dir, synthetic_lines, tmp_path
+):
+    from pywatershed.utils.network_hydraulics import (
+        export_network_hydraulics,
+    )
+
+    lines = [list(ll) for ll in synthetic_lines]
+    lines[0] = [(-1000.0, 0.0), (-1000.0, 0.0)]  # two identical vertices
+    shp = tmp_path / "segs.shp"
+    _write_segments_shp(shp, lines, [101, 102, 103])
+    with pytest.warns(UserWarning, match="1 reach polyline"):
+        out = export_network_hydraulics(
+            synthetic_params,
+            synthetic_run_dir,
+            tmp_path / "net.nc",
+            segment_shp_file=shp,
+        )
+    ds = xr.open_dataset(out)
+    assert ds["x_mid"].values[0] == -1000.0
     assert ds.attrs["n_unconnected"] == 1
     ds.close()
 

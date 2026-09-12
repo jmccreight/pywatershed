@@ -178,7 +178,9 @@ def _read_run_vars(
     ]
     result = {}
     for nm in names:
-        da = xr.open_dataarray(run_dir / f"{nm}.nc").load()
+        path = run_dir / f"{nm}.nc"
+        with xr.open_dataarray(path) as opened:
+            da = opened.load()
         if "nhm_seg" in da.coords and not np.array_equal(
             da["nhm_seg"].values, reach_id
         ):
@@ -186,6 +188,13 @@ def _read_run_vars(
                 f"{nm}.nc coordinate nhm_seg does not match the "
                 "parameters' nhm_seg order"
             )
+        if nm in ("seg_outflow", "seg_inflow"):
+            units = da.attrs.get("units")
+            if units is not None and units != "cfs":
+                warn(
+                    f"{path}: units attribute is {units!r}, not 'cfs'; "
+                    "flows are assumed to be in cfs"
+                )
         if start_time is not None or end_time is not None:
             da = da.sel(time=slice(start_time, end_time))
         result[nm] = da
@@ -211,21 +220,45 @@ def export_network_hydraulics(
     :class:`PRMSHydraulicGeometryFull` outputs in ``run_dir``; only shear
     velocity is computed here.
 
+    Where ``flow_out`` is 0 the process outputs give ``velocity``,
+    ``depth``, ``width`` and ``residence_time`` of 0 (not inf);
+    consumers should mask on ``flow_out > 0``.
+
     Args:
         parameters: the run's parameters (needs ``nhm_seg``,
-            ``tosegment``, ``tosegment_nhm``, ``seg_length``,
-            ``seg_slope``, ``mann_n``, ``seg_width``, ``seg_depth``,
-            ``hru_segment``, ``hru_elev``).
+            ``tosegment``, ``seg_length``, ``seg_slope``, ``mann_n``,
+            ``seg_width``, ``seg_depth``, ``hru_segment``,
+            ``hru_elev``). ``tosegment_nhm`` is used for ``to_id`` when
+            present; otherwise ``to_id`` is derived from ``tosegment``
+            and ``nhm_seg``.
         run_dir: pywatershed NetCDF output directory containing
             ``seg_outflow``, ``seg_inflow``, ``seg_flow_width``,
             ``seg_flow_depth``, ``seg_flow_velocity`` and ``seg_res_time``
             (``seg_tave_water`` is included when present).
         out_file: path of the NetCDF file to write.
         segment_shp_file: optional shapefile of segment LineStrings; adds
-            the ``vertex`` block and reach midpoints.
+            the ``vertex`` block and reach midpoints. Must use a
+            projected CRS in meters: a geographic CRS or a projected
+            CRS not in meters raises ``ValueError``; a missing CRS
+            warns and coordinates are labeled with units "unknown".
+            Each line is oriented so its downstream end is last. For a
+            reach with a downstream neighbor, the line is reversed
+            when its first vertex is nearer than its last vertex to
+            the downstream reach's nearest end. For an outlet reach
+            (no downstream neighbor), the reference point is instead
+            the last vertices of the upstream reaches that drain to
+            it, and the line is reversed when its last vertex is
+            nearer that reference than its first vertex is.
+            ``connect_tol`` does not affect this orientation; it only
+            controls the ``n_unconnected`` count below.
         shp_id_col: shapefile column holding ``nhm_seg`` identifiers.
         connect_tol: distance (CRS units) within which a reach's last
-            vertex must meet its downstream reach's first vertex.
+            vertex must meet its downstream reach's first vertex, used
+            only to count (not fix) unconnected reaches; see
+            ``n_unconnected`` in the global attributes, which is -1
+            when no ``segment_shp_file`` is supplied (no polyline
+            block was written) and otherwise the count of reaches
+            still failing this tolerance after orientation.
         start_time: optional first time to include.
         end_time: optional last time to include.
 
@@ -239,6 +272,12 @@ def export_network_hydraulics(
     )
     is_outlet = (to_index < 0).astype(np.int8)
     elevation_mid, _ = calculate_seg_mid_elevations(parameters)
+    if "tosegment_nhm" in params:
+        to_id = np.asarray(params["tosegment_nhm"], dtype=np.int64)
+        to_id_source = "tosegment_nhm"
+    else:
+        to_id = np.where(to_index >= 0, reach_id[np.maximum(to_index, 0)], 0)
+        to_id_source = "derived from tosegment and nhm_seg"
 
     run_vars = _read_run_vars(run_dir, reach_id, start_time, end_time)
     time = run_vars["seg_outflow"]["time"].values
@@ -259,11 +298,11 @@ def export_network_hydraulics(
             reach_id, np.int64, "-", "reach identifier", "nhm_seg"
         ),
         "to_id": static(
-            params["tosegment_nhm"],
+            to_id,
             np.int64,
             "-",
             "downstream reach identifier (0 = outlet)",
-            "tosegment_nhm",
+            to_id_source,
         ),
         "to_index": static(
             to_index,
@@ -376,7 +415,8 @@ def export_network_hydraulics(
                 "from the reach's upstream end. When s exceeds length the "
                 "particle moves to to_index carrying the unused fraction of "
                 "the time step; to_index == -1 is an outlet. Map position "
-                "scales s/length onto the polyline's vertex_dist."
+                "scales s/length onto the polyline's vertex_dist. "
+                "n_unconnected is -1 when no polyline block is present."
             ),
         },
     )
@@ -454,6 +494,23 @@ def _polyline_block(
         if d_start < d_end:
             coords[ii] = coords[ii][::-1]
 
+    # outlets are not downstream of anything, so the pass above never
+    # orients them; instead point each outlet's line so its downstream
+    # end (last vertex) is nearest the upstream reaches that drain to
+    # it (already oriented above)
+    n = len(coords)
+    for o, down in enumerate(to_index):
+        if down >= 0:
+            continue
+        ups = [i for i in range(n) if to_index[i] == o]
+        if not ups:
+            continue
+        last_pts = [coords[i][-1] for i in ups]
+        dist_to_end = min(np.hypot(*(pt - coords[o][-1])) for pt in last_pts)
+        dist_to_start = min(np.hypot(*(pt - coords[o][0])) for pt in last_pts)
+        if dist_to_end < dist_to_start:
+            coords[o] = coords[o][::-1]
+
     n_unconnected = 0
     for ii, down in enumerate(to_index):
         if down < 0:
@@ -472,9 +529,12 @@ def _polyline_block(
         step = np.hypot(np.diff(cc[:, 0]), np.diff(cc[:, 1]))
         dist = np.concatenate([[0.0], np.cumsum(step)])
         dists.append(dist)
-        half = dist[-1] / 2.0
-        x_mid[ii] = np.interp(half, dist, cc[:, 0])
-        y_mid[ii] = np.interp(half, dist, cc[:, 1])
+        if dist[-1] == 0:
+            x_mid[ii], y_mid[ii] = cc[0, 0], cc[0, 1]
+        else:
+            half = dist[-1] / 2.0
+            x_mid[ii] = np.interp(half, dist, cc[:, 0])
+            y_mid[ii] = np.interp(half, dist, cc[:, 1])
     vertex_dist = np.concatenate(dists)
 
     def vvar(values, dims, units, long_name):
