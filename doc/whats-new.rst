@@ -40,7 +40,9 @@ New Features
   not and warning if the shapefile carries no CRS at all. Helpers
   :func:`~pywatershed.utils.shear_velocity` and
   :func:`~pywatershed.utils.calculate_seg_mid_elevations` (the latter
-  refactored out of :class:`MmrToMf6Dfw`, behavior unchanged) are public.
+  refactored out of :class:`MmrToMf6Dfw`, behavior unchanged; its debug
+  ``check=True`` path, previously non-functional, is corrected) are
+  public.
   New example notebook ``examples/02a_network_hydraulics_export.ipynb``
   demonstrates both on the Delaware River Basin.
   (:pull:`XXX`) By `Richard McDonald <https://github.com/rmcd-mscb>`_.

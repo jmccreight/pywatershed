@@ -156,7 +156,7 @@ Static, dimension `reach`:
 | `bankfull_width` | float64 | m | `seg_width` |
 | `bankfull_depth` | float64 | m | `seg_depth` |
 | `is_outlet` | int8 | - | `tosegment == 0` |
-| `x_mid`, `y_mid` | float64 | CRS units | polyline mid arc-length (only with shapefile) |
+| `x_mid`, `y_mid` | float64 | m (projected CRS required) | polyline mid arc-length (only with shapefile) |
 | `stream_order` | int32 | - | absent for PRMS; present for NWM |
 
 `elevation_mid` reuses the outlet-upward walk in
@@ -171,19 +171,32 @@ dimension `vertex`:
 
 | variable | dtype | units |
 |---|---|---|
-| `vertex_x`, `vertex_y` | float64 | CRS units |
+| `vertex_x`, `vertex_y` | float64 | m (projected CRS required) |
 | `vertex_dist` | float64 | m, cumulative arc length from the reach's upstream end, 0 at the first vertex |
 | `reach_vertex_start` (dim `reach`) | int64 | index of the reach's first vertex |
 | `reach_vertex_count` (dim `reach`) | int32 | number of vertices |
 
-Global attribute `crs_wkt` holds the shapefile CRS. Lines are matched
-to reaches by `shp_id_col` against `reach_id`; a mismatch in set or
-count raises. Each line is oriented upstream to downstream: if a line's
-last vertex is farther than `connect_tol` from its downstream reach's
-first vertex but its first vertex is within tolerance, the line is
-reversed. The number of connections still failing the tolerance after
-that is stored as global attribute `n_unconnected` and returned in a
-warning; it is not an error (the DRB has 4).
+The segment shapefile must use a projected CRS in meters: a geographic
+CRS or a projected CRS not in meters raises `ValueError`; a missing
+CRS warns and the vertex/midpoint variables are labeled with units
+"unknown" (`crs_wkt` is then empty). Global attribute `crs_wkt` holds
+the shapefile CRS otherwise. Lines are matched to reaches by
+`shp_id_col` against `reach_id`; a mismatch in set or count raises.
+
+Each line is oriented so its downstream end is last: a line is
+reversed whenever its first vertex is nearer its downstream reach's
+nearest end (the closer of that reach's first or last vertex) than its
+last vertex is. For an outlet reach (no downstream reach), the
+reference point is instead the last vertices of the upstream reaches
+that drain to it (already oriented by the pass above); the outlet's
+line is reversed when its last vertex is nearer that reference than
+its first vertex is. `connect_tol` plays no part in this
+reversal; it only bounds a separate check: after orientation, the
+number of reaches whose last vertex is still farther than
+`connect_tol` from its downstream reach's first vertex is stored as
+global attribute `n_unconnected` and returned in a warning — it is not
+an error (the DRB has 4). `n_unconnected` is -1 when no
+`segment_shp_file` is supplied, meaning no polyline block was written.
 
 Time-varying, dimensions `(time, reach)`, `time` as datetime64:
 
