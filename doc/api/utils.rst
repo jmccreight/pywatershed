@@ -12,13 +12,13 @@ Utils
     MmrToMf6Dfw
     utils.at_a_station_hydraulic_geometry
     utils.calculate_seg_mid_elevations
-    utils.export_network_hydraulics
-    utils.shear_velocity
     utils.cbh_file_to_netcdf
     utils.compile_prms
     utils.DomainSubset
+    utils.export_network_hydraulics
     utils.get_or_compile_prms_exe
     utils.get_prms_exe_name
     utils.get_prms_exe_path
     utils.netcdf_utils.subset_netcdf_file
     utils.netcdf_utils.subset_xr
+    utils.shear_velocity
