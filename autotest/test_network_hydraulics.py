@@ -1,4 +1,5 @@
 import pathlib as pl
+import warnings
 
 import geopandas as gpd
 import numpy as np
@@ -408,3 +409,69 @@ def test_export_polyline_id_mismatch_raises(
             tmp_path / "net.nc",
             segment_shp_file=shp,
         )
+
+
+@pytest.mark.domainless
+def test_export_polyline_geographic_crs_raises(
+    synthetic_params, synthetic_run_dir, synthetic_lines, tmp_path
+):
+    from pywatershed.utils.network_hydraulics import (
+        export_network_hydraulics,
+    )
+
+    shp = tmp_path / "segs.shp"
+    _write_segments_shp(shp, synthetic_lines, [101, 102, 103], crs="EPSG:4326")
+    with pytest.raises(ValueError, match="projected"):
+        export_network_hydraulics(
+            synthetic_params,
+            synthetic_run_dir,
+            tmp_path / "net.nc",
+            segment_shp_file=shp,
+        )
+
+
+@pytest.mark.domainless
+def test_export_polyline_non_meter_crs_raises(
+    synthetic_params, synthetic_run_dir, synthetic_lines, tmp_path
+):
+    from pywatershed.utils.network_hydraulics import (
+        export_network_hydraulics,
+    )
+
+    shp = tmp_path / "segs.shp"
+    # NAD83 / Pennsylvania South (US survey feet)
+    _write_segments_shp(shp, synthetic_lines, [101, 102, 103], crs="EPSG:2272")
+    with pytest.raises(ValueError, match="meter"):
+        export_network_hydraulics(
+            synthetic_params,
+            synthetic_run_dir,
+            tmp_path / "net.nc",
+            segment_shp_file=shp,
+        )
+
+
+@pytest.mark.domainless
+def test_export_polyline_missing_crs_warns(
+    synthetic_params, synthetic_run_dir, synthetic_lines, tmp_path
+):
+    from pywatershed.utils.network_hydraulics import (
+        export_network_hydraulics,
+    )
+
+    shp = tmp_path / "segs.shp"
+    # pyogrio itself warns about writing without a CRS; suppress that
+    # unrelated warning so it doesn't pollute the assertion below
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)
+        _write_segments_shp(shp, synthetic_lines, [101, 102, 103], crs=None)
+    with pytest.warns(UserWarning, match="no CRS"):
+        out = export_network_hydraulics(
+            synthetic_params,
+            synthetic_run_dir,
+            tmp_path / "net.nc",
+            segment_shp_file=shp,
+        )
+    ds = xr.open_dataset(out)
+    assert ds["vertex_x"].attrs["units"] == "unknown"
+    assert ds.attrs["crs_wkt"] == ""
+    ds.close()

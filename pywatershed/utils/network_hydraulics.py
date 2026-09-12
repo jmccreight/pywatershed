@@ -411,6 +411,30 @@ def _polyline_block(
             f"Shapefile column {shp_id_col} identifiers do not match the "
             "parameters' nhm_seg identifiers"
         )
+    if gdf.crs is None:
+        crs_units = "unknown"
+        crs_wkt = ""
+        warn(
+            "Segment shapefile has no CRS; coordinates are assumed to be "
+            "in meters"
+        )
+    elif gdf.crs.is_geographic:
+        raise ValueError(
+            f"Segment shapefile CRS {gdf.crs.name!r} is geographic; the "
+            "segment shapefile must use a projected CRS in meters "
+            "(for example, reproject to EPSG:5070)"
+        )
+    else:
+        unit_name = gdf.crs.axis_info[0].unit_name
+        if unit_name not in ("metre", "meter", "m"):
+            raise ValueError(
+                f"Segment shapefile CRS {gdf.crs.name!r} uses units "
+                f"{unit_name!r}; the segment shapefile must use a "
+                "projected CRS in meters"
+            )
+        crs_units = "m"
+        crs_wkt = gdf.crs.to_wkt()
+
     order = {rid: ii for ii, rid in enumerate(shp_ids)}
     geoms = [gdf.geometry.iloc[order[rid]] for rid in reach_id]
     coords = [np.asarray(gg.coords, dtype=float)[:, :2] for gg in geoms]
@@ -452,9 +476,6 @@ def _polyline_block(
         x_mid[ii] = np.interp(half, dist, cc[:, 0])
         y_mid[ii] = np.interp(half, dist, cc[:, 1])
     vertex_dist = np.concatenate(dists)
-
-    crs_units = "m"
-    crs_wkt = gdf.crs.to_wkt() if gdf.crs is not None else ""
 
     def vvar(values, dims, units, long_name):
         return xr.DataArray(
