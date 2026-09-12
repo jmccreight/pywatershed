@@ -475,3 +475,17 @@ def test_export_polyline_missing_crs_warns(
     assert ds["vertex_x"].attrs["units"] == "unknown"
     assert ds.attrs["crs_wkt"] == ""
     ds.close()
+
+
+@pytest.mark.domainless
+def test_public_exports():
+    import pywatershed as pws
+
+    for name in (
+        "at_a_station_hydraulic_geometry",
+        "export_network_hydraulics",
+        "shear_velocity",
+        "calculate_seg_mid_elevations",
+    ):
+        assert callable(getattr(pws.utils, name))
+        assert name in pws.utils.__all__
