@@ -813,14 +813,31 @@ class MmrToMf6Dfw:
             params = self.parameters.parameters
             seg_dy = params["seg_slope"] * params["seg_length"]
             tosegment0 = params["tosegment"] - 1
+            hru_seg0 = params["hru_segment"] - 1
+            hru_elev = params["hru_elev"]
             for ss in range(len(seg_dy)):
                 down = tosegment0[ss]
                 if down == -1:
+                    # an outlet's downstream end is the lowest elevation
+                    # of the HRUs draining to it
+                    down_end = mid[ss] - seg_dy[ss] / 2
+                    outlet_elev = hru_elev[np.where(hru_seg0 == ss)].min()
+                    if abs(down_end - outlet_elev) >= 1.0e-7:
+                        raise ValueError(
+                            f"Outlet segment {ss} downstream elevation "
+                            f"{down_end} does not equal the minimum "
+                            f"elevation {outlet_elev} of its HRUs"
+                        )
                     continue
                 # upstream end of ss equals upstream end of down + rise
                 up_ss = mid[ss] + seg_dy[ss] / 2
                 up_down = mid[down] + seg_dy[down] / 2
-                assert abs((up_ss - up_down) - seg_dy[ss]) < 1.0e-7
+                if abs((up_ss - up_down) - seg_dy[ss]) >= 1.0e-7:
+                    raise ValueError(
+                        f"Segment {ss} upstream elevation {up_ss} is not "
+                        f"its rise {seg_dy[ss]} above the upstream "
+                        f"elevation {up_down} of downstream segment {down}"
+                    )
         self._seg_mid_elevation = mid
         return
 

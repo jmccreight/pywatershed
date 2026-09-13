@@ -7,6 +7,8 @@ from .network_hydraulics import SLOPE_FLOOR
 
 _REQUIRED = ("seg_width", "seg_depth", "seg_slope", "mann_n")
 
+# units follow the registry entries for these PRMS parameters in
+# pywatershed/static/metadata/parameters.yaml
 _NEW_META = {
     "width_alpha": {
         "desc": "Alpha coefficient in power function for width calculation",
@@ -14,7 +16,7 @@ _NEW_META = {
     },
     "width_m": {
         "desc": "M value in power function for width calculation",
-        "units": "none",
+        "units": "unknown",
     },
     "depth_alpha": {
         "desc": "Alpha coefficient in power function for depth calculation",
@@ -60,7 +62,9 @@ def at_a_station_hydraulic_geometry(
         ``velocity_exp``.
 
     Raises:
-        ValueError: a required parameter is missing or not positive.
+        ValueError: a required parameter is missing, ``seg_slope`` is
+            negative or not finite, or ``seg_width``, ``seg_depth`` or
+            ``mann_n`` is not positive.
     """
     params = parameters.parameters
     missing = [kk for kk in _REQUIRED if kk not in params]
@@ -72,15 +76,22 @@ def at_a_station_hydraulic_geometry(
 
     width = np.asarray(params["seg_width"], dtype=float)
     depth = np.asarray(params["seg_depth"], dtype=float)
-    slope = np.maximum(
-        np.asarray(params["seg_slope"], dtype=float), SLOPE_FLOOR
-    )
+    raw_slope = np.asarray(params["seg_slope"], dtype=float)
     mann_n = np.asarray(params["mann_n"], dtype=float)
+
+    # the raw slope is checked before the floor is applied, which would
+    # otherwise hide a negative (but not a NaN) slope
+    n_bad_slope = int(np.sum(~(np.isfinite(raw_slope) & (raw_slope >= 0.0))))
+    if n_bad_slope:
+        raise ValueError(
+            "Parameter seg_slope must be non-negative and finite; "
+            f"{n_bad_slope} segment(s) are not"
+        )
+    slope = np.maximum(raw_slope, SLOPE_FLOOR)
 
     for name, arr in (
         ("seg_width", width),
         ("seg_depth", depth),
-        ("seg_slope", slope),
         ("mann_n", mann_n),
     ):
         n_bad = int(np.sum(~(np.isfinite(arr) & (arr > 0.0))))
