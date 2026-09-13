@@ -281,10 +281,15 @@ def _read_run_vars(
         if start_time is not None or end_time is not None:
             da = da.sel(time=slice(start_time, end_time))
             if da.sizes["time"] == 0:
+                if len(available):
+                    span = (
+                        f"its times run from {available[0]} to {available[-1]}"
+                    )
+                else:
+                    span = "the file has no time steps at all"
                 raise ValueError(
                     f"{nm}.nc has no time steps between start_time "
-                    f"{start_time} and end_time {end_time}; its times "
-                    f"run from {available[0]} to {available[-1]}"
+                    f"{start_time} and end_time {end_time}; {span}"
                 )
         result[nm] = da
     return result

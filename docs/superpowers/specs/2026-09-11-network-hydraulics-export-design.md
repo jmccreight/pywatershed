@@ -174,12 +174,12 @@ Static, dimension `reach`:
 | `is_outlet` | int8 | - | `tosegment == 0` |
 | `x_mid`, `y_mid` | float64 | m (projected CRS required) | polyline mid arc-length (only with shapefile) |
 
-`elevation_mid` reuses the outlet-upward walk in
-`MmrToMf6Dfw._calculate_seg_mid_elevations` (needs `hru_elev`,
-`hru_segment`). That method is refactored into a module-level
-function `calculate_seg_mid_elevations(parameters)` in
-`pywatershed/utils/network_hydraulics.py`, and `MmrToMf6Dfw` calls it;
-behavior unchanged, covered by the existing `test_mmr_to_mf6_dfw.py`.
+`elevation_mid` comes from `calculate_seg_mid_elevations(parameters)`
+in `pywatershed/utils/network_hydraulics.py`, the outlet-upward walk
+(needs `hru_elev`, `hru_segment`) that formerly lived in
+`MmrToMf6Dfw._calculate_seg_mid_elevations`; `MmrToMf6Dfw` now calls
+the shared function, behavior unchanged, covered by the existing
+`test_mmr_to_mf6_dfw.py`.
 
 Polyline block, present only when `segment_shp_file` is given,
 dimension `vertex`:
