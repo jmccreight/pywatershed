@@ -216,7 +216,7 @@ check it), **Action** (what to do once unblocked), and optional
 - **Blocked on:** this repo's `export_network_hydraulics` PR merged to
   `develop` (check: `pywatershed/utils/network_hydraulics.py` exists on
   `develop` via the GitHub contents API).
-- **Action:** in `/home/rmcd/projects/fluvial-particle`, write the solver
+- **Action:** in the fluvial-particle repository, write the solver
   spec (passive tracer first; reach index + distance-from-upstream-end
   convention documented in the export's `conventions_note` attribute) and
   implement a file-backed hydraulics provider for the export schema in

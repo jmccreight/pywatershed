@@ -41,8 +41,12 @@ New Features
   :func:`~pywatershed.utils.shear_velocity` and
   :func:`~pywatershed.utils.calculate_seg_mid_elevations` (the latter
   refactored out of :class:`MmrToMf6Dfw`, behavior unchanged; its debug
-  ``check=True`` path, previously non-functional, is corrected) are
-  public.
+  ``check=True`` path, previously non-functional, now verifies the interior
+  and outlet elevation invariants and raises on failure) are public. The
+  exporter validates its inputs up front: required parameters, ``tosegment``
+  range and cycles, each run file's ``nhm_seg`` order, shared time axis and
+  ``units`` against the pywatershed metadata, and the requested time
+  selection.
   New example notebook ``examples/02a_network_hydraulics_export.ipynb``
   demonstrates both on the Delaware River Basin.
   (:pull:`420`) By `Richard McDonald <https://github.com/rmcd-mscb>`_.

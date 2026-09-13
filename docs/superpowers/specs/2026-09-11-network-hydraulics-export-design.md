@@ -95,9 +95,11 @@ exponent, `1 - width_exp - depth_exp` (0.34 by default), is reported in
 the diagnostics, not stored.
 
 Validation: the four inputs must be present with dimension
-`nsegment` and be strictly positive (after the slope floor). Failure
-raises `ValueError` naming the parameter and the count of offending
-segments.
+`nsegment`. `seg_width`, `seg_depth` and `mann_n` must be strictly
+positive; `seg_slope` is checked *before* the floor is applied and must
+be finite and non-negative, so that a negative slope is not silently
+turned into 1e-7. Failure raises `ValueError` naming the parameter and
+the count of offending segments.
 
 Return: a new `Parameters` object that is a copy of the input with
 `width_alpha`, `width_m`, `depth_alpha`, `depth_m` set or overwritten.
@@ -131,11 +133,25 @@ def export_network_hydraulics(
 missing required file raises `FileNotFoundError` listing all missing
 names. Flows are converted from cfs using the process's `CFS_TO_CMS`.
 
+Inputs are validated before anything is written. The parameters must
+carry `nhm_seg`, `tosegment`, `seg_length`, `seg_slope`, `mann_n`,
+`seg_width`, `seg_depth`, `hru_segment` and `hru_elev`; all missing
+names are listed in one `ValueError`. `tosegment` must be 0 (outlet) or
+in `1..nsegment` and must not contain a cycle; the offending segments,
+or the cycle's chain, are named in the error. Each run file must carry
+an `nhm_seg` coordinate in the parameters' order, must share
+`seg_outflow`'s time coordinate exactly, and must carry the `units`
+string that `pywatershed.meta` gives for that variable: a differing
+`units` raises, an absent one warns and the expected units are assumed.
+A `start_time` after `end_time`, or a time selection that leaves no
+time steps, raises.
+
 The exporter does not recompute geometry; it consumes the process
 outputs (see "Coupling readiness"). It adds shear velocity as a pure
 per-step helper `shear_velocity(depth, slope)` = `sqrt(g * depth *
 max(slope, 1e-7))`, `g = 9.80665`, exposed in the same module and used
-by the exporter.
+by the exporter; it raises `ValueError` on a negative or non-finite
+slope rather than flooring it.
 
 ### File schema
 
@@ -157,7 +173,6 @@ Static, dimension `reach`:
 | `bankfull_depth` | float64 | m | `seg_depth` |
 | `is_outlet` | int8 | - | `tosegment == 0` |
 | `x_mid`, `y_mid` | float64 | m (projected CRS required) | polyline mid arc-length (only with shapefile) |
-| `stream_order` | int32 | - | absent for PRMS; present for NWM |
 
 `elevation_mid` reuses the outlet-upward walk in
 `MmrToMf6Dfw._calculate_seg_mid_elevations` (needs `hru_elev`,
@@ -172,16 +187,18 @@ dimension `vertex`:
 | variable | dtype | units |
 |---|---|---|
 | `vertex_x`, `vertex_y` | float64 | m (projected CRS required) |
-| `vertex_dist` | float64 | m, cumulative arc length from the reach's upstream end, 0 at the first vertex |
+| `vertex_dist` | float64 | CRS units, cumulative arc length from the reach's upstream end, 0 at the first vertex |
 | `reach_vertex_start` (dim `reach`) | int64 | index of the reach's first vertex |
 | `reach_vertex_count` (dim `reach`) | int32 | number of vertices |
 
 The segment shapefile must use a projected CRS in meters: a geographic
 CRS or a projected CRS not in meters raises `ValueError`; a missing
-CRS warns and the vertex/midpoint variables are labeled with units
-"unknown" (`crs_wkt` is then empty). Global attribute `crs_wkt` holds
-the shapefile CRS otherwise. Lines are matched to reaches by
-`shp_id_col` against `reach_id`; a mismatch in set or count raises.
+CRS warns and the vertex, arc-length and midpoint variables are
+labeled with units "unknown" (`crs_wkt` is then empty). Global
+attribute `crs_wkt` holds the shapefile CRS otherwise. Lines are
+matched to reaches by `shp_id_col` against `reach_id`; a mismatch in
+set or count raises, as does a geometry that is not a `LineString`
+(multipart segments must be exploded or merged first).
 
 Each line is oriented so its downstream end is last: a line is
 reversed whenever its first vertex is nearer its downstream reach's
@@ -195,8 +212,12 @@ reversal; it only bounds a separate check: after orientation, the
 number of reaches whose last vertex is still farther than
 `connect_tol` from its downstream reach's first vertex is stored as
 global attribute `n_unconnected` and returned in a warning — it is not
-an error (the DRB has 4). `n_unconnected` is -1 when no
-`segment_shp_file` is supplied, meaning no polyline block was written.
+an error (the DRB has 4) unless more than half of the reaches that have
+a downstream reach fail it, which means an id, CRS or units mismatch
+and raises. `n_unconnected` is -1 when no `segment_shp_file` is
+supplied, meaning no polyline block was written; `connect_tol` is
+written as a global attribute either way. An outlet with no upstream
+reach cannot be oriented by either pass, and warns.
 
 Time-varying, dimensions `(time, reach)`, `time` as datetime64:
 
@@ -216,8 +237,11 @@ model's variable name) and, where derived, `method`.
 
 Global attributes: `source_model` ("pywatershed PRMS"),
 `source_model_version`, `geometry_method`, `pywatershed_version`,
-`created`, `title`, `conventions_note` describing the particle
-convention below.
+`created`, `title`, `crs_wkt`, `n_unconnected`, `connect_tol`, and
+`conventions_note` describing the particle convention below and the
+zero-flow caveat. Where `flow_out` is 0 the `velocity`, `depth`,
+`width` and `residence_time` are 0, not infinite; each of those four
+carries a `note` attribute saying to mask on `flow_out > 0`.
 
 ### Particle-position convention (for the consumer)
 
@@ -245,6 +269,9 @@ topology, never source parameters. Inspected 2026-09-11:
   `n`, trapezoid `BtmWdth`/`TopWdth`/`ChSlp`, compound `nCC`/`TopWdthCC`,
   `MusK`, `MusX`, `alt`, `order`, midpoint `lat`/`lon`. Planform lines
   come from NHDPlus v2 flowlines by COMID.
+
+An NWM transformer would add `stream_order` (int32, from `order`), a
+field PRMS has no equivalent for and which the PRMS export omits.
 
 Mapping: depth by inverting Manning for the trapezoid at each reach's
 streamflow (the geometry WRF-Hydro uses internally); width = bottom
