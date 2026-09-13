@@ -252,7 +252,7 @@ def export_network_hydraulics(
             ``connect_tol`` does not affect this orientation; it only
             controls the ``n_unconnected`` count below.
         shp_id_col: shapefile column holding ``nhm_seg`` identifiers.
-        connect_tol: distance (CRS units) within which a reach's last
+        connect_tol: distance (m) within which a reach's last
             vertex must meet its downstream reach's first vertex, used
             only to count (not fix) unconnected reaches; see
             ``n_unconnected`` in the global attributes, which is -1

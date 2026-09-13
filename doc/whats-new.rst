@@ -45,7 +45,7 @@ New Features
   public.
   New example notebook ``examples/02a_network_hydraulics_export.ipynb``
   demonstrates both on the Delaware River Basin.
-  (:pull:`XXX`) By `Richard McDonald <https://github.com/rmcd-mscb>`_.
+  (:pull:`420`) By `Richard McDonald <https://github.com/rmcd-mscb>`_.
 
 Breaking Changes
 ~~~~~~~~~~~~~~~~

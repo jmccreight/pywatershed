@@ -147,7 +147,7 @@ Static, dimension `reach`:
 | variable | dtype | units | source (PRMS) |
 |---|---|---|---|
 | `reach_id` | int64 | - | `nhm_seg` |
-| `to_id` | int64 | - | `tosegment_nhm` (0 = outlet) |
+| `to_id` | int64 | - | `tosegment_nhm` when present, else derived from `tosegment` and `nhm_seg` (0 = outlet) |
 | `to_index` | int32 | - | `tosegment - 1`; -1 at outlets |
 | `length` | float64 | m | `seg_length` |
 | `slope` | float64 | m/m | `seg_slope` |
