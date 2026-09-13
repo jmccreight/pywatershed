@@ -204,6 +204,19 @@ def test_at_a_station_nan_slope_raises(synthetic_params):
 
 
 @pytest.mark.domainless
+def test_at_a_station_negative_slope_raises(synthetic_params):
+    from pywatershed.utils.hydraulic_geometry import (
+        at_a_station_hydraulic_geometry,
+    )
+
+    dd = synthetic_params.to_dd()
+    dd.data_vars["seg_slope"][1] = -0.01
+    bad = Parameters(**dd.data)
+    with pytest.raises(ValueError, match="seg_slope.*1 segment"):
+        at_a_station_hydraulic_geometry(bad)
+
+
+@pytest.mark.domainless
 def test_at_a_station_missing_raises(synthetic_params):
     from pywatershed.utils.hydraulic_geometry import (
         at_a_station_hydraulic_geometry,

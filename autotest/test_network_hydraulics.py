@@ -1,4 +1,5 @@
 import pathlib as pl
+import types
 import warnings
 
 import geopandas as gpd
@@ -563,6 +564,7 @@ def test_export_polyline_missing_crs_warns(
         )
     ds = xr.open_dataset(out)
     assert ds["vertex_x"].attrs["units"] == "unknown"
+    assert ds["vertex_dist"].attrs["units"] == "unknown"
     assert ds.attrs["crs_wkt"] == ""
     ds.close()
 
@@ -579,3 +581,411 @@ def test_public_exports():
     ):
         assert callable(getattr(pws.utils, name))
         assert name in pws.utils.__all__
+
+
+@pytest.mark.domainless
+@pytest.mark.parametrize(
+    "tosegment,match",
+    [
+        ([2, 1, 0], "Cycle"),  # seg0 -> seg1 -> seg0
+        ([3, 3, -1], "tosegment"),  # negative
+        ([3, 4, 0], "tosegment"),  # beyond nsegment
+    ],
+)
+def test_calculate_seg_mid_elevations_bad_tosegment_raises(
+    synthetic_params, tosegment, match
+):
+    from pywatershed.utils.network_hydraulics import (
+        calculate_seg_mid_elevations,
+    )
+
+    dd = synthetic_params.to_dd()
+    dd.data_vars["tosegment"] = np.array(tosegment, dtype=np.int64)
+    bad = Parameters(**dd.data)
+    with pytest.raises(ValueError, match=match):
+        calculate_seg_mid_elevations(bad)
+
+
+@pytest.mark.domainless
+def test_export_out_of_range_tosegment_raises(
+    synthetic_params, synthetic_run_dir, tmp_path
+):
+    from pywatershed.utils.network_hydraulics import (
+        export_network_hydraulics,
+    )
+
+    dd = synthetic_params.to_dd()
+    dd.data_vars["tosegment"] = np.array([3, 4, 0], dtype=np.int64)
+    bad = Parameters(**dd.data)
+    with pytest.raises(ValueError, match="tosegment"):
+        export_network_hydraulics(bad, synthetic_run_dir, tmp_path / "net.nc")
+
+
+@pytest.mark.domainless
+def test_export_time_axis_mismatch_raises(
+    synthetic_params, synthetic_run_dir, tmp_path
+):
+    from pywatershed.utils.network_hydraulics import (
+        export_network_hydraulics,
+    )
+
+    path = synthetic_run_dir / "seg_flow_depth.nc"
+    with xr.open_dataarray(path) as opened:
+        da = opened.load()  # close the file before rewriting it (Windows)
+    da = da.assign_coords(time=TIMES + np.timedelta64(1, "D"))
+    da.to_netcdf(path)
+    with pytest.raises(ValueError, match="time"):
+        export_network_hydraulics(
+            synthetic_params, synthetic_run_dir, tmp_path / "net.nc"
+        )
+
+
+@pytest.mark.domainless
+def test_export_to_id_masked_at_outlets(
+    synthetic_params, synthetic_run_dir, tmp_path
+):
+    """A bogus tosegment_nhm at an outlet is forced to 0."""
+    from pywatershed.utils.network_hydraulics import (
+        export_network_hydraulics,
+    )
+
+    dd = synthetic_params.to_dd()
+    dd.data_vars["tosegment_nhm"] = np.array([103, 103, 999], dtype=np.int64)
+    params = Parameters(**dd.data)
+    ds = xr.open_dataset(
+        export_network_hydraulics(
+            params, synthetic_run_dir, tmp_path / "net.nc"
+        )
+    )
+    np.testing.assert_array_equal(ds["to_id"], np.array([103, 103, 0]))
+    ds.close()
+
+
+@pytest.mark.domainless
+def test_export_missing_nhm_seg_coord_raises(
+    synthetic_params, synthetic_run_dir, tmp_path
+):
+    from pywatershed.utils.network_hydraulics import (
+        export_network_hydraulics,
+    )
+
+    path = synthetic_run_dir / "seg_outflow.nc"
+    with xr.open_dataarray(path) as opened:
+        da = opened.load()
+    da = da.drop_vars("nhm_seg")
+    da.to_netcdf(path)
+    with pytest.raises(ValueError, match="nhm_seg"):
+        export_network_hydraulics(
+            synthetic_params, synthetic_run_dir, tmp_path / "net.nc"
+        )
+
+
+@pytest.mark.domainless
+def test_shear_velocity_bad_slope_raises():
+    from pywatershed.utils.network_hydraulics import shear_velocity
+
+    with pytest.raises(ValueError, match="non-negative and finite"):
+        shear_velocity(np.array([1.0, 2.0]), np.array([0.001, -0.01]))
+    with pytest.raises(ValueError, match="non-negative and finite"):
+        shear_velocity(np.array([1.0, 2.0]), np.array([0.001, np.nan]))
+
+
+@pytest.mark.domainless
+def test_export_units_mismatch_raises(
+    synthetic_params, synthetic_run_dir, tmp_path
+):
+    from pywatershed.utils.network_hydraulics import (
+        export_network_hydraulics,
+    )
+
+    path = synthetic_run_dir / "seg_flow_depth.nc"
+    with xr.open_dataarray(path) as opened:
+        da = opened.load()
+    da.attrs["units"] = "feet"
+    da.to_netcdf(path)
+    with pytest.raises(ValueError, match="units"):
+        export_network_hydraulics(
+            synthetic_params, synthetic_run_dir, tmp_path / "net.nc"
+        )
+
+
+@pytest.mark.domainless
+def test_export_missing_units_warns(
+    synthetic_params, synthetic_run_dir, tmp_path
+):
+    from pywatershed.utils.network_hydraulics import (
+        export_network_hydraulics,
+    )
+
+    path = synthetic_run_dir / "seg_outflow.nc"
+    with xr.open_dataarray(path) as opened:
+        da = opened.load()
+    del da.attrs["units"]
+    da.to_netcdf(path)
+    with pytest.warns(UserWarning, match="no units"):
+        export_network_hydraulics(
+            synthetic_params, synthetic_run_dir, tmp_path / "net.nc"
+        )
+
+
+@pytest.mark.domainless
+def test_export_empty_time_selection_raises(
+    synthetic_params, synthetic_run_dir, tmp_path
+):
+    from pywatershed.utils.network_hydraulics import (
+        export_network_hydraulics,
+    )
+
+    with pytest.raises(ValueError, match="no time steps"):
+        export_network_hydraulics(
+            synthetic_params,
+            synthetic_run_dir,
+            tmp_path / "net.nc",
+            start_time=np.datetime64("1980-01-01"),
+        )
+
+
+@pytest.mark.domainless
+def test_export_inverted_time_bounds_raise(
+    synthetic_params, synthetic_run_dir, tmp_path
+):
+    from pywatershed.utils.network_hydraulics import (
+        export_network_hydraulics,
+    )
+
+    with pytest.raises(ValueError, match="after"):
+        export_network_hydraulics(
+            synthetic_params,
+            synthetic_run_dir,
+            tmp_path / "net.nc",
+            start_time=np.datetime64("1979-01-03"),
+            end_time=np.datetime64("1979-01-02"),
+        )
+
+
+@pytest.mark.domainless
+def test_export_missing_required_parameters_raise(
+    synthetic_params, synthetic_run_dir, tmp_path
+):
+    from pywatershed.utils.network_hydraulics import (
+        export_network_hydraulics,
+    )
+
+    dd = synthetic_params.to_dd()
+    for name in ("seg_width", "mann_n"):
+        del dd.data_vars[name]
+        del dd.metadata[name]
+    short = Parameters(**dd.data)
+    with pytest.raises(ValueError) as excinfo:
+        export_network_hydraulics(
+            short, synthetic_run_dir, tmp_path / "net.nc"
+        )
+    assert "seg_width" in str(excinfo.value)
+    assert "mann_n" in str(excinfo.value)
+
+
+@pytest.mark.domainless
+def test_export_zero_flow_notes_and_connect_tol_attrs(
+    synthetic_params, synthetic_run_dir, tmp_path
+):
+    from pywatershed.utils.network_hydraulics import (
+        export_network_hydraulics,
+    )
+
+    ds = xr.open_dataset(
+        export_network_hydraulics(
+            synthetic_params, synthetic_run_dir, tmp_path / "net.nc"
+        )
+    )
+    assert ds["velocity"].attrs["note"] == (
+        "0 where flow_out == 0; mask on flow_out > 0"
+    )
+    for name in ("depth", "width", "residence_time"):
+        assert "flow_out > 0" in ds[name].attrs["note"]
+    assert ds.attrs["connect_tol"] == 1.0
+    assert "mask on flow_out > 0" in ds.attrs["conventions_note"]
+    ds.close()
+
+
+@pytest.mark.domainless
+def test_export_zero_flow_row(synthetic_params, synthetic_run_dir, tmp_path):
+    from pywatershed.utils.network_hydraulics import (
+        export_network_hydraulics,
+    )
+
+    for name in ("seg_outflow", "seg_flow_depth"):
+        path = synthetic_run_dir / f"{name}.nc"
+        with xr.open_dataarray(path) as opened:
+            da = opened.load()
+        da.values[0, 0] = 0.0
+        da.to_netcdf(path)
+    ds = xr.open_dataset(
+        export_network_hydraulics(
+            synthetic_params, synthetic_run_dir, tmp_path / "net.nc"
+        )
+    )
+    assert ds["flow_out"].values[0, 0] == 0.0
+    assert ds["ustar"].values[0, 0] == 0.0
+    ds.close()
+
+
+@pytest.mark.domainless
+def test_export_polyline_multilinestring_raises(
+    synthetic_params, synthetic_run_dir, synthetic_lines, tmp_path
+):
+    from shapely.geometry import MultiLineString
+
+    from pywatershed.utils.network_hydraulics import (
+        export_network_hydraulics,
+    )
+
+    shp = tmp_path / "segs.shp"
+    gdf = gpd.GeoDataFrame(
+        {"nsegment_v": [101, 102, 103], "model_idx": [1, 2, 3]},
+        geometry=[
+            MultiLineString(
+                [[(-1000.0, 0.0), (-600.0, 0.0)], [(-400.0, 0.0), (0.0, 0.0)]]
+            ),
+            LineString(synthetic_lines[1]),
+            LineString(synthetic_lines[2]),
+        ],
+        crs="EPSG:5070",
+    )
+    gdf.to_file(shp)
+    with pytest.raises(ValueError, match="LineString"):
+        export_network_hydraulics(
+            synthetic_params,
+            synthetic_run_dir,
+            tmp_path / "net.nc",
+            segment_shp_file=shp,
+        )
+
+
+@pytest.mark.domainless
+def test_export_polyline_mostly_unconnected_raises(
+    synthetic_params, synthetic_run_dir, synthetic_lines, tmp_path
+):
+    from pywatershed.utils.network_hydraulics import (
+        export_network_hydraulics,
+    )
+
+    lines = [list(ll) for ll in synthetic_lines]
+    lines[0] = [(-1000.0, 50.0), (0.0, 50.0)]
+    lines[1] = [(50.0, 0.0), (550.0, 1000.0), (1050.0, 2000.0)]
+    shp = tmp_path / "segs.shp"
+    _write_segments_shp(shp, lines, [101, 102, 103])
+    with pytest.raises(ValueError, match="mismatch"):
+        export_network_hydraulics(
+            synthetic_params,
+            synthetic_run_dir,
+            tmp_path / "net.nc",
+            segment_shp_file=shp,
+        )
+
+
+@pytest.mark.domainless
+def test_export_polyline_outlet_without_upstream_warns(
+    synthetic_params, synthetic_run_dir, synthetic_lines, tmp_path
+):
+    from pywatershed.utils.network_hydraulics import (
+        export_network_hydraulics,
+    )
+
+    dd = synthetic_params.to_dd()
+    # reach 1 becomes an outlet with no upstream reach
+    dd.data_vars["tosegment"] = np.array([3, 0, 0], dtype=np.int64)
+    params = Parameters(**dd.data)
+    shp = tmp_path / "segs.shp"
+    _write_segments_shp(shp, synthetic_lines, [101, 102, 103])
+    with pytest.warns(UserWarning, match="no upstream"):
+        out = export_network_hydraulics(
+            params,
+            synthetic_run_dir,
+            tmp_path / "net.nc",
+            segment_shp_file=shp,
+        )
+    ds = xr.open_dataset(out)
+    assert ds.attrs["n_unconnected"] == 0
+    ds.close()
+
+
+@pytest.mark.domainless
+def test_export_polyline_connect_tol_boundary(
+    synthetic_params, synthetic_run_dir, synthetic_lines, tmp_path
+):
+    """A gap of exactly connect_tol is connected: the test is strict >."""
+    from pywatershed.utils.network_hydraulics import (
+        export_network_hydraulics,
+    )
+
+    lines = [list(ll) for ll in synthetic_lines]
+    lines[0] = [(-1000.0, 1.0), (0.0, 1.0)]  # displaced by exactly 1 m
+    shp = tmp_path / "segs.shp"
+    _write_segments_shp(shp, lines, [101, 102, 103])
+    ds = xr.open_dataset(
+        export_network_hydraulics(
+            synthetic_params,
+            synthetic_run_dir,
+            tmp_path / "net.nc",
+            segment_shp_file=shp,
+        )
+    )
+    assert ds.attrs["n_unconnected"] == 0
+    ds.close()
+
+
+@pytest.mark.domainless
+def test_export_polyline_duplicate_ids_raise(
+    synthetic_params, synthetic_run_dir, synthetic_lines, tmp_path
+):
+    from pywatershed.utils.network_hydraulics import (
+        export_network_hydraulics,
+    )
+
+    shp = tmp_path / "segs.shp"
+    _write_segments_shp(shp, synthetic_lines, [101, 101, 103])
+    with pytest.raises(ValueError, match="nsegment_v"):
+        export_network_hydraulics(
+            synthetic_params,
+            synthetic_run_dir,
+            tmp_path / "net.nc",
+            segment_shp_file=shp,
+        )
+
+
+@pytest.mark.domainless
+def test_mmr_to_mf6_dfw_seg_mid_elevation_check(synthetic_params):
+    """The debug check path runs and sets both attributes."""
+    from pywatershed.utils.mmr_to_mf6_dfw import MmrToMf6Dfw
+
+    fake = types.SimpleNamespace(parameters=synthetic_params)
+    MmrToMf6Dfw._calculate_seg_mid_elevations(fake, check=True)
+    np.testing.assert_allclose(
+        fake._seg_mid_elevation, np.array([108.0, 108.0, 101.5])
+    )
+    assert fake._outlet_chds == {2: 102.5}
+
+
+@pytest.mark.domainless
+@pytest.mark.parametrize(
+    "bad_mid,match",
+    [
+        ([110.0, 108.0, 101.5], "Segment 0"),  # interior rise wrong
+        ([110.0, 110.0, 103.5], "Outlet segment 2"),  # outlet too high
+    ],
+)
+def test_mmr_to_mf6_dfw_seg_mid_elevation_check_raises(
+    synthetic_params, monkeypatch, bad_mid, match
+):
+    """The debug check raises ValueError on a broken invariant."""
+    from pywatershed.utils import mmr_to_mf6_dfw as mod
+
+    mid = np.array(bad_mid)
+    monkeypatch.setattr(
+        mod,
+        "calculate_seg_mid_elevations",
+        lambda parameters: (mid, {2: float(mid[2])}),
+    )
+    fake = types.SimpleNamespace(parameters=synthetic_params)
+    with pytest.raises(ValueError, match=match):
+        mod.MmrToMf6Dfw._calculate_seg_mid_elevations(fake, check=True)
