@@ -119,6 +119,11 @@ def set_variables(proc, nhru, ntime=3):
 
 @pytest.mark.domainless
 def test_set_active_hrus_computes_from_hru_type():
+    """The three active-HRU quantities are derived from hru_type alone.
+
+    active_hru_mask is a bool array, wh_active_hrus the indices where it
+    is True, and nactive_hrus a plain int, not a 0-d array.
+    """
     hru_type = np.array([1, 1, INACTIVE, 1, INACTIVE], dtype="int32")
     proc = make_process(hru_type)
     proc._set_active_hrus()
@@ -131,11 +136,11 @@ def test_set_active_hrus_computes_from_hru_type():
 
 @pytest.mark.domainless
 def test_set_active_hrus_ignores_supplied_values():
-    """Supplied values disagreeing with hru_type are ignored, by design.
+    """Active-HRU quantities carried in the discretization are ignored.
 
-    hru_type is the single source of truth. A supplied mask that contradicts
-    it is a contradiction, not a feature, so recomputation wins. This is
-    pinned so it does not get "fixed" back.
+    hru_type is the single source of truth. A discretization written by
+    preprocess_gridded_params carries the three quantities, and a stale
+    file could disagree with hru_type; recomputation wins over reading.
     """
     hru_type = np.array([1, 1, 1, 1, 1], dtype="int32")  # all active
     supplied_mask = np.array([True, False, True, False, True])
@@ -164,7 +169,11 @@ def test_set_active_hrus_ignores_supplied_values():
 
 @pytest.mark.domainless
 def test_mask_inactive_hrus_ignores_supplied_mask():
-    """Masking follows hru_type, not a contradicting supplied mask."""
+    """Masking uses the mask derived from hru_type, not a supplied one.
+
+    HRUs inactive per hru_type become NaN and the rest are untouched,
+    even when the discretization carries a contradicting active_hru_mask.
+    """
     hru_type = np.array([1, 1, INACTIVE, 1, INACTIVE], dtype="int32")
     nhru = len(hru_type)
     supplied_mask = np.array([True, False, True, False, True])
@@ -186,6 +195,11 @@ def test_mask_inactive_hrus_ignores_supplied_mask():
 
 @pytest.mark.domainless
 def test_missing_required_param_still_raises():
+    """The mixin does not loosen Process._set_params' required check.
+
+    Parameters lacking hru_type, with no discretization to fall back on,
+    still raise.
+    """
     params = Parameters(
         dims={"nhru": 2},
         coords={"nhru": np.arange(2)},
@@ -199,12 +213,17 @@ def test_missing_required_param_still_raises():
 
 
 # -------------------------------------------------------------------
-# FIX 2: the early return happens when there is nothing to mask
+# _mask_inactive_hrus with all and with some of the HRUs active
 # -------------------------------------------------------------------
 
 
 @pytest.mark.domainless
 def test_mask_inactive_hrus_all_active_early_out():
+    """With every HRU active, no variable changes.
+
+    Covers the plain array, the TimeseriesArray, and the non-nhru
+    variable seg_outflow.
+    """
     hru_type = np.array([1, 1, 1, 1], dtype="int32")
     nhru = len(hru_type)
     proc = make_process(hru_type)
@@ -222,26 +241,22 @@ def test_mask_inactive_hrus_all_active_early_out():
 
 
 @pytest.mark.domainless
-def test_mask_inactive_hrus_all_inactive():
-    """All inactive is fully masked; before the fix it was not masked at all"""
+def test_set_active_hrus_all_inactive_raises():
+    """An hru_type with no active HRU is an input error, not a run."""
     hru_type = np.array([INACTIVE] * 4, dtype="int32")
-    nhru = len(hru_type)
     proc = make_process(hru_type)
-    proc._set_active_hrus()
-    assert proc._nactive_hrus == 0
-    set_variables(proc, nhru)
-    before_seg_outflow = proc.seg_outflow.copy()
-
-    proc._mask_inactive_hrus()
-
-    assert np.isnan(proc.soil_moist).all()
-    assert np.isnan(proc.hru_ppt.data).all()
-    # non-nhru variables are untouched
-    assert (proc.seg_outflow == before_seg_outflow).all()
+    with pytest.raises(ValueError, match="no HRU active"):
+        proc._set_active_hrus()
 
 
 @pytest.mark.domainless
 def test_mask_inactive_hrus_some_inactive():
+    """Mixed case: inactive HRUs become NaN, active ones keep their values.
+
+    The plain array is masked along nhru, the TimeseriesArray along its
+    second (nhru) axis, and the non-nhru variable seg_outflow is
+    untouched.
+    """
     hru_type = np.array([1, 1, INACTIVE, 1, INACTIVE], dtype="int32")
     nhru = len(hru_type)
     active = hru_type != INACTIVE

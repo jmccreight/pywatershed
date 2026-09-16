@@ -19,7 +19,6 @@ hru_type_cases = {
         [1, 1, INACTIVE, 1, INACTIVE],
         dtype="int32",
     ),
-    "all_inactive": np.array([INACTIVE] * 4, dtype="int32"),
     "all_hru_types": np.array([1, 2, INACTIVE, 3, 4], dtype="int32"),
 }
 
@@ -66,8 +65,14 @@ def test_get_active_hru_params(hru_type):
 
 
 @pytest.mark.domainless
+def test_get_active_hru_params_all_inactive_raises():
+    """An hru_type with no active HRU is an input error."""
+    with pytest.raises(ValueError, match="no HRU active"):
+        get_active_hru_params(np.array([INACTIVE] * 4, dtype="int32"))
+
+
+@pytest.mark.domainless
 def test_preprocess_gridded_params(hru_type):
-    # this raised a ValueError on every input before the fix
     params = make_parameters(hru_type)
     result = preprocess_gridded_params(params)
     assert isinstance(result, Parameters)
@@ -133,10 +138,8 @@ def test_preprocess_gridded_params_some_inactive():
 
 
 @pytest.mark.domainless
-def test_preprocess_gridded_params_all_inactive():
-    hru_type = hru_type_cases["all_inactive"]
-    result = preprocess_gridded_params(make_parameters(hru_type))
-    assert not result.parameters["active_hru_mask"].any()
-    assert len(result.parameters["wh_active_hrus"]) == 0
-    assert result.parameters["nactive_hrus"] == 0
-    assert result.dims["nactive_hru"] == 0
+def test_preprocess_gridded_params_all_inactive_raises():
+    """The preprocessor refuses an hru_type with no active HRU."""
+    hru_type = np.array([INACTIVE] * 4, dtype="int32")
+    with pytest.raises(ValueError, match="no HRU active"):
+        preprocess_gridded_params(make_parameters(hru_type))
