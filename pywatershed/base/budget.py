@@ -9,8 +9,9 @@ import numpy as np
 from pywatershed.base.control import Control
 
 from ..constants import zero
-from ..utils.netcdf_utils import NetCdfWrite, suppress_netcdf4_shape_warning
+from ..utils.netcdf_utils import NetCdfWrite
 from .accessor import Accessor
+from .data_model import nc4_shape_warning_filter
 from .parameters import Parameters
 
 # Todo
@@ -958,16 +959,19 @@ class Budget(Accessor):
             self._netcdf.time[self.control.itime_step] = nc4.date2num(
                 self.control.current_datetime, self._netcdf.time.units
             )
-            for nc_group, group_vars in self._netcdf_output_var_dict.items():
-                for nc_var in group_vars:
-                    if nc_group is None:
-                        var_path = nc_var
-                        value = self[nc_var]
-                    else:
-                        var_path = f"{nc_group}/{nc_var}"
-                        value = self[nc_group][nc_var]
+            with nc4_shape_warning_filter():
+                for (
+                    nc_group,
+                    group_vars,
+                ) in self._netcdf_output_var_dict.items():
+                    for nc_var in group_vars:
+                        if nc_group is None:
+                            var_path = nc_var
+                            value = self[nc_var]
+                        else:
+                            var_path = f"{nc_group}/{nc_var}"
+                            value = self[nc_group][nc_var]
 
-                    with suppress_netcdf4_shape_warning():
                         self._netcdf.dataset[var_path][
                             self.control.itime_step, :
                         ] = value
