@@ -15,14 +15,28 @@ class ActiveHruMixin:
         :func:`~pywatershed.utils.preprocess_gridded.get_active_hru_params`,
         every time this method is called. They are set on self as private,
         derived quantities; they are neither read from nor tracked in the
-        Parameters object. Values of the same names present in a Parameters
-        object are ignored: hru_type is the single source of truth for which
-        HRUs are active.
+        Parameters object. hru_type is the single source of truth for which
+        HRUs are active: an active_hru_mask present in the Parameters
+        object (a discretization written by preprocess_gridded_params) is
+        not read, only checked against the recomputed mask.
+
+        Raises:
+            ValueError: if a supplied active_hru_mask disagrees with
+                hru_type, i.e. the discretization is stale.
 
         Returns:
             None
         """
         result = get_active_hru_params(self._params.parameters["hru_type"])
+        supplied = self._params.parameters.get("active_hru_mask")
+        if (
+            supplied is not None
+            and not (supplied == result["active_hru_mask"]).all()
+        ):
+            raise ValueError(
+                "active_hru_mask in the discretization disagrees with "
+                "hru_type; rerun preprocess_gridded_params"
+            )
         for kk in ("active_hru_mask", "wh_active_hrus", "nactive_hrus"):
             self[f"_{kk}"] = result[kk]
 

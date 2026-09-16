@@ -135,62 +135,46 @@ def test_set_active_hrus_computes_from_hru_type():
 
 
 @pytest.mark.domainless
-def test_set_active_hrus_ignores_supplied_values():
-    """Active-HRU quantities carried in the discretization are ignored.
+def test_set_active_hrus_supplied_agrees():
+    """A discretization carrying consistent active-HRU quantities passes.
 
-    hru_type is the single source of truth. A discretization written by
-    preprocess_gridded_params carries the three quantities, and a stale
-    file could disagree with hru_type; recomputation wins over reading.
+    The check against hru_type has no false positives, and the derived
+    quantities still equal the recompute.
     """
-    hru_type = np.array([1, 1, 1, 1, 1], dtype="int32")  # all active
-    supplied_mask = np.array([True, False, True, False, True])
+    hru_type = np.array([1, 1, INACTIVE, 1, INACTIVE], dtype="int32")
     supplied = {
-        "active_hru_mask": supplied_mask,
-        "wh_active_hrus": np.array([0, 2, 4]),
+        "active_hru_mask": hru_type != INACTIVE,
+        "wh_active_hrus": np.array([0, 1, 3]),
         "nactive_hrus": 3,
     }
-    # precondition: the merge path kept the supplied keys, so "ignored"
-    # below is not vacuous
     proc = make_process(hru_type, supplied)
+    # precondition: the merge path kept the supplied keys
     for kk in ACTIVE_HRU_KEYS:
         assert kk in proc._params.parameters.keys()
 
     proc._set_active_hrus()
 
     assert (proc._active_hru_mask == (hru_type != INACTIVE)).all()
-    assert proc._active_hru_mask.all()
-    assert (proc._wh_active_hrus == np.arange(len(hru_type))).all()
-    assert proc._nactive_hrus == len(hru_type)
-    assert isinstance(proc._nactive_hrus, int)
-
-    # and specifically not the supplied values
-    assert not (proc._active_hru_mask == supplied_mask).all()
+    assert (proc._wh_active_hrus == np.array([0, 1, 3])).all()
+    assert proc._nactive_hrus == 3
 
 
 @pytest.mark.domainless
-def test_mask_inactive_hrus_ignores_supplied_mask():
-    """Masking uses the mask derived from hru_type, not a supplied one.
+def test_set_active_hrus_supplied_disagrees_raises():
+    """A discretization whose active_hru_mask contradicts hru_type raises.
 
-    HRUs inactive per hru_type become NaN and the rest are untouched,
-    even when the discretization carries a contradicting active_hru_mask.
+    The file is stale (hru_type edited after preprocess_gridded_params
+    wrote it); silently using either side would hide the inconsistency.
     """
-    hru_type = np.array([1, 1, INACTIVE, 1, INACTIVE], dtype="int32")
-    nhru = len(hru_type)
-    supplied_mask = np.array([True, False, True, False, True])
+    hru_type = np.array([1, 1, 1, 1, 1], dtype="int32")  # all active
     supplied = {
-        "active_hru_mask": supplied_mask,
+        "active_hru_mask": np.array([True, False, True, False, True]),
         "wh_active_hrus": np.array([0, 2, 4]),
         "nactive_hrus": 3,
     }
     proc = make_process(hru_type, supplied)
-    proc._set_active_hrus()
-    set_variables(proc, nhru)
-
-    proc._mask_inactive_hrus()
-
-    active = hru_type != INACTIVE
-    assert np.isnan(proc.soil_moist[~active]).all()
-    assert not np.isnan(proc.soil_moist[active]).any()
+    with pytest.raises(ValueError, match="disagrees with hru_type"):
+        proc._set_active_hrus()
 
 
 @pytest.mark.domainless
