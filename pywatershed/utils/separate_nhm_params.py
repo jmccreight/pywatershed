@@ -221,7 +221,6 @@ def separate_domain_params_dis_to_ncdf(
         proc_params = prms_parameters.subset(
             proc_params_no_dis_names, keep_dims=proc.get_dimensions()
         )
-        print(proc, proc_params_no_dis_names)
         nc_out_file = out_dir / f"parameters_{domain_name}{proc.__name__}.nc"
         proc_params.to_netcdf(nc_out_file, use_xr=use_xr)
         written_files[proc] = nc_out_file

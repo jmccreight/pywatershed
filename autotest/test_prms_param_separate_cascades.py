@@ -1,10 +1,11 @@
 """separate_domain_params_dis_to_ncdf with a cascade control.
 
 Checks that the per-process parameter files written for the cascade
-process classes are complete: every declared parameter is on file (or is
-a discretization parameter), and every declared dimension is on file even
-when no parameter uses it (nsegment). Runs only on cascade controls;
-CI ignores this file in the broad steps.
+process classes are complete: every declared parameter is in the process
+file or in the dis_hru file written beside it, and every declared
+dimension is in the process file even when no parameter is defined on it
+(nsegment: the cascade classes declare it, but all their parameters are
+on nhru or ncascade).
 """
 
 import pathlib as pl
@@ -13,7 +14,6 @@ import pytest
 
 import pywatershed
 from pywatershed.base.data_model import open_datasetdict
-from pywatershed.parameters import PrmsParameters
 from pywatershed.utils import separate_domain_params_dis_to_ncdf
 
 cascade_processes = [
@@ -33,13 +33,7 @@ def control(simulation):
     return ctl
 
 
-@pytest.fixture(scope="function")
-def params(simulation, control):
-    param_file = simulation["dir"] / control.options["parameter_file"]
-    return PrmsParameters.load(param_file)
-
-
-def test_param_sep_cascades(simulation, control, params, tmp_path):
+def test_param_sep_cascades(simulation, control, tmp_path):
     prms_param_file = simulation["dir"] / control.options["parameter_file"]
     proc_nc_files = separate_domain_params_dis_to_ncdf(
         prms_param_file,
@@ -49,7 +43,8 @@ def test_param_sep_cascades(simulation, control, params, tmp_path):
         control=control,
     )
 
-    prms_names = set(params.variables.keys())
+    # what a Model gives these HRU processes as their discretization
+    dis_names = set(open_datasetdict(proc_nc_files["dis_hru"]).variables)
     for proc in cascade_processes:
         file_params = open_datasetdict(proc_nc_files[proc])
         file_names = set(file_params.variables.keys())
@@ -61,9 +56,9 @@ def test_param_sep_cascades(simulation, control, params, tmp_path):
             file_params.coords.keys()
         )
         assert "nhm_seg" in file_params.coords.keys()
-        # every declared parameter is on file or comes from the PRMS file
-        # via a discretization
-        missing = set(proc.get_parameters()) - file_names - prms_names
+        # the process file and the dis_hru file together supply every
+        # declared parameter
+        missing = set(proc.get_parameters()) - file_names - dis_names
         assert not missing, f"{proc.__name__} file lacks {missing}"
         # the cascade parameters are not in the PRMS file; they must be here
         assert "hru_route_order" in file_names
