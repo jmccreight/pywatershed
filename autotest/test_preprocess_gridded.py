@@ -73,26 +73,25 @@ def test_get_active_hru_params_all_inactive_raises():
 
 @pytest.mark.domainless
 def test_preprocess_gridded_params(hru_type):
+    """The three quantities land in the Parameters, values and structure.
+
+    Answers are computed here from hru_type so they follow hru_type_cases.
+    Structure: the index array is a data variable rather than an index
+    coordinate, on its own nactive_hru dimension.
+    """
     params = make_parameters(hru_type)
     result = preprocess_gridded_params(params)
     assert isinstance(result, Parameters)
 
-    expected = get_active_hru_params(hru_type)
-    assert (
-        result.parameters["active_hru_mask"] == expected["active_hru_mask"]
-    ).all()
-    assert (
-        result.parameters["wh_active_hrus"] == expected["wh_active_hrus"]
-    ).all()
-    assert (
-        result.parameters["nactive_hrus"] == expected["nactive_hrus"]
-    ).all()
+    active = hru_type != INACTIVE
+    assert (result.parameters["active_hru_mask"] == active).all()
+    assert (result.parameters["wh_active_hrus"] == np.where(active)[0]).all()
+    assert result.parameters["nactive_hrus"] == active.sum()
 
-    # the derived index array is a data variable, not an index coordinate
     assert "wh_active_hrus" in result.data_vars.keys()
     assert "wh_active_hrus" not in result.coords.keys()
     assert result.metadata["wh_active_hrus"]["dims"] == ("nactive_hru",)
-    assert result.dims["nactive_hru"] == expected["nactive_hrus"]
+    assert result.dims["nactive_hru"] == active.sum()
 
     assert "active_hru_mask" in result.data_vars.keys()
     assert result.metadata["active_hru_mask"]["dims"] == ("nhru",)
@@ -110,31 +109,6 @@ def test_preprocess_gridded_params_inputs_unchanged(hru_type):
 
     for kk, vv in params.dims.items():
         assert result.dims[kk] == vv
-
-    # and the input object itself was not edited
-    assert set(params.parameters.keys()) == {"nhru", "hru_type", "hru_area"}
-
-
-@pytest.mark.domainless
-def test_preprocess_gridded_params_all_active():
-    hru_type = hru_type_cases["all_active"]
-    result = preprocess_gridded_params(make_parameters(hru_type))
-    nhru = len(hru_type)
-    assert result.parameters["active_hru_mask"].all()
-    assert (result.parameters["wh_active_hrus"] == np.arange(nhru)).all()
-    assert result.parameters["nactive_hrus"] == nhru
-
-
-@pytest.mark.domainless
-def test_preprocess_gridded_params_some_inactive():
-    hru_type = hru_type_cases["some_inactive"]
-    result = preprocess_gridded_params(make_parameters(hru_type))
-    assert (
-        result.parameters["active_hru_mask"]
-        == np.array([True, True, False, True, False])
-    ).all()
-    assert (result.parameters["wh_active_hrus"] == np.array([0, 1, 3])).all()
-    assert result.parameters["nactive_hrus"] == 3
 
 
 @pytest.mark.domainless

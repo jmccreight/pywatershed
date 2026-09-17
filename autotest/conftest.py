@@ -83,8 +83,9 @@ def collect_simulations(
             continue
 
         control_file_candidates = sorted(dom_dir.glob("*.control"))
-        # controls only used for generating test data are not simulations
-        # to test (e.g. CBH-file generation for sagehen_gridded_5yr)
+        # a control that only generates input data for the other controls
+        # (the CBH forcing files of sagehen_gridded_5yr) is not a
+        # simulation to test
         control_file_candidates = [
             cc
             for cc in control_file_candidates

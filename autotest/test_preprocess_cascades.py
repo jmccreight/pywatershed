@@ -173,8 +173,6 @@ def test_preprocess(control, parameters):
         for ii in range(ncasc):
             down_val = hru_down[ii, oo]
             frac_val = hru_down_frac[ii, oo]
-            # if down_val == 0:
-            #     break
             flat_hru_down.append(down_val)
             flat_hru_down_frac.append(frac_val)
 

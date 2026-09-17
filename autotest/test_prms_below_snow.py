@@ -55,24 +55,30 @@ test_models = {
     ],
 }
 
-comparison_vars_dict_all = {
-    "PRMSRunoff": list(
-        set(pywatershed.PRMSRunoff.get_variables()) - {"dprst_vol_thres_open"}
-    ),
-    "PRMSSoilzone": list(
-        set(pywatershed.PRMSSoilzone.get_variables())
-        - {  # these variables not output by PRMS
-            "soil_zone_max",
-            "soil_lower_max",
-            "perv_actet_hru",
-            "soil_lower_change_hru",
-            "soil_rechr_change_hru",
-        }
-    ),
-    "PRMSGroundwater": pywatershed.PRMSGroundwater.get_variables(),
-    "PRMSChannel": set(pywatershed.PRMSChannel.get_variables())
-    - {"inflow_ts_prev", "outflow_ts"},
+# Variables pywatershed carries that PRMS 5.2.1 does not output, so they
+# cannot be compared. Keyed by base process; a variant subclass (NoDprst,
+# Cascades) inherits its base's set through the class hierarchy.
+not_output_by_prms = {
+    pywatershed.PRMSRunoff: {"dprst_vol_thres_open"},
+    pywatershed.PRMSSoilzone: {
+        "soil_zone_max",
+        "soil_lower_max",
+        "perv_actet_hru",
+        "soil_lower_change_hru",
+        "soil_rechr_change_hru",
+    },
+    pywatershed.PRMSGroundwater: set(),
+    pywatershed.PRMSChannel: {"inflow_ts_prev", "outflow_ts"},
 }
+
+
+def comparison_vars(cls) -> set:
+    """The variables of cls to compare against PRMS output."""
+    for base in cls.__mro__:
+        if base in not_output_by_prms:
+            return set(cls.get_variables()) - not_output_by_prms[base]
+    raise KeyError(f"no PRMS comparison rule for {cls.__name__}")
+
 
 tol = {
     "PRMSRunoff": 1.0e-8,
@@ -237,24 +243,6 @@ def test_model(simulation, model_args, tmp_path):
 
     # ---------------------------------
     # get the answer data against PRMS5.2.1
-    # this is the adhoc set of things to compare, to circumvent fussy issues?
-
-    for vv in ["PRMSRunoff", "PRMSSoilzone", "PRMSGroundwater"]:
-        comparison_vars_dict_all[f"{vv}NoDprst"] = comparison_vars_dict_all[vv]
-
-    comparison_vars_dict_all["PRMSRunoffCascadesNoDprst"] = list(
-        pywatershed.PRMSRunoffCascadesNoDprst.get_variables()
-    )
-    comparison_vars_dict_all["PRMSSoilzoneCascadesNoDprst"] = list(
-        comparison_vars_dict_all["PRMSSoilzone"]
-    ) + [
-        "hru_sz_cascadeflow",
-        "upslope_dunnianflow",
-        "upslope_interflow",
-    ]
-
-    comparison_vars_dict = {}
-
     plomd = model_args["process_list_or_model_dict"]
     config_processes = test_models[config_name]
     if isinstance(plomd, list):
@@ -277,12 +265,9 @@ def test_model(simulation, model_args, tmp_path):
             if isinstance(vv, dict) and "class" in vv.keys()
         }
 
-    for cls in processes:
-        key = cls.__name__
-        cls_vars = cls.get_variables()
-        comparison_vars_dict[key] = {
-            vv for vv in comparison_vars_dict_all[key] if vv in cls_vars
-        }
+    comparison_vars_dict = {
+        cls.__name__: comparison_vars(cls) for cls in processes
+    }
 
     # Read PRMS output into ans for comparison with pywatershed results
     ans = {key: {} for key in comparison_vars_dict.keys()}
