@@ -166,7 +166,6 @@ class PRMSGroundwaterNoDprst(PRMSGroundwater):
             self.gwres_stor_change[:],
             self.gwres_flow_vol[:],
         ) = self._calculate_gw(
-            self._wh_inactive_hrus,
             self.hru_area,
             self.soil_to_gw,
             self.ssr_to_gw,

@@ -98,7 +98,6 @@ class PRMSGroundwater(ConservativeProcess, ActiveHruMixin):
         self.name = "PRMSGroundwater"
         self._set_active_hrus()
         self._mask_inactive_hrus()
-        self._wh_inactive_hrus = np.where(~self._active_hru_mask)[0]
 
         self._set_inputs(locals())
         self._set_options(locals())
@@ -214,7 +213,6 @@ class PRMSGroundwater(ConservativeProcess, ActiveHruMixin):
 
             self._calculate_gw = nb.njit(
                 nb.types.UniTuple(nb.float64[:], 5)(
-                    nb.types.Array(nb.types.int64, 1, "C", readonly=True),
                     nb.types.Array(nb.types.float64, 1, "C", readonly=True),
                     nb.float64[:],
                     nb.float64[:],
@@ -247,7 +245,6 @@ class PRMSGroundwater(ConservativeProcess, ActiveHruMixin):
             self.gwres_stor_change[:],
             self.gwres_flow_vol[:],
         ) = self._calculate_gw(
-            self._wh_inactive_hrus,
             self.hru_area,
             self.soil_to_gw,
             self.ssr_to_gw,
@@ -262,7 +259,6 @@ class PRMSGroundwater(ConservativeProcess, ActiveHruMixin):
 
     @staticmethod
     def _calculate_numpy(
-        wh_inactive_hrus,
         gwarea,
         soil_to_gw,
         ssr_to_gw,
@@ -300,15 +296,9 @@ class PRMSGroundwater(ConservativeProcess, ActiveHruMixin):
         gwres_stor_change = gwres_stor - gwres_stor_old
         gwres_flow_vol = gwres_flow * hru_in_to_cf
 
-        # ActiveHruMixin._mask_inactive_hrus masks once at init; this kernel is
-        # vectorized over all HRUs, so inactive HRUs are re-masked each step.
-        if len(wh_inactive_hrus) > 0:
-            gwres_flow[wh_inactive_hrus] = np.nan
-            gwres_flow_vol[wh_inactive_hrus] = np.nan
-            gwres_sink[wh_inactive_hrus] = np.nan
-            gwres_stor[wh_inactive_hrus] = np.nan
-            gwres_stor_change[wh_inactive_hrus] = np.nan
-
+        # Inactive HRUs need no re-masking: ActiveHruMixin._mask_inactive_hrus
+        # sets gwres_stor to NaN at init and every output above is arithmetic
+        # on it, so NaN propagates.
         return (
             gwres_stor,
             gwres_flow,
