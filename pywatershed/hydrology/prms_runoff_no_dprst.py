@@ -258,6 +258,12 @@ class PRMSRunoffNoDprst(PRMSRunoff):
         """Perform the core calculations"""
 
         zero_array = zero * self.infil
+        # Placeholders for the kernel's cascade arguments. The kernel treats
+        # cascades as off when ncascade_hru is all NaN, so these values are
+        # never read. numba types an array by its number of dimensions and
+        # dtype, not its shape, so a 2x2 array stands in for the 2-d
+        # (cascade, hru) arrays hru_down, hru_down_frac, hru_down_fracwt and
+        # cascade_area.
         zero_array_2d_int = np.zeros((2, 2), dtype="int32")
         nan_array = nan * self.infil
         nan_array_2d = np.zeros((2, 2)) * nan
@@ -362,7 +368,7 @@ class PRMSRunoffNoDprst(PRMSRunoff):
             hortonian_flow=nan_array,
             upslope_hortonian=nan_array,
             stream_seg_in=nan_array,
-            cfs_conv=nan_array,
+            cfs_conv=nan,
             # functions at end
             check_capacity=self.check_capacity,
             perv_comp=self.perv_comp,

@@ -547,6 +547,12 @@ class PRMSRunoff(ConservativeProcess, ActiveHruMixin):
 
     def _calculate(self, time_length, vectorized=False):
         """Perform the core calculations"""
+        # Placeholders for the kernel's cascade arguments. The kernel treats
+        # cascades as off when ncascade_hru is all NaN, so these values are
+        # never read. numba types an array by its number of dimensions and
+        # dtype, not its shape, so a 2x2 array stands in for the 2-d
+        # (cascade, hru) arrays hru_down, hru_down_frac, hru_down_fracwt and
+        # cascade_area.
         zero_array_2d_int = np.zeros((2, 2), dtype="int32")
         nan_array = np.nan * self.infil
         nan_array_2d = np.zeros((2, 2)) * np.nan
@@ -651,7 +657,7 @@ class PRMSRunoff(ConservativeProcess, ActiveHruMixin):
             hortonian_flow=nan_array,
             upslope_hortonian=nan_array,
             stream_seg_in=nan_array,
-            cfs_conv=nan_array,
+            cfs_conv=nan,
             # functions at end
             check_capacity=self.check_capacity,
             perv_comp=self.perv_comp,
@@ -1579,4 +1585,9 @@ class PRMSRunoff(ConservativeProcess, ActiveHruMixin):
         stream_seg_in: np.ndarray,
         cfs_conv: float,
     ):
+        # No-op stand-in for _run_cascade_sroff, passed to the kernel by
+        # the non-cascade classes (PRMSRunoff, PRMSRunoffNoDprst). It is
+        # never reached (ncascade_hru_active is False there) but the
+        # kernel's signature needs a callable with the same arguments and
+        # returns so numba can compile one kernel for both variants.
         return (runoff, hru_sroff_down, stream_seg_in, upslope_hortonian)
