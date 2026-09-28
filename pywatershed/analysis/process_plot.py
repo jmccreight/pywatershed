@@ -200,8 +200,26 @@ class ProcessPlot:
         data_units: str = None,
         nhm_id: np.ndarray = None,
         clim: Tuple[float] = None,
+        time: np.ndarray = None,
         **kwargs,
     ):
+        """Map a variable on the HRU polygons.
+
+        Args:
+            var_name: the variable name, used for the title and colorbar.
+            process: the process holding the variable; its current values
+                are mapped when data is None.
+            data: values to map instead of the process's current state,
+                either (nhru,) for a single map or (ntime, nhru) for a map
+                per time (rendered with a time widget, see ``time``).
+            data_units: units of data, used when var_name has no metadata.
+            nhm_id: the HRU ids matching data; required with data.
+            clim: colorbar limits; with a time dimension these are fixed
+                across all times (otherwise each time scales separately).
+            time: the times for 2-d data; may be omitted when data is an
+                xarray.DataArray with a "time" coordinate.
+            **kwargs: passed to hvplot, overriding the defaults set here.
+        """
         _ = import_optional_dependency("hvplot.pandas")
 
         ccrs = import_optional_dependency("cartopy.crs")
@@ -220,14 +238,36 @@ class ProcessPlot:
                 # nhm_id = model.parameters["nhm_id"]
                 raise ValueError("code needs work to handle nhm_id=None")
 
-            data_df = pd.DataFrame(
-                {
-                    "nhm_id": nhm_id,
-                    var_name: data,
-                }
-            ).set_index("nhm_id")
+            is_dataarray = hasattr(data, "coords")
+            if time is None and is_dataarray and "time" in data.coords:
+                time = data["time"].values
 
-        plot_df = self.hru_gdf.join(data_df)
+            if np.ndim(data) == 2:
+                if time is None:
+                    raise ValueError("2-d data needs time")
+                data_df = pd.DataFrame(
+                    np.asarray(data),
+                    index=pd.Index(pd.to_datetime(time), name="time"),
+                    columns=pd.Index(np.asarray(nhm_id), name="nhm_id"),
+                )
+                # long table: one row per (time, nhm_id)
+                data_df = data_df.melt(
+                    ignore_index=False, value_name=var_name
+                ).reset_index()
+            else:
+                data_df = pd.DataFrame(
+                    {
+                        "nhm_id": nhm_id,
+                        var_name: data,
+                    }
+                ).set_index("nhm_id")
+
+        if "time" in data_df.columns:
+            plot_df = self.hru_gdf.merge(
+                data_df, left_index=True, right_on="nhm_id"
+            )
+        else:
+            plot_df = self.hru_gdf.join(data_df)
 
         metadata = meta.get_vars(var_name)
         if not len(metadata):
@@ -303,6 +343,14 @@ class ProcessPlot:
 
         if clim is not None:
             args["clim"] = clim
+
+        if "time" in plot_df.columns:
+            # One map per time, with a time widget. All frames are built up
+            # front (dynamic=False): on-demand frames from two widgets
+            # playing at once race and show each other's data. The
+            # {dimensions} placeholder puts the current time in the title.
+            args = {"groupby": "time", "dynamic": False} | args
+            args["title"] = args["title"] + "\n{dimensions}"
 
         plot = plot_df.hvplot(**args)
         if args.get("tiles", True):
