@@ -39,7 +39,10 @@ New Features
   Verified against PRMS 5.2.1 on the ``sagehen_5yr``
   (``sagehen_no_gw_cascades``) and new gridded ``sagehen_gridded_5yr``
   (5609 cells with inactive cells) test domains, both tested in CI on
-  all platforms. (:pull:`407`) By `James McCreight <https://github.com/jmccreight>`_.
+  all platforms. Demonstrated in the new notebook
+  ``examples/11_cascading_flow.ipynb``. :class:`analysis.ProcessPlot`
+  now reads geodatabase layers (``hru_layer``/``seg_layer``) and sizes
+  its maps to the domain's extent. (:pull:`407`) By `James McCreight <https://github.com/jmccreight>`_.
 - The reference PRMS 5.2.1 binary (with cascades and full-precision CBH
   output patches) is now compiled on demand from ``prms_src`` by the
   test-data generation machinery

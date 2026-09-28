@@ -22,7 +22,20 @@ class ProcessPlot:
         gis_dir: Union[str, pl.Path],
         hru_shp_file_name: str = "HRU_subset.shp",
         seg_shp_file_name: str = "Segments_subset.shp",
+        hru_layer: str = None,
+        seg_layer: str = None,
     ):
+        """Plot process variables on HRU and segment geometries.
+
+        Args:
+            gis_dir: directory holding the GIS files.
+            hru_shp_file_name: HRU polygons, a shapefile or a geodatabase
+                (.gdb) directory; None for no HRU geometries.
+            seg_shp_file_name: segment lines, as for hru_shp_file_name.
+            hru_layer: layer name within hru_shp_file_name, needed when it
+                is a geodatabase.
+            seg_layer: as hru_layer, for seg_shp_file_name.
+        """
         gpd = import_optional_dependency("geopandas")
 
         self.gis_dir = pl.Path(gis_dir)
@@ -38,7 +51,7 @@ class ProcessPlot:
 
         # HRU one-time setups
         if self.hru_shapefile is not None:
-            self.hru_gdf = gpd.read_file(self.hru_shapefile)
+            self.hru_gdf = gpd.read_file(self.hru_shapefile, layer=hru_layer)
 
             # standardization manipulations based on a variety of different
             # conventions which have been found for the shp files
@@ -56,13 +69,20 @@ class ProcessPlot:
                     columns={"GRID_CODE": "nhm_id"}
                 ).set_index("nhm_id")
 
+            elif "GRIDCODE" in self.hru_gdf.columns:
+                # e.g. the sagehen_mf6 geodatabase HRU layer, stored as float
+                self.hru_gdf["nhm_id"] = self.hru_gdf["GRIDCODE"].astype(int)
+                self.hru_gdf = self.hru_gdf.drop("GRIDCODE", axis=1).set_index(
+                    "nhm_id"
+                )
+
             else:
                 msg = "Unidentified shp file convention, work needed"
                 raise ValueError(msg)
 
         # segment one-time setup
         if self.seg_shapefile is not None:
-            self.seg_gdf = gpd.read_file(self.seg_shapefile)
+            self.seg_gdf = gpd.read_file(self.seg_shapefile, layer=seg_layer)
             # if (self.__seg_poly.crs.name
             #     == "USA_Contiguous_Albers_Equal_Area_Conic_USGS_version"):
             #     print("Overriding USGS aea crs with EPSG:5070")
@@ -217,22 +237,60 @@ class ProcessPlot:
         else:
             metadata = None
 
+        # hvplot needs the CRS the geometries are in. Use the layer's own
+        # when it declares one; the drb shapefiles do not and are EPSG:5070.
+        epsg = None
+        if plot_df.crs is not None:
+            epsg = plot_df.crs.to_epsg()
+        if epsg is None:
+            epsg = 5070
+
+        # Size the frame to the domain's aspect ratio (the tiled map forces
+        # equal axes, so a fixed height alone crops wide domains east-west).
+        # The tiles draw in Web Mercator (EPSG:3857), so measure the aspect
+        # there, not in the layer's own projection.
+        mercator_bounds = (
+            plot_df.set_crs(epsg, allow_override=True)
+            .to_crs(3857)
+            .total_bounds
+        )
+        xmin, ymin, xmax, ymax = mercator_bounds
+        aspect = (xmax - xmin) / (ymax - ymin)
+        # Initial view: the whole domain with a small margin (the default
+        # auto-range with tiles can leave part of it out of view). These
+        # are applied to the finished plot, in Mercator, rather than passed
+        # to hvplot: hvplot projects limits through cartopy, whose UTM
+        # projections clip to the zone's nominal longitude range, which
+        # shifts the view for domains near a zone edge (e.g. sagehen, just
+        # west of zone 11).
+        margin = 0.05
+        xpad = margin * (xmax - xmin)
+        ypad = margin * (ymax - ymin)
+        xlim = (xmin - xpad, xmax + xpad)
+        ylim = (ymin - ypad, ymax + ypad)
         frame_height = 550
+        frame_width = int(frame_height * aspect)
+        max_width = 900
+        if frame_width > max_width:
+            frame_width = max_width
+            frame_height = int(max_width / aspect)
+
         title = f'"{var_name}"\n'
         clabel = data_units
         if metadata is not None:
             title += "\n".join(
                 wrap(
                     f"{metadata['desc']}, {metadata['units']}",
-                    width=frame_height / 10,
+                    width=frame_width / 10,
                 )
             )
             clabel = f"{metadata['units']}"
 
         args = {
             "tiles": True,
-            "crs": ccrs.epsg(5070),
+            "crs": ccrs.epsg(epsg),
             "frame_height": frame_height,
+            "frame_width": frame_width,
             "c": var_name,
             "line_width": 0,
             "alpha": 0.75,
@@ -247,6 +305,8 @@ class ProcessPlot:
             args["clim"] = clim
 
         plot = plot_df.hvplot(**args)
+        if args.get("tiles", True):
+            plot = plot.opts(xlim=xlim, ylim=ylim)
         return plot
 
 

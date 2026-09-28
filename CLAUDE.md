@@ -25,7 +25,7 @@ reimplementation of PRMS process representations (see README.md).
 - Domain test data must be generated before testing; see DEVELOPER.md.
 - `autotest/ci_local.sh` runs the CI suites locally and must be kept in
   sync with `.github/workflows/ci.yaml` (which test files each job runs
-  or ignores).
+  or ignores) and `ci_examples.yaml` (the example notebooks section).
 - CI uses `--error-for-skips`: a test that skips conditionally must be
   either `--ignore`d in the broad CI steps or run in a dedicated step
   whose `--control_pattern` avoids the skip.
