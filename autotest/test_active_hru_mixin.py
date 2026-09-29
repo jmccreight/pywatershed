@@ -63,6 +63,9 @@ def make_discretization(hru_type: np.ndarray, supplied: dict = None):
                 [supplied["nactive_hrus"]], dtype="int64"
             )
             metadata["nactive_hrus"] = {"dims": ["scalar"]}
+        if "hru_route_order" in supplied:
+            data_vars["hru_route_order"] = supplied["hru_route_order"]
+            metadata["hru_route_order"] = {"dims": ["nhru"]}
 
     return Parameters(
         dims=dims,
@@ -172,6 +175,35 @@ def test_set_active_hrus_supplied_disagrees_raises():
         "wh_active_hrus": np.array([0, 2, 4]),
         "nactive_hrus": 3,
     }
+    proc = make_process(hru_type, supplied)
+    with pytest.raises(ValueError, match="disagrees with hru_type"):
+        proc._set_active_hrus()
+
+
+@pytest.mark.domainless
+def test_set_active_hrus_route_order_agrees():
+    """A supplied hru_route_order naming exactly the active HRUs passes.
+
+    The array is 1-based with the active HRUs first (in any order) and
+    zeros after, as preprocess_cascade_params writes it.
+    """
+    hru_type = np.array([1, 1, INACTIVE, 1, INACTIVE], dtype="int32")
+    supplied = {"hru_route_order": np.array([4, 1, 2, 0, 0], dtype="int32")}
+    proc = make_process(hru_type, supplied)
+    proc._set_active_hrus()
+    assert proc._nactive_hrus == 3
+
+
+@pytest.mark.domainless
+def test_set_active_hrus_route_order_disagrees_raises():
+    """A supplied hru_route_order that does not match hru_type raises.
+
+    The cascade parameters are stale (hru_type edited after
+    preprocess_cascade_params wrote them). Without the check the kernels
+    would index HRU -1 for the newly active HRU and never compute it.
+    """
+    hru_type = np.array([1, 1, 1, 1, 1], dtype="int32")  # all active
+    supplied = {"hru_route_order": np.array([1, 3, 5, 0, 0], dtype="int32")}
     proc = make_process(hru_type, supplied)
     with pytest.raises(ValueError, match="disagrees with hru_type"):
         proc._set_active_hrus()

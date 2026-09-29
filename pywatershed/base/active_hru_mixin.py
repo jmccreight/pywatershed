@@ -1,3 +1,5 @@
+import numpy as np
+
 from pywatershed.base.timeseries import TimeseriesArray
 
 from ..base import meta
@@ -22,7 +24,11 @@ class ActiveHruMixin:
 
         Raises:
             ValueError: if a supplied active_hru_mask disagrees with
-                hru_type, i.e. the discretization is stale.
+                hru_type, i.e. the discretization is stale; or if a
+                supplied hru_route_order (written by
+                :func:`~utils.preprocess_cascades.preprocess_cascade_params`)
+                does not name exactly the active HRUs, i.e. the cascade
+                parameters are stale.
 
         Returns:
             None
@@ -37,6 +43,17 @@ class ActiveHruMixin:
                 "active_hru_mask in the discretization disagrees with "
                 "hru_type; rerun preprocess_gridded_params"
             )
+        route_order = self._params.parameters.get("hru_route_order")
+        if route_order is not None:
+            # 1-based, the active HRUs first, zeros after. The kernels loop
+            # over the first _nactive_hrus entries of it without bounds
+            # checks, so it must name exactly the active HRUs.
+            routed = np.sort(route_order[route_order > 0]) - 1
+            if not np.array_equal(routed, result["wh_active_hrus"]):
+                raise ValueError(
+                    "hru_route_order in the parameters disagrees with "
+                    "hru_type; rerun preprocess_cascade_params"
+                )
         for kk in ("active_hru_mask", "wh_active_hrus", "nactive_hrus"):
             self[f"_{kk}"] = result[kk]
 
