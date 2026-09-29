@@ -47,8 +47,9 @@ New Features
   output patches) is now compiled on demand from ``prms_src`` by the
   test-data generation machinery
   (:func:`~utils.prms_exe_utils.compile_prms`); the gridded sagehen
-  domain generates its own CBH forcing files with PRMS, making it fully
-  reproducible from a clean clone. (:pull:`407`) By `James McCreight <https://github.com/jmccreight>`_.
+  domain generates its own CBH forcing files with PRMS from its
+  two-station data file (the 5609-cell text files are ~600 MB, too
+  large to distribute), making it fully reproducible from a clean clone. (:pull:`407`) By `James McCreight <https://github.com/jmccreight>`_.
 - :func:`~utils.separate_domain_params_dis_to_ncdf` takes an optional
   ``control``; when its ``cascade_flag`` is set the cascade parameters are
   derived before separation so the cascade process classes get complete

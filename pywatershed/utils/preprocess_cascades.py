@@ -1,3 +1,39 @@
+"""Derive PRMS cascade parameters from a PRMS parameter file.
+
+PRMS computes the HRU-to-HRU (and HRU-to-segment) cascade routing at
+startup, in basin.f90 (the HRU routing order) and cascade.f90
+(``init_cascade`` and ``order_hrus``), and never writes the result.
+pywatershed does that work here, once, as a preprocessing step, so the
+cascade process classes can take the derived quantities as ordinary
+parameters. :func:`preprocess_cascade_params` runs both stages and
+returns the input :class:`Parameters` with these added:
+
+* ``hru_route_order`` and ``active_hrus`` from
+  :func:`calc_hru_route_order` (basin.f90, with its error checks);
+* ``ncascade_hru``, ``hru_down``, ``hru_down_frac``,
+  ``hru_down_fracwt`` and ``cascade_area`` from
+  :func:`init_cascade_params` (cascade.f90). ``hru_type`` and
+  ``hru_route_order`` are rewritten there as PRMS does: a land or
+  glacier HRU (``hru_type`` 1 or 4) that passes no cascade flow becomes
+  a swale (``hru_type`` 3), and the order is recomputed from the cascade
+  links. Positive ``hru_down``
+  entries are downslope HRU indices (1-based), negative ones are
+  stream segments.
+
+Only HRU cascades (control ``cascade_flag = 1``) are handled; the
+HRU-to-segment-only mode (``cascade_flag = 2``) raises, and
+groundwater cascades are not derived here. The basin-area sums that
+basin.f90 computes alongside are not reproduced.
+
+:class:`PRMSRunoffCascadesNoDprst` and
+:class:`PRMSSoilzoneCascadesNoDprst` call
+:func:`preprocess_cascade_params` themselves when ``hru_route_order``
+is missing from their parameters, so users need not; calling it
+explicitly (or via :func:`~utils.separate_domain_params_dis_to_ncdf`
+with a control) lets the result be inspected, saved, and shared by
+both processes instead of derived twice.
+"""
+
 import networkx as nx
 import numpy as np
 import xarray as xr
@@ -7,16 +43,6 @@ from ..base.data_model import DatasetDict
 from ..constants import ACTIVE, HruType, one
 from ..parameters import Parameters
 
-# NOTES:
-# * A preprocess needs to return new parametr objects or files for
-#   PRMSRunoff, PRMSSoilzone, and MAYBE PRMSGroundwater
-# * This combines functionality from cascade.f90 and basin.f90
-# * Neglecting/commenting basin calculations below.
-# * Is it strage that hru_route_order is calculated here in basing.f90,
-#   hru_route_order is also calculated or edited in cascade.f90::order_hrus
-
-# Is this a discretization edit?
-
 
 def preprocess_cascade_params(
     control: Control,
@@ -24,9 +50,6 @@ def preprocess_cascade_params(
     verbosity: int = 1,
 ) -> Parameters:
     """Preprocess to obtain all cascade parameters from PRMS parameter files.
-
-    This function combines the legacy calc_hru_route_order and
-    init_cascade_params routines into one pre-processing step.
 
     Args:
       control: a Control object.

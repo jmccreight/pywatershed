@@ -24,7 +24,14 @@ def test_exe_available(exe):
 def test_run_prms(simulation, exe):
     ws = pl.Path(simulation["ws"])
 
-    # special section requiring CBH files to exist or generating them
+    # sagehen_gridded_5yr ships no forcing files: its 5609-cell CBH text
+    # files (precip/tmax/tmin.day, ~200 MB each) are too large to
+    # distribute, so PRMS generates them from the two-station sagehen.data
+    # using the *_make_cbh_only.control (model_mode WRITE_CLIMATE). That
+    # run then converts them to the netCDF files pywatershed reads
+    # (prcp/tmax/tmin.nc, ~9 MB each, also gitignored). Every other control
+    # for the domain reads the .day files, so the make_cbh_only run must
+    # come first; below we either generate or require them.
     domain_dir_name = simulation["control_file"].parent.name
     control_file_name = simulation["control_file"].stem
     domains_requiring_cbh_files = ["sagehen_gridded_5yr"]
