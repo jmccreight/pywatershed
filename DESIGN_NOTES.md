@@ -42,7 +42,10 @@ The cost also compounds: three binary options already give
   Only `PRMSSoilzoneCascadesNoDprst` uses it, forwarding through the
   parent's signature. Workaround: a guard in `Process._set_inputs`
   that raises on any argument naming a model variable that is not in
-  `self.inputs`. Root cause: declarations spread and unchecked.
+  `self.inputs`. The parent's docstring now says the argument is a
+  pass-through slot for the child (2026-09-29): a second workaround,
+  in prose, for the same declaration. Root cause: declarations spread
+  and unchecked.
 - **Parents guard `self.name` with `hasattr`** (PR 407, B6). Cascade
   children set `self.name` before calling `super().__init__()`, and
   the parent overwrote it. Workaround: `if not hasattr(self, "name")`

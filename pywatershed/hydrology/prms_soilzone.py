@@ -63,8 +63,14 @@ class PRMSSoilzone(ConservativeProcess, ActiveHruMixin):
         snow_evap: Evaporation and sublimation from snowpack on each HRU
         snowcov_area: Snow-covered area on each HRU prior to melt and
             sublimation unless snowpack
-        stream_seg_in: Flow into each stream segment from cascading flow
-            (cfs), accumulated across HRUs during the timestep
+        stream_seg_in: Not an input of :class:`PRMSSoilzone` (see
+            ``get_inputs``) and unused by it; leave it None, a value raises
+            in ``_set_inputs``. The argument exists so
+            :class:`PRMSSoilzoneCascadesNoDprst`, which declares it as an
+            input, can pass it through this constructor, where
+            ``_set_inputs`` registers it. There it is the flow into each
+            stream segment from cascading flow (cfs), accumulated across
+            HRUs during the timestep.
         dprst_flag: use depression storage or not? None uses value in control
             file, which otherwise defaults to True.
         imbalance_behavior: one of ["defer", None, "warn", "error"]
