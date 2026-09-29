@@ -27,8 +27,9 @@ basin.f90 computes alongside are not reproduced.
 
 :class:`PRMSRunoffCascadesNoDprst` and
 :class:`PRMSSoilzoneCascadesNoDprst` call
-:func:`preprocess_cascade_params` themselves when ``hru_route_order``
-is missing from their parameters, so users need not; calling it
+:func:`preprocess_cascade_params` themselves when any of the derived
+parameters (``cascade_param_names``) is missing from their parameters,
+so users need not; calling it
 explicitly (or via :func:`~utils.separate_domain_params_dis_to_ncdf`
 with a control) lets the result be inspected, saved, and shared by
 both processes instead of derived twice.
@@ -42,6 +43,18 @@ from ..base import Control
 from ..base.data_model import DatasetDict
 from ..constants import ACTIVE, HruType, one
 from ..parameters import Parameters
+
+# The parameters preprocess_cascade_params derives, which the cascade
+# process classes declare. A Parameters object lacking any of them has
+# not been (fully) preprocessed.
+cascade_param_names = (
+    "hru_route_order",
+    "ncascade_hru",
+    "hru_down",
+    "hru_down_frac",
+    "hru_down_fracwt",
+    "cascade_area",
+)
 
 
 def preprocess_cascade_params(

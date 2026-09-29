@@ -5,7 +5,10 @@ from ..base.adapter import adaptable
 from ..base.control import Control
 from ..constants import HruType, cubic_ft_per_acre_in, zero
 from ..parameters import Parameters
-from ..utils.preprocess_cascades import preprocess_cascade_params
+from ..utils.preprocess_cascades import (
+    cascade_param_names,
+    preprocess_cascade_params,
+)
 from .prms_runoff import PRMSRunoff
 
 RAIN = 0
@@ -132,10 +135,11 @@ class PRMSRunoffCascadesNoDprst(PRMSRunoff):
         self.name = "PRMSRunoffCascadesNoDprst"
         self._dprst_flag = False
 
-        # hru_route_order could be required but because
-        # it wasnt by prms, we'll make it optional and add it here if missing.
-        # TODO: with a warning and/or better criteria for the if
-        if "hru_route_order" not in parameters.parameters.keys():
+        # The derived cascade parameters are not in a PRMS parameter file,
+        # so derive them here when any is missing rather than require them.
+        if not all(
+            kk in parameters.parameters.keys() for kk in cascade_param_names
+        ):
             parameters = preprocess_cascade_params(
                 control, parameters, verbosity=int(bool(verbose))
             )
