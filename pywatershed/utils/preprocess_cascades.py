@@ -57,6 +57,15 @@ cascade_param_names = (
 )
 
 
+def _verbosity_msg(msg: str, verbosity: int) -> None:
+    """Print a diagnostic PRMS writes only when Print_debug = 13.
+
+    Messages PRMS prints unconditionally use a bare print.
+    """
+    if verbosity >= 1:
+        print(msg, flush=True)
+
+
 def preprocess_cascade_params(
     control: Control,
     parameters: Parameters,
@@ -67,7 +76,9 @@ def preprocess_cascade_params(
     Args:
       control: a Control object.
       parameters: a parameter object of class Parameters.
-      verbosity: Currently an integer in [0, 1], boolean.
+      verbosity: 0 prints only what PRMS prints unconditionally (a cascade
+        ignored for hru_up_id < 1, an hru_type rewritten to swale); 1 adds
+        the diagnostics PRMS writes to cascade.msgs when Print_debug = 13.
 
     Returns:
       Parameters: the input parameters with all cascade parameters added
@@ -167,16 +178,14 @@ def init_cascade_params(
     Args:
       control: a Control object.
       parameters: a parameter object of class Parameters.
-      verbosity: Currently an integer in [0, 1], boolean.
+      verbosity: 0 prints only what PRMS prints unconditionally (a cascade
+        ignored for hru_up_id < 1, an hru_type rewritten to swale); 1 adds
+        the diagnostics PRMS writes to cascade.msgs when Print_debug = 13.
 
     Returns:
       Parameters: the input parameters with the cascade parameters from
         init_cascade added
     """
-
-    def verbosity_msg(msg: str, verbosity_thresh: int = 1) -> None:
-        if verbosity >= verbosity_thresh:
-            print(msg, flush=True)
 
     # This is changed by order_hrus but may be printed diagnostically here
     iorder = 0
@@ -230,7 +239,7 @@ def init_cascade_params(
 
     if ndown > 15:
         msg = f"possible ndown issue: {ndown=}"
-        verbosity_msg(msg)
+        _verbosity_msg(msg, verbosity)
 
     hru_down = np.zeros([ndown, nhru], dtype="int64")
     cascade_area = np.zeros([ndown, nhru], dtype="double")
@@ -249,6 +258,7 @@ def init_cascade_params(
         kup = hru_up_id[ii]
         if kup < 1:
             msg = f"Cascade ignored as hru_up_id<1, {ii+1=}, hru_up_id: {kup=}"
+            print(msg)
             continue
 
         jdn = hru_down_id[ii]
@@ -268,35 +278,35 @@ def init_cascade_params(
         # a "continue" is not necessary except in that last case.
         if frac < 0.00001:
             msg = "Cascade ignored as hru_pct_up = 0.0, " + diag_msg
-            print(msg)
+            _verbosity_msg(msg, verbosity)
         elif istrm > nsegment:
             msg = "Cascade ignored as isegment > nsegment-1, " + diag_msg
-            print(msg)
+            _verbosity_msg(msg, verbosity)
         elif (kup < 1) and (jdn == 0):
             msg = "Cascade ignored as up and down HRU <0, " + diag_msg
-            print(msg)
+            _verbosity_msg(msg, verbosity)
         elif (istrm == 0) and (jdn == 0):
             msg = "Cascade ignored as down HRU and segment < 0, " + diag_msg
-            print(msg)
+            _verbosity_msg(msg, verbosity)
         elif hru_type[kup - 1] == HruType.INACTIVE.value:
             msg = "Cascade ignored as up HRU is inactive, " + diag_msg
-            print(msg)
+            _verbosity_msg(msg, verbosity)
         elif hru_type[kup - 1] == HruType.SWALE.value:
             msg = "Cascade ignored as up HRU is a swale, " + diag_msg
-            print(msg)
+            _verbosity_msg(msg, verbosity)
         elif (hru_type[kup - 1] == HruType.LAKE.value) and (istrm < 1):
             msg = (
                 "Cascade ignored as lake HRU cannot cascade to an HRU"
                 + diag_msg
             )
-            print(msg)
+            _verbosity_msg(msg, verbosity)
         else:
             if (jdn > 0) and (istrm < 1):
                 if hru_type[jdn - 1] == HruType.INACTIVE.value:
                     msg = (
                         "Cascade ignored as down HRU is inactive, " + diag_msg
                     )
-                    print(msg)
+                    _verbosity_msg(msg, verbosity)
                     continue
 
             # <
@@ -314,7 +324,7 @@ def init_cascade_params(
                     f"fraction up:  {frac*100.0=}; "
                     f"cascade areea:  {carea=}"
                 )
-                print(msg)
+                _verbosity_msg(msg, verbosity)
 
             elif cascade_flg == 1:
                 # This forces 1 to 1 cascades
@@ -340,7 +350,7 @@ def init_cascade_params(
                             f" up fraction: {hru_frac[kup-1]=};"
                             f" stream segment: {istrm=}"
                         )
-                        print(msg)
+                        _verbosity_msg(msg, verbosity)
 
                     # <
                     frac = frac + 1.0 - hru_frac[kup - 1]
@@ -394,7 +404,7 @@ def init_cascade_params(
                             "add up to > 1.0, thus fraction reduced."
                             f"up hru: {i}, down hru: {dnhru}"
                         )
-                        verbosity_msg(msg)
+                        _verbosity_msg(msg, verbosity)
                         hru_down_frac[k, i - 1] = 1.0
 
                     # <
@@ -404,14 +414,14 @@ def init_cascade_params(
                             "Combined multiple cascade paths from "
                             f"HRU: {i=} to stream segment, {abs(dnhru)=}"
                         )
-                        print(msg)
+                        _verbosity_msg(msg, verbosity)
                     else:
                         #  two cascades to same hru, combine
                         msg = (
                             "Combined multiple cascade paths from "
                             f"HRU: {i=}, downslope hru, {dnhru=}"
                         )
-                        print(msg)
+                        _verbosity_msg(msg, verbosity)
 
                     # <
                     ncascade_hru[i - 1] = ncascade_hru[i - 1] - 1
@@ -443,10 +453,11 @@ def init_cascade_params(
         hru_down,
         hru_type,
         circle_switch,
+        verbosity=verbosity,
     )
 
     msg = f"{hru_route_order=}"
-    verbosity_msg(msg)
+    _verbosity_msg(msg, verbosity)
 
     new_params = parameters.to_xr_ds()
     del new_params["hru_type"]
@@ -472,6 +483,7 @@ def order_hrus(
     hru_down: np.ndarray,
     hru_type: np.ndarray,
     circle_switch: int,
+    verbosity: int = 1,
 ) -> tuple:
     """From cascade.f90::order_hrus."""
 
@@ -636,7 +648,7 @@ def order_hrus(
         f"{nroots=} HRUs do not cascade to another HRU (roots)\n"
         f"{roots[0:nroots]=}"
     )
-    print(msg)
+    _verbosity_msg(msg, verbosity)
 
     if iorder != active_hrus:
         list_missing_hrus = []
