@@ -65,11 +65,17 @@ The cost also compounds: three binary options already give
   False, because the child passes `dprst_evap_hru=None` and
   `dprst_seep_hru=None` through a signature that still requires them.
   Root cause: parent decides, and declarations spread.
-- **Depression-storage restart variables on a no-dprst class.**
-  `PRMSRunoffCascadesNoDprst.get_restart_variables` lists `dprst_*`
-  variables the class does not carry. Restart is not expected for
-  the cascade processes at all; their signatures have no
-  `restart_read` or `restart_write`. Root cause: declarations spread.
+- **Depression-storage restart variables on a no-dprst class**
+  (PR 407, resolved there). `PRMSRunoffCascadesNoDprst` inherited
+  `get_restart_variables` from `PRMSRunoff`, so it listed `dprst_*`
+  variables the class does not carry, and the cascade classes had no
+  `restart_read` or `restart_write` at all. Resolved by giving each
+  no-dprst and cascade child its own restart list (two impervious
+  storages for runoff, four reservoir storages for soilzone) and the
+  cascade children the restart arguments, forwarded to the parent;
+  `test_restart_processes.py` now covers them. The fix is one more
+  spread declaration: four leaf classes carry the same two lists by
+  hand. Root cause: declarations spread.
 - **Copy-paste `_calculate`** (PR 407 review, Quality). The cascade
   children repeat their NoDprst siblings' ~90-keyword kernel call
   almost verbatim (`prms_runoff_cascades_no_dprst.py` vs
@@ -83,9 +89,9 @@ The cost also compounds: three binary options already give
   (`prms_runoff_cascades_no_dprst.py`, search `basin_init`; soilzone
   reruns `_set_budget`), because the child must preprocess parameters
   before the parent wires them and the parent's `__init__` cannot be
-  entered halfway. `preprocess_cascade_params` also runs once per
-  class, so twice per model. Not worked around. Root cause: parent
-  decides.
+  entered halfway. When the parameters are not already preprocessed,
+  `preprocess_cascade_params` also runs once per class, so twice per
+  model. Not worked around. Root cause: parent decides.
 - **Two off-switch conventions for one option** (PR 407 review,
   Quality). `PRMSRunoff` turns cascades off with per-step NaN sentinel
   arrays (`prms_runoff.py`, search `nan_array`) plus a compiled dummy
