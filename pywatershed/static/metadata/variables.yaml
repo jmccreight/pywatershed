@@ -3586,12 +3586,6 @@ streamflow_cms:
     0: nobs
   type: float64
   units: cms
-strm_seg_in:
-  desc: Flow in stream segments as a result of cascading flow in each stream segment
-  dims:
-    0: nsegment
-  type: float64
-  units: cfs
 sub_cfs:
   desc: Total streamflow leaving each subbasin
   dims:

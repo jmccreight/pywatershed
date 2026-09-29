@@ -1040,7 +1040,6 @@ meta-var: ssres_stor type=float64 units=inches
 meta-var: stream_seg_in type=float64 units=cfs
 meta-var: streamflow_cfs type=float64 units=cfs
 meta-var: streamflow_cms type=float64 units=cms
-meta-var: strm_seg_in type=float64 units=cfs
 meta-var: sub_cfs type=float64 units=cfs
 meta-var: sub_cms type=float64 units=cms
 meta-var: sub_gwflow type=float64 units=cfs
@@ -1288,7 +1287,7 @@ set: PRMSSnow.get_mass_budget_terms inputs: net_rain net_snow
 set: PRMSSnow.get_mass_budget_terms outputs: snow_evap snowmelt through_rain
 set: PRMSSnow.get_mass_budget_terms storage_changes: freeh2o_change pk_ice_change
 set: PRMSSnow.get_parameters tuple: albset_rna albset_rnm albset_sna albset_snm cecn_coef cov_type covden_sum covden_win den_init den_max doy emis_noppt freeh2o_cap hru_deplcrv hru_type melt_force melt_look potet_sublim rad_trncf settle_const snarea_curve snarea_thresh snowpack_init tmax_allsnow tstorm_mo
-set: PRMSSnow.get_restart_variables list: ai albedo freeh2o iasw int_alb iso lso lst mso pk_def pk_den pk_depth pk_ice pk_temp pksv pkwater_equiv pss pst salb scrv slst snowcov_area snowcov_areasv snsv
+set: PRMSSnow.get_restart_variables list: albedo freeh2o iasw int_alb iso lso lst mso pk_def pk_den pk_depth pk_ice pk_temp pksv pkwater_equiv pss pst salb scrv slst snowcov_area snowcov_areasv snsv
 set: PRMSSnow.get_variables list: ai albedo frac_swe freeh2o freeh2o_change freeh2o_prev iasw int_alb iso lso lst mso newsnow pk_def pk_den pk_depth pk_ice pk_ice_change pk_ice_prev pk_precip pk_temp pksv pkwater_ante pkwater_equiv pptmix_nopack pss pst salb scrv slst snow_evap snowcov_area snowcov_areasv snowmelt snsv tcal through_rain
 set: PRMSSoilzone.get_dimensions tuple: nhru
 set: PRMSSoilzone.get_energy_budget_terms inputs: 

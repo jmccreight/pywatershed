@@ -113,6 +113,12 @@ Breaking Changes
   ``unit_desc`` in :class:`base.Budget`. Code passing those or any later
   arguments positionally must switch to keywords.
   (:pull:`407`) By `James McCreight <https://github.com/jmccreight>`_.
+- The variable metadata entry ``hru_hortn_cascflow`` (PRMS's name, declared
+  by no process) is replaced by ``hru_horton_cascflow``, the variable
+  :class:`PRMSRunoffCascadesNoDprst` declares; the unused ``strm_seg_in``
+  entry is removed in favor of ``stream_seg_in``, declared by both cascade
+  classes. PRMS output files are renamed on conversion to netCDF.
+  (:pull:`407`) By `James McCreight <https://github.com/jmccreight>`_.
 
 Bug fixes
 ~~~~~~~~~
