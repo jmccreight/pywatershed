@@ -40,16 +40,23 @@ New Features
   (``sagehen_no_gw_cascades``) and new gridded ``sagehen_gridded_5yr``
   (5609 cells with inactive cells) test domains, both tested in CI on
   all platforms. Demonstrated in the new notebook
-  ``examples/11_cascading_flow.ipynb``. :class:`analysis.ProcessPlot`
-  now reads geodatabase layers (``hru_layer``/``seg_layer``) and sizes
-  its maps to the domain's extent. (:pull:`407`) By `James McCreight <https://github.com/jmccreight>`_.
+  ``examples/11_cascading_flow.ipynb``. (:pull:`407`) By `James McCreight <https://github.com/jmccreight>`_.
+- :class:`analysis.ProcessPlot` reads geodatabase layers
+  (``hru_layer``/``seg_layer`` name the layer within ``hru_shp_file_name``
+  /``seg_shp_file_name``), sizes each map to the domain's extent and sets
+  the initial view to it, and :meth:`ProcessPlot.plot_hru_var` maps a
+  ``(time, nhru)`` array as one frame per time with a time widget
+  (``clim`` holds the color scale across frames; ``time`` may be omitted
+  for a DataArray with a ``time`` coordinate). Shown in
+  ``examples/11_cascading_flow.ipynb``. (:pull:`407`) By `James McCreight <https://github.com/jmccreight>`_.
 - The reference PRMS 5.2.1 binary (with cascades and full-precision CBH
   output patches) is now compiled on demand from ``prms_src`` by the
   test-data generation machinery
-  (:func:`~utils.prms_exe_utils.compile_prms`); the gridded sagehen
-  domain generates its own CBH forcing files with PRMS from its
-  two-station data file (the 5609-cell text files are ~600 MB, too
-  large to distribute), making it fully reproducible from a clean clone. (:pull:`407`) By `James McCreight <https://github.com/jmccreight>`_.
+  (:func:`~utils.prms_exe_utils.compile_prms`). (:pull:`407`) By `James McCreight <https://github.com/jmccreight>`_.
+- The gridded ``sagehen_gridded_5yr`` test domain generates its own CBH
+  forcing files with PRMS from its two-station data file (the 5609-cell
+  text files are ~600 MB, too large to distribute), making it fully
+  reproducible from a clean clone. (:pull:`407`) By `James McCreight <https://github.com/jmccreight>`_.
 - :func:`~utils.separate_domain_params_dis_to_ncdf` takes an optional
   ``control``; when its ``cascade_flag`` is set the cascade parameters are
   derived before separation so the cascade process classes get complete
