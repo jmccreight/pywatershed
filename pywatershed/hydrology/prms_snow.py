@@ -294,10 +294,9 @@ class PRMSSnow(ConservativeProcess, ActiveHruMixin):
     @staticmethod
     def get_restart_variables() -> list:
         # PRMS 5.2.1 snowcomp_restart's list (minus glacier variables) plus
-        # pkwater_equiv (climateflow's restart) and ai. PRMS does not save
-        # ai, which snowcov() recovers as pkwater_equiv only when the pack
-        # is not depleting; without it a restart of a depleting pack is not
-        # exact.
+        # pkwater_equiv (climateflow's restart). ai is not saved: _calculate
+        # zeroes it every step and snowcov() recomputes it from pst before
+        # any read.
         return [
             "int_alb",
             "scrv",
@@ -322,7 +321,6 @@ class PRMSSnow(ConservativeProcess, ActiveHruMixin):
             "snsv",
             "pk_depth",
             "pkwater_equiv",
-            "ai",
         ]
 
     @staticmethod

@@ -79,8 +79,8 @@ New Features
   domains and the ``no_dprst`` controls too. That exposed a second
   omission: :class:`PRMSSnow` now saves PRMS 5.2.1's full snowcomp restart
   state (adds ``int_alb``, ``salb``, ``lst``, ``iso``, ``mso``, ``lso``,
-  ``albedo``, ``pk_temp``, ``snsv``) plus ``ai``, which PRMS does not save
-  and which made restarts of a depleting snowpack inexact.
+  ``albedo``, ``pk_temp``, ``snsv``), whose omission made restarts of a
+  depleting snowpack inexact.
   (:pull:`407`) By `James McCreight <https://github.com/jmccreight>`_.
 
 Breaking Changes
