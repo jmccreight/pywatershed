@@ -139,6 +139,11 @@ Bug fixes
   on read and turn legitimate -9999 values into NaN. The in-memory fill used
   to mask inactive HRUs is now the separate ``mask_fill_values_dict``.
   (:pull:`407`) By `James McCreight <https://github.com/jmccreight>`_.
+- :meth:`ProcessPlot.plot_hru_var` no longer errors on a ``var_name`` that
+  contains a known variable or parameter name as a substring (the metadata
+  lookup passed the string where a list of names is expected, so ``"sroff
+  (cascade - no cascade)"`` matched ``sroff`` and then failed to find itself).
+  (:pull:`407`) By `James McCreight <https://github.com/jmccreight>`_.
 - Reading a PRMS parameter file no longer raises for a parameter with an
   expandable scalar form that is supplied at some other, unhandled shape;
   such parameters pass through unchanged as before. A monthly parameter is

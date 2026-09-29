@@ -269,9 +269,9 @@ class ProcessPlot:
         else:
             plot_df = self.hru_gdf.join(data_df)
 
-        metadata = meta.get_vars(var_name)
+        metadata = meta.get_vars([var_name])
         if not len(metadata):
-            metadata = meta.get_params(var_name)
+            metadata = meta.get_params([var_name])
         if len(metadata):
             metadata = metadata[var_name]
         else:
