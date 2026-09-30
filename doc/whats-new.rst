@@ -122,7 +122,7 @@ Bug fixes
   that dimension twice also skipped creating the variable). In
   :class:`FlowGraph` output ``node_maker_id`` went missing whenever its ids
   were as long as the ``node_maker_name`` values. Reported in :issue:`421`.
-  (:pull:`XXX`) By `James McCreight <https://github.com/jmccreight>`_.
+  (:pull:`422`) By `James McCreight <https://github.com/jmccreight>`_.
 - Loading a parameter netCDF file with netCDF4 (the default for
   :meth:`Parameters.from_netcdf`) dropped a coordinate that no data variable
   uses (recorded in the file's global ``coordinates`` attribute), so a process
