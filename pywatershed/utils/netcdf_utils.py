@@ -555,15 +555,14 @@ class NetCdfWrite(Accessor):
 
                         char_dim_len = char_array.shape[1]
                         dim_name = f"char{char_dim_len}"
-                        if dim_name in char_dims_created:
-                            continue
-
                         dim = (x_dim, dim_name)
-                        _ = self.dataset.createDimension(
-                            dimname=dim_name, size=char_dim_len
-                        )
-
-                        char_dims_created += [dim_name]
+                        # string variables of the same length share the
+                        # char dimension; the variable is always created
+                        if dim_name not in char_dims_created:
+                            _ = self.dataset.createDimension(
+                                dimname=dim_name, size=char_dim_len
+                            )
+                            char_dims_created += [dim_name]
 
                     else:
                         nc_type = np_type_to_netcdf_type_dict[type]
