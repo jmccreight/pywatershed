@@ -64,7 +64,7 @@ New Features
   (the ``sagehen_gridded_5yr`` parameter file uses both). A monthly
   parameter is recognized by its declared ``nmonth`` dimension, not by
   having 12 values. A shape not handled passes through with the dims the
-  file declares. (:pull:`407`) By `James McCreight <https://github.com/jmccreight>`_.
+  file declares. (:pull:`407`, :pull:`XXX`) By `James McCreight <https://github.com/jmccreight>`_.
 - :func:`~utils.separate_domain_params_dis_to_ncdf` takes an optional
   ``control``; when its ``cascade_flag`` is set the cascade parameters are
   derived before separation so the cascade process classes get complete
@@ -117,16 +117,16 @@ Breaking Changes
   (:pull:`407`) By `James McCreight <https://github.com/jmccreight>`_.
 - Keyword arguments were inserted mid-signature: ``stream_seg_in=None``
   now precedes ``dprst_flag`` in :class:`PRMSSoilzone`, and
-  ``active_mask=False`` precedes ``unit_desc`` in :class:`base.Budget`.
+  ``active_mask=None`` precedes ``unit_desc`` in :class:`base.Budget`.
   Code passing those or any later arguments positionally must switch to
   keywords.
-  (:pull:`407`) By `James McCreight <https://github.com/jmccreight>`_.
+  (:pull:`407`, :pull:`XXX`) By `James McCreight <https://github.com/jmccreight>`_.
 - The variable metadata entry ``hru_hortn_cascflow`` (PRMS's name, declared
   by no process) is replaced by ``hru_horton_cascflow``, the variable
   :class:`PRMSRunoffCascadesNoDprst` declares; the unused ``strm_seg_in``
   entry is removed in favor of ``stream_seg_in``, declared by both cascade
   classes. PRMS output files are renamed on conversion to netCDF.
-  (:pull:`407`) By `James McCreight <https://github.com/jmccreight>`_.
+  (:pull:`407`, :pull:`XXX`) By `James McCreight <https://github.com/jmccreight>`_.
 
 Bug fixes
 ~~~~~~~~~
