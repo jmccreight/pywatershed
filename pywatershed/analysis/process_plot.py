@@ -6,6 +6,7 @@ import contextily as cx
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import xarray as xr
 from matplotlib.collections import LineCollection, PatchCollection
 from matplotlib.patches import Polygon
 from xyzservices import TileProvider
@@ -196,10 +197,10 @@ class ProcessPlot:
         self,
         var_name: str,
         process: Process,
-        data: np.ndarray = None,
+        data: Union[np.ndarray, xr.DataArray] = None,
         data_units: str = None,
         nhm_id: np.ndarray = None,
-        clim: Tuple[float] = None,
+        clim: Tuple[float, float] = None,
         time: np.ndarray = None,
         **kwargs,
     ):
@@ -277,13 +278,16 @@ class ProcessPlot:
         else:
             metadata = None
 
-        # hvplot needs the CRS the geometries are in. Use the layer's own
-        # when it declares one; the drb shapefiles do not and are EPSG:5070.
-        epsg = None
-        if plot_df.crs is not None:
-            epsg = plot_df.crs.to_epsg()
-        if epsg is None:
+        # hvplot needs the CRS the geometries are in, as an EPSG code. A
+        # layer declaring no CRS is assumed to be EPSG:5070 (NHM Albers).
+        if plot_df.crs is None:
             epsg = 5070
+        else:
+            epsg = plot_df.crs.to_epsg()
+            if epsg is None:
+                raise ValueError(
+                    f"The HRU layer's CRS has no EPSG code: {plot_df.crs.name}"
+                )
 
         # Size the frame to the domain's aspect ratio (the tiled map forces
         # equal axes, so a fixed height alone crops wide domains east-west).
