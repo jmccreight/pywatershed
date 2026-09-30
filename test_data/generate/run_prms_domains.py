@@ -1,3 +1,4 @@
+import contextlib
 import os
 import pathlib as pl
 import shutil
@@ -100,48 +101,44 @@ def test_run_prms(simulation, exe):
     if run_cbh:
         # if this run is generating CBH files, convert PRMS outputs to netcdf
         # need to be in ws
-        og_dir = os.getcwd()
-        os.chdir(ws)
+        with contextlib.chdir(ws):
+            cbh_nc_dir = pl.Path(".")
+            cbh_files = [
+                pl.Path("precip.day"),
+                pl.Path("tmax.day"),
+                pl.Path("tmin.day"),
+            ]
+            rename_vars = {
+                "precip": "prcp",
+                "tmaxf": "tmax",
+                "tmax": "tmax",
+                "tminf": "tmin",
+                "tmin": "tmin",
+            }
+            control = pws.Control.load_prms(simulation["control_file"])
+            parameter_file = control.options["parameter_file"]
+            params = pws.parameters.PrmsParameters.load(parameter_file)
+            for cbh_file in cbh_files:
+                out_file = cbh_nc_dir / (rename_vars[cbh_file.stem] + ".nc")
+                pws.utils.cbh_file_to_netcdf(
+                    cbh_file,
+                    params,
+                    out_file,
+                    complevel=9,
+                    rename_vars=rename_vars,
+                )
 
-        cbh_nc_dir = pl.Path(".")
-        cbh_files = [
-            pl.Path("precip.day"),
-            pl.Path("tmax.day"),
-            pl.Path("tmin.day"),
-        ]
-        rename_vars = {
-            "precip": "prcp",
-            "tmaxf": "tmax",
-            "tmax": "tmax",
-            "tminf": "tmin",
-            "tmin": "tmin",
-        }
-        control = pws.Control.load_prms(simulation["control_file"])
-        parameter_file = control.options["parameter_file"]
-        params = pws.parameters.PrmsParameters.load(parameter_file)
-        for cbh_file in cbh_files:
-            out_file = cbh_nc_dir / (rename_vars[cbh_file.stem] + ".nc")
-            pws.utils.cbh_file_to_netcdf(
-                cbh_file,
-                params,
-                out_file,
-                complevel=9,
-                rename_vars=rename_vars,
-            )
-
-        prms_output_to_rm = [
-            "potet.day",
-            "swrad.day",
-            # currently using these files to drive the PRMS model
-            # may change that so they can be removed
-            # "precip.day",
-            # "tmin.day",
-            # "tmax.day",
-            "transp.day",
-        ]
-        for ff in prms_output_to_rm:
-            pl.Path(ff).unlink()
-
-        os.chdir(og_dir)
+            prms_output_to_rm = [
+                "potet.day",
+                "swrad.day",
+                # currently using these files to drive the PRMS model
+                # may change that so they can be removed
+                # "precip.day",
+                # "tmin.day",
+                # "tmax.day",
+                "transp.day",
+            ]
+            for ff in prms_output_to_rm:
+                pl.Path(ff).unlink()
 
     print(f"run_domains.py: End of domain {ws}\n", flush=True)
