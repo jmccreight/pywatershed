@@ -66,6 +66,23 @@ def _verbosity_msg(msg: str, verbosity: int) -> None:
         print(msg, flush=True)
 
 
+def check_no_lake_hrus(hru_type: np.ndarray, process_name: str) -> None:
+    """Raise if any HRU is a lake (hru_type = 2).
+
+    PRMS 5.2.1 gives lake HRUs their own cascade handling, which the
+    cascade processes do not implement: srunoff sends upslope Hortonian
+    flow to Hortonian_lakes (srunoff.f90:697-703) and soilzone applies
+    lake_evap_adj and collects upslope flow in lakein_sz
+    (soilzone.f90:961-982).
+    """
+    wh_lake = np.where(hru_type == HruType.LAKE.value)[0]
+    if len(wh_lake):
+        raise NotImplementedError(
+            f"{process_name} does not support lake HRUs (hru_type = 2); "
+            f"lake HRU indices (0-based): {wh_lake.tolist()}"
+        )
+
+
 def preprocess_cascade_params(
     control: Control,
     parameters: Parameters,

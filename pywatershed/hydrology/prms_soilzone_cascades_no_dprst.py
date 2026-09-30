@@ -7,6 +7,7 @@ from ..constants import cubic_ft_per_acre_in, nan, zero
 from ..parameters import Parameters
 from ..utils.preprocess_cascades import (
     cascade_param_names,
+    check_no_lake_hrus,
     preprocess_cascade_params,
 )
 from .prms_soilzone import PRMSSoilzone
@@ -155,6 +156,7 @@ class PRMSSoilzoneCascadesNoDprst(PRMSSoilzone):
             restart_write_freq=restart_write_freq,
         )
 
+        check_no_lake_hrus(self.hru_type, self.name)
         self._set_budget(active_mask=self._active_hru_mask)
 
         return

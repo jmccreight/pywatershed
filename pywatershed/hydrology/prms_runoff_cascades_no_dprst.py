@@ -7,6 +7,7 @@ from ..constants import HruType, cubic_ft_per_acre_in, zero
 from ..parameters import Parameters
 from ..utils.preprocess_cascades import (
     cascade_param_names,
+    check_no_lake_hrus,
     preprocess_cascade_params,
 )
 from .prms_runoff import PRMSRunoff
@@ -173,6 +174,7 @@ class PRMSRunoffCascadesNoDprst(PRMSRunoff):
             restart_write_freq=restart_write_freq,
         )
 
+        check_no_lake_hrus(self.hru_type, self.name)
         self._set_inputs(locals())
         self._set_options(locals())
 

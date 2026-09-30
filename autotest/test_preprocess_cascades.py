@@ -5,6 +5,7 @@ from pywatershed.base.control import Control
 from pywatershed.parameters import Parameters, PrmsParameters
 from pywatershed.utils.preprocess_cascades import (
     calc_hru_route_order,
+    check_no_lake_hrus,
     init_cascade_params,
     order_hrus,
 )
@@ -212,3 +213,15 @@ def test_calc_hru_route_order_lake():
     )
     with pytest.raises(ValueError, match="nlake = 0"):
         calc_hru_route_order(params)
+
+
+@pytest.mark.domainless
+@pytest.mark.parametrize("hru_type", [[1, 2], [1, 3]])
+def test_check_no_lake_hrus(hru_type):
+    # the cascade processes raise on a lake HRU (2) and accept a swale (3)
+    hru_type = np.array(hru_type, dtype="int64")
+    if 2 in hru_type:
+        with pytest.raises(NotImplementedError, match=r"indices.*\[1\]"):
+            check_no_lake_hrus(hru_type, "SomeProcess")
+    else:
+        check_no_lake_hrus(hru_type, "SomeProcess")
