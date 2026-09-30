@@ -70,6 +70,7 @@ def collect_simulations(
         if not (
             (dom_dir / "prcp.cbh").exists()
             or (dom_dir / "prcp.day").exists()
+            or (dom_dir / "prcp.nc").exists()
             or (dom_dir / "precip.cbh").exists()
             or (dom_dir / "precip.day").exists()
         ):
@@ -82,6 +83,14 @@ def collect_simulations(
             continue
 
         control_file_candidates = sorted(dom_dir.glob("*.control"))
+        # a control that only generates input data for the other controls
+        # (the CBH forcing files of sagehen_gridded_5yr) is not a
+        # simulation to test
+        control_file_candidates = [
+            cc
+            for cc in control_file_candidates
+            if "make_cbh_only" not in cc.name
+        ]
 
         # filter against control pattern
         control_files = []

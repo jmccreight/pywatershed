@@ -123,6 +123,11 @@ There is a file for single-HRU domains and multi-HRU domains and these
 are identical (as appropriate) for the domains included in the
 repository.
 
+The `sagehen_gridded_5yr` domain is the exception: its gridded CBH files
+are too large to distribute, so PRMS generates them from the station data
+in `sagehen.data` (the `*_make_cbh_only.control` run, first in CI), and
+`test_data/generate/run_prms_domains.py` converts them to netCDF.
+
 ## Domain YAML file
 The contents of the `domain/domain.yaml` file is described in the
 [`autotest/README.md`](../autotest/README.md)
