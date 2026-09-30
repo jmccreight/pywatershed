@@ -54,6 +54,23 @@ The cost also compounds: three binary options already give
   name; placed after it, both parents were named `Process` and
   collided on their budget output file (found 2026-09-04). Root
   cause: parent decides.
+- **`PRMSRunoffAg` skips its parent's `__init__`** (PR 407 review).
+  `PRMSRunoff.__init__` calls `self._set_inputs(locals())` with its own
+  locals, and `_set_inputs` loops over the child's `get_inputs()`; the
+  three ag inputs (`ag_soil_moist_prev`, `ag_soil_rechr_prev`,
+  `ag_frac`) are not in the parent's signature, so `args[...]` would
+  raise `KeyError`. `PRMSRunoffAg.__init__` therefore calls
+  `ConservativeProcess.__init__` directly (`prms_runoff_ag.py`, search
+  "grandparent") and repeats the rest of the parent's `__init__` by
+  hand. The copy drifts: when the active-HRU setup
+  (`_set_active_hrus`, `_mask_inactive_hrus`,
+  `_set_budget(active_mask=...)`) was added to the parent, the copy
+  did not get it, and `PRMSRunoff.basin_init` grew a
+  `hasattr(self, "_wh_active_hrus")` patch instead (both fixed
+  2026-09-29). Root cause: declarations spread (`locals()` ties input
+  setup to the frame whose signature declares the inputs) and parent
+  decides (a child with extra inputs can only skip the parent
+  wholesale).
 - **`_nb_parallel_ok` class attribute** (PR 407, B2). Cascade kernels
   must never run under numba `prange`, but the parent chooses the
   kernel's parallel flag. Workaround: a class attribute, True on

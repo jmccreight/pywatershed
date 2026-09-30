@@ -173,10 +173,12 @@ class PRMSRunoffAg(PRMSRunoff):
 
         self.name = "PRMSRunoffAg"
 
+        self._set_active_hrus()
+        self._mask_inactive_hrus()
         self._set_inputs(locals())
         self._set_options(locals())
 
-        self._set_budget()
+        self._set_budget(active_mask=self._active_hru_mask)
         self._init_calc_method()
 
         if self._intcp_changeover_in_net_rain is None:

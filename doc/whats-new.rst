@@ -252,9 +252,9 @@ Internal changes
   their no-dprst and cascade subclasses) loop over active HRUs only, the
   cascade classes in routing order; ``PRMSAtmosphere``,
   ``PRMSSolarGeometry`` and ``PRMSGroundwater`` compute every HRU and
-  mask the inactive ones at initialization. ``PRMSRunoffAg`` still loops
-  over all HRUs. All-active domains are unaffected.
-  (:pull:`407`) By `James McCreight <https://github.com/jmccreight>`_.
+  mask the inactive ones at initialization, as does ``PRMSRunoffAg``,
+  which loops over all HRUs. All-active domains are unaffected.
+  (:pull:`407`, :pull:`XXX`) By `James McCreight <https://github.com/jmccreight>`_.
 - :func:`~utils.prms_exe_utils.compile_prms` prefers the active Python
   environment's ``gfortran``/``gcc`` (e.g. conda-forge's) over ones
   earlier on the PATH, and fails up front naming whichever of ``make``,
