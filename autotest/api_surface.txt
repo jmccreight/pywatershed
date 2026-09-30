@@ -135,7 +135,7 @@ func: prms_channel_flow_graph_to_model_dict(model_dict, prms_channel_dis, prms_c
 func: prms_segment_lateral_inflow_components_to_netcdf(control, parameters, input_dir, nc_out_file_path, output_sum=False)
 init: Adapter(self, variable)
 init: AdapterNetcdf(self, fname, variable, control, load_n_time_batches=1)
-init: Budget(self, control, inputs, outputs, storage_changes, exchanges=None, init_accumulations=None, accum_start_time=None, units=None, time_unit='D', description=None, rtol=1e-05, atol=1e-05, basis='unit', imbalance_fatal=False, ignore_nans=False, active_mask=False, unit_desc='', verbose=True)
+init: Budget(self, control, inputs, outputs, storage_changes, exchanges=None, init_accumulations=None, accum_start_time=None, units=None, time_unit='D', description=None, rtol=1e-05, atol=1e-05, basis='unit', imbalance_fatal=False, ignore_nans=False, active_mask=None, unit_desc='', verbose=True)
 init: ColorBrewer(self)
 init: Control(self, start_time, end_time, time_step, init_time=None, options=None, only_warn_invalid=False)
 init: ControlVariables(self, control_dict)

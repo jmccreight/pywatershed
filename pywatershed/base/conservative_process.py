@@ -1,5 +1,5 @@
 import pathlib as pl
-from typing import Literal, Union
+from typing import Literal, Optional, Union
 from warnings import warn
 
 import numpy as np
@@ -260,7 +260,7 @@ class ConservativeProcess(Process):
         basis: str = None,
         quantity: Literal["mass", "energy"] = "mass",
         ignore_nans: bool = False,
-        active_mask: Union[bool, np.ndarray] = False,
+        active_mask: Optional[np.ndarray] = None,
         unit_desc: str = "",
     ):
         """Set up budget(s) for this process.
@@ -269,7 +269,7 @@ class ConservativeProcess(Process):
             basis: "unit" or "global"
             quantity: Quantity to budget: "mass" or "energy"
             ignore_nans: Ignore NaN values in budget calculations
-            active_mask: False or a boolean np.ndarray masking active
+            active_mask: None or a boolean np.ndarray masking active
                 locations (e.g. active HRUs); inactive locations are
                 excluded from balance checks.
             unit_desc: Description of units for budget output

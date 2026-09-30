@@ -1,6 +1,6 @@
 import pathlib as pl
 from copy import deepcopy
-from typing import Literal, Union
+from typing import Literal, Optional, Union
 from warnings import warn
 
 import netCDF4 as nc4
@@ -26,7 +26,7 @@ class Budget(Accessor):
     """Budget class for mass and energy conservation.
 
     ``active_mask`` restricts the balance check to active HRUs: a boolean
-    array over ``nhru``, or ``False`` (the default) to check every HRU.
+    array over ``nhru``, or ``None`` (the default) to check every HRU.
 
     Currently no energy budget has been implmenented, todo.
     """
@@ -48,7 +48,7 @@ class Budget(Accessor):
         basis: Literal["unit", "global"] = "unit",
         imbalance_fatal: bool = False,
         ignore_nans: bool = False,
-        active_mask: Union[bool, np.ndarray] = False,
+        active_mask: Optional[np.ndarray] = None,
         unit_desc: str = "",
         verbose: bool = True,
     ):
@@ -72,10 +72,14 @@ class Budget(Accessor):
         self.atol = atol
         self.imbalance_fatal = imbalance_fatal
         self._ignore_nans = ignore_nans
-        # active_mask: False or a boolean np.ndarray where False indicates
-        # inactive locations excluded from balance checks and global sums
-        # (e.g. inactive HRUs whose variables are masked to nan).
-        self.active_mask = active_mask
+        if active_mask is not None:
+            active_mask = np.asarray(active_mask)
+            if active_mask.dtype != bool or active_mask.ndim != 1:
+                raise TypeError(
+                    "active_mask must be a 1-d boolean array or None, got "
+                    f"dtype {active_mask.dtype}, ndim {active_mask.ndim}"
+                )
+        self._active_mask = active_mask
         self._unit_desc = unit_desc
         if self._unit_desc != "":
             self._unit_desc = f" ({self._unit_desc})"
@@ -356,9 +360,9 @@ class Budget(Accessor):
         elif self.basis == "global":
             # in global case, the variable dims dont need to match, collapse
             # to a scalar
-            if self.active_mask is not False:
+            if self._active_mask is not None:
                 vals = [
-                    np.sum(val, where=self.active_mask)
+                    np.sum(val, where=self._active_mask)
                     for val in self[attr].values()
                 ]
             else:
@@ -398,11 +402,11 @@ class Budget(Accessor):
             unit_balance = self._inputs_sum - self._outputs_sum
             lhs = self._inputs_sum
 
-        if self.active_mask is not False:
+        if self._active_mask is not None:
             # only check the balance at active locations; inactive locations
             # are masked to nan and excluded.
-            lhs = lhs[self.active_mask]
-            rhs = rhs[self.active_mask]
+            lhs = lhs[self._active_mask]
+            rhs = rhs[self._active_mask]
 
         # zero when ds is zero
         if not np.allclose(
@@ -433,9 +437,9 @@ class Budget(Accessor):
                 close = np.where(np.isnan(abs_diff), True, close)
 
             wh_not_close = np.where(~close)[0]
-            if self.active_mask is not False:
+            if self._active_mask is not None:
                 # map compressed positions back to full HRU indices
-                wh_not_close = np.flatnonzero(self.active_mask)[wh_not_close]
+                wh_not_close = np.flatnonzero(self._active_mask)[wh_not_close]
 
             msg = (
                 "The flux unit balance not equal to the change in unit "
