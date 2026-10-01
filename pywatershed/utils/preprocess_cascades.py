@@ -83,6 +83,37 @@ def check_no_lake_hrus(hru_type: np.ndarray, process_name: str) -> None:
         )
 
 
+def check_cascade_param_bounds(
+    hru_up_id: np.ndarray,
+    hru_down_id: np.ndarray,
+    hru_strmseg_down_id: np.ndarray,
+    hru_pct_up: np.ndarray,
+    nhru: int,
+    nsegment: int,
+) -> None:
+    """Raise if a cascade parameter is outside the bounds PRMS declares.
+
+    PRMS rejects such a file when it reads the parameters (the 'bounded'
+    declparam calls in cascade.f90); pywatershed enforces no parameter
+    bounds. Without this check a negative hru_down_id is carried into
+    hru_down, which the cascade kernels then use as a stream segment
+    index without bounds checks.
+    """
+    bounds = {
+        "hru_up_id": (hru_up_id, nhru),
+        "hru_down_id": (hru_down_id, nhru),
+        "hru_strmseg_down_id": (hru_strmseg_down_id, nsegment),
+        "hru_pct_up": (hru_pct_up, 1),
+    }
+    for name, (vals, upper) in bounds.items():
+        wh_bad = np.where((vals < 0) | (vals > upper))[0]
+        if len(wh_bad):
+            raise ValueError(
+                f"{name} must be in [0, {upper}]; out of bounds at cascade "
+                f"indices (0-based): {wh_bad.tolist()}"
+            )
+
+
 def preprocess_cascade_params(
     control: Control,
     parameters: Parameters,
@@ -118,6 +149,16 @@ def calc_hru_route_order(parameters: Parameters) -> Parameters:
     """
     nhru = parameters.dims["nhru"]
     hru_type = parameters.parameters["hru_type"]
+    # PRMS bounds-checks hru_type when it reads the parameters; pywatershed
+    # enforces no parameter bounds, and an unknown value would pass through
+    # the dispatch below (and ActiveHruMixin) as active land.
+    valid_types = [tt.value for tt in HruType]
+    wh_bad = np.where(~np.isin(hru_type, valid_types))[0]
+    if len(wh_bad):
+        raise ValueError(
+            f"hru_type must be one of {valid_types}; invalid at HRU indices "
+            f"(0-based): {wh_bad.tolist()}"
+        )
     hru_route_order = np.zeros(nhru, dtype=np.int32)
 
     nlake = parameters.dims.get("nlake", 0)
@@ -235,6 +276,9 @@ def init_cascade_params(
     hru_strmseg_down_id = params.data_vars["hru_strmseg_down_id"]
     hru_pct_up = params.data_vars["hru_pct_up"]
     hru_area = params.data_vars["hru_area"]
+    check_cascade_param_bounds(
+        hru_up_id, hru_down_id, hru_strmseg_down_id, hru_pct_up, nhru, nsegment
+    )
 
     # cascade_hru_segment is a constant = 2. This is the case :
     #   "2=simple cascades defined by parameter hru_segment"
@@ -457,6 +501,24 @@ def init_cascade_params(
             k += 1
         # < end of while
     # < end of do
+
+    # The port's own invariants, checked before the arrays are used as
+    # indices: every cascade of an HRU names a target, and the fractions
+    # of an HRU's cascades sum to one.
+    for ii in range(active_hrus):
+        i = hru_route_order[ii]
+        num = ncascade_hru[i - 1]
+        if num == 0:
+            continue
+        if (hru_down[:num, i - 1] == 0).any():
+            raise RuntimeError(
+                f"hru_down has a zero among the {num} cascades of HRU {i}"
+            )
+        frac_sum = hru_down_frac[:num, i - 1].sum()
+        if abs(frac_sum - one) > 1e-6:
+            raise RuntimeError(
+                f"hru_down_frac of HRU {i} sums to {frac_sum}, not 1"
+            )
 
     (
         iorder,

@@ -5,6 +5,7 @@ from pywatershed.base.control import Control
 from pywatershed.parameters import Parameters, PrmsParameters
 from pywatershed.utils.preprocess_cascades import (
     calc_hru_route_order,
+    check_cascade_param_bounds,
     check_no_lake_hrus,
     init_cascade_params,
     order_hrus,
@@ -225,3 +226,49 @@ def test_check_no_lake_hrus(hru_type):
             check_no_lake_hrus(hru_type, "SomeProcess")
     else:
         check_no_lake_hrus(hru_type, "SomeProcess")
+
+
+@pytest.mark.domainless
+def test_calc_hru_route_order_bad_hru_type():
+    # an hru_type PRMS would reject at read raises instead of passing
+    # through as active land
+    nhru = 2
+    params = Parameters(
+        dims={"nhru": nhru},
+        coords={"nhru": np.arange(nhru)},
+        data_vars={"hru_type": np.array([1, 5], dtype="int64")},
+        metadata={"nhru": {"dims": ["nhru"]}, "hru_type": {"dims": ["nhru"]}},
+        validate=True,
+    )
+    with pytest.raises(ValueError, match=r"hru_type.*\[1\]"):
+        calc_hru_route_order(params)
+
+
+@pytest.mark.domainless
+@pytest.mark.parametrize(
+    "bad_name, bad_value",
+    [
+        (None, None),
+        ("hru_up_id", 4),
+        ("hru_down_id", -1),
+        ("hru_strmseg_down_id", 3),
+        ("hru_pct_up", 1.5),
+    ],
+)
+def test_check_cascade_param_bounds(bad_name, bad_value):
+    # PRMS bounds: hru ids in [0, nhru], segment ids in [0, nsegment],
+    # fractions in [0, 1]; the second cascade is set out of bounds
+    nhru = 3
+    nsegment = 2
+    good = {
+        "hru_up_id": np.array([1, 2], dtype="int64"),
+        "hru_down_id": np.array([2, 0], dtype="int64"),
+        "hru_strmseg_down_id": np.array([0, 1], dtype="int64"),
+        "hru_pct_up": np.array([1.0, 0.5]),
+    }
+    if bad_name is None:
+        check_cascade_param_bounds(**good, nhru=nhru, nsegment=nsegment)
+        return
+    good[bad_name][1] = bad_value
+    with pytest.raises(ValueError, match=rf"{bad_name}.*\[1\]"):
+        check_cascade_param_bounds(**good, nhru=nhru, nsegment=nsegment)
