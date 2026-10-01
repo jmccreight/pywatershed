@@ -139,7 +139,7 @@ def compare_in_memory(
             actual = actual[mask_dict[var]]
             desired = np.array(desired)[mask_dict[var]]
         elif hasattr(process, "_active_hru_mask") and (
-            np.shape(actual) == np.shape(process._active_hru_mask)
+            "nhru" in process.meta[var]["dims"]
         ):
             # compare only at active HRUs; inactive HRUs are masked to
             # nan by pywatershed but generally not by PRMS output.
