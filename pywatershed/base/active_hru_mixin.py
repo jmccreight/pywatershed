@@ -23,6 +23,8 @@ class ActiveHruMixin:
         not read, only checked against the recomputed mask.
 
         Raises:
+            KeyError: if hru_type is not among the host's parameters, i.e.
+                the host class does not list it in get_parameters().
             ValueError: if a supplied active_hru_mask disagrees with
                 hru_type, i.e. the discretization is stale; or if a
                 supplied hru_route_order (written by
@@ -33,6 +35,11 @@ class ActiveHruMixin:
         Returns:
             None
         """
+        if "hru_type" not in self._params.parameters:
+            raise KeyError(
+                f"{self.__class__.__name__} uses ActiveHruMixin, so "
+                "'hru_type' must be in its get_parameters()"
+            )
         result = get_active_hru_params(self._params.parameters["hru_type"])
         supplied = self._params.parameters.get("active_hru_mask")
         if (
@@ -60,7 +67,11 @@ class ActiveHruMixin:
         return
 
     def _mask_inactive_hrus(self) -> None:
-        """Set all variables to missing values outside of _active_hru_mask."""
+        """Set nhru-dimensioned variables to missing outside _active_hru_mask.
+
+        Variables without an nhru dimension (e.g. on nsegment) are left
+        untouched.
+        """
         if self._active_hru_mask.all():
             # nothing to mask
             return
