@@ -40,7 +40,9 @@ New Features
   not or carries no CRS at all. Helpers
   :func:`~pywatershed.utils.shear_velocity` and
   :func:`~pywatershed.utils.calculate_seg_mid_elevations` (the latter
-  refactored out of :class:`MmrToMf6Dfw`, behavior unchanged; its debug
+  refactored out of :class:`MmrToMf6Dfw`, numerics unchanged, now
+  validating ``tosegment`` and detecting cycles, on which the old loop ran
+  forever; its debug
   ``check=True`` path, previously non-functional, now verifies the interior
   and outlet elevation invariants and raises on failure) are public. Both
   now read the ``elev_units`` parameter, converting ``hru_elev`` from feet

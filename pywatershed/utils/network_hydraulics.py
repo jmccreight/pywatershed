@@ -186,11 +186,15 @@ def calculate_seg_mid_elevations(
         zero-based segment index to its midpoint elevation (m).
 
     Raises:
+        KeyError: a required parameter is missing.
         ValueError: ``tosegment`` is out of range or contains a cycle,
             ``elev_units`` is missing or not 0 or 1, an outlet has no
             HRU draining to it or to anything upstream of it, or
             ``seg_slope``, ``seg_length`` or ``hru_elev`` has a non-finite
             value.
+
+    Warns:
+        UserWarning: an outlet has no HRU draining to it.
     """
     params = parameters.parameters
     for name in ("seg_slope", "seg_length", "hru_elev"):
@@ -266,7 +270,10 @@ OPTIONAL_RUN_VARS = ("seg_tave_water",)
 
 _GEOMETRY_METHOD = "power_law_at_a_station"
 
-_ZERO_FLOW_NOTE = "0 where flow_out == 0; mask on flow_out > 0"
+_ZERO_FLOW_NOTE = (
+    "0 where flow_out == 0; velocity is also 0 where width*depth <= 1e-6 "
+    "m2; mask on flow_out > 0"
+)
 
 _ZERO_FLOW_VARS = ("velocity", "depth", "width", "residence_time")
 
@@ -465,13 +472,19 @@ def export_network_hydraulics(
     The file carries reach topology, optional planform polylines, and
     per-reach time series of flow, velocity, depth, width, shear
     velocity and residence time in SI units, for consumers such as 1D
-    network particle trackers. Hydraulics are taken from the
-    :class:`PRMSHydraulicGeometryFull` outputs in ``run_dir``; only shear
-    velocity is computed here.
+    network particle trackers. Flows are read from the
+    :class:`PRMSChannel` outputs and converted from cfs; velocity,
+    depth, width and residence time are read from the hydraulic
+    geometry process outputs (:class:`PRMSHydraulicGeometryFull` or
+    :class:`PRMSHydraulicGeometryWidthOnly`); water temperature, when
+    present, from the stream temperature process; only shear velocity
+    is computed here.
 
     Where ``flow_out`` is 0 the process outputs give ``velocity``,
-    ``depth``, ``width`` and ``residence_time`` of 0 (not inf);
-    consumers should mask on ``flow_out > 0``.
+    ``depth``, ``width`` and ``residence_time`` of 0 (not inf); velocity
+    is also 0 where the flow area ``width * depth`` is at most 1e-6 m^2
+    even though ``flow_out``, ``residence_time`` and ``ustar`` are not.
+    Consumers should mask on ``flow_out > 0``.
 
     Args:
         parameters: the run's parameters (needs ``nhm_seg``,
@@ -490,7 +503,9 @@ def export_network_hydraulics(
             the ``vertex`` block and reach midpoints. Must use a
             projected CRS in meters: a missing CRS, a geographic CRS or
             a projected CRS not in meters raises ``ValueError``.
-            Each line is oriented so its downstream end is last. For a
+            Each line is oriented so its downstream end is last (except
+            an outlet with no upstream reach, which is left as read with
+            a warning). For a
             reach with a downstream neighbor, the line is reversed
             when its first vertex is nearer than its last vertex to
             the downstream reach's nearest end. For an outlet reach
@@ -536,9 +551,18 @@ def export_network_hydraulics(
             run's time span, selects no time steps, or ``start_time`` is
             after ``end_time``; the shapefile
             identifiers do not match ``nhm_seg``; a shapefile geometry
-            is not a ``LineString``; the shapefile has no CRS, or its
-            CRS is geographic or not in meters; or more than half of the
+            is not a ``LineString``; ``shp_id_col`` is not a column of
+            the shapefile; the shapefile has no CRS, or its CRS is
+            geographic or not in meters; or more than half of the
             reaches with a downstream reach fail ``connect_tol``.
+        ImportError: ``segment_shp_file`` is given and geopandas is not
+            installed.
+
+    Warns:
+        UserWarning: an outlet has no HRU draining to it (elevation taken
+            from upstream HRUs); an outlet reach's polyline has no
+            upstream reach to orient it by; or some (at most half) of the
+            reach polylines fail ``connect_tol``.
     """
     params = parameters.parameters
     missing_params = [nm for nm in _REQUIRED_PARAMS if nm not in params]
@@ -712,7 +736,8 @@ def export_network_hydraulics(
                 "the time step; to_index == -1 is an outlet. Map position "
                 "scales s/length onto the polyline's vertex_dist. "
                 "Where flow_out is 0 the velocity, depth, width and "
-                "residence_time are 0 (not inf); mask on flow_out > 0. "
+                "residence_time are 0 (not inf); velocity is also 0 where "
+                "width*depth <= 1e-6 m2; mask on flow_out > 0. "
                 "n_unconnected is the number of reaches whose polyline end "
                 "does not meet the downstream reach within connect_tol "
                 "(-1 when no polyline block)."

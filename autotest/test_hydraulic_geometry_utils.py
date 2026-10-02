@@ -217,6 +217,26 @@ def test_at_a_station_negative_slope_raises(synthetic_params):
 
 
 @pytest.mark.domainless
+@pytest.mark.parametrize(
+    "kwargs,match",
+    [
+        ({"width_exp": np.nan}, "width_exp must be in"),
+        ({"depth_exp": -0.1}, "depth_exp must be in"),
+        ({"width_exp": 1.2}, "width_exp must be in"),
+        # velocity exponent 1 - 0.6 - 0.6 would be negative
+        ({"width_exp": 0.6, "depth_exp": 0.6}, "must not exceed 1"),
+    ],
+)
+def test_at_a_station_bad_exponents_raise(synthetic_params, kwargs, match):
+    from pywatershed.utils.hydraulic_geometry import (
+        at_a_station_hydraulic_geometry,
+    )
+
+    with pytest.raises(ValueError, match=match):
+        at_a_station_hydraulic_geometry(synthetic_params, **kwargs)
+
+
+@pytest.mark.domainless
 def test_at_a_station_missing_raises(synthetic_params):
     from pywatershed.utils.hydraulic_geometry import (
         at_a_station_hydraulic_geometry,

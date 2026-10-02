@@ -1028,7 +1028,8 @@ def test_export_zero_flow_notes_and_connect_tol_attrs(
         )
     )
     assert ds["velocity"].attrs["note"] == (
-        "0 where flow_out == 0; mask on flow_out > 0"
+        "0 where flow_out == 0; velocity is also 0 where width*depth <= "
+        "1e-6 m2; mask on flow_out > 0"
     )
     for name in ("depth", "width", "residence_time"):
         assert "flow_out > 0" in ds[name].attrs["note"]
