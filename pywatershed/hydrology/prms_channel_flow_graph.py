@@ -182,7 +182,7 @@ class PRMSChannelFlowNodeMaker(FlowNodeMaker):
         Args:
           discretization: a discretization of class Parameters
           parameters: a parameter object of class Parameters
-          calc_method: one of ["fortran", "numba", "numpy"]. None defaults to
+          calc_method: one of ["numba", "numpy"]. None defaults to
               "numba".
           verbose: Print extra information or not?
         """

@@ -35,7 +35,7 @@ class PRMSGroundwaterNoDprst(PRMSGroundwater):
             control.options["imbalance_behavior"] when available. When
             control.options["imbalance_behavior"] is not avaiable,
             imbalance_behavior is set to "warn".
-        calc_method: one of ["fortran", "numba", "numpy"]. None defaults to
+        calc_method: one of ["numba", "numpy"]. None defaults to
             "numba".
         verbose: Print extra information or not?
         restart_read:
@@ -73,7 +73,7 @@ class PRMSGroundwaterNoDprst(PRMSGroundwater):
         soil_to_gw: adaptable,
         ssr_to_gw: adaptable,
         imbalance_behavior: Literal["defer", None, "warn", "error"] = "defer",
-        calc_method: Literal["fortran", "numba", "numpy"] = None,
+        calc_method: Literal["numba", "numpy"] = None,
         input_aliases: dict = None,
         verbose: bool = None,
         restart_read: Union[pl.Path, bool] = False,

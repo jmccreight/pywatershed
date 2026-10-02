@@ -50,7 +50,7 @@ class PRMSSoilzoneNoDprst(PRMSSoilzone):
             control.options["imbalance_behavior"] when available. When
             control.options["imbalance_behavior"] is not avaiable,
             imbalance_behavior is set to "warn".
-        calc_method: one of ["fortran", "numba", "numpy"]. None defaults to
+        calc_method: one of ["numba", "numpy"]. None defaults to
             "numba".
         adjust_parameters: one of ["warn", "error", "no"]. Default is "warn",
             the code edits the parameters and issues a warning. If "error" is

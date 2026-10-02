@@ -117,7 +117,7 @@ class PRMSSnow(ConservativeProcess, ActiveHruMixin):
             control.options["imbalance_behavior"] when available. When
             control.options["imbalance_behavior"] is not avaiable,
             imbalance_behavior is set to "warn".
-        calc_method: one of ["fortran", "numba", "numpy"]. None defaults to
+        calc_method: one of ["numba", "numpy"]. None defaults to
             "numba".
         verbose: Print extra information or not?
         restart_read:

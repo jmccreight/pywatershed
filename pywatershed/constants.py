@@ -111,6 +111,7 @@ cubic_ft_per_acre_in = ft2_per_acre / inches_per_foot
 ndoy = 366
 nmonth = 12
 
+# PRMS's on/off flags (prms_constants.f90), not HruType values
 INACTIVE = 0
 ACTIVE = 1
 

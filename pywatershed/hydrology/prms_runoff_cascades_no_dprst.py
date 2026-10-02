@@ -3,7 +3,7 @@ from typing import Literal, Union
 
 from ..base.adapter import adaptable
 from ..base.control import Control
-from ..constants import HruType, cubic_ft_per_acre_in, zero
+from ..constants import cubic_ft_per_acre_in, zero
 from ..parameters import Parameters
 from ..utils.preprocess_cascades import (
     cascade_param_names,
@@ -11,18 +11,6 @@ from ..utils.preprocess_cascades import (
     preprocess_cascade_params,
 )
 from .prms_runoff import PRMSRunoff
-
-RAIN = 0
-SNOW = 1
-
-BARESOIL = 0
-GRASSES = 1
-
-OFF = 0
-ACTIVE = 1
-
-LAND = HruType.LAND.value
-LAKE = HruType.LAKE.value
 
 # TODO: using through_rain and not net_rain and net_ppt is a WIP
 
@@ -40,8 +28,6 @@ class PRMSRunoffCascadesNoDprst(PRMSRunoff):
     precipitation-runoff modeling system, version 4. US Geological Survey
     Techniques and Methods, 6, B7.
     <https://pubs.usgs.gov/tm/6b7/pdf/tm6-b7.pdf>`__
-
-    And in the GSFlow documentation TODO.
 
     Args:
         control: a Control object
@@ -66,12 +52,15 @@ class PRMSRunoffCascadesNoDprst(PRMSRunoff):
             canopy for each HRU
         intcp_changeover: Canopy throughfall caused by canopy density
             change from winter to summer
+        intcp_changeover_in_net_rain: Boolean flag indicating whether
+            intcp_changeover is included in net rain (GSFLOW 4.2.0 and PRMS
+            6.0.0) or not (pywatershed and PRMS < 6.0.0).
         imbalance_behavior: one of ["defer", None, "warn", "error"]
             with "defer" being the default and defering to
             control.options["imbalance_behavior"] when available. When
             control.options["imbalance_behavior"] is not avaiable,
             imbalance_behavior is set to "warn".
-        calc_method: one of ["fortran", "numba", "numpy"]. None defaults to
+        calc_method: one of ["numba", "numpy"]. None defaults to
             "numba".
         verbose: Print extra information or not?
         input_aliases: Maps internal input variable names to the variable
