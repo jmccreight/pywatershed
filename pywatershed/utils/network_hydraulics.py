@@ -265,10 +265,17 @@ REQUIRED_RUN_VARS = (
 )
 """Output variables the exporter requires in ``run_dir``."""
 
+_REFERENCE_RUN_VAR = REQUIRED_RUN_VARS[0]
+"""The run file whose time axis the others must match."""
+
 OPTIONAL_RUN_VARS = ("seg_tave_water",)
 """Output variables the exporter includes when present in ``run_dir``."""
 
 _GEOMETRY_METHOD = "power_law_at_a_station"
+"""The functional form of the geometry process, ``alpha * Q**m`` with
+per-reach ``alpha`` and ``m`` (at-a-station hydraulic geometry); it does
+not say how the parameters were set (``at_a_station_hydraulic_geometry``
+or the parameter file)."""
 
 _ZERO_FLOW_NOTE = (
     "0 where flow_out == 0; velocity is also 0 where width*depth <= 1e-6 "
@@ -348,7 +355,7 @@ def _read_run_vars(
     if start_time is not None and end_time is not None:
         if start_time > end_time:
             raise ValueError("start_time is after end_time")
-    # seg_outflow is first, so its time axis is the reference for the rest
+    # _REFERENCE_RUN_VAR is read first; its time axis is the reference
     names = list(REQUIRED_RUN_VARS) + [
         nm for nm in OPTIONAL_RUN_VARS if (run_dir / f"{nm}.nc").exists()
     ]
@@ -375,7 +382,8 @@ def _read_run_vars(
             elif not np.array_equal(available, reference_time):
                 raise ValueError(
                     f"{nm}.nc time coordinate does not match "
-                    "seg_outflow.nc; run outputs must share one time axis"
+                    f"{_REFERENCE_RUN_VAR}.nc; run outputs must share one "
+                    "time axis"
                 )
             expected_units = meta.get_vars(nm)[nm]["units"]
             units = da.attrs.get("units")
@@ -603,7 +611,7 @@ def export_network_hydraulics(
     to_id = np.where(interior, to_id, 0)
 
     run_vars = _read_run_vars(run_dir, reach_id, start_time, end_time)
-    time = run_vars["seg_outflow"]["time"].values
+    time = run_vars[_REFERENCE_RUN_VAR]["time"].values
 
     def static(values, dtype, units, long_name, source_name):
         return xr.DataArray(
@@ -667,7 +675,7 @@ def export_network_hydraulics(
             np.float64,
             "m",
             "elevation at the reach midpoint, walked up from outlets",
-            "seg_slope*seg_length, hru_elev",
+            "tosegment, hru_segment, hru_elev, seg_slope*seg_length",
         ),
         "bankfull_width": static(
             params["seg_width"],
@@ -736,11 +744,11 @@ def export_network_hydraulics(
             "connect_tol": float(connect_tol),
             "crs_wkt": crs_wkt,
             "conventions_note": (
-                "Particle state is (reach index, s) with 0 <= s <= length "
-                "from the reach's upstream end. When s exceeds length the "
-                "particle moves to to_index carrying the unused fraction of "
-                "the time step; to_index == -1 is an outlet. Map position "
-                "scales s/length onto the polyline's vertex_dist. "
+                "Reach position is (reach index, s) with 0 <= s <= length "
+                "measured from the reach's upstream end; water leaving the "
+                "downstream end enters to_index, and to_index == -1 is an "
+                "outlet. Map position scales s/length onto the polyline's "
+                "vertex_dist. "
                 "Where flow_out is 0 the velocity, depth, width and "
                 "residence_time are 0 (not inf); velocity is also 0 where "
                 "width*depth <= 1e-6 m2; mask on flow_out > 0. "
