@@ -72,16 +72,26 @@ New Features
   the initial view to it, and :meth:`ProcessPlot.plot_hru_var` maps a
   ``(time, nhru)`` array as one frame per time with a time widget
   (``clim`` holds the color scale across frames; ``time`` may be omitted
-  for a DataArray with a ``time`` coordinate). Shown in
-  ``examples/11_cascading_flow.ipynb``. (:pull:`407`) By `James McCreight <https://github.com/jmccreight>`_.
-- The reference PRMS 5.2.1 binary (with cascades and full-precision CBH
-  output patches) is now compiled on demand from ``prms_src`` by the
-  test-data generation machinery
-  (:func:`~utils.prms_exe_utils.compile_prms`). (:pull:`407`) By `James McCreight <https://github.com/jmccreight>`_.
+  for a DataArray with a ``time`` coordinate). A layer whose CRS has
+  no EPSG code raises; a layer declaring no CRS is taken as EPSG:5070.
+  Shown in ``examples/11_cascading_flow.ipynb``.
+  (:pull:`407`, :pull:`423`) By `James McCreight <https://github.com/jmccreight>`_.
 - The gridded ``sagehen_gridded_5yr`` test domain generates its own CBH
   forcing files with PRMS from its two-station data file (the 5609-cell
   text files are ~600 MB, too large to distribute), making it fully
-  reproducible from a clean clone. (:pull:`407`) By `James McCreight <https://github.com/jmccreight>`_.
+  reproducible from a clean clone. For this, the CBH writer in
+  ``prms_src`` (``write_climate_hru.f90``) is patched to write full
+  precision (``G0`` format in place of ``E12.4``), so the forcing
+  pywatershed reads carries the values PRMS computed rather than
+  four-digit roundings. (:pull:`407`) By `James McCreight <https://github.com/jmccreight>`_.
+- Reading a PRMS parameter file expands the compact forms PRMS allows to
+  the full shape pywatershed expects: a parameter given on ``nmonth``
+  alone is broadcast to ``(nmonth, nhru)``, and ``tmax_adj`` and
+  ``tmin_adj`` given on ``nhru`` alone are broadcast to ``(nmonth, nhru)``
+  (the ``sagehen_gridded_5yr`` parameter file uses both). A monthly
+  parameter is recognized by its declared ``nmonth`` dimension, not by
+  having 12 values. A shape not handled passes through with the dims the
+  file declares. (:pull:`407`, :pull:`423`) By `James McCreight <https://github.com/jmccreight>`_.
 - :func:`~utils.separate_domain_params_dis_to_ncdf` takes an optional
   ``control``; when its ``cascade_flag`` is set the cascade parameters are
   derived before separation so the cascade process classes get complete
@@ -104,8 +114,8 @@ New Features
   domains and the ``no_dprst`` controls too. That exposed a second
   omission: :class:`PRMSSnow` now saves PRMS 5.2.1's full snowcomp restart
   state (adds ``int_alb``, ``salb``, ``lst``, ``iso``, ``mso``, ``lso``,
-  ``albedo``, ``pk_temp``, ``snsv``) plus ``ai``, which PRMS does not save
-  and which made restarts of a depleting snowpack inexact.
+  ``albedo``, ``pk_temp``, ``snsv``), whose omission made restarts of a
+  depleting snowpack inexact.
   (:pull:`407`) By `James McCreight <https://github.com/jmccreight>`_.
 
 Breaking Changes
@@ -133,11 +143,26 @@ Breaking Changes
   no test domain contains one.
   (:pull:`407`) By `James McCreight <https://github.com/jmccreight>`_.
 - Keyword arguments were inserted mid-signature: ``stream_seg_in=None``
-  now precedes ``dprst_flag`` in :class:`PRMSSoilzone` and
-  :class:`PRMSSoilzoneNoDprst`, and ``active_mask=False`` precedes
-  ``unit_desc`` in :class:`base.Budget`. Code passing those or any later
-  arguments positionally must switch to keywords.
-  (:pull:`407`) By `James McCreight <https://github.com/jmccreight>`_.
+  now precedes ``dprst_flag`` in :class:`PRMSSoilzone`, and
+  ``active_mask=None`` precedes ``unit_desc`` in :class:`base.Budget`.
+  Code passing those or any later arguments positionally must switch to
+  keywords.
+  (:pull:`407`, :pull:`423`) By `James McCreight <https://github.com/jmccreight>`_.
+- Every process is named for its class: ``Process.__init__`` sets
+  ``self.name = type(self).__name__`` and no subclass assigns ``name``
+  itself. The subclasses' own assignments all matched their class names
+  already, except that :class:`PRMSAtmosphereTranspFrost` and
+  :class:`PRMSAtmosphereTranspFrostDynamic` inherited their parent's
+  ``"PRMSAtmosphere"``; their single-file netCDF output (when
+  ``netcdf_output_separate_files`` is off) and budget descriptions now
+  carry their own class names.
+  (:pull:`423`) By `James McCreight <https://github.com/jmccreight>`_.
+- The variable metadata entry ``hru_hortn_cascflow`` (PRMS's name, declared
+  by no process) is replaced by ``hru_horton_cascflow``, the variable
+  :class:`PRMSRunoffCascadesNoDprst` declares; the unused ``strm_seg_in``
+  entry is removed in favor of ``stream_seg_in``, declared by both cascade
+  classes. PRMS output files are renamed on conversion to netCDF.
+  (:pull:`407`, :pull:`423`) By `James McCreight <https://github.com/jmccreight>`_.
 
 Bug fixes
 ~~~~~~~~~
@@ -183,13 +208,6 @@ Bug fixes
   contains a known variable or parameter name as a substring (the metadata
   lookup passed the string where a list of names is expected, so ``"sroff
   (cascade - no cascade)"`` matched ``sroff`` and then failed to find itself).
-  (:pull:`407`) By `James McCreight <https://github.com/jmccreight>`_.
-- Reading a PRMS parameter file no longer raises for a parameter with an
-  expandable scalar form that is supplied at some other, unhandled shape;
-  such parameters pass through unchanged as before. A monthly parameter is
-  now recognized by its declared ``nmonth`` dimension rather than by having
-  12 values, so a per-HRU array on a 12-HRU domain is no longer misread as
-  monthly.
   (:pull:`407`) By `James McCreight <https://github.com/jmccreight>`_.
 - NetCDF output no longer floods the console with NumPy's ``Setting the
   shape on a NumPy array has been deprecated`` warning (one per variable
@@ -273,10 +291,17 @@ Internal changes
   commit message — see DEVELOPER.md. ``concurrency`` groups cancel in-flight
   runs superseded by a newer push on the same non-mainline ref.
   (:pull:`408`) By `James McCreight <https://github.com/jmccreight>`_.
-- ``PRMSAtmosphere``, ``PRMSSolarGeometry``, ``PRMSCanopy``,
-  ``PRMSSnow``, ``PRMSRunoff*``, ``PRMSSoilzone*`` and
-  ``PRMSGroundwater*`` compute over active HRUs (in routing order where
-  applicable) rather than all HRUs. All-active domains are unaffected.
+- ``PRMSCanopy``, ``PRMSSnow``, ``PRMSRunoff`` and ``PRMSSoilzone`` (and
+  their no-dprst and cascade subclasses) loop over active HRUs only, the
+  cascade classes in routing order; ``PRMSAtmosphere``,
+  ``PRMSSolarGeometry`` and ``PRMSGroundwater`` compute every HRU and
+  mask the inactive ones at initialization, as does ``PRMSRunoffAg``,
+  which loops over all HRUs. All-active domains are unaffected.
+  (:pull:`407`, :pull:`423`) By `James McCreight <https://github.com/jmccreight>`_.
+- :func:`~utils.prms_exe_utils.compile_prms` prefers the active Python
+  environment's ``gfortran``/``gcc`` (e.g. conda-forge's) over ones
+  earlier on the PATH, and fails up front naming whichever of ``make``,
+  ``gcc`` and ``gfortran`` is missing.
   (:pull:`407`) By `James McCreight <https://github.com/jmccreight>`_.
 - Require pyPRMS >=0.10.0 and remove the temporary ``packaging <26.3`` pin it
   supersedes (pyPRMS 0.9.10 crashed on import of metadata with packaging >=26.3).

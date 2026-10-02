@@ -5,11 +5,12 @@ from ..base.adapter import adaptable
 from ..base.control import Control
 from ..constants import cubic_ft_per_acre_in, nan, zero
 from ..parameters import Parameters
-from ..utils.preprocess_cascades import preprocess_cascade_params
+from ..utils.preprocess_cascades import (
+    _ensure_cascade_params,
+    cascade_param_names,
+    check_no_lake_hrus,
+)
 from .prms_soilzone import PRMSSoilzone
-
-ONETHIRD = 1 / 3
-TWOTHIRDS = 2 / 3
 
 
 class PRMSSoilzoneCascadesNoDprst(PRMSSoilzone):
@@ -23,6 +24,27 @@ class PRMSSoilzoneCascadesNoDprst(PRMSSoilzone):
     precipitation-runoff modeling system, version 4. US Geological Survey
     Techniques and Methods, 6, B7.
     <https://pubs.usgs.gov/tm/6b7/pdf/tm6-b7.pdf>`__
+
+    Differences from :class:`PRMSSoilzone`:
+
+    * Depression storage is off and lake HRUs (``hru_type`` 2) raise
+      ``NotImplementedError``.
+    * The six derived cascade parameters (``hru_route_order``,
+      ``ncascade_hru``, ``hru_down``, ``hru_down_frac``,
+      ``hru_down_fracwt``, ``cascade_area``; see
+      ``preprocess_cascades.cascade_param_names``) are required. When any
+      is missing from ``parameters`` they are derived at construction by
+      :func:`~pywatershed.utils.preprocess_cascades.preprocess_cascade_params`.
+    * HRUs are computed in ``hru_route_order``, upslope before downslope.
+    * ``stream_seg_in`` is an input: the array
+      :class:`PRMSRunoffCascadesNoDprst` zeroed and filled earlier in the
+      timestep, to which this class adds interflow and Dunnian flow
+      cascaded to segments. :class:`PRMSChannel` does not read it.
+    * New variables: ``upslope_interflow`` and ``upslope_dunnianflow``
+      (received from upslope HRUs; budget inputs) and
+      ``hru_sz_cascadeflow`` (interflow and Dunnian flow leaving to
+      downslope HRUs; budget output), all re-accumulated from zero every
+      timestep, none restart state.
 
     Args:
         control: a Control object
@@ -49,7 +71,7 @@ class PRMSSoilzoneCascadesNoDprst(PRMSSoilzone):
             control.options["imbalance_behavior"] when available. When
             control.options["imbalance_behavior"] is not avaiable,
             imbalance_behavior is set to "warn".
-        calc_method: one of ["fortran", "numba", "numpy"]. None defaults to
+        calc_method: one of ["numba", "numpy"]. None defaults to
             "numba".
         adjust_parameters: one of ["warn", "error", "no"]. Default is "warn",
             the code edits the parameters and issues a warning. If "error" is
@@ -96,7 +118,7 @@ class PRMSSoilzoneCascadesNoDprst(PRMSSoilzone):
         parameters: Parameters,
         hru_impervevap: adaptable,
         hru_intcpevap: adaptable,
-        infil_hru: adaptable,  # in /pywatershed/analysis/budget_soilzone.py
+        infil_hru: adaptable,
         sroff: adaptable,
         sroff_vol: adaptable,
         potet: adaptable,
@@ -113,16 +135,7 @@ class PRMSSoilzoneCascadesNoDprst(PRMSSoilzone):
         restart_write: Union[pl.Path, bool] = False,
         restart_write_freq: Literal["y", "m", "d", "f", False] = False,
     ) -> None:
-        self.name = "PRMSSoilzoneCascadesNoDprst"
-        self._dprst_flag = False
-
-        # hru_route_order could be required but because
-        # it wasnt by prms, we'll make it optional and add it here if missing.
-        # TODO: with a warning and/or better criteria for the if
-        if "hru_route_order" not in parameters.parameters.keys():
-            parameters = preprocess_cascade_params(
-                control, parameters, verbosity=int(bool(verbose))
-            )
+        parameters = _ensure_cascade_params(control, parameters, verbose)
 
         super().__init__(
             control=control,
@@ -132,7 +145,7 @@ class PRMSSoilzoneCascadesNoDprst(PRMSSoilzone):
             dprst_seep_hru=None,
             hru_impervevap=hru_impervevap,
             hru_intcpevap=hru_intcpevap,
-            infil_hru=infil_hru,  # in /pywatershed/analysis/budget_soilzone.py
+            infil_hru=infil_hru,
             sroff=sroff,
             sroff_vol=sroff_vol,
             potet=potet,
@@ -151,7 +164,7 @@ class PRMSSoilzoneCascadesNoDprst(PRMSSoilzone):
             restart_write_freq=restart_write_freq,
         )
 
-        self._set_budget(active_mask=self._active_hru_mask)
+        check_no_lake_hrus(self.hru_type, self.name)
 
         return
 
@@ -183,24 +196,18 @@ class PRMSSoilzoneCascadesNoDprst(PRMSSoilzone):
             "ssr2gw_exp",
             "ssr2gw_rate",
             "ssstor_init_frac",
-            "hru_route_order",
-            "ncascade_hru",
-            "hru_down",
-            "hru_down_frac",
-            "hru_down_fracwt",
-            "cascade_area",
+            *cascade_param_names,
         )
 
     @staticmethod
     def get_inputs() -> tuple:
         return (
-            "hru_impervevap",  # JLM ??
-            "hru_intcpevap",  # JLM ???
+            "hru_impervevap",
+            "hru_intcpevap",
             "infil_hru",
             "sroff",  # this in inout, a modified input
             "sroff_vol",  # this in inout, a modified input
             "potet",
-            # hru_ppt => model_precip%hru_ppt, & # JLM ??
             "transp_on",
             "snow_evap",
             "snowcov_area",
@@ -259,7 +266,7 @@ class PRMSSoilzoneCascadesNoDprst(PRMSSoilzone):
             "soil_to_ssr": zero,
             "soil_zone_max": nan,  # this is completely later
             "ssr_to_gw": zero,
-            "ssres_flow": zero,  # todo: privatize keep vol public
+            "ssres_flow": zero,
             "ssres_flow_vol": nan,
             "ssres_in": zero,
             "ssres_stor": nan,  # sm_soilzone

@@ -130,8 +130,8 @@ def get_prms_exe_name(exe_desc: str = "prms") -> str:
 
     else:
         # Default PRMS binary, version 5.2.1 -- the repository's
-        # prms_src/prms5.2.1 source, with the cascades and G0-precision
-        # CBH output patches, compiled on demand.
+        # prms_src/prms5.2.1 source, with the full-precision (G0) CBH
+        # output patch, compiled on demand.
         return f"prms_{tag}_gfort_dbl_prec{suffix}"
 
 

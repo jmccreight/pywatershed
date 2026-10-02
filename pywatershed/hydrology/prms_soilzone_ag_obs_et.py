@@ -220,7 +220,6 @@ class PRMSSoilzoneAgObsET(ConservativeProcess):
             restart_write=restart_write,
             restart_write_freq=restart_write_freq,
         )
-        self.name = "PRMSSoilzoneAgObsET"
 
         self._set_inputs(locals())
         self._set_options(locals())

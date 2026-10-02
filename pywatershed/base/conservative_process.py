@@ -1,5 +1,5 @@
 import pathlib as pl
-from typing import Literal, Union
+from typing import Literal, Optional, Union
 from warnings import warn
 
 import numpy as np
@@ -122,9 +122,6 @@ class ConservativeProcess(Process):
             restart_write=restart_write,
             restart_write_freq=restart_write_freq,
         )
-
-        if not hasattr(self, "name"):
-            self.name = "ConservativeProcess"
 
         # Initialize budget attributes
         self._mass_budget = None
@@ -260,7 +257,7 @@ class ConservativeProcess(Process):
         basis: str = None,
         quantity: Literal["mass", "energy"] = "mass",
         ignore_nans: bool = False,
-        active_mask: Union[bool, np.ndarray] = False,
+        active_mask: Optional[np.ndarray] = None,
         unit_desc: str = "",
     ):
         """Set up budget(s) for this process.
@@ -269,13 +266,16 @@ class ConservativeProcess(Process):
             basis: "unit" or "global"
             quantity: Quantity to budget: "mass" or "energy"
             ignore_nans: Ignore NaN values in budget calculations
-            active_mask: False or a boolean np.ndarray masking active
-                locations (e.g. active HRUs); inactive locations are
-                excluded from balance checks.
+            active_mask: a boolean np.ndarray masking active locations;
+                inactive locations are excluded from balance checks.
+                Defaults to self._active_hru_mask, which ActiveHruMixin
+                sets (None otherwise).
             unit_desc: Description of units for budget output
         """
         if basis is None:
             basis = "unit"
+        if active_mask is None:
+            active_mask = self._active_hru_mask
 
         if self._imbalance_behavior == "defer":
             if "imbalance_behavior" in self.control.options.keys():

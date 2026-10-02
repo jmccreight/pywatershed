@@ -36,9 +36,8 @@ def expand_scalar_to_dims(param_dict, param_dim_dict):
             param_vals = param_dict[param_name]
             # dimension names declared for this parameter in the file
             file_dims = param_dim_dict[param_name]
-            param_dim_dict[param_name] = dims
             if param_shape == full_param_shape:
-                continue
+                pass
             elif param_shape == (1,):
                 param_dict[param_name] = (
                     np.zeros(full_param_shape, dtype=param_vals.dtype)
@@ -65,8 +64,13 @@ def expand_scalar_to_dims(param_dict, param_dim_dict):
                 )
 
             else:
-                # Shapes not handled above are passed through unchanged.
+                # Shapes not handled above are passed through unchanged,
+                # keeping the dims declared in the file so data and dims
+                # stay consistent. PRMS rejects such a file (declared
+                # dimension does not match the parameter's), so this could
+                # be made stricter and raise instead.
                 continue
+            param_dim_dict[param_name] = dims
 
     return param_dict, param_dim_dict
 

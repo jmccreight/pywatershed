@@ -105,7 +105,6 @@ class Starfit(ConservativeProcess):
             input_aliases=input_aliases,
         )
         del metadata_patches, metadata_patch_conflicts
-        self.name = "Starfit"
 
         self._set_inputs(locals())
         self._set_options(locals())

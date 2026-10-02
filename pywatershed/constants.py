@@ -63,7 +63,9 @@ fill_values_dict = {
 }
 
 # In-memory fill values for masking inactive HRUs (ActiveHruMixin). Not a
-# netcdf encoding default.
+# netcdf encoding default. A masked bool is False, indistinguishable
+# from a computed False; inactive HRUs are never read, so nothing is
+# lost, but a bool variable cannot tell masked from active.
 mask_fill_values_dict = {
     **fill_values_dict,
     np.dtype("int64"): -9999,
@@ -111,17 +113,21 @@ cubic_ft_per_acre_in = ft2_per_acre / inches_per_foot
 ndoy = 366
 nmonth = 12
 
+# PRMS's on/off flags (prms_constants.f90), not HruType values
 INACTIVE = 0
 ACTIVE = 1
 
 
 class HruType(Enum):
-    """HRU Type
-    INACTIVE = 0
-    LAND = 1
-    LAKE = 2
-    SWALE = 3
-    GLACIER = 4
+    """PRMS hru_type values.
+
+    INACTIVE (0): skipped by every process; its outputs are masked
+    (ActiveHruMixin). LAND (1): an ordinary HRU. LAKE (2): PRMS lake
+    routing is not ported; the cascade classes raise on it. SWALE (3): a
+    closed depression, nothing leaves it on the surface: runoff
+    infiltrates and soil-zone excess is evaporated (swale_actet). PRMS
+    rewrites a land HRU with no cascade to a swale when cascades are on.
+    GLACIER (4): treated as land; glacier dynamics are not ported.
     """
 
     INACTIVE = 0

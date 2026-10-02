@@ -201,9 +201,24 @@ def separate_domain_params_dis_to_ncdf(
 
     prms_parameters = PrmsParameters.load(prms_param_file)
     if control is not None and control.options.get("cascade_flag", 0):
+        hru_type_in = prms_parameters.parameters["hru_type"]
         prms_parameters = preprocess_cascade_params(
             control, prms_parameters, verbosity=0
         )
+        # hru_type is a discretization variable, so it is stripped from the
+        # process files below; a rewrite (an HRU without cascades becomes a
+        # swale) survives only in discretization files written here.
+        wh_rewritten = np.where(
+            prms_parameters.parameters["hru_type"] != hru_type_in
+        )[0]
+        if len(wh_rewritten) and not write_dis:
+            raise ValueError(
+                "preprocess_cascade_params rewrote hru_type at HRU indices "
+                f"(0-based) {wh_rewritten.tolist()}, but write_dis=False "
+                "means the discretization files come from elsewhere and "
+                "would carry the original hru_type. Write the "
+                "discretization files from the cascade parameters."
+            )
 
     written_files = {}
 
