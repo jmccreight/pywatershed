@@ -34,7 +34,13 @@ class _HruProcess(Process, ActiveHruMixin):
 
     @staticmethod
     def get_variables() -> tuple:
-        return ("soil_moist", "hru_ppt", "seg_outflow")
+        return (
+            "soil_moist",
+            "hru_ppt",
+            "seg_outflow",
+            "pptmix",
+            "soltab_potsw",
+        )
 
 
 def make_discretization(hru_type: np.ndarray, supplied: dict = None):
@@ -101,7 +107,7 @@ def make_process(hru_type: np.ndarray, supplied: dict = None):
     return proc
 
 
-def set_variables(proc, nhru, ntime=3):
+def set_variables(proc, nhru, ntime=3, ndoy=4):
     """Put known values on the stub's variables."""
     proc.soil_moist = np.arange(nhru, dtype="float64") + 1.0
     proc.hru_ppt = TimeseriesArray(
@@ -112,6 +118,12 @@ def set_variables(proc, nhru, ntime=3):
     )
     # not an nhru variable, must never be masked
     proc.seg_outflow = np.arange(4, dtype="float64") + 1.0
+    # int: masked with -9999, not NaN
+    proc.pptmix = np.ones(nhru, dtype="int32")
+    # 2-d with nhru on the second axis
+    proc.soltab_potsw = np.tile(
+        np.arange(nhru, dtype="float64") + 1.0, (ndoy, 1)
+    )
     return
 
 
@@ -290,3 +302,28 @@ def test_mask_inactive_hrus_some_inactive():
     assert (proc.hru_ppt.data[:, active] == before_hru_ppt[:, active]).all()
     # non-nhru variables are untouched
     assert (proc.seg_outflow == np.arange(4, dtype="float64") + 1.0).all()
+
+
+@pytest.mark.domainless
+def test_mask_inactive_hrus_int_and_2d():
+    """An int variable takes the int fill value; a 2-d variable is masked
+    along its nhru axis, which need not be the first.
+
+    pptmix is int32 on nhru (fill -9999, NaN is not representable);
+    soltab_potsw is float64 on (ndoy, nhru).
+    """
+    hru_type = np.array([1, 1, INACTIVE, 1, INACTIVE], dtype="int32")
+    nhru = len(hru_type)
+    active = hru_type != INACTIVE
+    proc = make_process(hru_type)
+    proc._set_active_hrus()
+    set_variables(proc, nhru)
+    before_soltab = proc.soltab_potsw.copy()
+
+    proc._mask_inactive_hrus()
+
+    assert (proc.pptmix[~active] == -9999).all()
+    assert (proc.pptmix[active] == 1).all()
+    assert proc.pptmix.dtype == np.int32
+    assert np.isnan(proc.soltab_potsw[:, ~active]).all()
+    assert (proc.soltab_potsw[:, active] == before_soltab[:, active]).all()
