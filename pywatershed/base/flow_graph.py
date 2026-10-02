@@ -408,7 +408,6 @@ class FlowGraph(ConservativeProcess):
             parameters=parameters,
             input_aliases=input_aliases,
         )
-        self.name = "FlowGraph"
 
         self._set_inputs(locals())
         self._set_options(locals())
@@ -816,7 +815,6 @@ def inflow_exchange_factory(
                 parameters=parameters,
                 input_aliases=input_aliases,
             )
-            self.name = "InflowExchange"
 
             self._set_inputs(locals() | kwargs)
             self._set_options(locals())

@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
 
+from pywatershed.base import meta
 from pywatershed.base.active_hru_mixin import ActiveHruMixin
 from pywatershed.base.process import Process
 from pywatershed.base.timeseries import TimeseriesArray
@@ -34,7 +35,13 @@ class _HruProcess(Process, ActiveHruMixin):
 
     @staticmethod
     def get_variables() -> tuple:
-        return ("soil_moist", "hru_ppt", "seg_outflow")
+        return (
+            "soil_moist",
+            "hru_ppt",
+            "seg_outflow",
+            "pptmix",
+            "soltab_potsw",
+        )
 
 
 def make_discretization(hru_type: np.ndarray, supplied: dict = None):
@@ -63,6 +70,9 @@ def make_discretization(hru_type: np.ndarray, supplied: dict = None):
                 [supplied["nactive_hrus"]], dtype="int64"
             )
             metadata["nactive_hrus"] = {"dims": ["scalar"]}
+        if "hru_route_order" in supplied:
+            data_vars["hru_route_order"] = supplied["hru_route_order"]
+            metadata["hru_route_order"] = {"dims": ["nhru"]}
 
     return Parameters(
         dims=dims,
@@ -95,10 +105,12 @@ def make_process(hru_type: np.ndarray, supplied: dict = None):
     proc._set_params(
         make_parameters(len(hru_type)), make_discretization(hru_type, supplied)
     )
+    # Process._set_metadata needs a Control; the mixin reads only dims
+    proc.meta = meta.get_vars(proc.get_variables())
     return proc
 
 
-def set_variables(proc, nhru, ntime=3):
+def set_variables(proc, nhru, ntime=3, ndoy=4):
     """Put known values on the stub's variables."""
     proc.soil_moist = np.arange(nhru, dtype="float64") + 1.0
     proc.hru_ppt = TimeseriesArray(
@@ -109,6 +121,12 @@ def set_variables(proc, nhru, ntime=3):
     )
     # not an nhru variable, must never be masked
     proc.seg_outflow = np.arange(4, dtype="float64") + 1.0
+    # int: masked with -9999, not NaN
+    proc.pptmix = np.ones(nhru, dtype="int32")
+    # 2-d with nhru on the second axis
+    proc.soltab_potsw = np.tile(
+        np.arange(nhru, dtype="float64") + 1.0, (ndoy, 1)
+    )
     return
 
 
@@ -175,6 +193,67 @@ def test_set_active_hrus_supplied_disagrees_raises():
     proc = make_process(hru_type, supplied)
     with pytest.raises(ValueError, match="disagrees with hru_type"):
         proc._set_active_hrus()
+
+
+@pytest.mark.domainless
+def test_set_active_hrus_route_order_agrees():
+    """A supplied hru_route_order naming exactly the active HRUs passes.
+
+    The array is 1-based with the active HRUs first (in any order) and
+    zeros after, as preprocess_cascade_params writes it.
+    """
+    hru_type = np.array([1, 1, INACTIVE, 1, INACTIVE], dtype="int32")
+    supplied = {"hru_route_order": np.array([4, 1, 2, 0, 0], dtype="int32")}
+    proc = make_process(hru_type, supplied)
+    proc._set_active_hrus()
+    assert proc._nactive_hrus == 3
+
+
+@pytest.mark.domainless
+def test_set_active_hrus_route_order_disagrees_raises():
+    """A supplied hru_route_order that does not match hru_type raises.
+
+    The cascade parameters are stale (hru_type edited after
+    preprocess_cascade_params wrote them). Without the check the kernels
+    would index HRU -1 for the newly active HRU and never compute it.
+    """
+    hru_type = np.array([1, 1, 1, 1, 1], dtype="int32")  # all active
+    supplied = {"hru_route_order": np.array([1, 3, 5, 0, 0], dtype="int32")}
+    proc = make_process(hru_type, supplied)
+    with pytest.raises(ValueError, match="disagrees with hru_type"):
+        proc._set_active_hrus()
+
+
+@pytest.mark.domainless
+def test_set_active_hrus_derives_route_order():
+    """A class that does not declare hru_route_order gets it derived:
+    1-based, the active HRUs in index order.
+
+    The kernels loop over it without bounds checks, so the non-cascade
+    processes must get it from the mixin (it used to be set in
+    PRMSRunoff.basin_init and PRMSSoilzone._initialize_soilzone_data).
+    """
+    hru_type = np.array([1, 1, INACTIVE, 1, INACTIVE], dtype="int32")
+    proc = make_process(hru_type)
+    proc._set_active_hrus()
+    assert (proc.hru_route_order == np.array([1, 2, 4])).all()
+
+
+@pytest.mark.domainless
+def test_set_active_hrus_derives_route_order_despite_supplied():
+    """A supplied hru_route_order the class does not declare is checked
+    but not adopted; the derived order is set regardless.
+
+    make_process takes Process._set_params' merge path, which keeps the
+    undeclared key, so without this the stub would end up with no
+    hru_route_order at all (the AttributeError found in the f3959966
+    review).
+    """
+    hru_type = np.array([1, 1, INACTIVE, 1, INACTIVE], dtype="int32")
+    supplied = {"hru_route_order": np.array([4, 1, 2, 0, 0], dtype="int32")}
+    proc = make_process(hru_type, supplied)
+    proc._set_active_hrus()
+    assert (proc.hru_route_order == np.array([1, 2, 4])).all()
 
 
 @pytest.mark.domainless
@@ -258,3 +337,28 @@ def test_mask_inactive_hrus_some_inactive():
     assert (proc.hru_ppt.data[:, active] == before_hru_ppt[:, active]).all()
     # non-nhru variables are untouched
     assert (proc.seg_outflow == np.arange(4, dtype="float64") + 1.0).all()
+
+
+@pytest.mark.domainless
+def test_mask_inactive_hrus_int_and_2d():
+    """An int variable takes the int fill value; a 2-d variable is masked
+    along its nhru axis, which need not be the first.
+
+    pptmix is int32 on nhru (fill -9999, NaN is not representable);
+    soltab_potsw is float64 on (ndoy, nhru).
+    """
+    hru_type = np.array([1, 1, INACTIVE, 1, INACTIVE], dtype="int32")
+    nhru = len(hru_type)
+    active = hru_type != INACTIVE
+    proc = make_process(hru_type)
+    proc._set_active_hrus()
+    set_variables(proc, nhru)
+    before_soltab = proc.soltab_potsw.copy()
+
+    proc._mask_inactive_hrus()
+
+    assert (proc.pptmix[~active] == -9999).all()
+    assert (proc.pptmix[active] == 1).all()
+    assert proc.pptmix.dtype == np.int32
+    assert np.isnan(proc.soltab_potsw[:, ~active]).all()
+    assert (proc.soltab_potsw[:, active] == before_soltab[:, active]).all()

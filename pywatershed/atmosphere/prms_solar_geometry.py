@@ -90,7 +90,6 @@ class PRMSSolarGeometry(Process, ActiveHruMixin):
             parameters=parameters,
             input_aliases=input_aliases,
         )
-        self.name = "PRMSSolarGeometry"
         self._set_active_hrus()
         self._set_inputs(locals())
         self._set_options(locals())

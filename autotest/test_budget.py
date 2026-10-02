@@ -180,3 +180,20 @@ def test_budget_active_mask_imbalance_indices(control_simple):
     budget.advance()
     with pytest.raises(ValueError, match=r"\[3 4\]"):
         budget.calculate()
+
+
+@pytest.mark.domainless
+@pytest.mark.parametrize(
+    "active_mask", [True, np.array([1, 0, 1])], ids=["scalar", "int"]
+)
+def test_budget_active_mask_type(control_simple, active_mask):
+    # a scalar True would index lhs[True] (adds an axis) and an int array
+    # would index positions, not mask them
+    with pytest.raises(TypeError, match="1-d boolean array"):
+        Budget(
+            control_simple,
+            inputs=["in1"],
+            outputs=["out1"],
+            storage_changes=["stor1"],
+            active_mask=active_mask,
+        )

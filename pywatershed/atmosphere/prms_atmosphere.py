@@ -157,7 +157,6 @@ class PRMSAtmosphere(Process, ActiveHruMixin):
             restart_write=restart_write,
             restart_write_freq=restart_write_freq,
         )
-        self.name = "PRMSAtmosphere"
         self._set_active_hrus()
         self._set_inputs(locals())
         self._set_options(locals())

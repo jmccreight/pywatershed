@@ -113,6 +113,10 @@ class Process(Accessor):
         of "f" is used.
     """
 
+    # ActiveHruMixin._set_active_hrus sets this on the instance; None
+    # means every location is active (read by _set_budget).
+    _active_hru_mask = None
+
     def __init__(
         self,
         control: Control,
@@ -125,8 +129,9 @@ class Process(Accessor):
         restart_write: Union[pl.Path, bool] = False,
         restart_write_freq: Literal["y", "m", "d", "f", False] = False,
     ):
-        if not hasattr(self, "name"):
-            self.name = "Process"
+        # Every process is named for its class; budget output files and
+        # messages use it.
+        self.name = type(self).__name__
 
         # Maps internal input variable names to the variable name in the
         # source file. E.g. {"humidity_hru": "rhavg"} means the input
