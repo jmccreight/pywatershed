@@ -43,31 +43,49 @@ test_models = {
         pywatershed.PRMSSoilzoneNoDprst,
         pywatershed.PRMSGroundwaterNoDprst,
     ],
+    "sagehen_no_gw_cascades": [
+        pywatershed.PRMSRunoffCascadesNoDprst,
+        pywatershed.PRMSSoilzoneCascadesNoDprst,
+        pywatershed.PRMSGroundwaterNoDprst,
+    ],
+    "sagehen_gridded_cascades": [
+        pywatershed.PRMSRunoffCascadesNoDprst,
+        pywatershed.PRMSSoilzoneCascadesNoDprst,
+        pywatershed.PRMSGroundwaterNoDprst,
+    ],
 }
 
-comparison_vars_dict_all = {
-    "PRMSRunoff": list(
-        set(pywatershed.PRMSRunoff.get_variables()) - {"dprst_vol_thres_open"}
-    ),
-    "PRMSSoilzone": list(
-        set(pywatershed.PRMSSoilzone.get_variables())
-        - {  # these variables not output by PRMS
-            "soil_zone_max",
-            "soil_lower_max",
-            "perv_actet_hru",
-            "soil_lower_change_hru",
-            "soil_rechr_change_hru",
-        }
-    ),
-    "PRMSGroundwater": pywatershed.PRMSGroundwater.get_variables(),
-    "PRMSChannel": set(pywatershed.PRMSChannel.get_variables())
-    - {"inflow_ts_prev", "outflow_ts"},
+# Variables pywatershed carries that PRMS 5.2.1 does not output, so they
+# cannot be compared. Keyed by base process; a variant subclass (NoDprst,
+# Cascades) inherits its base's set through the class hierarchy.
+not_output_by_prms = {
+    pywatershed.PRMSRunoff: {"dprst_vol_thres_open"},
+    pywatershed.PRMSSoilzone: {
+        "soil_zone_max",
+        "soil_lower_max",
+        "perv_actet_hru",
+        "soil_lower_change_hru",
+        "soil_rechr_change_hru",
+    },
+    pywatershed.PRMSGroundwater: set(),
+    pywatershed.PRMSChannel: {"inflow_ts_prev", "outflow_ts"},
 }
+
+
+def comparison_vars(cls) -> set:
+    """The variables of cls to compare against PRMS output."""
+    for base in cls.__mro__:
+        if base in not_output_by_prms:
+            return set(cls.get_variables()) - not_output_by_prms[base]
+    raise KeyError(f"no PRMS comparison rule for {cls.__name__}")
+
 
 tol = {
     "PRMSRunoff": 1.0e-8,
+    "PRMSRunoffCascadesNoDprst": 1.0e-8,
     "PRMSRunoffNoDprst": 1.0e-8,
     "PRMSSoilzone": 1.0e-8,
+    "PRMSSoilzoneCascadesNoDprst": 1.0e-8,
     "PRMSSoilzoneNoDprst": 1.0e-8,
     "PRMSGroundwater": 1.0e-8,
     "PRMSGroundwaterNoDprst": 1.0e-8,
@@ -87,7 +105,7 @@ def control(simulation):
         simulation["control_file"], warn_unused_options=False
     )
     control.options["verbosity"] = 10
-    control.options["imbalance_behavior"] = None
+    control.options["imbalance_behavior"] = "error"
     control.options["calc_method"] = "numba"
     del control.options["netcdf_output_var_names"]
     return control
@@ -214,19 +232,17 @@ def test_model(simulation, model_args, tmp_path):
 
     model = Model(**model_args, write_control=model_out_dir)
 
+    # every process, including subclasses that set self.name before
+    # super().__init__(), reports its own class name
+    for proc in model.processes.values():
+        assert proc.name == proc.__class__.__name__
+
     # check that control yaml file was written
     control_yaml_file = sorted(model_out_dir.glob("*model_control.yaml"))
     assert len(control_yaml_file) == 1
 
     # ---------------------------------
     # get the answer data against PRMS5.2.1
-    # this is the adhoc set of things to compare, to circumvent fussy issues?
-
-    for vv in ["PRMSRunoff", "PRMSSoilzone", "PRMSGroundwater"]:
-        comparison_vars_dict_all[f"{vv}NoDprst"] = comparison_vars_dict_all[vv]
-
-    comparison_vars_dict = {}
-
     plomd = model_args["process_list_or_model_dict"]
     config_processes = test_models[config_name]
     if isinstance(plomd, list):
@@ -249,12 +265,9 @@ def test_model(simulation, model_args, tmp_path):
             if isinstance(vv, dict) and "class" in vv.keys()
         }
 
-    for cls in processes:
-        key = cls.__name__
-        cls_vars = cls.get_variables()
-        comparison_vars_dict[key] = {
-            vv for vv in comparison_vars_dict_all[key] if vv in cls_vars
-        }
+    comparison_vars_dict = {
+        cls.__name__: comparison_vars(cls) for cls in processes
+    }
 
     # Read PRMS output into ans for comparison with pywatershed results
     ans = {key: {} for key in comparison_vars_dict.keys()}
@@ -327,6 +340,7 @@ def check_timestep_results(
 ):
     # print(storageunit)
     all_success = True
+    active_mask = getattr(storageunit, "_active_hru_mask", None)
     for key in ans.keys():
         # print(key)
         a1 = ans[key].current
@@ -334,6 +348,11 @@ def check_timestep_results(
             a2 = storageunit[key].current
         else:
             a2 = storageunit[key]
+        if active_mask is not None and np.shape(a1) == np.shape(active_mask):
+            # compare only at active HRUs; pywatershed masks inactive
+            # HRUs to nan while PRMS generally reports zeros there.
+            a1 = np.asarray(a1)[active_mask]
+            a2 = np.asarray(a2)[active_mask]
         success_a = np.isclose(a2, a1, atol=tol, rtol=0.0)
         success_r = np.isclose(a2, a1, atol=0.0, rtol=tol)
         success = success_a | success_r

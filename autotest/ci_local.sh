@@ -1,7 +1,8 @@
 #!/bin/bash
 
 # This is a local version of CI testing.
-# Unfortunately it has to be kept up to date with ci.yaml.
+# Unfortunately it has to be kept up to date with ci.yaml and
+# ci_examples.yaml (the notebooks section).
 
 # Notes:
 # * This is developed only on my Mac M1, so there are implicit assumptions
@@ -10,12 +11,15 @@
 
 # local configuration
 pytest_n=8
+# sagehen_gridded: xdist workers x that domain's memory footprint OOMs
+# small machines (CI runs -n=1 on Linux, -n=2 elsewhere); keep it low here
+pytest_n_gridded=2
 # should probably clone mf6 locally and checkout latest develop
 # modflow_repo_location=../../modflow6_for_pws_ci
 
 # options
 # all "no data" options. if passed, these turn OFF sections of the tests.
-while getopts 'hilmtosrdufg' opt; do
+while getopts 'hilmtoscrdufgn' opt; do
     case "$opt" in
     h)
         h=h
@@ -45,6 +49,10 @@ while getopts 'hilmtosrdufg' opt; do
         s=s
         echo "Not running the sagehen_5yr tests"
         ;;
+    c)
+        c=c
+        echo "Not running the sagehen_gridded_5yr (cascades) tests"
+        ;;
     r)
         r=r
         echo "Not running the hru_1 tests"
@@ -65,6 +73,10 @@ while getopts 'hilmtosrdufg' opt; do
         g=g
         echo "Not generating test data for any run tests"
         ;;
+    n)
+        n=n
+        echo "Not running the example notebooks"
+        ;;
     esac
 done
 shift "$(($OPTIND - 1))"
@@ -81,6 +93,8 @@ if [ ! -z "${h}" ]; then
     echo "  o: domainless tests"
     echo "  s: sagehen_5yr"
     echo "    g: generate sagehen data"
+    echo "  c: sagehen_gridded_5yr (cascades, compiles PRMS 5.2.1)"
+    echo "    g: generate sagehen_gridded data"
     echo "  r: hru_1"
     echo "    g: generate hru_1 data"
     echo "  d: drb_2yr"
@@ -89,6 +103,7 @@ if [ ! -z "${h}" ]; then
     echo "    g: generate ucb_2yr data"
     echo "  f: fgr_ag_2yr"
     echo "    g: generate fgr_ag_2yr data"
+    echo "n: example notebooks (autotest_exs, as in ci_examples.yaml)"
 
     exit 0
 fi
@@ -326,10 +341,11 @@ if [ -z "${t}" ]; then
             --ignore=test_mmr_to_mf6_dfw.py \
             --ignore=test_model.py \
             --ignore=test_netcdf_subset.py \
-            --ignore=test_nhm_restart.py \
             --ignore=test_obsin_flow_node.py \
             --ignore=test_output.py \
             --ignore=test_pass_through_flow_graph.py \
+            --ignore=test_preprocess_cascades.py \
+            --ignore=test_prms_param_separate_cascades.py \
             --ignore=test_prms_atmosphere_transp_frost.py \
             --ignore=test_prms_atmosphere_transp_frost_dynamic.py \
             --ignore=test_prms_channel.py \
@@ -347,6 +363,91 @@ if [ -z "${t}" ]; then
             --ignore=test_prms_stream_temp.py \
             --ignore=test_source_sink_flow_node.py \
             --ignore=test_starfit_flow_graph.py || exit 1
+
+        if [ -z "${g}" ]; then
+            echo
+            echo ".........."
+            echo "sagehen_5yr_no_gw_cascades - generate and manage test data domain, "
+            echo "  run PRMS and convert csv output to NetCDF"
+            python generate_test_data.py \
+                -n=$pytest_n --domain=sagehen_5yr \
+                --control_pattern=sagehen_no_gw_cascades.control \
+                --remove_prms_csvs --remove_prms_output_dirs || exit 1
+        fi
+
+        echo
+        echo ".........."
+        echo "sagehen_5yr_no_gw_cascades - pywatershed tests"
+        echo ".........."
+        echo
+        pytest \
+            -vv \
+            -rs \
+            -n=$pytest_n \
+            -m "not domainless" \
+            --domain=sagehen_5yr \
+            --control_pattern=sagehen_no_gw_cascades.control \
+            --durations=0 \
+            --error-for-skips \
+            test_preprocess_cascades.py \
+            test_prms_param_separate_cascades.py \
+            test_prms_above_snow.py \
+            test_prms_atmosphere.py \
+            test_prms_below_snow.py \
+            test_prms_canopy.py \
+            test_prms_groundwater.py \
+            test_restart_processes.py \
+            test_prms_snow.py \
+            test_prms_solar_geom.py \
+            test_self_drive.py || exit 1
+    fi
+
+    if [ -z "${c}" ]; then
+        echo
+        echo
+        echo "===================="
+        echo "DOMAIN: sagehen_gridded_5yr"
+        echo "===================="
+        echo
+        if [ -z "${g}" ]; then
+            echo
+            echo ".........."
+            echo "sagehen_gridded_5yr - generate CBH forcing files with PRMS"
+            echo "  (compiles PRMS 5.2.1 from prms_src if needed)"
+            python generate_test_data.py \
+                --domain=sagehen_gridded_5yr \
+                --control_pattern=make_cbh_only || exit 1
+
+            echo
+            echo ".........."
+            echo "sagehen_gridded_5yr - generate and manage test data domain, "
+            echo "  run PRMS and convert csv output to NetCDF"
+            python generate_test_data.py \
+                -n=$pytest_n --domain=sagehen_gridded_5yr \
+                --control_pattern=sagehen_gridded_cascades.control \
+                --remove_prms_csvs --remove_prms_output_dirs || exit 1
+        fi
+
+        echo
+        echo ".........."
+        echo "sagehen_gridded_5yr - pywatershed tests"
+        echo ".........."
+        echo
+        pytest \
+            -vv \
+            -rs \
+            -n=$pytest_n_gridded \
+            -m "not domainless" \
+            --domain=sagehen_gridded_5yr \
+            --durations=0 \
+            --error-for-skips \
+            test_prms_param_separate_cascades.py \
+            test_prms_above_snow.py \
+            test_prms_below_snow.py \
+            test_prms_groundwater.py \
+            test_restart_processes.py \
+            test_prms_snow.py \
+            test_prms_solar_geom.py || exit 1
     fi
 
     if [ -z "${r}" ]; then
@@ -393,6 +494,8 @@ if [ -z "${t}" ]; then
             --ignore=test_obsin_flow_node.py \
             --ignore=test_output.py \
             --ignore=test_pass_through_flow_graph.py \
+            --ignore=test_preprocess_cascades.py \
+            --ignore=test_prms_param_separate_cascades.py \
             --ignore=test_prms_atmosphere_transp_frost.py \
             --ignore=test_prms_atmosphere_transp_frost_dynamic.py \
             --ignore=test_prms_channel_flow_graph.py \
@@ -462,6 +565,8 @@ if [ -z "${t}" ]; then
             --durations=0 \
             --error-for-skips \
             --ignore=test_obsin_flow_node.py \
+            --ignore=test_preprocess_cascades.py \
+            --ignore=test_prms_param_separate_cascades.py \
             --ignore=test_prms_dyn_params.py \
             --ignore=test_prms_atmosphere_transp_frost.py \
             --ignore=test_prms_atmosphere_transp_frost_dynamic.py \
@@ -494,7 +599,8 @@ if [ -z "${t}" ]; then
             test_prms_soilzone.py \
             test_prms_groundwater.py \
             test_prms_above_snow.py \
-            test_prms_below_snow.py || exit 1
+            test_prms_below_snow.py \
+            test_restart_processes.py || exit 1
 
         # # Specific tests not redundant with dprst
         echo ".........."
@@ -585,6 +691,8 @@ if [ -z "${t}" ]; then
             --ignore=test_obsin_flow_node.py \
             --ignore=test_output.py \
             --ignore=test_pass_through_flow_graph.py \
+            --ignore=test_preprocess_cascades.py \
+            --ignore=test_prms_param_separate_cascades.py \
             --ignore=test_prms_atmosphere_transp_frost.py \
             --ignore=test_prms_atmosphere_transp_frost_dynamic.py \
             --ignore=test_mmr_to_mf6_dfw.py \
@@ -700,6 +808,27 @@ if [ -z "${t}" ]; then
             test_prms_atmosphere_transp_frost_dynamic.py || exit 1
 
     fi
+fi
+
+if [ -z "${n}" ]; then
+    echo
+    echo
+    echo "******************************"
+    echo "EXAMPLE NOTEBOOKS (ci_examples.yaml)"
+    echo "******************************"
+    echo
+
+    cd ..
+    echo "Get GIS files for notebooks"
+    python -m pywatershed.utils.gis_files || exit 1
+    echo "Get additional domain files for notebooks"
+    python -m pywatershed.utils.addtl_domain_files || exit 1
+
+    # Notebook 07 needs the mf6 binary from the modflow section (../bin,
+    # already on PATH).
+    cd autotest_exs || exit 1
+    pytest -s -vv --durations=0 || exit 1
+    cd $start_dir || exit 1
 fi
 
 if [ -z "${i}" ]; then

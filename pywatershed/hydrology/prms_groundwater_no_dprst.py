@@ -99,7 +99,7 @@ class PRMSGroundwaterNoDprst(PRMSGroundwater):
         )
 
         self.name = "PRMSGroundwaterNoDprst"
-        self._set_budget()
+        self._set_budget(active_mask=self._active_hru_mask)
 
         return
 
@@ -111,6 +111,7 @@ class PRMSGroundwaterNoDprst(PRMSGroundwater):
     def get_parameters() -> tuple:
         return (
             "hru_area",
+            "hru_type",
             "hru_in_to_cf",
             "gwflow_coef",
             "gwsink_coef",

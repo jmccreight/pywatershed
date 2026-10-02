@@ -22,7 +22,20 @@ class ProcessPlot:
         gis_dir: Union[str, pl.Path],
         hru_shp_file_name: str = "HRU_subset.shp",
         seg_shp_file_name: str = "Segments_subset.shp",
+        hru_layer: str = None,
+        seg_layer: str = None,
     ):
+        """Plot process variables on HRU and segment geometries.
+
+        Args:
+            gis_dir: directory holding the GIS files.
+            hru_shp_file_name: HRU polygons, a shapefile or a geodatabase
+                (.gdb) directory; None for no HRU geometries.
+            seg_shp_file_name: segment lines, as for hru_shp_file_name.
+            hru_layer: layer name within hru_shp_file_name, needed when it
+                is a geodatabase.
+            seg_layer: as hru_layer, for seg_shp_file_name.
+        """
         gpd = import_optional_dependency("geopandas")
 
         self.gis_dir = pl.Path(gis_dir)
@@ -38,7 +51,7 @@ class ProcessPlot:
 
         # HRU one-time setups
         if self.hru_shapefile is not None:
-            self.hru_gdf = gpd.read_file(self.hru_shapefile)
+            self.hru_gdf = gpd.read_file(self.hru_shapefile, layer=hru_layer)
 
             # standardization manipulations based on a variety of different
             # conventions which have been found for the shp files
@@ -56,13 +69,20 @@ class ProcessPlot:
                     columns={"GRID_CODE": "nhm_id"}
                 ).set_index("nhm_id")
 
+            elif "GRIDCODE" in self.hru_gdf.columns:
+                # e.g. the sagehen_mf6 geodatabase HRU layer, stored as float
+                self.hru_gdf["nhm_id"] = self.hru_gdf["GRIDCODE"].astype(int)
+                self.hru_gdf = self.hru_gdf.drop("GRIDCODE", axis=1).set_index(
+                    "nhm_id"
+                )
+
             else:
                 msg = "Unidentified shp file convention, work needed"
                 raise ValueError(msg)
 
         # segment one-time setup
         if self.seg_shapefile is not None:
-            self.seg_gdf = gpd.read_file(self.seg_shapefile)
+            self.seg_gdf = gpd.read_file(self.seg_shapefile, layer=seg_layer)
             # if (self.__seg_poly.crs.name
             #     == "USA_Contiguous_Albers_Equal_Area_Conic_USGS_version"):
             #     print("Overriding USGS aea crs with EPSG:5070")
@@ -180,8 +200,26 @@ class ProcessPlot:
         data_units: str = None,
         nhm_id: np.ndarray = None,
         clim: Tuple[float] = None,
+        time: np.ndarray = None,
         **kwargs,
     ):
+        """Map a variable on the HRU polygons.
+
+        Args:
+            var_name: the variable name, used for the title and colorbar.
+            process: the process holding the variable; its current values
+                are mapped when data is None.
+            data: values to map instead of the process's current state,
+                either (nhru,) for a single map or (ntime, nhru) for a map
+                per time (rendered with a time widget, see ``time``).
+            data_units: units of data, used when var_name has no metadata.
+            nhm_id: the HRU ids matching data; required with data.
+            clim: colorbar limits; with a time dimension these are fixed
+                across all times (otherwise each time scales separately).
+            time: the times for 2-d data; may be omitted when data is an
+                xarray.DataArray with a "time" coordinate.
+            **kwargs: passed to hvplot, overriding the defaults set here.
+        """
         _ = import_optional_dependency("hvplot.pandas")
 
         ccrs = import_optional_dependency("cartopy.crs")
@@ -200,39 +238,99 @@ class ProcessPlot:
                 # nhm_id = model.parameters["nhm_id"]
                 raise ValueError("code needs work to handle nhm_id=None")
 
-            data_df = pd.DataFrame(
-                {
-                    "nhm_id": nhm_id,
-                    var_name: data,
-                }
-            ).set_index("nhm_id")
+            is_dataarray = hasattr(data, "coords")
+            if time is None and is_dataarray and "time" in data.coords:
+                time = data["time"].values
 
-        plot_df = self.hru_gdf.join(data_df)
+            if np.ndim(data) == 2:
+                if time is None:
+                    raise ValueError("2-d data needs time")
+                data_df = pd.DataFrame(
+                    np.asarray(data),
+                    index=pd.Index(pd.to_datetime(time), name="time"),
+                    columns=pd.Index(np.asarray(nhm_id), name="nhm_id"),
+                )
+                # long table: one row per (time, nhm_id)
+                data_df = data_df.melt(
+                    ignore_index=False, value_name=var_name
+                ).reset_index()
+            else:
+                data_df = pd.DataFrame(
+                    {
+                        "nhm_id": nhm_id,
+                        var_name: data,
+                    }
+                ).set_index("nhm_id")
 
-        metadata = meta.get_vars(var_name)
+        if "time" in data_df.columns:
+            plot_df = self.hru_gdf.merge(
+                data_df, left_index=True, right_on="nhm_id"
+            )
+        else:
+            plot_df = self.hru_gdf.join(data_df)
+
+        metadata = meta.get_vars([var_name])
         if not len(metadata):
-            metadata = meta.get_params(var_name)
+            metadata = meta.get_params([var_name])
         if len(metadata):
             metadata = metadata[var_name]
         else:
             metadata = None
 
+        # hvplot needs the CRS the geometries are in. Use the layer's own
+        # when it declares one; the drb shapefiles do not and are EPSG:5070.
+        epsg = None
+        if plot_df.crs is not None:
+            epsg = plot_df.crs.to_epsg()
+        if epsg is None:
+            epsg = 5070
+
+        # Size the frame to the domain's aspect ratio (the tiled map forces
+        # equal axes, so a fixed height alone crops wide domains east-west).
+        # The tiles draw in Web Mercator (EPSG:3857), so measure the aspect
+        # there, not in the layer's own projection.
+        mercator_bounds = (
+            plot_df.set_crs(epsg, allow_override=True)
+            .to_crs(3857)
+            .total_bounds
+        )
+        xmin, ymin, xmax, ymax = mercator_bounds
+        aspect = (xmax - xmin) / (ymax - ymin)
+        # Initial view: the whole domain with a small margin (the default
+        # auto-range with tiles can leave part of it out of view). These
+        # are applied to the finished plot, in Mercator, rather than passed
+        # to hvplot: hvplot projects limits through cartopy, whose UTM
+        # projections clip to the zone's nominal longitude range, which
+        # shifts the view for domains near a zone edge (e.g. sagehen, just
+        # west of zone 11).
+        margin = 0.05
+        xpad = margin * (xmax - xmin)
+        ypad = margin * (ymax - ymin)
+        xlim = (xmin - xpad, xmax + xpad)
+        ylim = (ymin - ypad, ymax + ypad)
         frame_height = 550
+        frame_width = int(frame_height * aspect)
+        max_width = 900
+        if frame_width > max_width:
+            frame_width = max_width
+            frame_height = int(max_width / aspect)
+
         title = f'"{var_name}"\n'
         clabel = data_units
         if metadata is not None:
             title += "\n".join(
                 wrap(
                     f"{metadata['desc']}, {metadata['units']}",
-                    width=frame_height / 10,
+                    width=frame_width / 10,
                 )
             )
             clabel = f"{metadata['units']}"
 
         args = {
             "tiles": True,
-            "crs": ccrs.epsg(5070),
+            "crs": ccrs.epsg(epsg),
             "frame_height": frame_height,
+            "frame_width": frame_width,
             "c": var_name,
             "line_width": 0,
             "alpha": 0.75,
@@ -246,7 +344,17 @@ class ProcessPlot:
         if clim is not None:
             args["clim"] = clim
 
+        if "time" in plot_df.columns:
+            # One map per time, with a time widget. All frames are built up
+            # front (dynamic=False): on-demand frames from two widgets
+            # playing at once race and show each other's data. The
+            # {dimensions} placeholder puts the current time in the title.
+            args = {"groupby": "time", "dynamic": False} | args
+            args["title"] = args["title"] + "\n{dimensions}"
+
         plot = plot_df.hvplot(**args)
+        if args.get("tiles", True):
+            plot = plot.opts(xlim=xlim, ylim=ylim)
         return plot
 
 

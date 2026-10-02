@@ -4,6 +4,7 @@ from warnings import warn
 
 import numpy as np
 
+from ..base.active_hru_mixin import ActiveHruMixin
 from ..base.adapter import adaptable, adapter_factory
 from ..base.conservative_process import ConservativeProcess
 from ..base.control import Control
@@ -11,7 +12,7 @@ from ..constants import nan, numba_num_threads
 from ..parameters import Parameters
 
 
-class PRMSGroundwater(ConservativeProcess):
+class PRMSGroundwater(ConservativeProcess, ActiveHruMixin):
     """PRMS groundwater reservoir.
 
     Implementation based on PRMS 5.2.1 with theoretical documentation given in
@@ -95,6 +96,8 @@ class PRMSGroundwater(ConservativeProcess):
             restart_write_freq=restart_write_freq,
         )
         self.name = "PRMSGroundwater"
+        self._set_active_hrus()
+        self._mask_inactive_hrus()
 
         self._set_inputs(locals())
         self._set_options(locals())
@@ -114,7 +117,7 @@ class PRMSGroundwater(ConservativeProcess):
                     control=self.control,
                 )
 
-        self._set_budget()
+        self._set_budget(active_mask=self._active_hru_mask)
         self._init_calc_method()
 
         return
@@ -127,6 +130,7 @@ class PRMSGroundwater(ConservativeProcess):
     def get_parameters() -> tuple:
         return (
             "hru_area",
+            "hru_type",
             "hru_in_to_cf",
             "gwflow_coef",
             "gwsink_coef",
@@ -292,6 +296,9 @@ class PRMSGroundwater(ConservativeProcess):
         gwres_stor_change = gwres_stor - gwres_stor_old
         gwres_flow_vol = gwres_flow * hru_in_to_cf
 
+        # Inactive HRUs need no re-masking: ActiveHruMixin._mask_inactive_hrus
+        # sets gwres_stor to NaN at init and every output above is arithmetic
+        # on it, so NaN propagates.
         return (
             gwres_stor,
             gwres_flow,
