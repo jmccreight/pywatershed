@@ -1061,11 +1061,31 @@ def test_mmr_to_mf6_dfw_seg_mid_elevation_check(synthetic_params):
 
 
 @pytest.mark.domainless
+@pytest.mark.parametrize("name", ["seg_slope", "seg_length", "hru_elev"])
+def test_calculate_seg_mid_elevations_non_finite_raises(
+    synthetic_params, name
+):
+    from pywatershed.utils.network_hydraulics import (
+        calculate_seg_mid_elevations,
+    )
+
+    dd = synthetic_params.to_dd()
+    values = dd.data_vars[name].astype(float).copy()
+    values[1] = np.nan
+    dd.data_vars[name] = values
+    with pytest.raises(ValueError, match=f"{name} has non-finite"):
+        calculate_seg_mid_elevations(Parameters(**dd.data))
+
+
+@pytest.mark.domainless
 @pytest.mark.parametrize(
     "bad_mid,match",
     [
         ([110.0, 108.0, 101.5], "Segment 0"),  # interior rise wrong
         ([110.0, 110.0, 103.5], "Outlet segment 2"),  # outlet too high
+        ([np.nan, 108.0, 101.5], "Segment 0"),  # NaN must not pass
+        # a NaN outlet fails the upstream segment's check first
+        ([108.0, 108.0, np.nan], "Segment 0"),
     ],
 )
 def test_mmr_to_mf6_dfw_seg_mid_elevation_check_raises(

@@ -184,10 +184,18 @@ def calculate_seg_mid_elevations(
 
     Raises:
         ValueError: ``tosegment`` is out of range or contains a cycle,
-            ``elev_units`` is missing or not 0 or 1, or an outlet has no
-            HRU draining to it or to anything upstream of it.
+            ``elev_units`` is missing or not 0 or 1, an outlet has no
+            HRU draining to it or to anything upstream of it, or
+            ``seg_slope``, ``seg_length`` or ``hru_elev`` has a non-finite
+            value.
     """
     params = parameters.parameters
+    for name in ("seg_slope", "seg_length", "hru_elev"):
+        bad = np.where(~np.isfinite(np.asarray(params[name], dtype=float)))[0]
+        if bad.size:
+            raise ValueError(
+                f"{name} has non-finite values at indices {bad.tolist()}"
+            )
     seg_dy = params["seg_slope"] * params["seg_length"]
     nseg = len(seg_dy)
     seg_y = np.full(nseg, np.nan)  # elevation at the upstream end

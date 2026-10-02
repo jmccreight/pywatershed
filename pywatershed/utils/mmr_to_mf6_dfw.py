@@ -832,7 +832,7 @@ class MmrToMf6Dfw:
                         outlet_elev = _outlet_elevation(
                             ss, tosegment0, hru_seg0, hru_elev, seg_dy
                         )
-                    if abs(down_end - outlet_elev) >= 1.0e-7:
+                    if not abs(down_end - outlet_elev) < 1.0e-7:
                         raise ValueError(
                             f"Outlet segment {ss} downstream elevation "
                             f"{down_end} does not equal the minimum "
@@ -842,7 +842,7 @@ class MmrToMf6Dfw:
                 # upstream end of ss equals upstream end of down + rise
                 up_ss = mid[ss] + seg_dy[ss] / 2
                 up_down = mid[down] + seg_dy[down] / 2
-                if abs((up_ss - up_down) - seg_dy[ss]) >= 1.0e-7:
+                if not abs((up_ss - up_down) - seg_dy[ss]) < 1.0e-7:
                     raise ValueError(
                         f"Segment {ss} upstream elevation {up_ss} is not "
                         f"its rise {seg_dy[ss]} above the upstream "
