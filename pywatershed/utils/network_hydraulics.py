@@ -109,17 +109,70 @@ def _hru_elev_meters(parameters: Parameters) -> np.ndarray:
     return hru_elev.copy()
 
 
+def _outlet_elevation(
+    outlet: int,
+    tosegment0: np.ndarray,
+    hru_seg: np.ndarray,
+    hru_elev: np.ndarray,
+    seg_dy: np.ndarray,
+) -> float:
+    """Elevation (m) of an outlet segment's downstream end.
+
+    The lowest ``hru_elev`` of the HRUs draining to the outlet. When no
+    HRU drains to it (common for NHM subsets), the nearest upstream
+    segments with HRUs stand in: each takes its own lowest HRU elevation
+    at its downstream end, less the rise of the segments between it and
+    the outlet's downstream end; the lowest result is used and a warning
+    names the outlet.
+
+    Raises:
+        ValueError: no HRU drains to the outlet or to any segment
+            upstream of it.
+    """
+    own = hru_elev[hru_seg == outlet]
+    if own.size:
+        return float(own.min())
+    # breadth-first upstream; drop[s] is the rise from the outlet's
+    # downstream end to s's downstream end
+    drop = {outlet: 0.0}
+    frontier = [outlet]
+    while frontier:
+        next_frontier = []
+        for down in frontier:
+            for up in np.where(tosegment0 == down)[0]:
+                drop[int(up)] = drop[down] + seg_dy[down]
+                next_frontier.append(int(up))
+        candidates = [
+            float(hru_elev[hru_seg == ss].min() - drop[ss])
+            for ss in next_frontier
+            if (hru_seg == ss).any()
+        ]
+        if candidates:
+            warn(
+                f"Outlet segment index {outlet} has no HRU draining to "
+                "it; its downstream elevation is taken from the HRUs of "
+                f"the nearest upstream segments {next_frontier}"
+            )
+            return min(candidates)
+        frontier = next_frontier
+    raise ValueError(
+        f"Outlet segment index {outlet} has no HRU draining to it or to "
+        "any segment upstream of it; check hru_segment"
+    )
+
+
 def calculate_seg_mid_elevations(
     parameters: Parameters,
 ) -> tuple[np.ndarray, dict[int, float]]:
     """Elevation at the midpoint of each segment, walked up from outlets.
 
     Each outlet's downstream end takes the lowest elevation of the HRUs
-    that drain to it; every segment's upstream end is its downstream
-    end plus ``seg_slope * seg_length``; the midpoint is the mean of the
-    two. Requires ``tosegment``, ``seg_slope``, ``seg_length``,
-    ``hru_segment``, ``hru_elev`` and ``elev_units``; ``hru_elev`` is
-    converted to meters when ``elev_units`` is 0 (feet).
+    that drain to it (or, with a warning, of the nearest upstream
+    segments' HRUs when none do); every segment's upstream end is its
+    downstream end plus ``seg_slope * seg_length``; the midpoint is the
+    mean of the two. Requires ``tosegment``, ``seg_slope``,
+    ``seg_length``, ``hru_segment``, ``hru_elev`` and ``elev_units``;
+    ``hru_elev`` is converted to meters when ``elev_units`` is 0 (feet).
 
     Args:
         parameters: a Parameters object with the parameters above.
@@ -130,8 +183,9 @@ def calculate_seg_mid_elevations(
         zero-based segment index to its midpoint elevation (m).
 
     Raises:
-        ValueError: ``tosegment`` is out of range or contains a cycle, or
-            ``elev_units`` is missing or not 0 or 1.
+        ValueError: ``tosegment`` is out of range or contains a cycle,
+            ``elev_units`` is missing or not 0 or 1, or an outlet has no
+            HRU draining to it or to anything upstream of it.
     """
     params = parameters.parameters
     seg_dy = params["seg_slope"] * params["seg_length"]
@@ -161,8 +215,9 @@ def calculate_seg_mid_elevations(
         for seg in reversed(chain):
             down = tosegment0[seg]
             if down == is_outflow:
-                outlet_hrus = np.where(hru_seg == seg)
-                outlet_elev = hru_elev[outlet_hrus].min()
+                outlet_elev = _outlet_elevation(
+                    seg, tosegment0, hru_seg, hru_elev, seg_dy
+                )
                 seg_y[seg] = seg_dy[seg] + outlet_elev
                 outlet_mid[int(seg)] = float(seg_y[seg] - seg_dy[seg] / 2)
             else:

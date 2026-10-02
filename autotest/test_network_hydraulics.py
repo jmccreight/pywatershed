@@ -115,6 +115,50 @@ def test_calculate_seg_mid_elevations_feet(synthetic_params):
     np.testing.assert_allclose(outlet_mid[2], outlet_m + 1.5)
 
 
+def _with_hru_segment(params: Parameters, hru_segment) -> Parameters:
+    dd = params.to_dd()
+    dd.data_vars["hru_segment"] = np.array(hru_segment, dtype=np.int64)
+    return Parameters(**dd.data)
+
+
+@pytest.mark.domainless
+def test_calculate_seg_mid_elevations_outlet_without_hru(synthetic_params):
+    """An outlet with no HRU takes its datum from the nearest upstream
+    HRUs, less the rise of the segments between: HRUs at 110 and 100 m
+    drain to reach 1, whose downstream end is the outlet's upstream end,
+    so the outlet's downstream end is 100 - 3 = 97 m."""
+    from pywatershed.utils.mmr_to_mf6_dfw import MmrToMf6Dfw
+    from pywatershed.utils.network_hydraulics import (
+        calculate_seg_mid_elevations,
+    )
+
+    params = _with_hru_segment(synthetic_params, [1, 2, 2])
+    with pytest.warns(UserWarning, match="Outlet segment index 2 has no"):
+        mid, outlet_mid = calculate_seg_mid_elevations(params)
+    np.testing.assert_allclose(mid, np.array([105.0, 105.0, 98.5]))
+    np.testing.assert_allclose(outlet_mid[2], 98.5)
+
+    # the debug check applies the same rule
+    fake = types.SimpleNamespace(parameters=params)
+    with pytest.warns(UserWarning, match="Outlet segment index 2 has no"):
+        MmrToMf6Dfw._calculate_seg_mid_elevations(fake, check=True)
+    np.testing.assert_allclose(fake._seg_mid_elevation, mid)
+
+
+@pytest.mark.domainless
+def test_calculate_seg_mid_elevations_no_hru_anywhere_raises(
+    synthetic_params,
+):
+    from pywatershed.utils.network_hydraulics import (
+        calculate_seg_mid_elevations,
+    )
+
+    # hru_segment = 0 is PRMS for "not routed to any segment"
+    params = _with_hru_segment(synthetic_params, [0, 0, 0])
+    with pytest.raises(ValueError, match="to any segment upstream"):
+        calculate_seg_mid_elevations(params)
+
+
 @pytest.mark.domainless
 @pytest.mark.parametrize(
     "value,match",

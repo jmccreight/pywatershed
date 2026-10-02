@@ -45,7 +45,9 @@ New Features
   and outlet elevation invariants and raises on failure) are public. Both
   now read the ``elev_units`` parameter, converting ``hru_elev`` from feet
   when it is 0 and raising when it is absent (previously ``hru_elev`` was
-  assumed to be in meters). The
+  assumed to be in meters), and an outlet segment with no HRU draining to
+  it (common in NHM subsets, e.g. ``ucb_2yr``) takes its elevation from the
+  nearest upstream HRUs with a warning instead of crashing. The
   exporter validates its inputs up front: required parameters, ``tosegment``
   range and cycles, each run file's ``nhm_seg`` order, shared time axis and
   ``units`` against the pywatershed metadata, and the requested time

@@ -1,4 +1,5 @@
 import pathlib as pl
+import warnings
 from warnings import warn
 
 import numpy as np
@@ -10,6 +11,7 @@ from ..constants import fileish, zero
 from ..parameters import PrmsParameters
 from .network_hydraulics import (
     _hru_elev_meters,
+    _outlet_elevation,
     calculate_seg_mid_elevations,
 )
 from .optional_import import import_optional_dependency
@@ -822,9 +824,14 @@ class MmrToMf6Dfw:
                 down = tosegment0[ss]
                 if down == -1:
                     # an outlet's downstream end is the lowest elevation
-                    # of the HRUs draining to it
+                    # of the HRUs draining to it (or, lacking any, of the
+                    # nearest upstream HRUs less the intervening rise)
                     down_end = mid[ss] - seg_dy[ss] / 2
-                    outlet_elev = hru_elev[np.where(hru_seg0 == ss)].min()
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("ignore")
+                        outlet_elev = _outlet_elevation(
+                            ss, tosegment0, hru_seg0, hru_elev, seg_dy
+                        )
                     if abs(down_end - outlet_elev) >= 1.0e-7:
                         raise ValueError(
                             f"Outlet segment {ss} downstream elevation "
