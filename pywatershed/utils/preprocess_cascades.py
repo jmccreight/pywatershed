@@ -145,7 +145,9 @@ def calc_hru_route_order(parameters: Parameters) -> Parameters:
       parameters: A Parameters object for the domain which includes hru_type
 
     Returns:
-      Parameters: the input parameters with hru_route_order added
+      Parameters: the input parameters with hru_route_order (nhru, 1-based,
+        the active HRUs first, zeros after) and active_hrus (scalar, their
+        count) added
     """
     nhru = parameters.dims["nhru"]
     hru_type = parameters.parameters["hru_type"]
@@ -172,7 +174,6 @@ def calc_hru_route_order(parameters: Parameters) -> Parameters:
         if hru_type[ii] == HruType.INACTIVE.value:
             continue
 
-        # ?? need to fix for lakes with multiple HRUs and PRMS lake routing ??
         if hru_type[ii] == HruType.LAKE.value:
             numlake_hrus = numlake_hrus + 1
             if nlake == 0:
@@ -245,11 +246,6 @@ def init_cascade_params(
         init_cascade added
     """
 
-    # This is changed by order_hrus but may be printed diagnostically here
-    iorder = 0
-
-    # since we are doing the BAD thing of editing the parameters, they have to
-    # be exported first to a DatasetDict
     params = parameters.to_dd()
 
     nhru = params.dims["nhru"]
@@ -262,7 +258,6 @@ def init_cascade_params(
     circle_switch = params.data_vars["circle_switch"][0]
     ndown = 1
 
-    # brilliant
     cascade_flg = params.data_vars["cascade_flg"][0]
     cascade_flag = control.options["cascade_flag"]
 
@@ -293,7 +288,6 @@ def init_cascade_params(
         for i in range(ncascade):
             k = hru_up_id[i]
             if k > 0:
-                jdn = hru_down_id[i]  # this line does anything?
                 ncascade_hru[k - 1] = ncascade_hru[k - 1] + 1
                 if ncascade_hru[k - 1] > ndown:
                     ndown = ncascade_hru[k - 1]
@@ -371,14 +365,12 @@ def init_cascade_params(
                     continue
 
             # <
-            # TODO: This logic is horrible, no need to be in this else. FIX
             carea = frac * hru_area[kup - 1]
 
             # ! get rid of small cascades, redistribute fractions
             if (carea < cascade_tol) and (frac < 0.075):
                 msg = (
                     "*** WARNING, ignoring small cascade: carea<cascade_tol\n"
-                    # "carea < cascade_tol and  frac < 0.075: "
                     f"Cascade:  {ii+1=}; "
                     f"HRU up:  {kup=}; "
                     f"HRU down:  {jdn=}; "
@@ -428,8 +420,6 @@ def init_cascade_params(
 
     # < end of for loop
 
-    # how do we route headwater HRUs to stream segment rather than
-    # across valleys**********************RSR???
     for ii in range(active_hrus):
         i = hru_route_order[ii]
         num = ncascade_hru[i - 1]
@@ -564,7 +554,33 @@ def order_hrus(
     circle_switch: int,
     verbosity: int = 1,
 ) -> tuple:
-    """From cascade.f90::order_hrus."""
+    """From cascade.f90::order_hrus.
+
+    Rewrites a land or glacier HRU with no cascade to a swale and
+    recomputes the routing order so every HRU follows all of its upslope
+    HRUs; checks for circular cascades when circle_switch is 1.
+
+    Args:
+      nhru: number of HRUs.
+      active_hrus: number of active HRUs.
+      hru_route_order: 1-based, the active HRUs first, zeros after.
+        Modified in place.
+      ncascade_hru: number of cascades of each HRU.
+      hru_down: (ndown, nhru) 1-based downslope HRU (positive) or stream
+        segment (negative) of each cascade.
+      hru_type: modified in place (swale rewrite).
+      circle_switch: 1 to raise on a circular cascade.
+      verbosity: as for :func:`init_cascade_params`.
+
+    Returns:
+      tuple: (iorder, hru_type, hru_route_order), the number of HRUs placed
+        in the order (equal to active_hrus on success) and the two arrays
+        modified in place.
+
+    Raises:
+      ValueError: on a circular cascade, or when the ordering cannot place
+        every active HRU.
+    """
 
     # up_id_count equals number of upslope HRUs an HRU has.
     # dn_id_count equals number of downslope HRUs an HRU has.
@@ -572,9 +588,6 @@ def order_hrus(
     # an HRU has.
     max_up_id_count = 0
 
-    # ALLOCATE (up_id_count(Nhru), dn_id_count(Nhru), roots(Nhru))
-    # ALLOCATE (path(Nhru), is_hru_on_list(Nhru))
-    # for i in range(nhru): # Unecessary loop
     up_id_count = np.zeros(nhru, dtype="int64")
     dn_id_count = np.zeros(nhru, dtype="int64")
     roots = np.zeros(nhru, dtype="int64")
@@ -594,11 +607,9 @@ def order_hrus(
     # <<<<
     hrus_up_list = np.zeros([max_up_id_count, nhru], dtype="int64")
     # get the list of HRUs upslope of each HRU and root HRUs
-    # up_id_cnt = np.zeros(nhru, dtype="int64")
     up_id_cnt = up_id_count.copy()
 
     nroots = 0
-    # type_flag = 0
 
     for ii in range(active_hrus):
         i = hru_route_order[ii]
@@ -619,7 +630,6 @@ def order_hrus(
                 )
                 print(msg)
                 hru_type[i - 1] = HruType.SWALE.value
-                # type_flag = 1
                 continue
 
         # <<
@@ -634,7 +644,6 @@ def order_hrus(
             )
             print(msg)
             hru_type[i - 1] = HruType.SWALE.value
-            # type_flag = 1
             continue
         else:
             for k in range(ncascade_hru[i - 1]):
@@ -646,10 +655,6 @@ def order_hrus(
     # <<<< End of for loop
 
     del up_id_cnt
-
-    # if type_flag==1:
-    # not going to write the file in the type_flag ==1 case. We are returning
-    # a new parameter object here.
 
     # check for circles when circle_switch = 1. cascade.f90 walks up from
     # each root recursively (up_tree/check_path); a directed-graph cycle
@@ -704,7 +709,6 @@ def order_hrus(
 
         # <<<
         if added == 0:
-            # huh? this section is a bit of a head scratcher
             not_in_order_list = []
             for i in range(nhru):
                 if is_hru_on_list[i] == 0:
@@ -719,7 +723,6 @@ def order_hrus(
                 "cascades, possible circles. \n"
                 f"{hru_route_order=}"
             )
-            # iret = 0  # pointless
             raise ValueError(msg)
 
     # <<
@@ -737,8 +740,8 @@ def order_hrus(
                 if hru_type[i] != HruType.INACTIVE.value:
                     list_missing_hrus.append(i)
                 else:
+                    # PRMS lists inactive HRUs separately, not as missing
                     list_inactive_hrus.append(i)
-                    # apparently not an error in this case?
 
         # <<<
         msg = (
