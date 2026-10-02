@@ -377,20 +377,29 @@ def _read_run_vars(
                 f"'{expected_units}'"
             )
         if start_time is not None or end_time is not None:
+            _check_time_window(nm, available, start_time, end_time)
             da = da.sel(time=slice(start_time, end_time))
-            if da.sizes["time"] == 0:
-                if len(available):
-                    span = (
-                        f"its times run from {available[0]} to {available[-1]}"
-                    )
-                else:
-                    span = "the file has no time steps at all"
-                raise ValueError(
-                    f"{nm}.nc has no time steps between start_time "
-                    f"{start_time} and end_time {end_time}; {span}"
-                )
         result[nm] = da
     return result
+
+
+def _check_time_window(name: str, available, start_time, end_time) -> None:
+    """Raise unless ``start_time``/``end_time`` select a non-empty part of
+    ``available`` without reaching outside it (no silent clipping)."""
+    if not len(available):
+        raise ValueError(f"{name}.nc has no time steps at all")
+    span = f"{name}.nc times run from {available[0]} to {available[-1]}"
+    if start_time is not None and np.datetime64(start_time) < available[0]:
+        raise ValueError(f"start_time {start_time} is before the run; {span}")
+    if end_time is not None and np.datetime64(end_time) > available[-1]:
+        raise ValueError(f"end_time {end_time} is after the run; {span}")
+    lo = available[0] if start_time is None else np.datetime64(start_time)
+    hi = available[-1] if end_time is None else np.datetime64(end_time)
+    if not ((available >= lo) & (available <= hi)).any():
+        raise ValueError(
+            f"{name}.nc has no time steps between start_time {start_time} "
+            f"and end_time {end_time}; {span}"
+        )
 
 
 def export_network_hydraulics(
@@ -468,8 +477,9 @@ def export_network_hydraulics(
             ``nhm_seg`` coordinate or its order does not match the
             parameters; run files do not share one time axis; a run
             file's ``units`` attribute differs from the pywatershed
-            metadata; the requested time selection is empty or
-            ``start_time`` is after ``end_time``; the shapefile
+            metadata; ``start_time`` or ``end_time`` falls outside the
+            run's time span, selects no time steps, or ``start_time`` is
+            after ``end_time``; the shapefile
             identifiers do not match ``nhm_seg``; a shapefile geometry
             is not a ``LineString``; the shapefile CRS is geographic or
             not in meters; or more than half of the reaches with a

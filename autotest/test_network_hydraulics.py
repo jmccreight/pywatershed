@@ -823,19 +823,40 @@ def test_export_missing_units_warns(
 
 
 @pytest.mark.domainless
-def test_export_empty_time_selection_raises(
-    synthetic_params, synthetic_run_dir, tmp_path
+@pytest.mark.parametrize(
+    "kwargs,match",
+    [
+        # the run is 1979-01-01..04; a window reaching outside it must
+        # raise, not clip
+        ({"start_time": np.datetime64("1978-12-31")}, "before the run"),
+        ({"end_time": np.datetime64("1979-01-05")}, "after the run"),
+        (
+            {
+                "start_time": np.datetime64("1979-01-01"),
+                "end_time": np.datetime64("1979-01-05"),
+            },
+            "after the run",
+        ),
+        # inside the span but between daily steps: nothing selected
+        (
+            {
+                "start_time": np.datetime64("1979-01-01T06"),
+                "end_time": np.datetime64("1979-01-01T18"),
+            },
+            "no time steps between",
+        ),
+    ],
+)
+def test_export_time_window_outside_run_raises(
+    synthetic_params, synthetic_run_dir, tmp_path, kwargs, match
 ):
     from pywatershed.utils.network_hydraulics import (
         export_network_hydraulics,
     )
 
-    with pytest.raises(ValueError, match="no time steps"):
+    with pytest.raises(ValueError, match=match):
         export_network_hydraulics(
-            synthetic_params,
-            synthetic_run_dir,
-            tmp_path / "net.nc",
-            start_time=np.datetime64("1980-01-01"),
+            synthetic_params, synthetic_run_dir, tmp_path / "net.nc", **kwargs
         )
 
 
