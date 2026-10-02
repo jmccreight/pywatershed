@@ -1,7 +1,7 @@
 import warnings
 from contextlib import contextmanager
 from copy import deepcopy
-from typing import Iterable, Literal
+from typing import Iterable, Literal, Optional
 
 import cftime
 import netCDF4 as nc4
@@ -508,7 +508,7 @@ class DatasetDict(Accessor):
         keep_global_metadata: bool = None,
         keep_global_encoding: bool = None,
         strict: bool = False,
-        keep_dims: list = None,
+        keep_dims: Optional[list[str]] = None,
     ) -> "DatasetDict":
         """Subset a DatasetDict to keys in data_vars or coordinates
 

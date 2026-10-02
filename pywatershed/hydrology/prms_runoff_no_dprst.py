@@ -1,11 +1,9 @@
 import pathlib as pl
 from typing import Literal, Union
 
-import numpy as np
-
 from ..base.adapter import adaptable
 from ..base.control import Control
-from ..constants import HruType, nan, zero
+from ..constants import HruType, zero
 from ..parameters import Parameters
 from .prms_runoff import PRMSRunoff
 
@@ -20,8 +18,6 @@ ACTIVE = 1
 
 LAND = HruType.LAND.value
 LAKE = HruType.LAKE.value
-
-# TODO: using through_rain and not net_rain and net_ppt is a WIP
 
 
 class PRMSRunoffNoDprst(PRMSRunoff):
@@ -67,7 +63,7 @@ class PRMSRunoffNoDprst(PRMSRunoff):
             control.options["imbalance_behavior"] when available. When
             control.options["imbalance_behavior"] is not avaiable,
             imbalance_behavior is set to "warn".
-        calc_method: one of ["fortran", "numba", "numpy"]. None defaults to
+        calc_method: one of ["numba", "numpy"]. None defaults to
             "numba".
         verbose: Print extra information or not?
         restart_read:
@@ -125,8 +121,6 @@ class PRMSRunoffNoDprst(PRMSRunoff):
         restart_write: Union[pl.Path, bool] = False,
         restart_write_freq: Literal["y", "m", "d", "f", False] = False,
     ) -> None:
-        self._dprst_flag = False
-
         super().__init__(
             control=control,
             discretization=discretization,
@@ -155,15 +149,6 @@ class PRMSRunoffNoDprst(PRMSRunoff):
             restart_write_freq=restart_write_freq,
             intcp_changeover_in_net_rain=intcp_changeover_in_net_rain,
         )
-
-        self.name = "PRMSRunoffNoDprst"
-
-        self._set_inputs(locals())
-        self._set_options(locals())
-
-        self._set_budget(active_mask=self._active_hru_mask)
-
-        self.basin_init()
 
         return
 
@@ -211,7 +196,7 @@ class PRMSRunoffNoDprst(PRMSRunoff):
             "contrib_fraction": zero,
             "infil": zero,
             "infil_hru": zero,
-            "sroff": zero,  # todo: privatize and only make vol public
+            "sroff": zero,
             "sroff_vol": zero,
             "hru_sroffp": zero,
             "hru_sroffi": zero,
@@ -258,16 +243,6 @@ class PRMSRunoffNoDprst(PRMSRunoff):
         """Perform the core calculations"""
 
         zero_array = zero * self.infil
-        # Placeholders for the kernel's cascade arguments. The kernel treats
-        # cascades as off when ncascade_hru is all NaN, so these values are
-        # never read. numba types an array by its number of dimensions and
-        # dtype, not its shape, so a 2x2 array stands in for the 2-d
-        # (cascade, hru) arrays hru_down, hru_down_frac, hru_down_fracwt and
-        # cascade_area.
-        zero_array_2d_int = np.zeros((2, 2), dtype="int32")
-        nan_array = nan * self.infil
-        nan_array_2d = np.zeros((2, 2)) * nan
-
         (
             self.infil[:],
             self.contrib_fraction[:],
@@ -358,24 +333,15 @@ class PRMSRunoffNoDprst(PRMSRunoff):
             through_rain=self.through_rain,
             dprst_flag=self._dprst_flag,
             intcp_changeover_in_net_rain=self._intcp_changeover_in_net_rain,
-            ncascade_hru=nan_array,
             nactive_hrus=self._nactive_hrus,
             hru_route_order=self.hru_route_order,
-            hru_down=zero_array_2d_int,
-            hru_down_frac=nan_array_2d,
-            hru_down_fracwt=nan_array_2d,
-            cascade_area=nan_array_2d,
-            hortonian_flow=nan_array,
-            upslope_hortonian=nan_array,
-            stream_seg_in=nan_array,
-            cfs_conv=nan,
             # functions at end
             check_capacity=self.check_capacity,
             perv_comp=self.perv_comp,
             compute_infil=self.compute_infil,
             dprst_comp=self.dprst_comp,
             imperv_et=self.imperv_et,
-            run_cascade_sroff=self._run_cascade_sroff_dummy,
+            **self._cascade_off_kernel_args(),
         )
 
         self.infil_hru[:] = self.infil * self.hru_frac_perv

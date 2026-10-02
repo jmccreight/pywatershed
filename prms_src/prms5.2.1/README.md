@@ -1,12 +1,18 @@
-To compile the PRMS 5.2.1 binary to be used as reference for pywatershed in
-its autotests, run the following commands in this directory
+pywatershed compiles this PRMS 5.2.1 source on demand with
+`pywatershed.utils.compile_prms()` (gfortran and gcc, `DBL_PREC=true`),
+which installs the binary in the repository's `bin/` under the name
+`pywatershed.utils.get_prms_exe_name()` expects. To rebuild, call it with
+`force=True`. It requires `make`, `gfortran` and `gcc` on your `PATH`;
+ifort is not supported (it cannot target arm64).
+
+If that build fails, reproduce it by hand in this directory to see the
+compiler output:
 
 ```shell
 make clean
-make FC=ifort CC=icc DBL_PREC=true
+make FC=gfortran CC=gcc DBL_PREC=true
 ```
 
-You may replace `ifort` and `icc` with the name of the fortran compiler in your
-`$PATH`. Note that `DBL_PREC=true` is required for pywatershed tests.
-
-Compiling replaces `bin/prms`. 
+`DBL_PREC=true` is required by the pywatershed tests. The makefile writes
+`bin/prms` here (`bin/prms.exe` on Windows); only `compile_prms()` installs
+it where the tests look.

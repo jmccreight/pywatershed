@@ -1,3 +1,4 @@
+import contextlib
 import os
 import pathlib as pl
 import shutil
@@ -9,8 +10,8 @@ import pywatershed as pws
 """This module contains functions for running PRMS simulations.
 
 This module provides functions for running PRMS simulations using the
-pywatershed library. If a control name contains "_cbh_" or "_CBH_", the
-simulation will generate CBH netcdf files.
+pywatershed library. A control whose name contains "make_cbh_only"
+generates the domain's CBH files (see test_run_prms).
 
 """
 
@@ -32,31 +33,24 @@ def test_run_prms(simulation, exe):
     # (prcp/tmax/tmin.nc, ~9 MB each, also gitignored). Every other control
     # for the domain reads the .day files, so the make_cbh_only run must
     # come first; below we either generate or require them.
+    # A domain that ships a *_make_cbh_only.control generates its own CBH
+    # files, the same test as test_data/generate/conftest.py uses.
     domain_dir_name = simulation["control_file"].parent.name
-    control_file_name = simulation["control_file"].stem
-    domains_requiring_cbh_files = ["sagehen_gridded_5yr"]
-    run_cbh = False
-    for dom_req_cbh in domains_requiring_cbh_files:
-        if dom_req_cbh in domain_dir_name:
-            # if we got here, the simulation requires CBH files to be generated
-            if "_cbh_" in control_file_name or "_CBH_" in control_file_name:
-                # if we got here, this run will generate the cbh files
-                run_cbh = True
-            else:
-                cbh_files_present = {
-                    f"{var}.nc": (ws / f"{var}.nc").exists()
-                    for var in ["prcp", "tmax", "tmin"]
-                }
-                if not all(cbh_files_present.values()):
-                    missing_cbh = [
-                        kk for kk, vv in cbh_files_present.items() if not vv
-                    ]
-                    msg = (
-                        "Input CBH files are missing for the domain "
-                        f"{domain_dir_name}: {missing_cbh}.\n"
-                        "Run the simulation for generating CBH files first."
-                    )
-                    raise IOError(msg)
+    run_cbh = "make_cbh_only" in simulation["control_file"].stem
+    requires_cbh = run_cbh or any(ws.glob("*make_cbh_only*.control"))
+    if requires_cbh and not run_cbh:
+        missing_cbh = [
+            f"{var}.nc"
+            for var in ["prcp", "tmax", "tmin"]
+            if not (ws / f"{var}.nc").exists()
+        ]
+        if missing_cbh:
+            msg = (
+                "Input CBH files are missing for the domain "
+                f"{domain_dir_name}: {missing_cbh}.\n"
+                "Run the simulation for generating CBH files first."
+            )
+            raise IOError(msg)
 
     control_file = simulation["control_file"]
     output_dir = simulation["output_dir"]
@@ -100,48 +94,44 @@ def test_run_prms(simulation, exe):
     if run_cbh:
         # if this run is generating CBH files, convert PRMS outputs to netcdf
         # need to be in ws
-        og_dir = os.getcwd()
-        os.chdir(ws)
+        with contextlib.chdir(ws):
+            cbh_nc_dir = pl.Path(".")
+            cbh_files = [
+                pl.Path("precip.day"),
+                pl.Path("tmax.day"),
+                pl.Path("tmin.day"),
+            ]
+            rename_vars = {
+                "precip": "prcp",
+                "tmaxf": "tmax",
+                "tmax": "tmax",
+                "tminf": "tmin",
+                "tmin": "tmin",
+            }
+            control = pws.Control.load_prms(simulation["control_file"])
+            parameter_file = control.options["parameter_file"]
+            params = pws.parameters.PrmsParameters.load(parameter_file)
+            for cbh_file in cbh_files:
+                out_file = cbh_nc_dir / (rename_vars[cbh_file.stem] + ".nc")
+                pws.utils.cbh_file_to_netcdf(
+                    cbh_file,
+                    params,
+                    out_file,
+                    complevel=9,
+                    rename_vars=rename_vars,
+                )
 
-        cbh_nc_dir = pl.Path(".")
-        cbh_files = [
-            pl.Path("precip.day"),
-            pl.Path("tmax.day"),
-            pl.Path("tmin.day"),
-        ]
-        rename_vars = {
-            "precip": "prcp",
-            "tmaxf": "tmax",
-            "tmax": "tmax",
-            "tminf": "tmin",
-            "tmin": "tmin",
-        }
-        control = pws.Control.load_prms(simulation["control_file"])
-        parameter_file = control.options["parameter_file"]
-        params = pws.parameters.PrmsParameters.load(parameter_file)
-        for cbh_file in cbh_files:
-            out_file = cbh_nc_dir / (rename_vars[cbh_file.stem] + ".nc")
-            pws.utils.cbh_file_to_netcdf(
-                cbh_file,
-                params,
-                out_file,
-                complevel=9,
-                rename_vars=rename_vars,
-            )
-
-        prms_output_to_rm = [
-            "potet.day",
-            "swrad.day",
-            # currently using these files to drive the PRMS model
-            # may change that so they can be removed
-            # "precip.day",
-            # "tmin.day",
-            # "tmax.day",
-            "transp.day",
-        ]
-        for ff in prms_output_to_rm:
-            pl.Path(ff).unlink()
-
-        os.chdir(og_dir)
+            prms_output_to_rm = [
+                "potet.day",
+                "swrad.day",
+                # currently using these files to drive the PRMS model
+                # may change that so they can be removed
+                # "precip.day",
+                # "tmin.day",
+                # "tmax.day",
+                "transp.day",
+            ]
+            for ff in prms_output_to_rm:
+                pl.Path(ff).unlink()
 
     print(f"run_domains.py: End of domain {ws}\n", flush=True)

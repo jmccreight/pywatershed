@@ -228,8 +228,6 @@ class PrmsParameters(Parameters):
         # build dimension metadata from data
         if len(parameter_dimensions_dict) == 0:
             for key, value in parameter_dict.items():
-                if key == "ndays":
-                    continue
                 # errors in the next line, see prms_dim_names at top
                 param_dim_names = meta.get_params(key)[key]["dims"]
                 parameter_dimensions_dict[key] = {"dims": param_dim_names}

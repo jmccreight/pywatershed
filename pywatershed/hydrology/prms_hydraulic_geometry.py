@@ -47,7 +47,6 @@ class PRMSHydraulicGeometryFull(Process):
             parameters=parameters,
             input_aliases=input_aliases,
         )
-        self.name = "PRMSHydraulicGeometryFull"
 
         self._set_inputs(locals())
         self._set_options(locals())
@@ -202,7 +201,6 @@ class PRMSHydraulicGeometryWidthOnly(PRMSHydraulicGeometryFull):
             input_aliases=input_aliases,
             verbose=verbose,
         )
-        self.name = "PRMSHydraulicGeometryWidthOnly"
         self.depth_alpha = np.full(self.nsegment, 0.27, dtype=np.float64)
         self.depth_m = np.full(self.nsegment, 0.39, dtype=np.float64)
 

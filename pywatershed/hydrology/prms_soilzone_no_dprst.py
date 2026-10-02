@@ -50,7 +50,7 @@ class PRMSSoilzoneNoDprst(PRMSSoilzone):
             control.options["imbalance_behavior"] when available. When
             control.options["imbalance_behavior"] is not avaiable,
             imbalance_behavior is set to "warn".
-        calc_method: one of ["fortran", "numba", "numpy"]. None defaults to
+        calc_method: one of ["numba", "numpy"]. None defaults to
             "numba".
         adjust_parameters: one of ["warn", "error", "no"]. Default is "warn",
             the code edits the parameters and issues a warning. If "error" is
@@ -93,7 +93,7 @@ class PRMSSoilzoneNoDprst(PRMSSoilzone):
         parameters: Parameters,
         hru_impervevap: adaptable,
         hru_intcpevap: adaptable,
-        infil_hru: adaptable,  # in /pywatershed/analysis/budget_soilzone.py
+        infil_hru: adaptable,
         sroff: adaptable,
         sroff_vol: adaptable,
         potet: adaptable,
@@ -109,8 +109,6 @@ class PRMSSoilzoneNoDprst(PRMSSoilzone):
         restart_write: Union[pl.Path, bool] = False,
         restart_write_freq: Literal["y", "m", "d", "f", False] = False,
     ) -> None:
-        self._dprst_flag = False
-
         super().__init__(
             control=control,
             discretization=discretization,
@@ -119,7 +117,7 @@ class PRMSSoilzoneNoDprst(PRMSSoilzone):
             dprst_seep_hru=None,
             hru_impervevap=hru_impervevap,
             hru_intcpevap=hru_intcpevap,
-            infil_hru=infil_hru,  # in /pywatershed/analysis/budget_soilzone.py
+            infil_hru=infil_hru,
             sroff=sroff,
             sroff_vol=sroff_vol,
             potet=potet,
@@ -136,9 +134,6 @@ class PRMSSoilzoneNoDprst(PRMSSoilzone):
             restart_write=restart_write,
             restart_write_freq=restart_write_freq,
         )
-
-        self.name = "PRMSSoilzoneNoDprst"
-        self._set_budget(active_mask=self._active_hru_mask)
 
         return
 
@@ -175,13 +170,12 @@ class PRMSSoilzoneNoDprst(PRMSSoilzone):
     @staticmethod
     def get_inputs() -> tuple:
         return (
-            "hru_impervevap",  # JLM ??
-            "hru_intcpevap",  # JLM ???
+            "hru_impervevap",
+            "hru_intcpevap",
             "infil_hru",
             "sroff",
             "sroff_vol",
             "potet",
-            # hru_ppt => model_precip%hru_ppt, & # JLM ??
             "transp_on",
             "snow_evap",
             "snowcov_area",
@@ -227,7 +221,7 @@ class PRMSSoilzoneNoDprst(PRMSSoilzone):
             "soil_to_ssr": zero,
             "soil_zone_max": nan,  # this is completely later
             "ssr_to_gw": zero,
-            "ssres_flow": zero,  # todo: privatize keep vol public
+            "ssres_flow": zero,
             "ssres_flow_vol": nan,
             "ssres_in": zero,
             "ssres_stor": nan,  # sm_soilzone
@@ -390,19 +384,10 @@ class PRMSSoilzoneNoDprst(PRMSSoilzone):
             swale_actet=self.swale_actet,
             transp_on=self.transp_on,
             unused_potet=self.unused_potet,
-            ncascade_hru=None,
             nactive_hrus=self._nactive_hrus,
             hru_route_order=self.hru_route_order,
-            hru_down=None,
-            hru_down_frac=None,
-            hru_down_fracwt=None,
-            cascade_area=None,
-            upslope_dunnianflow=None,
-            upslope_interflow=None,
-            hru_sz_cascadeflow=None,
-            stream_seg_in=None,
-            cfs_conv=None,
             _compute_cascades=self._compute_cascades,
+            **self._cascade_off_kernel_args(),
         )
 
         self.sroff_vol[:] = self.sroff * self.hru_in_to_cf

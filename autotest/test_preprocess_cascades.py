@@ -5,15 +5,72 @@ from pywatershed.base.control import Control
 from pywatershed.parameters import Parameters, PrmsParameters
 from pywatershed.utils.preprocess_cascades import (
     calc_hru_route_order,
+    check_cascade_param_bounds,
+    check_no_lake_hrus,
     init_cascade_params,
     order_hrus,
 )
 
-# TODO: These tests are only valid for sagehen_5yr and certain configurations
-#       add skips
-
 # None of the answer variables are output by PRMS, so they are culled from
 # the diagnostic messages printed to cascade.msgs for the sagehen_5yr domain.
+
+time_dict = {
+    "start_time": np.datetime64("1979-01-03T00:00:00.00"),
+    "end_time": np.datetime64("1979-01-06T00:00:00.00"),
+    "time_step": np.timedelta64(1, "D"),
+}
+
+
+def _cascade_params(
+    hru_type: list,
+    hru_up_id: list,
+    hru_down_id: list,
+    hru_strmseg_down_id: list,
+    hru_pct_up: list,
+    nsegment: int = 1,
+    cascade_flg: int = 0,
+    circle_switch: int = 1,
+) -> Parameters:
+    """A synthetic domain for init_cascade_params, through stage one.
+
+    hru_area is 100 everywhere so no cascade is dropped as small
+    (cascade_tol = 5) unless its fraction is below 0.05.
+    """
+    nhru = len(hru_type)
+    ncascade = len(hru_up_id)
+    data_vars = {
+        "hru_type": (np.array(hru_type, dtype="int64"), "nhru"),
+        "hru_area": (np.full(nhru, 100.0), "nhru"),
+        "hru_up_id": (np.array(hru_up_id, dtype="int64"), "ncascade"),
+        "hru_down_id": (np.array(hru_down_id, dtype="int64"), "ncascade"),
+        "hru_strmseg_down_id": (
+            np.array(hru_strmseg_down_id, dtype="int64"),
+            "ncascade",
+        ),
+        "hru_pct_up": (np.array(hru_pct_up, dtype="float64"), "ncascade"),
+        "cascade_tol": (np.array([5.0]), "scalar"),
+        "cascade_flg": (np.array([cascade_flg], dtype="int64"), "scalar"),
+        "circle_switch": (np.array([circle_switch], dtype="int64"), "scalar"),
+    }
+    params = Parameters(
+        dims={
+            "nhru": nhru,
+            "nsegment": nsegment,
+            "ncascade": ncascade,
+            "scalar": 1,
+        },
+        # a dimension with no variable on it does not survive the xarray
+        # round trip in calc_hru_route_order, hence the nsegment coordinate
+        coords={"nhru": np.arange(nhru), "nsegment": np.arange(nsegment)},
+        data_vars={kk: vv[0] for kk, vv in data_vars.items()},
+        metadata={
+            "nhru": {"dims": ["nhru"]},
+            "nsegment": {"dims": ["nsegment"]},
+        }
+        | {kk: {"dims": [vv[1]]} for kk, vv in data_vars.items()},
+        validate=True,
+    )
+    return calc_hru_route_order(params)
 
 
 @pytest.fixture(scope="function")
@@ -179,7 +236,82 @@ def test_preprocess(control, parameters):
     assert (flat_hru_down == answer_hru_down_flat).all()
     assert (abs(flat_hru_down_frac - answer_hru_down_frac_flat) < 1e-8).all()
 
+    # PRMS rewrites a land HRU with no cascade to a swale (3). sagehen_5yr
+    # already declares every such HRU a swale, so hru_type comes back
+    # unchanged and "no cascade" and "swale" coincide on active HRUs.
+    hru_type = newer_params.parameters["hru_type"]
+    assert (hru_type == parameters.parameters["hru_type"]).all()
+    active = hru_type != 0
+    assert ((ncascade_hru[active] == 0) == (hru_type[active] == 3)).all()
 
+
+@pytest.mark.domainless
+def test_init_cascade_params_swale_rewrite():
+    # HRU 1 cascades fully to HRU 2; HRU 2 receives but does not cascade;
+    # HRU 3 neither receives nor cascades. PRMS rewrites both 2 and 3
+    # from land (1) to swale (3).
+    params = _cascade_params(
+        hru_type=[1, 1, 1],
+        hru_up_id=[1],
+        hru_down_id=[2],
+        hru_strmseg_down_id=[0],
+        hru_pct_up=[1.0],
+    )
+    control = Control(**time_dict, options={"cascade_flag": 1})
+    new_params = init_cascade_params(control, params, verbosity=0)
+    assert (new_params.parameters["hru_type"] == [1, 3, 3]).all()
+    assert (new_params.parameters["ncascade_hru"] == [1, 0, 0]).all()
+    assert (new_params.parameters["hru_route_order"] == [1, 2, 3]).all()
+    # the input is not rewritten
+    assert (params.parameters["hru_type"] == 1).all()
+
+
+@pytest.mark.domainless
+def test_init_cascade_params_cascade_flag_2():
+    # HRU-to-segment-only cascades (control cascade_flag = 2) are not ported
+    params = _cascade_params(
+        hru_type=[1, 1],
+        hru_up_id=[1],
+        hru_down_id=[2],
+        hru_strmseg_down_id=[0],
+        hru_pct_up=[1.0],
+    )
+    control = Control(**time_dict, options={"cascade_flag": 2})
+    with pytest.raises(ValueError, match="hru_segment not implemented"):
+        init_cascade_params(control, params, verbosity=0)
+
+
+@pytest.mark.domainless
+@pytest.mark.parametrize("cascade_flg", [0, 1])
+def test_init_cascade_params_cascade_flg(cascade_flg):
+    # HRU 1 cascades 0.3 to HRU 2 and 0.7 to HRU 3. With cascade_flg = 1
+    # PRMS keeps only the largest link and rescales it to one; with 0 both
+    # links are kept.
+    params = _cascade_params(
+        hru_type=[1, 1, 1],
+        hru_up_id=[1, 1],
+        hru_down_id=[2, 3],
+        hru_strmseg_down_id=[0, 0],
+        hru_pct_up=[0.3, 0.7],
+        cascade_flg=cascade_flg,
+    )
+    control = Control(**time_dict, options={"cascade_flag": 1})
+    new_params = init_cascade_params(control, params, verbosity=0)
+    ncascade_hru = new_params.parameters["ncascade_hru"]
+    hru_down = new_params.parameters["hru_down"]
+    hru_down_frac = new_params.parameters["hru_down_frac"]
+    if cascade_flg == 1:
+        assert ncascade_hru[0] == 1
+        assert hru_down[0, 0] == 3
+        assert hru_down_frac[0, 0] == 1.0
+        assert (new_params.parameters["hru_type"] == [1, 3, 3]).all()
+    else:
+        assert ncascade_hru[0] == 2
+        assert (hru_down[:, 0] == [2, 3]).all()
+        assert (abs(hru_down_frac[:, 0] - [0.3, 0.7]) < 1e-12).all()
+
+
+@pytest.mark.domainless
 def test_order_hrus_circle():
     # HRU 1 is a swale root; HRU 2 cascades to HRU 3 and HRU 1; HRU 3
     # cascades back to HRU 2.
@@ -200,7 +332,30 @@ def test_order_hrus_circle():
         )
 
 
-def test_calc_hru_route_order_lake():
+@pytest.mark.domainless
+def test_order_hrus_circle_no_switch():
+    # the circle of test_order_hrus_circle with circle_switch = 0: no cycle
+    # search, so the ordering loop stalls and raises instead
+    nhru = 3
+    hru_route_order = np.array([1, 2, 3], dtype="int64")
+    ncascade_hru = np.array([0, 2, 1], dtype="int64")
+    hru_down = np.array([[0, 3, 2], [0, 1, 0]], dtype="int64")
+    hru_type = np.array([3, 1, 1], dtype="int64")
+    with pytest.raises(ValueError, match="possible circles"):
+        order_hrus(
+            nhru,
+            nhru,
+            hru_route_order,
+            ncascade_hru,
+            hru_down,
+            hru_type,
+            circle_switch=0,
+            verbosity=0,
+        )
+
+
+@pytest.mark.domainless
+def test_calc_hru_route_order_lake_nlake_zero():
     # a lake HRU without an nlake dimension gets the PRMS diagnostic
     nhru = 2
     params = Parameters(
@@ -212,3 +367,61 @@ def test_calc_hru_route_order_lake():
     )
     with pytest.raises(ValueError, match="nlake = 0"):
         calc_hru_route_order(params)
+
+
+@pytest.mark.domainless
+@pytest.mark.parametrize("hru_type", [[1, 2], [1, 3]])
+def test_check_no_lake_hrus(hru_type):
+    # the cascade processes raise on a lake HRU (2) and accept a swale (3)
+    hru_type = np.array(hru_type, dtype="int64")
+    if 2 in hru_type:
+        with pytest.raises(NotImplementedError, match=r"indices.*\[1\]"):
+            check_no_lake_hrus(hru_type, "SomeProcess")
+    else:
+        check_no_lake_hrus(hru_type, "SomeProcess")
+
+
+@pytest.mark.domainless
+def test_calc_hru_route_order_bad_hru_type():
+    # an hru_type PRMS would reject at read raises instead of passing
+    # through as active land
+    nhru = 2
+    params = Parameters(
+        dims={"nhru": nhru},
+        coords={"nhru": np.arange(nhru)},
+        data_vars={"hru_type": np.array([1, 5], dtype="int64")},
+        metadata={"nhru": {"dims": ["nhru"]}, "hru_type": {"dims": ["nhru"]}},
+        validate=True,
+    )
+    with pytest.raises(ValueError, match=r"hru_type.*\[1\]"):
+        calc_hru_route_order(params)
+
+
+@pytest.mark.domainless
+@pytest.mark.parametrize(
+    "bad_name, bad_value",
+    [
+        (None, None),
+        ("hru_up_id", 4),
+        ("hru_down_id", -1),
+        ("hru_strmseg_down_id", 3),
+        ("hru_pct_up", 1.5),
+    ],
+)
+def test_check_cascade_param_bounds(bad_name, bad_value):
+    # PRMS bounds: hru ids in [0, nhru], segment ids in [0, nsegment],
+    # fractions in [0, 1]; the second cascade is set out of bounds
+    nhru = 3
+    nsegment = 2
+    good = {
+        "hru_up_id": np.array([1, 2], dtype="int64"),
+        "hru_down_id": np.array([2, 0], dtype="int64"),
+        "hru_strmseg_down_id": np.array([0, 1], dtype="int64"),
+        "hru_pct_up": np.array([1.0, 0.5]),
+    }
+    if bad_name is None:
+        check_cascade_param_bounds(**good, nhru=nhru, nsegment=nsegment)
+        return
+    good[bad_name][1] = bad_value
+    with pytest.raises(ValueError, match=rf"{bad_name}.*\[1\]"):
+        check_cascade_param_bounds(**good, nhru=nhru, nsegment=nsegment)
