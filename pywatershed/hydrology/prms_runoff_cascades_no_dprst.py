@@ -29,6 +29,29 @@ class PRMSRunoffCascadesNoDprst(PRMSRunoff):
     Techniques and Methods, 6, B7.
     <https://pubs.usgs.gov/tm/6b7/pdf/tm6-b7.pdf>`__
 
+    Differences from :class:`PRMSRunoff`:
+
+    * Depression storage is off (``dprst_flag`` is forced False) and lake
+      HRUs (``hru_type`` 2) raise ``NotImplementedError``.
+    * ``nsegment`` is a dimension and the six derived cascade parameters
+      (``hru_route_order``, ``ncascade_hru``, ``hru_down``,
+      ``hru_down_frac``, ``hru_down_fracwt``, ``cascade_area``; see
+      ``preprocess_cascades.cascade_param_names``) are required. When any
+      is missing from ``parameters`` they are derived at construction by
+      :func:`~pywatershed.utils.preprocess_cascades.preprocess_cascade_params`.
+    * HRUs are computed in ``hru_route_order``, upslope before downslope.
+    * New variables: ``upslope_hortonian`` (Hortonian runoff received from
+      upslope HRUs; budget input), ``hortonian_flow`` (reaching the stream
+      network) and ``hru_horton_cascflow`` (leaving to downslope HRUs),
+      both budget outputs, and ``stream_seg_in`` on ``nsegment`` (flow
+      into each segment from cascades, cfs). ``upslope_hortonian`` and
+      ``stream_seg_in`` are zeroed at the start of every timestep and
+      accumulated over HRUs in routing order;
+      :class:`PRMSSoilzoneCascadesNoDprst` takes ``stream_seg_in`` as an
+      input and adds its own cascades to the same array later in the
+      step. :class:`PRMSChannel` does not read ``stream_seg_in``, so flow
+      cascaded to segments is not routed. None of these is restart state.
+
     Args:
         control: a Control object
         discretization: a discretization of class Parameters

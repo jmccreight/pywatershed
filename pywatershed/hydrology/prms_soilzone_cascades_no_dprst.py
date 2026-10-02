@@ -25,6 +25,27 @@ class PRMSSoilzoneCascadesNoDprst(PRMSSoilzone):
     Techniques and Methods, 6, B7.
     <https://pubs.usgs.gov/tm/6b7/pdf/tm6-b7.pdf>`__
 
+    Differences from :class:`PRMSSoilzone`:
+
+    * Depression storage is off and lake HRUs (``hru_type`` 2) raise
+      ``NotImplementedError``.
+    * The six derived cascade parameters (``hru_route_order``,
+      ``ncascade_hru``, ``hru_down``, ``hru_down_frac``,
+      ``hru_down_fracwt``, ``cascade_area``; see
+      ``preprocess_cascades.cascade_param_names``) are required. When any
+      is missing from ``parameters`` they are derived at construction by
+      :func:`~pywatershed.utils.preprocess_cascades.preprocess_cascade_params`.
+    * HRUs are computed in ``hru_route_order``, upslope before downslope.
+    * ``stream_seg_in`` is an input: the array
+      :class:`PRMSRunoffCascadesNoDprst` zeroed and filled earlier in the
+      timestep, to which this class adds interflow and Dunnian flow
+      cascaded to segments. :class:`PRMSChannel` does not read it.
+    * New variables: ``upslope_interflow`` and ``upslope_dunnianflow``
+      (received from upslope HRUs; budget inputs) and
+      ``hru_sz_cascadeflow`` (interflow and Dunnian flow leaving to
+      downslope HRUs; budget output), all re-accumulated from zero every
+      timestep, none restart state.
+
     Args:
         control: a Control object
         discretization: a discretization of class Parameters
