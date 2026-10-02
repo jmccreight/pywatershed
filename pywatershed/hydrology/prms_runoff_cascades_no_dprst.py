@@ -12,8 +12,6 @@ from ..utils.preprocess_cascades import (
 )
 from .prms_runoff import PRMSRunoff
 
-# TODO: using through_rain and not net_rain and net_ppt is a WIP
-
 
 class PRMSRunoffCascadesNoDprst(PRMSRunoff):
     """PRMS surface runoff with cascading flow.
@@ -236,7 +234,7 @@ class PRMSRunoffCascadesNoDprst(PRMSRunoff):
             "contrib_fraction": zero,
             "infil": zero,
             "infil_hru": zero,
-            "sroff": zero,  # todo: privatize and only make vol public
+            "sroff": zero,
             "sroff_vol": zero,
             "hru_sroffp": zero,
             "hru_sroffi": zero,

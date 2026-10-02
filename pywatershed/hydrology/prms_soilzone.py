@@ -127,7 +127,7 @@ class PRMSSoilzone(ConservativeProcess, ActiveHruMixin):
         dprst_seep_hru: adaptable,
         hru_impervevap: adaptable,
         hru_intcpevap: adaptable,
-        infil_hru: adaptable,  # in /pywatershed/analysis/budget_soilzone.py
+        infil_hru: adaptable,
         sroff: adaptable,
         sroff_vol: adaptable,
         potet: adaptable,
@@ -231,15 +231,14 @@ class PRMSSoilzone(ConservativeProcess, ActiveHruMixin):
     @staticmethod
     def get_inputs() -> tuple:
         return (
-            "dprst_evap_hru",  # JLM ?? needs this stuff to calculate evap?
+            "dprst_evap_hru",
             "dprst_seep_hru",
-            "hru_impervevap",  # JLM ??
-            "hru_intcpevap",  # JLM ???
+            "hru_impervevap",
+            "hru_intcpevap",
             "infil_hru",
             "sroff",
             "sroff_vol",
             "potet",
-            # hru_ppt => model_precip%hru_ppt, & # JLM ??
             "transp_on",
             "snow_evap",
             "snowcov_area",
@@ -285,7 +284,7 @@ class PRMSSoilzone(ConservativeProcess, ActiveHruMixin):
             "soil_to_ssr": zero,
             "soil_zone_max": nan,  # this is completely later
             "ssr_to_gw": zero,
-            "ssres_flow": zero,  # todo: privatize keep vol public
+            "ssres_flow": zero,
             "ssres_flow_vol": nan,
             "ssres_in": zero,
             "ssres_stor": nan,  # sm_soilzone

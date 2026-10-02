@@ -21,8 +21,6 @@ ACTIVE = 1
 LAND = HruType.LAND.value
 LAKE = HruType.LAKE.value
 
-# TODO: using through_rain and not net_rain and net_ppt is a WIP
-
 
 class PRMSRunoffNoDprst(PRMSRunoff):
     """PRMS surface runoff without depression storage.
@@ -211,7 +209,7 @@ class PRMSRunoffNoDprst(PRMSRunoff):
             "contrib_fraction": zero,
             "infil": zero,
             "infil_hru": zero,
-            "sroff": zero,  # todo: privatize and only make vol public
+            "sroff": zero,
             "sroff_vol": zero,
             "hru_sroffp": zero,
             "hru_sroffi": zero,

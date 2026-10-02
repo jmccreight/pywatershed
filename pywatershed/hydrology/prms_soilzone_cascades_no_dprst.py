@@ -118,7 +118,7 @@ class PRMSSoilzoneCascadesNoDprst(PRMSSoilzone):
         parameters: Parameters,
         hru_impervevap: adaptable,
         hru_intcpevap: adaptable,
-        infil_hru: adaptable,  # in /pywatershed/analysis/budget_soilzone.py
+        infil_hru: adaptable,
         sroff: adaptable,
         sroff_vol: adaptable,
         potet: adaptable,
@@ -155,7 +155,7 @@ class PRMSSoilzoneCascadesNoDprst(PRMSSoilzone):
             dprst_seep_hru=None,
             hru_impervevap=hru_impervevap,
             hru_intcpevap=hru_intcpevap,
-            infil_hru=infil_hru,  # in /pywatershed/analysis/budget_soilzone.py
+            infil_hru=infil_hru,
             sroff=sroff,
             sroff_vol=sroff_vol,
             potet=potet,
@@ -218,13 +218,12 @@ class PRMSSoilzoneCascadesNoDprst(PRMSSoilzone):
     @staticmethod
     def get_inputs() -> tuple:
         return (
-            "hru_impervevap",  # JLM ??
-            "hru_intcpevap",  # JLM ???
+            "hru_impervevap",
+            "hru_intcpevap",
             "infil_hru",
             "sroff",  # this in inout, a modified input
             "sroff_vol",  # this in inout, a modified input
             "potet",
-            # hru_ppt => model_precip%hru_ppt, & # JLM ??
             "transp_on",
             "snow_evap",
             "snowcov_area",
@@ -283,7 +282,7 @@ class PRMSSoilzoneCascadesNoDprst(PRMSSoilzone):
             "soil_to_ssr": zero,
             "soil_zone_max": nan,  # this is completely later
             "ssr_to_gw": zero,
-            "ssres_flow": zero,  # todo: privatize keep vol public
+            "ssres_flow": zero,
             "ssres_flow_vol": nan,
             "ssres_in": zero,
             "ssres_stor": nan,  # sm_soilzone

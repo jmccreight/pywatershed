@@ -31,8 +31,6 @@ ACTIVE = 1
 LAND = HruType.LAND.value
 LAKE = HruType.LAKE.value
 
-# TODO: using through_rain and not net_rain and net_ppt is a WIP
-
 
 class PRMSRunoff(ConservativeProcess, ActiveHruMixin):
     """PRMS surface runoff.
