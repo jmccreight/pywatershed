@@ -10,8 +10,8 @@ class ActiveHruMixin:
     """Derive the active-HRU mask from hru_type; mask inactive HRUs."""
 
     def _set_active_hrus(self) -> None:
-        """Set _active_hru_mask, _wh_active_hrus, _nactive_hrus and, if the
-        parameters do not supply it, hru_route_order.
+        """Set _active_hru_mask, _wh_active_hrus, _nactive_hrus and, for a
+        class that does not declare it as a parameter, hru_route_order.
 
         All three are derived from the hru_type parameter, via
         :func:`~pywatershed.utils.preprocess_gridded.get_active_hru_params`,
@@ -64,9 +64,11 @@ class ActiveHruMixin:
         for kk in ("active_hru_mask", "wh_active_hrus", "nactive_hrus"):
             self[f"_{kk}"] = result[kk]
 
-        if route_order is None:
+        if "hru_route_order" not in self.parameters:
             # The kernels loop over hru_route_order (1-based, as in PRMS);
-            # without cascades that is the active HRUs in index order.
+            # a class that does not declare it (no cascades) gets the
+            # active HRUs in index order. The cascade classes declare it
+            # and _set_params has already set it from the parameters.
             self.hru_route_order = result["wh_active_hrus"] + 1
 
         return

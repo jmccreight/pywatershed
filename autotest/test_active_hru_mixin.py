@@ -225,6 +225,38 @@ def test_set_active_hrus_route_order_disagrees_raises():
 
 
 @pytest.mark.domainless
+def test_set_active_hrus_derives_route_order():
+    """A class that does not declare hru_route_order gets it derived:
+    1-based, the active HRUs in index order.
+
+    The kernels loop over it without bounds checks, so the non-cascade
+    processes must get it from the mixin (it used to be set in
+    PRMSRunoff.basin_init and PRMSSoilzone._initialize_soilzone_data).
+    """
+    hru_type = np.array([1, 1, INACTIVE, 1, INACTIVE], dtype="int32")
+    proc = make_process(hru_type)
+    proc._set_active_hrus()
+    assert (proc.hru_route_order == np.array([1, 2, 4])).all()
+
+
+@pytest.mark.domainless
+def test_set_active_hrus_derives_route_order_despite_supplied():
+    """A supplied hru_route_order the class does not declare is checked
+    but not adopted; the derived order is set regardless.
+
+    make_process takes Process._set_params' merge path, which keeps the
+    undeclared key, so without this the stub would end up with no
+    hru_route_order at all (the AttributeError found in the f3959966
+    review).
+    """
+    hru_type = np.array([1, 1, INACTIVE, 1, INACTIVE], dtype="int32")
+    supplied = {"hru_route_order": np.array([4, 1, 2, 0, 0], dtype="int32")}
+    proc = make_process(hru_type, supplied)
+    proc._set_active_hrus()
+    assert (proc.hru_route_order == np.array([1, 2, 4])).all()
+
+
+@pytest.mark.domainless
 def test_missing_required_param_still_raises():
     """The mixin does not loosen Process._set_params' required check.
 
