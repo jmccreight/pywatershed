@@ -510,11 +510,7 @@ def init_cascade_params(
                 f"hru_down_frac of HRU {i} sums to {frac_sum}, not 1"
             )
 
-    (
-        iorder,
-        hru_type,
-        hru_route_order,
-    ) = order_hrus(
+    hru_type, hru_route_order = order_hrus(
         nhru,
         active_hrus,
         hru_route_order,
@@ -573,9 +569,7 @@ def order_hrus(
       verbosity: as for :func:`init_cascade_params`.
 
     Returns:
-      tuple: (iorder, hru_type, hru_route_order), the number of HRUs placed
-        in the order (equal to active_hrus on success) and the two arrays
-        modified in place.
+      tuple: (hru_type, hru_route_order), the two arrays modified in place.
 
     Raises:
       ValueError: on a circular cascade, or when the ordering cannot place
@@ -755,4 +749,4 @@ def order_hrus(
         )
         raise ValueError(msg)
 
-    return iorder, hru_type, hru_route_order
+    return hru_type, hru_route_order

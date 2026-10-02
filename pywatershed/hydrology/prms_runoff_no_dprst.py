@@ -123,8 +123,6 @@ class PRMSRunoffNoDprst(PRMSRunoff):
         restart_write: Union[pl.Path, bool] = False,
         restart_write_freq: Literal["y", "m", "d", "f", False] = False,
     ) -> None:
-        self._dprst_flag = False
-
         super().__init__(
             control=control,
             discretization=discretization,
@@ -258,10 +256,11 @@ class PRMSRunoffNoDprst(PRMSRunoff):
         zero_array = zero * self.infil
         # Placeholders for the kernel's cascade arguments. The kernel treats
         # cascades as off when ncascade_hru is all NaN, so these values are
-        # never read. numba types an array by its number of dimensions and
-        # dtype, not its shape, so a 2x2 array stands in for the 2-d
-        # (cascade, hru) arrays hru_down, hru_down_frac, hru_down_fracwt and
-        # cascade_area.
+        # never read. numba compiles a separate specialization per argument
+        # signature (number of dimensions and dtype), so the stand-ins need
+        # only be 2-d like hru_down, hru_down_frac, hru_down_fracwt and
+        # cascade_area; their 2x2 shape and the int32 of the int stand-in
+        # (hru_down is int64) do not matter.
         zero_array_2d_int = np.zeros((2, 2), dtype="int32")
         nan_array = nan * self.infil
         nan_array_2d = np.zeros((2, 2)) * nan

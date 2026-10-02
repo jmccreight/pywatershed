@@ -144,7 +144,6 @@ class PRMSRunoffCascadesNoDprst(PRMSRunoff):
         restart_write_freq: Literal["y", "m", "d", "f", False] = False,
     ) -> None:
         self.name = "PRMSRunoffCascadesNoDprst"
-        self._dprst_flag = False
 
         # The derived cascade parameters are not in a PRMS parameter file,
         # so derive them here when any is missing rather than require them.
