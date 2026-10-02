@@ -6,9 +6,9 @@ from ..base.control import Control
 from ..constants import cubic_ft_per_acre_in, nan, zero
 from ..parameters import Parameters
 from ..utils.preprocess_cascades import (
+    _ensure_cascade_params,
     cascade_param_names,
     check_no_lake_hrus,
-    ensure_cascade_params,
 )
 from .prms_soilzone import PRMSSoilzone
 
@@ -135,7 +135,7 @@ class PRMSSoilzoneCascadesNoDprst(PRMSSoilzone):
         restart_write: Union[pl.Path, bool] = False,
         restart_write_freq: Literal["y", "m", "d", "f", False] = False,
     ) -> None:
-        parameters = ensure_cascade_params(control, parameters, verbose)
+        parameters = _ensure_cascade_params(control, parameters, verbose)
 
         super().__init__(
             control=control,

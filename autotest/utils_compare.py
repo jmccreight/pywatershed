@@ -91,7 +91,9 @@ def assert_allclose(
     return
 
 
-def active_hru_subset(process, var: str, *arrays) -> tuple:
+def active_hru_subset(
+    process: pws.base.Process, var: str, *arrays: np.ndarray
+) -> tuple:
     """Subset arrays to the process's active HRUs if var is on nhru.
 
     pywatershed masks inactive HRUs to nan while PRMS generally reports

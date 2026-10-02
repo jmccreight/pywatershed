@@ -35,6 +35,8 @@ with a control) lets the result be inspected, saved, and shared by
 both processes instead of derived twice.
 """
 
+from typing import Union
+
 import networkx as nx
 import numpy as np
 import xarray as xr
@@ -56,8 +58,10 @@ cascade_param_names = (
 )
 
 
-def ensure_cascade_params(
-    control: Control, parameters: Parameters, verbose: bool = None
+def _ensure_cascade_params(
+    control: Control,
+    parameters: Parameters,
+    verbose: Union[bool, None] = None,
 ) -> Parameters:
     """Return parameters with the derived cascade parameters present.
 

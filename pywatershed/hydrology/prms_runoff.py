@@ -113,6 +113,10 @@ class PRMSRunoff(ConservativeProcess, ActiveHruMixin):
     # Cascades make the HRU loop order-dependent. Subclasses that route
     # cascades set this False so numba never parallelizes the kernel.
     _nb_parallel_ok = True
+    # _cascade_off_kernel_args() builds its arrays on first use; a class
+    # attribute so the method does not depend on _init_calc_method, which
+    # subclasses override.
+    _cascade_off_args = None
 
     def __init__(
         self,
@@ -523,8 +527,6 @@ class PRMSRunoff(ConservativeProcess, ActiveHruMixin):
 
         else:
             self._calculate_runoff = self._calculate_numpy
-
-        self._cascade_off_args = None
 
         return
 
