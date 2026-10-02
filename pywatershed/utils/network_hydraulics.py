@@ -411,6 +411,26 @@ def _check_run_values(name: str, da: xr.DataArray) -> None:
         )
 
 
+def _check_static_params(params: dict) -> None:
+    """Raise unless the per-segment parameters written to the file have
+    usable values (consumers scale distances by ``length``)."""
+    for name in ("seg_length", "mann_n", "seg_width", "seg_depth"):
+        values = np.asarray(params[name], dtype=float)
+        bad = np.where(~(np.isfinite(values) & (values > 0.0)))[0]
+        if bad.size:
+            raise ValueError(
+                f"{name} must be positive and finite; bad at segment "
+                f"indices {bad.tolist()}"
+            )
+    slope = np.asarray(params["seg_slope"], dtype=float)
+    bad = np.where(~(np.isfinite(slope) & (slope >= 0.0)))[0]
+    if bad.size:
+        raise ValueError(
+            "seg_slope must be non-negative and finite; bad at segment "
+            f"indices {bad.tolist()}"
+        )
+
+
 def _check_time_window(name: str, available, start_time, end_time) -> None:
     """Raise unless ``start_time``/``end_time`` select a non-empty part of
     ``available`` without reaching outside it (no silent clipping)."""
@@ -456,10 +476,11 @@ def export_network_hydraulics(
     Args:
         parameters: the run's parameters (needs ``nhm_seg``,
             ``tosegment``, ``seg_length``, ``seg_slope``, ``mann_n``,
-            ``seg_width``, ``seg_depth``, ``hru_segment``,
-            ``hru_elev``). ``tosegment_nhm`` is used for ``to_id`` when
-            present; otherwise ``to_id`` is derived from ``tosegment``
-            and ``nhm_seg``.
+            ``seg_width``, ``seg_depth``, ``hru_segment``, ``hru_elev``
+            and ``elev_units``). ``tosegment_nhm`` is used for ``to_id``
+            when present and must agree with ``tosegment`` and
+            ``nhm_seg`` away from outlets; otherwise ``to_id`` is derived
+            from ``tosegment`` and ``nhm_seg``.
         run_dir: pywatershed NetCDF output directory containing
             ``seg_outflow``, ``seg_inflow``, ``seg_flow_width``,
             ``seg_flow_depth``, ``seg_flow_velocity`` and ``seg_res_time``
@@ -467,9 +488,8 @@ def export_network_hydraulics(
         out_file: path of the NetCDF file to write.
         segment_shp_file: optional shapefile of segment LineStrings; adds
             the ``vertex`` block and reach midpoints. Must use a
-            projected CRS in meters: a geographic CRS or a projected
-            CRS not in meters raises ``ValueError``; a missing CRS
-            warns and coordinates are labeled with units "unknown".
+            projected CRS in meters: a missing CRS, a geographic CRS or
+            a projected CRS not in meters raises ``ValueError``.
             Each line is oriented so its downstream end is last. For a
             reach with a downstream neighbor, the line is reversed
             when its first vertex is nearer than its last vertex to
@@ -501,7 +521,12 @@ def export_network_hydraulics(
         FileNotFoundError: a required output file is missing from
             ``run_dir``; all missing names are listed.
         ValueError: a required parameter is missing; ``tosegment`` is
-            out of range or contains a cycle; a run file has no
+            out of range or contains a cycle; ``tosegment_nhm`` disagrees
+            with ``tosegment`` and ``nhm_seg``; ``seg_length``,
+            ``mann_n``, ``seg_width`` or ``seg_depth`` is not positive
+            and finite, or ``seg_slope`` is negative or not finite;
+            ``elev_units`` is missing or not 0 or 1; an outlet has no HRU
+            draining to it or to anything upstream; a run file has no
             ``nhm_seg`` coordinate or its order does not match the
             parameters; run files do not share one time axis; a run
             file has no ``units`` attribute or it differs from the
@@ -511,9 +536,9 @@ def export_network_hydraulics(
             run's time span, selects no time steps, or ``start_time`` is
             after ``end_time``; the shapefile
             identifiers do not match ``nhm_seg``; a shapefile geometry
-            is not a ``LineString``; the shapefile CRS is geographic or
-            not in meters; or more than half of the reaches with a
-            downstream reach fail ``connect_tol``.
+            is not a ``LineString``; the shapefile has no CRS, or its
+            CRS is geographic or not in meters; or more than half of the
+            reaches with a downstream reach fail ``connect_tol``.
     """
     params = parameters.parameters
     missing_params = [nm for nm in _REQUIRED_PARAMS if nm not in params]
@@ -522,17 +547,30 @@ def export_network_hydraulics(
             "export_network_hydraulics requires parameters "
             f"{list(_REQUIRED_PARAMS)}; missing {missing_params}"
         )
+    _check_static_params(params)
     reach_id = np.asarray(params["nhm_seg"], dtype=np.int64)
     to_index = _validate_tosegment(params["tosegment"]).astype(np.int32)
     is_outlet = (to_index < 0).astype(np.int8)
     elevation_mid, _ = calculate_seg_mid_elevations(parameters)
+    interior = to_index >= 0
+    to_id_derived = reach_id[np.maximum(to_index, 0)]
     if "tosegment_nhm" in params:
         to_id = np.asarray(params["tosegment_nhm"], dtype=np.int64)
         to_id_source = "tosegment_nhm"
+        # one file must not carry two topologies: to_id (from
+        # tosegment_nhm) and to_index (from tosegment) must agree
+        bad = np.where(interior & (to_id != to_id_derived))[0]
+        if bad.size:
+            raise ValueError(
+                "tosegment_nhm disagrees with tosegment and nhm_seg at "
+                f"segment indices {bad.tolist()}: tosegment_nhm gives "
+                f"{to_id[bad].tolist()}, tosegment gives "
+                f"{to_id_derived[bad].tolist()}"
+            )
     else:
-        to_id = reach_id[np.maximum(to_index, 0)]
+        to_id = to_id_derived
         to_id_source = "derived from tosegment and nhm_seg"
-    to_id = np.where(to_index >= 0, to_id, 0)
+    to_id = np.where(interior, to_id, 0)
 
     run_vars = _read_run_vars(run_dir, reach_id, start_time, end_time)
     time = run_vars["seg_outflow"]["time"].values
@@ -713,28 +751,26 @@ def _polyline_block(
             "parameters' nhm_seg identifiers"
         )
     if gdf.crs is None:
-        crs_units = "unknown"
-        crs_wkt = ""
-        warn(
-            "Segment shapefile has no CRS; coordinates are assumed to be "
-            "in meters"
+        raise ValueError(
+            f"Segment shapefile {segment_shp_file} has no CRS (missing or "
+            "empty .prj); the segment shapefile must use a projected CRS "
+            "in meters, so set its CRS before exporting"
         )
-    elif gdf.crs.is_geographic:
+    if gdf.crs.is_geographic:
         raise ValueError(
             f"Segment shapefile CRS {gdf.crs.name!r} is geographic; the "
             "segment shapefile must use a projected CRS in meters "
             "(for example, reproject to EPSG:5070)"
         )
-    else:
-        unit_name = gdf.crs.axis_info[0].unit_name
-        if unit_name not in ("metre", "meter", "m"):
-            raise ValueError(
-                f"Segment shapefile CRS {gdf.crs.name!r} uses units "
-                f"{unit_name!r}; the segment shapefile must use a "
-                "projected CRS in meters"
-            )
-        crs_units = "m"
-        crs_wkt = gdf.crs.to_wkt()
+    unit_name = gdf.crs.axis_info[0].unit_name
+    if unit_name not in ("metre", "meter", "m"):
+        raise ValueError(
+            f"Segment shapefile CRS {gdf.crs.name!r} uses units "
+            f"{unit_name!r}; the segment shapefile must use a "
+            "projected CRS in meters"
+        )
+    crs_units = "m"
+    crs_wkt = gdf.crs.to_wkt()
 
     order = {rid: ii for ii, rid in enumerate(shp_ids)}
     geoms = [gdf.geometry.iloc[order[rid]] for rid in reach_id]

@@ -636,31 +636,28 @@ def test_export_polyline_non_meter_crs_raises(
 
 
 @pytest.mark.domainless
-def test_export_polyline_missing_crs_warns(
+def test_export_polyline_missing_crs_raises(
     synthetic_params, synthetic_run_dir, synthetic_lines, tmp_path
 ):
+    """Without a CRS, degree coordinates would pass connect_tol (1 degree
+    is ~100 km) and be written as if meters."""
     from pywatershed.utils.network_hydraulics import (
         export_network_hydraulics,
     )
 
     shp = tmp_path / "segs.shp"
     # pyogrio itself warns about writing without a CRS; suppress that
-    # unrelated warning so it doesn't pollute the assertion below
+    # unrelated warning
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", UserWarning)
         _write_segments_shp(shp, synthetic_lines, [101, 102, 103], crs=None)
-    with pytest.warns(UserWarning, match="no CRS"):
-        out = export_network_hydraulics(
+    with pytest.raises(ValueError, match="has no CRS"):
+        export_network_hydraulics(
             synthetic_params,
             synthetic_run_dir,
             tmp_path / "net.nc",
             segment_shp_file=shp,
         )
-    ds = xr.open_dataset(out)
-    assert ds["vertex_x"].attrs["units"] == "unknown"
-    assert ds["vertex_dist"].attrs["units"] == "unknown"
-    assert ds.attrs["crs_wkt"] == ""
-    ds.close()
 
 
 @pytest.mark.domainless
@@ -753,6 +750,56 @@ def test_export_to_id_masked_at_outlets(
     )
     np.testing.assert_array_equal(ds["to_id"], np.array([103, 103, 0]))
     ds.close()
+
+
+@pytest.mark.domainless
+def test_export_to_id_disagreeing_with_tosegment_raises(
+    synthetic_params, synthetic_run_dir, tmp_path
+):
+    """A stale tosegment_nhm (e.g. after subsetting) would put two
+    topologies in one file: to_id vs to_index."""
+    from pywatershed.utils.network_hydraulics import (
+        export_network_hydraulics,
+    )
+
+    dd = synthetic_params.to_dd()
+    # tosegment says reach 1 -> reach 2 (103); tosegment_nhm says 102
+    dd.data_vars["tosegment_nhm"] = np.array([103, 102, 0], dtype=np.int64)
+    params = Parameters(**dd.data)
+    with pytest.raises(ValueError, match=r"indices \[1\].*gives \[102\]"):
+        export_network_hydraulics(
+            params, synthetic_run_dir, tmp_path / "net.nc"
+        )
+
+
+@pytest.mark.domainless
+@pytest.mark.parametrize(
+    "name,value,match",
+    [
+        ("seg_length", 0.0, "seg_length must be positive"),
+        ("seg_width", np.nan, "seg_width must be positive"),
+        ("mann_n", -0.03, "mann_n must be positive"),
+        ("seg_depth", 0.0, "seg_depth must be positive"),
+        ("seg_slope", -0.001, "seg_slope must be non-negative"),
+    ],
+)
+def test_export_bad_static_parameter_raises(
+    synthetic_params, synthetic_run_dir, tmp_path, name, value, match
+):
+    """Static parameters are written verbatim and consumers scale by
+    length, so bad values must be rejected, naming the parameter."""
+    from pywatershed.utils.network_hydraulics import (
+        export_network_hydraulics,
+    )
+
+    dd = synthetic_params.to_dd()
+    values = dd.data_vars[name].astype(float).copy()
+    values[1] = value
+    dd.data_vars[name] = values
+    with pytest.raises(ValueError, match=f"{match}.*\\[1\\]"):
+        export_network_hydraulics(
+            Parameters(**dd.data), synthetic_run_dir, tmp_path / "net.nc"
+        )
 
 
 @pytest.mark.domainless

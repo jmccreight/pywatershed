@@ -37,7 +37,7 @@ New Features
   velocity and residence time in SI units, consumed by the particle
   tracker in the ``fluvial-particle`` package. When a segment shapefile
   is supplied, it must use a projected CRS in meters, raising if it does
-  not and warning if the shapefile carries no CRS at all. Helpers
+  not or carries no CRS at all. Helpers
   :func:`~pywatershed.utils.shear_velocity` and
   :func:`~pywatershed.utils.calculate_seg_mid_elevations` (the latter
   refactored out of :class:`MmrToMf6Dfw`, behavior unchanged; its debug
