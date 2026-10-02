@@ -346,40 +346,43 @@ def _read_run_vars(
     reference_time = None
     for nm in names:
         path = run_dir / f"{nm}.nc"
-        with xr.open_dataarray(path) as opened:
-            da = opened.load()
-        if "nhm_seg" not in da.coords:
-            raise ValueError(
-                f"{nm}.nc has no nhm_seg coordinate; cannot verify reach order"
-            )
-        if not np.array_equal(da["nhm_seg"].values, reach_id):
-            raise ValueError(
-                f"{nm}.nc coordinate nhm_seg does not match the "
-                "parameters' nhm_seg order"
-            )
-        available = da["time"].values
-        if reference_time is None:
-            reference_time = available
-        elif not np.array_equal(available, reference_time):
-            raise ValueError(
-                f"{nm}.nc time coordinate does not match seg_outflow.nc; "
-                "run outputs must share one time axis"
-            )
-        expected_units = meta.get_vars(nm)[nm]["units"]
-        units = da.attrs.get("units")
-        if units is None:
-            warn(
-                f"{nm}.nc has no units attribute; assuming '{expected_units}'"
-            )
-        elif units != expected_units:
-            raise ValueError(
-                f"{nm}.nc units '{units}' differ from expected "
-                f"'{expected_units}'"
-            )
-        if start_time is not None or end_time is not None:
-            _check_time_window(nm, available, start_time, end_time)
-            da = da.sel(time=slice(start_time, end_time))
-        result[nm] = da
+        # validate coordinates and attributes lazily, load only the
+        # selected time window
+        with xr.open_dataarray(path) as da:
+            if "nhm_seg" not in da.coords:
+                raise ValueError(
+                    f"{nm}.nc has no nhm_seg coordinate; cannot verify "
+                    "reach order"
+                )
+            if not np.array_equal(da["nhm_seg"].values, reach_id):
+                raise ValueError(
+                    f"{nm}.nc coordinate nhm_seg does not match the "
+                    "parameters' nhm_seg order"
+                )
+            available = da["time"].values
+            if reference_time is None:
+                reference_time = available
+            elif not np.array_equal(available, reference_time):
+                raise ValueError(
+                    f"{nm}.nc time coordinate does not match "
+                    "seg_outflow.nc; run outputs must share one time axis"
+                )
+            expected_units = meta.get_vars(nm)[nm]["units"]
+            units = da.attrs.get("units")
+            if units is None:
+                warn(
+                    f"{nm}.nc has no units attribute; assuming "
+                    f"'{expected_units}'"
+                )
+            elif units != expected_units:
+                raise ValueError(
+                    f"{nm}.nc units '{units}' differ from expected "
+                    f"'{expected_units}'"
+                )
+            if start_time is not None or end_time is not None:
+                _check_time_window(nm, available, start_time, end_time)
+                da = da.sel(time=slice(start_time, end_time))
+            result[nm] = da.load()
     return result
 
 
