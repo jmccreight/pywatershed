@@ -42,7 +42,10 @@ New Features
   :func:`~pywatershed.utils.calculate_seg_mid_elevations` (the latter
   refactored out of :class:`MmrToMf6Dfw`, behavior unchanged; its debug
   ``check=True`` path, previously non-functional, now verifies the interior
-  and outlet elevation invariants and raises on failure) are public. The
+  and outlet elevation invariants and raises on failure) are public. Both
+  now read the ``elev_units`` parameter, converting ``hru_elev`` from feet
+  when it is 0 and raising when it is absent (previously ``hru_elev`` was
+  assumed to be in meters). The
   exporter validates its inputs up front: required parameters, ``tosegment``
   range and cycles, each run file's ``nhm_seg`` order, shared time axis and
   ``units`` against the pywatershed metadata, and the requested time

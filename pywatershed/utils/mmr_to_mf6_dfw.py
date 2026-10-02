@@ -8,7 +8,10 @@ from pywatershed import Control, meta
 
 from ..constants import fileish, zero
 from ..parameters import PrmsParameters
-from .network_hydraulics import calculate_seg_mid_elevations
+from .network_hydraulics import (
+    _hru_elev_meters,
+    calculate_seg_mid_elevations,
+)
 from .optional_import import import_optional_dependency
 
 flopy = import_optional_dependency("flopy", errors="ignore")
@@ -76,8 +79,8 @@ class MmrToMf6Dfw:
         segments.
     * hru_elev:
         Used to calculate seg_mid_elevation if not present in parameters. See
-        its description below. Units are in meters (though not documented in
-        the metadata as such, just "elev_units")
+        its description below. Converted to meters when the "elev_units"
+        parameter is 0 (feet); "elev_units" must be present.
     * seg_width:
         This is (apparently) the NHD bank-full width present in the PRMS
         parameter files but unused in PRMS. Units are in meters.
@@ -814,7 +817,7 @@ class MmrToMf6Dfw:
             seg_dy = params["seg_slope"] * params["seg_length"]
             tosegment0 = params["tosegment"] - 1
             hru_seg0 = params["hru_segment"] - 1
-            hru_elev = params["hru_elev"]
+            hru_elev = _hru_elev_meters(self.parameters)
             for ss in range(len(seg_dy)):
                 down = tosegment0[ss]
                 if down == -1:

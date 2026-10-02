@@ -16,6 +16,7 @@ import xarray as xr
 
 from ..base import meta
 from ..base.parameters import Parameters
+from ..constants import meters_per_foot
 from ..hydrology.prms_hydraulic_geometry import CFS_TO_CMS
 from ..version import __version__
 
@@ -77,6 +78,37 @@ def _validate_tosegment(tosegment: np.ndarray) -> np.ndarray:
     return values.astype(np.int64) - 1
 
 
+def _hru_elev_meters(parameters: Parameters) -> np.ndarray:
+    """``hru_elev`` in meters, converted from feet when ``elev_units`` is 0.
+
+    Args:
+        parameters: a Parameters object with ``hru_elev`` and the PRMS
+            ``elev_units`` flag (0 = feet, 1 = meters).
+
+    Returns:
+        A new array of HRU elevations in meters.
+
+    Raises:
+        ValueError: ``elev_units`` is missing or not 0 or 1.
+    """
+    params = parameters.parameters
+    if "elev_units" not in params:
+        raise ValueError(
+            "elev_units is required to interpret hru_elev "
+            "(0 = feet, 1 = meters)"
+        )
+    elev_units = np.asarray(params["elev_units"]).ravel()
+    if elev_units.size != 1 or elev_units[0] not in (0, 1):
+        raise ValueError(
+            f"elev_units must be the scalar 0 (feet) or 1 (meters); got "
+            f"{params['elev_units']}"
+        )
+    hru_elev = np.asarray(params["hru_elev"], dtype=float)
+    if elev_units[0] == 0:
+        return hru_elev * meters_per_foot
+    return hru_elev.copy()
+
+
 def calculate_seg_mid_elevations(
     parameters: Parameters,
 ) -> tuple[np.ndarray, dict[int, float]]:
@@ -86,7 +118,8 @@ def calculate_seg_mid_elevations(
     that drain to it; every segment's upstream end is its downstream
     end plus ``seg_slope * seg_length``; the midpoint is the mean of the
     two. Requires ``tosegment``, ``seg_slope``, ``seg_length``,
-    ``hru_segment`` and ``hru_elev``.
+    ``hru_segment``, ``hru_elev`` and ``elev_units``; ``hru_elev`` is
+    converted to meters when ``elev_units`` is 0 (feet).
 
     Args:
         parameters: a Parameters object with the parameters above.
@@ -97,7 +130,8 @@ def calculate_seg_mid_elevations(
         zero-based segment index to its midpoint elevation (m).
 
     Raises:
-        ValueError: ``tosegment`` is out of range or contains a cycle.
+        ValueError: ``tosegment`` is out of range or contains a cycle, or
+            ``elev_units`` is missing or not 0 or 1.
     """
     params = parameters.parameters
     seg_dy = params["seg_slope"] * params["seg_length"]
@@ -106,7 +140,7 @@ def calculate_seg_mid_elevations(
     tosegment0 = _validate_tosegment(params["tosegment"])
     is_outflow = -1
     hru_seg = params["hru_segment"] - 1
-    hru_elev = params["hru_elev"]
+    hru_elev = _hru_elev_meters(parameters)
     outlet_mid = {}
 
     for ss in range(nseg):
@@ -147,6 +181,7 @@ _REQUIRED_PARAMS = (
     "seg_depth",
     "hru_segment",
     "hru_elev",
+    "elev_units",
 )
 """Parameters the exporter requires."""
 

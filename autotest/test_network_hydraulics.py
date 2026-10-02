@@ -22,7 +22,7 @@ def _meta(dims: tuple, units: str) -> dict:
 
 @pytest.fixture
 def synthetic_params() -> Parameters:
-    dims = {"nsegment": NSEG, "nhru": NHRU}
+    dims = {"nsegment": NSEG, "nhru": NHRU, "scalar": 1}
     coords = {
         "nhm_seg": np.array([101, 102, 103], dtype=np.int64),
         "nhm_id": np.array([1, 2, 3], dtype=np.int64),
@@ -37,6 +37,7 @@ def synthetic_params() -> Parameters:
         "seg_depth": np.array([0.5, 0.8, 1.2]),
         "hru_segment": np.array([1, 2, 3], dtype=np.int64),
         "hru_elev": np.array([120.0, 110.0, 100.0]),
+        "elev_units": np.array([1], dtype=np.int64),
     }
     metadata = {
         "global": {},
@@ -50,7 +51,8 @@ def synthetic_params() -> Parameters:
         "seg_width": _meta(("nsegment",), "meter"),
         "seg_depth": _meta(("nsegment",), "meter"),
         "hru_segment": _meta(("nhru",), "none"),
-        "hru_elev": _meta(("nhru",), "meters"),
+        "hru_elev": _meta(("nhru",), "elev_units"),
+        "elev_units": _meta(("scalar",), "none"),
     }
     return Parameters(
         dims=dims, coords=coords, data_vars=data_vars, metadata=metadata
@@ -79,6 +81,54 @@ def test_calculate_seg_mid_elevations(synthetic_params):
     mid, outlet_mid = calculate_seg_mid_elevations(synthetic_params)
     np.testing.assert_allclose(mid, np.array([108.0, 108.0, 101.5]))
     assert outlet_mid == {2: 101.5}
+
+
+def _with_elev_units(params: Parameters, value) -> Parameters:
+    """Copy of ``params`` with ``elev_units`` replaced (or removed if None)."""
+    dd = params.to_dd()
+    if value is None:
+        del dd.data_vars["elev_units"]
+        del dd.metadata["elev_units"]
+    else:
+        dd.data_vars["elev_units"] = np.array([value], dtype=np.int64)
+    return Parameters(**dd.data)
+
+
+@pytest.mark.domainless
+def test_calculate_seg_mid_elevations_feet(synthetic_params):
+    """elev_units=0: hru_elev is feet, converted; seg_dy stays in meters."""
+    from pywatershed.constants import meters_per_foot
+    from pywatershed.utils.network_hydraulics import (
+        calculate_seg_mid_elevations,
+    )
+
+    mid, outlet_mid = calculate_seg_mid_elevations(
+        _with_elev_units(synthetic_params, 0)
+    )
+    # outlet HRU elevation 100 ft = 30.48 m; rises are 10, 10, 3 m
+    outlet_m = 100.0 * meters_per_foot
+    expected = np.array(
+        [outlet_m + 3.0 + 5.0, outlet_m + 3.0 + 5.0, outlet_m + 1.5]
+    )
+    np.testing.assert_allclose(mid, expected)
+    assert list(outlet_mid) == [2]
+    np.testing.assert_allclose(outlet_mid[2], outlet_m + 1.5)
+
+
+@pytest.mark.domainless
+@pytest.mark.parametrize(
+    "value,match",
+    [(None, "elev_units is required"), (2, "must be the scalar 0")],
+)
+def test_calculate_seg_mid_elevations_elev_units_raises(
+    synthetic_params, value, match
+):
+    from pywatershed.utils.network_hydraulics import (
+        calculate_seg_mid_elevations,
+    )
+
+    with pytest.raises(ValueError, match=match):
+        calculate_seg_mid_elevations(_with_elev_units(synthetic_params, value))
 
 
 @pytest.mark.domainless
