@@ -38,14 +38,17 @@ def shear_velocity(depth: np.ndarray, slope: np.ndarray) -> np.ndarray:
         Shear velocity (m/s), same shape as the broadcast of the inputs.
 
     Raises:
-        ValueError: any slope is negative or not finite.
+        ValueError: any depth or slope is negative or not finite.
     """
+    depth = np.asarray(depth, dtype=float)
     slope = np.asarray(slope, dtype=float)
-    n_bad = int(np.sum(~(np.isfinite(slope) & (slope >= 0.0))))
-    if n_bad:
-        raise ValueError(
-            f"slope must be non-negative and finite; {n_bad} value(s) are not"
-        )
+    for name, values in (("depth", depth), ("slope", slope)):
+        n_bad = int(np.sum(~(np.isfinite(values) & (values >= 0.0))))
+        if n_bad:
+            raise ValueError(
+                f"{name} must be non-negative and finite; {n_bad} value(s) "
+                "are not"
+            )
     slope_floored = np.maximum(slope, SLOPE_FLOOR)
     return np.sqrt(G * np.asarray(depth, dtype=float) * slope_floored)
 
@@ -370,11 +373,12 @@ def _read_run_vars(
             expected_units = meta.get_vars(nm)[nm]["units"]
             units = da.attrs.get("units")
             if units is None:
-                warn(
-                    f"{nm}.nc has no units attribute; assuming "
-                    f"'{expected_units}'"
+                raise ValueError(
+                    f"{nm}.nc has no units attribute; expected "
+                    f"'{expected_units}' (pywatershed output always carries "
+                    "units, so this file was written or edited elsewhere)"
                 )
-            elif units != expected_units:
+            if units != expected_units:
                 raise ValueError(
                     f"{nm}.nc units '{units}' differ from expected "
                     f"'{expected_units}'"
@@ -383,7 +387,28 @@ def _read_run_vars(
                 _check_time_window(nm, available, start_time, end_time)
                 da = da.sel(time=slice(start_time, end_time))
             result[nm] = da.load()
+        _check_run_values(nm, result[nm])
     return result
+
+
+def _check_run_values(name: str, da: xr.DataArray) -> None:
+    """Raise on non-finite values, or negative ones for the flow and
+    geometry variables (water temperature may be negative)."""
+    values = np.asarray(da.values, dtype=float)
+    bad = ~np.isfinite(values)
+    what = "non-finite"
+    if name in REQUIRED_RUN_VARS:
+        bad |= values < 0.0
+        what = "non-finite or negative"
+    if bad.any():
+        first = np.argwhere(bad)[0]
+        where = ", ".join(
+            f"{dim}={da[dim].values[idx]}" for dim, idx in zip(da.dims, first)
+        )
+        raise ValueError(
+            f"{name}.nc has {int(bad.sum())} {what} value(s), first at "
+            f"{where}; a run that stopped early leaves fill values"
+        )
 
 
 def _check_time_window(name: str, available, start_time, end_time) -> None:
@@ -479,8 +504,10 @@ def export_network_hydraulics(
             out of range or contains a cycle; a run file has no
             ``nhm_seg`` coordinate or its order does not match the
             parameters; run files do not share one time axis; a run
-            file's ``units`` attribute differs from the pywatershed
-            metadata; ``start_time`` or ``end_time`` falls outside the
+            file has no ``units`` attribute or it differs from the
+            pywatershed metadata; a run file holds non-finite values, or
+            negative ones other than water temperature;
+            ``start_time`` or ``end_time`` falls outside the
             run's time span, selects no time steps, or ``start_time`` is
             after ``end_time``; the shapefile
             identifiers do not match ``nhm_seg``; a shapefile geometry

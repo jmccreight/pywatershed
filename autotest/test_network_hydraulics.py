@@ -782,6 +782,8 @@ def test_shear_velocity_bad_slope_raises():
         shear_velocity(np.array([1.0, 2.0]), np.array([0.001, -0.01]))
     with pytest.raises(ValueError, match="non-negative and finite"):
         shear_velocity(np.array([1.0, 2.0]), np.array([0.001, np.nan]))
+    with pytest.raises(ValueError, match="depth must be non-negative"):
+        shear_velocity(np.array([1.0, -2.0]), np.array([0.001, 0.01]))
 
 
 @pytest.mark.domainless
@@ -804,9 +806,11 @@ def test_export_units_mismatch_raises(
 
 
 @pytest.mark.domainless
-def test_export_missing_units_warns(
+def test_export_missing_units_raises(
     synthetic_params, synthetic_run_dir, tmp_path
 ):
+    """A file without units was not written by pywatershed; assuming
+    units could scale already-SI data by CFS_TO_CMS a second time."""
     from pywatershed.utils.network_hydraulics import (
         export_network_hydraulics,
     )
@@ -816,10 +820,74 @@ def test_export_missing_units_warns(
         da = opened.load()
     del da.attrs["units"]
     da.to_netcdf(path)
-    with pytest.warns(UserWarning, match="no units"):
+    with pytest.raises(ValueError, match="no units"):
         export_network_hydraulics(
             synthetic_params, synthetic_run_dir, tmp_path / "net.nc"
         )
+
+
+def _poison_run_var(run_dir, name, value, itime=1, iseg=1):
+    path = run_dir / f"{name}.nc"
+    with xr.open_dataarray(path) as opened:
+        da = opened.load()
+    da.values[itime, iseg] = value
+    da.to_netcdf(path)
+
+
+@pytest.mark.domainless
+@pytest.mark.parametrize(
+    "name,value,match",
+    [
+        ("seg_flow_depth", np.nan, "non-finite or negative"),
+        ("seg_outflow", -1.0, "non-finite or negative"),
+        ("seg_res_time", np.inf, "non-finite or negative"),
+        ("seg_tave_water", np.nan, "non-finite value"),
+    ],
+)
+def test_export_bad_run_values_raise(
+    synthetic_params, synthetic_run_dir, tmp_path, name, value, match
+):
+    """Fill values (a run that stopped early) or negatives must not reach
+    the file or sqrt in shear_velocity."""
+    from pywatershed.utils.network_hydraulics import (
+        export_network_hydraulics,
+    )
+
+    if name == "seg_tave_water":
+        _write_run_var(
+            synthetic_run_dir,
+            name,
+            np.full((NTIME, NSEG), 12.5),
+            "degrees Celsius",
+            synthetic_params.parameters["nhm_seg"],
+        )
+    _poison_run_var(synthetic_run_dir, name, value)
+    with pytest.raises(ValueError, match=f"{name}.nc has 1 {match}"):
+        export_network_hydraulics(
+            synthetic_params, synthetic_run_dir, tmp_path / "net.nc"
+        )
+
+
+@pytest.mark.domainless
+def test_export_negative_water_temperature_allowed(
+    synthetic_params, synthetic_run_dir, tmp_path
+):
+    from pywatershed.utils.network_hydraulics import (
+        export_network_hydraulics,
+    )
+
+    _write_run_var(
+        synthetic_run_dir,
+        "seg_tave_water",
+        np.full((NTIME, NSEG), -0.5),
+        "degrees Celsius",
+        synthetic_params.parameters["nhm_seg"],
+    )
+    export_network_hydraulics(
+        synthetic_params, synthetic_run_dir, tmp_path / "net.nc"
+    )
+    with xr.open_dataset(tmp_path / "net.nc") as ds:
+        assert float(ds["water_temperature"].min()) == -0.5
 
 
 @pytest.mark.domainless
