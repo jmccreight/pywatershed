@@ -8,6 +8,7 @@ import pytest
 import xarray as xr
 from shapely.geometry import LineString
 
+import pywatershed as pws
 from pywatershed.base.parameters import Parameters
 
 # Three-reach synthetic network: reaches 0 and 1 are headwaters that
@@ -146,6 +147,60 @@ def test_calculate_seg_mid_elevations_outlet_without_hru(synthetic_params):
 
 
 @pytest.mark.domainless
+def test_calculate_seg_mid_elevations_outlet_takes_lowest_hru(
+    synthetic_params,
+):
+    """Two HRUs on the outlet at 110 and 100 m: the datum is the lower."""
+    from pywatershed.utils.network_hydraulics import (
+        calculate_seg_mid_elevations,
+    )
+
+    dd = synthetic_params.to_dd()
+    dd.data_vars["hru_segment"] = np.array([1, 3, 3], dtype=np.int64)
+    dd.data_vars["hru_elev"] = np.array([120.0, 110.0, 100.0])
+    mid, outlet_mid = calculate_seg_mid_elevations(Parameters(**dd.data))
+    np.testing.assert_allclose(mid, np.array([108.0, 108.0, 101.5]))
+    assert outlet_mid == {2: 101.5}
+
+
+@pytest.mark.domainless
+def test_calculate_seg_mid_elevations_drb_pinned():
+    """Values recorded from MmrToMf6Dfw._calculate_seg_mid_elevations on
+    develop before the refactor (2026-10-02), so the walk is pinned on a
+    real 456-segment network, not only the 3-reach synthetic one."""
+    from pywatershed.utils.network_hydraulics import (
+        calculate_seg_mid_elevations,
+    )
+
+    params = pws.parameters.PrmsParameters.load(
+        pws.constants.__pywatershed_root__ / "data/drb_2yr/myparam.param"
+    )
+    mid, outlet_mid = calculate_seg_mid_elevations(params)
+    np.testing.assert_allclose(mid.min(), 0.35908267095, rtol=1e-12)
+    np.testing.assert_allclose(mid.max(), 1038.6766781532647, rtol=1e-12)
+    np.testing.assert_allclose(mid.sum(), 75865.88027301495, rtol=1e-12)
+    expected_outlets = {
+        24: 0.35908267095,
+        94: 2.34790010425,
+        95: 1.0702298366,
+        102: 1.0895265485475,
+        104: 1.32095499435,
+        194: 1.5386658365,
+    }
+    assert sorted(outlet_mid) == sorted(expected_outlets)
+    for kk, vv in expected_outlets.items():
+        np.testing.assert_allclose(outlet_mid[kk], vv, rtol=1e-12)
+
+
+@pytest.mark.domainless
+def test_validate_tosegment_non_integer_raises():
+    from pywatershed.utils.network_hydraulics import _validate_tosegment
+
+    with pytest.raises(ValueError, match="tosegment must be 0"):
+        _validate_tosegment(np.array([3.5, 3.0, 0.0]))
+
+
+@pytest.mark.domainless
 def test_calculate_seg_mid_elevations_no_hru_anywhere_raises(
     synthetic_params,
 ):
@@ -255,6 +310,9 @@ def test_export_static_fields(synthetic_params, synthetic_run_dir, tmp_path):
     np.testing.assert_array_equal(ds["to_id"], p["tosegment_nhm"])
     np.testing.assert_array_equal(ds["to_index"], np.array([2, 2, -1]))
     np.testing.assert_array_equal(ds["is_outlet"], np.array([0, 0, 1]))
+    assert ds["to_index"].dtype == np.int32
+    assert ds["is_outlet"].dtype == np.int8
+    assert ds["reach_id"].dtype == np.int64
     np.testing.assert_array_equal(ds["length"], p["seg_length"])
     np.testing.assert_array_equal(ds["slope"], p["seg_slope"])
     np.testing.assert_array_equal(ds["mann_n"], p["mann_n"])
@@ -337,6 +395,10 @@ def test_export_time_varying_fields(
         synthetic_params.parameters["seg_slope"][None, :],
     )
     np.testing.assert_allclose(ds["ustar"], expected_ustar)
+    # literal anchor: depth[0, 0] = 0.15 m, slope[0] = 0.01
+    np.testing.assert_allclose(
+        ds["ustar"].values[0, 0], 0.12128468576040423, rtol=1e-12
+    )
     assert ds["flow_out"].attrs["units"] == "m3 s-1"
     assert ds["flow_out"].attrs["source_name"] == "seg_outflow"
     assert ds["ustar"].attrs["method"] == "sqrt(g*depth*max(slope, 1e-7))"
@@ -474,7 +536,7 @@ def test_export_polyline_block(
         )
     )
     assert ds.attrs["n_unconnected"] == 0
-    assert "5070" in ds.attrs["crs_wkt"] or "Albers" in ds.attrs["crs_wkt"]
+    assert "5070" in ds.attrs["crs_wkt"] and "Albers" in ds.attrs["crs_wkt"]
     np.testing.assert_array_equal(ds["reach_vertex_count"], [2, 3, 2])
     np.testing.assert_array_equal(ds["reach_vertex_start"], [0, 2, 5])
     assert ds.sizes["vertex"] == 7
@@ -579,6 +641,55 @@ def test_export_polyline_degenerate_line_raises(
             synthetic_run_dir,
             tmp_path / "net.nc",
             segment_shp_file=shp,
+        )
+
+
+@pytest.mark.domainless
+def test_export_polyline_connect_tol_is_used(
+    synthetic_params, synthetic_run_dir, synthetic_lines, tmp_path
+):
+    """The 50 m gap that counts as unconnected at the default 1 m is
+    connected at connect_tol=100, and the value is recorded."""
+    from pywatershed.utils.network_hydraulics import (
+        export_network_hydraulics,
+    )
+
+    lines = [list(ll) for ll in synthetic_lines]
+    lines[0] = [(-1000.0, 50.0), (0.0, 50.0)]  # displaced by 50 m
+    shp = tmp_path / "segs.shp"
+    _write_segments_shp(shp, lines, [101, 102, 103])
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", UserWarning)
+        out = export_network_hydraulics(
+            synthetic_params,
+            synthetic_run_dir,
+            tmp_path / "net.nc",
+            segment_shp_file=shp,
+            connect_tol=100.0,
+        )
+    ds = xr.open_dataset(out)
+    assert ds.attrs["n_unconnected"] == 0
+    assert ds.attrs["connect_tol"] == 100.0
+    ds.close()
+
+
+@pytest.mark.domainless
+def test_export_polyline_missing_id_column_raises(
+    synthetic_params, synthetic_run_dir, synthetic_lines, tmp_path
+):
+    from pywatershed.utils.network_hydraulics import (
+        export_network_hydraulics,
+    )
+
+    shp = tmp_path / "segs.shp"
+    _write_segments_shp(shp, synthetic_lines, [101, 102, 103])
+    with pytest.raises(ValueError, match="Column nope not in"):
+        export_network_hydraulics(
+            synthetic_params,
+            synthetic_run_dir,
+            tmp_path / "net.nc",
+            segment_shp_file=shp,
+            shp_id_col="nope",
         )
 
 
@@ -1084,6 +1195,8 @@ def test_export_zero_flow_notes_and_connect_tol_attrs(
 
 @pytest.mark.domainless
 def test_export_zero_flow_row(synthetic_params, synthetic_run_dir, tmp_path):
+    """Zero flow and depth (a dry reach) must come through as 0, never as
+    inf or NaN from a division or sqrt added to the export later."""
     from pywatershed.utils.network_hydraulics import (
         export_network_hydraulics,
     )
@@ -1101,6 +1214,8 @@ def test_export_zero_flow_row(synthetic_params, synthetic_run_dir, tmp_path):
     )
     assert ds["flow_out"].values[0, 0] == 0.0
     assert ds["ustar"].values[0, 0] == 0.0
+    for name in ("flow_out", "velocity", "depth", "width", "ustar"):
+        assert np.isfinite(ds[name].values).all()
     ds.close()
 
 
