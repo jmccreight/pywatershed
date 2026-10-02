@@ -124,8 +124,6 @@ class PRMSSoilzoneAg(PRMSSoilzoneAgObsET):
             restart_write_freq=restart_write_freq,
         )
 
-        self.name = "PRMSSoilzoneAg"
-
         self._iter_aet_flag = False
         if (
             "iter_aet_flag" in self.control.options

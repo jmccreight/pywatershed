@@ -182,7 +182,7 @@ class PRMSChannelFlowNodeMaker(FlowNodeMaker):
         Args:
           discretization: a discretization of class Parameters
           parameters: a parameter object of class Parameters
-          calc_method: one of ["fortran", "numba", "numpy"]. None defaults to
+          calc_method: one of ["numba", "numpy"]. None defaults to
               "numba".
           verbose: Print extra information or not?
         """
@@ -543,7 +543,6 @@ class HruNodeFlowExchange(ConservativeProcess):
             parameters=parameters,
             input_aliases=input_aliases,
         )
-        self.name = "HruNodeFlowExchange"
 
         self._set_inputs(locals())
         self._set_options(locals())

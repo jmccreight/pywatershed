@@ -13,6 +13,8 @@
     - [PR #412 follow-ups: pre-commit notebook coverage, holoviews floor](#pr-412-follow-ups-pre-commit-notebook-coverage-holoviews-floor)
     - [PRMSChannel ignores cascade flow to stream segments](#prmschannel-ignores-cascade-flow-to-stream-segments)
     - [Decide the fate of preprocess_gridded_params before 4.0](#decide-the-fate-of-preprocess_gridded_params-before-40)
+    - [Metadata for derived cascade and active-HRU parameters](#metadata-for-derived-cascade-and-active-hru-parameters)
+    - [PRMSChannel ignores stream_seg_in: cascaded flow never reaches the channel](#prmschannel-ignores-stream_seg_in-cascaded-flow-never-reaches-the-channel)
   - [Done](#done)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -111,23 +113,44 @@ check it), **Action** (what to do once unblocked), and optional
   for a tag above `v1.7.4rel`, then confirm the fix is in it, e.g. the
   released sdist no longer has `data.shape = tuple(datashape)` in
   `src/netCDF4/_netCDF4.pyx`.
-- **Action:** remove `suppress_netcdf4_shape_warning` from
-  `pywatershed/utils/netcdf_utils.py` and its three uses (two there,
-  one in `pywatershed/base/budget.py`), and raise the netCDF4 floor in
-  `environment.yml` to that release. (Until 2026-09-04 this was a
-  `filterwarnings` line in `autotest/pytest.ini`, which did not reach
-  the notebook subprocesses or users' own scripts.)
+- **Action:** delete `nc4_shape_warning_filter` (defined in
+  `pywatershed/base/data_model.py`) and unwrap every `with` that uses
+  it, re-dedenting the bodies; then raise the netCDF4 floor in
+  `environment.yml` to that release. Find them all with
+  `grep -rn nc4_shape_warning_filter pywatershed`. At the time of
+  writing, the uses are:
+  - `pywatershed/base/data_model.py`, `dd_to_nc4_ds`: combined into the
+    `with nc4.Dataset(nc_file, "w") as ds:` line.
+  - `pywatershed/utils/netcdf_utils.py`, class `NetCdfWrite`: the
+    coordinate writes in `__init__` (from `if nhru_coordinate:` through
+    the `extra_coords` loop), and the bodies of `add_simulation_time`,
+    `add_data`, and `add_all_data`.
+  - `pywatershed/base/budget.py`, `_output_netcdf` (the time write and
+    the variable loop).
+  - Imports of the name in `netcdf_utils.py` and `budget.py`.
+  - The `ignore:Setting the shape on a NumPy array has been deprecated`
+    line and its comment in `autotest/pytest.ini`, kept for xarray's
+    own `to_netcdf` path (`xarray/backends/netCDF4_.py`, `__setitem__`),
+    which pywatershed calls from about a dozen places and does not wrap.
 - **Notes:** netCDF4 assigns to `ndarray.shape` on every variable write
   (`_netCDF4.pyx:5616`), which NumPy >= 2.5 deprecates. Nothing on the
   pywatershed side avoids it: every assignment form was tried
   (`v[0,:] = a`, `v[0:1,:] = a[np.newaxis, ...]`, `v[0] = a`) and all
   warn, so the two sites the warning is attributed to,
-  `pywatershed/utils/netcdf_utils.py:660` and
-  `pywatershed/base/budget.py:944`, are correct as written -- the
+  `pywatershed/utils/netcdf_utils.py:669` and
+  `pywatershed/base/budget.py:950`, are correct as written -- the
   warning is raised in Cython and attributed to the nearest Python
   frame, which is ours. Observed with netCDF4 1.7.3 and NumPy 2.5.2:
   ~44,000 warnings in a single `test_prms_canopy.py` run. xarray took
   the same temporary measure (its PR #11146).
+  The suppression is per-write (`warnings.catch_warnings`) rather than
+  a pytest.ini filter because a global filter did not reach notebooks
+  (`autotest_exs/test_notebooks.py` runs them via ipython in a
+  subprocess) or users, and flopy 3.11 sets
+  `warnings.simplefilter("always", DeprecationWarning)` at import
+  (`flopy/utils/rasters.py:10` and two others), which overrides any
+  filter set earlier, including `PYTHONWARNINGS`. Reported informally
+  to the flopy developers, 2026-09-11.
 
 ### Drop the gfortran <16 ceiling (conda-forge win-64 link failure)
 
@@ -262,18 +285,82 @@ check it), **Action** (what to do once unblocked), and optional
   - If kept: state in its docstring that processes never read the
     variables it writes (`active_hru_mask`, `wh_active_hrus`,
     `nactive_hrus` are always derived from `hru_type` by
-    `base.HruMixin._set_active_hrus`), and add the `nactive_hru`
-    dimension it introduces to `pywatershed/static/metadata/dimensions.yaml`.
+    `base.ActiveHruMixin._set_active_hrus`), and add its metadata (see
+    the derived-parameter metadata item below).
   - If deleted: remove it from `doc/api/utils.rst`, delete
     `autotest/test_preprocess_gridded.py`'s tests of it (keep those of
     `get_active_hru_params`, which the mixin uses), and note the removal
     in whats-new.
-- **Notes:** the PR #407 review (B3/B7, 2026-09-02) fixed the function's
+- **Notes:** the PR #407 review (2026-09-02) fixed the function's
   crash and removed the mixin's dead "use supplied mask" path, making
   `hru_type` the single source of truth. That left the function public
   with zero callers, writing three variables nothing consumes. Deleting
   was recommended; James kept it pending experience with real gridded
   setups.
+
+### Metadata for derived cascade and active-HRU parameters
+
+- **Blocked on:** nothing.
+- **Action:** add to `pywatershed/static/metadata/dimensions.yaml` the
+  dimensions `ndown` (written by `preprocess_cascade_params`) and
+  `nactive_hru` (written by `preprocess_gridded_params`), and to
+  `parameters.yaml` the nine derived parameters no entry describes:
+  `hru_route_order`, `ncascade_hru`, `hru_down`, `hru_down_frac`,
+  `hru_down_fracwt`, `cascade_area` (cascades) and `active_hru_mask`,
+  `wh_active_hrus`, `nactive_hrus` (gridded). Then give the bare
+  `xr.Variable`s that `preprocess_cascades.py` writes their attrs from
+  those entries (the part of PR #407 review suggestion 5 deferred here).
+  The PRMS-file cascade parameters (`hru_up_id`, `hru_down_id`,
+  `hru_pct_up`, `hru_strmseg_down_id`, `cascade_tol`, `cascade_flg`,
+  `circle_switch`) already have entries.
+- **Notes:** found 2026-09-29 (PR #407 review); the gap means the
+  separated `parameters_PRMS*CascadesNoDprst.nc` files carry these
+  variables without descriptions or units.
+
+### PRMSChannel ignores stream_seg_in: cascaded flow never reaches the channel
+
+- **Blocked on:** nothing; PR #407 merged 2026-09-29. Fix on
+  `feat_gw_cascades` before PR #417 merges (check:
+  `https://api.github.com/repos/DOI-USGS/pywatershed/pulls/417`, `merged`
+  false). `feat_gw_cascades` carries an earlier version of this item,
+  keep one.
+- **Action:** make `PRMSChannel` take `stream_seg_in` as the lateral
+  inflow when cascades are on, as `routing.f90` does:
+
+      IF ( Cascade_flag==CASCADE_OFF ) THEN
+        Seg_lateral_inflow = 0.0D0
+      ELSE
+        Seg_lateral_inflow = Strm_seg_in
+      ENDIF
+      ...
+      IF ( Cascade_flag==CASCADE_OFF ) Seg_lateral_inflow(i) = Seg_lateral_inflow(i) + Hru_outflow(j)
+
+  Today `prms_channel.py::_calculate` (search "calculate lateral flow
+  term") always rebuilds `seg_lateral_inflow` from `hru_segment` and the
+  per-HRU `sroff_vol`, `ssres_flow_vol`, `gwres_flow_vol`, so under
+  cascades the water that `PRMSRunoffCascadesNoDprst`,
+  `PRMSSoilzoneCascadesNoDprst` and (PR #417)
+  `PRMSGroundwaterCascadesNoDprst` route to `stream_seg_in` is dropped, and HRU outflow that PRMS sends
+  downslope is instead sent straight to `hru_segment`. Steps:
+  - Add `stream_seg_in=None` to `PRMSChannel.__init__` and
+    `get_inputs()` (the `Process._set_inputs` guard raises only when a
+    non-`None` value is passed for a model variable not in
+    `get_inputs()`, so the `None` default is safe; see DESIGN_NOTES.md).
+  - When supplied, `seg_lateral_inflow[:] = stream_seg_in` (units:
+    PRMS `Strm_seg_in` is cfs) and skip the `hru_segment` accumulation;
+    keep the `channel_*_vol` diagnostics or zero them deliberately.
+  - Test on sagehen_5yr against PRMS `seg_outflow`/`seg_lateral_inflow`
+    with sagehen.control (runoff + soilzone + groundwater all cascade,
+    so `stream_seg_in` equals PRMS's `Strm_seg_in`); add the variables
+    to the control's `nsegmentOutVar_names` (three counts to edit) if
+    absent.
+- **Notes:** found 2026-09-09 while porting groundwater cascades.
+  Process inputs are held by reference (`self[ii] = adapter.current`),
+  so in a `Model` runoff's `stream_seg_in` array is zeroed by runoff and
+  added into in place by soilzone and then groundwater; after
+  groundwater runs it equals PRMS's `Strm_seg_in`, which is why the
+  channel can take runoff's copy directly. Without this, every cascade
+  model's streamflow is wrong even though HRU-level outputs match PRMS.
 
 ## Done
 

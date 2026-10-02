@@ -124,7 +124,7 @@ class Control(Accessor):
 
     Available pywatershed options:
       * imbalance_behavior: one of [None, "warn", "error"]
-      * calc_method: one of ["numpy", "numba", "fortran"]
+      * calc_method: one of ["numpy", "numba"]
       * dprst_flag: boolean if depression storage is included (true) or not.
       * input_dir: str or pathlib.path directory to search for input data. Use
         exactly one of input_dir or input_file.
@@ -660,7 +660,7 @@ class Control(Accessor):
 
         Required key:value pairs:
             * imbalance_behavior: None | "warn" | "error"
-            * calc_method: None | "numpy" | "numba" | "fortran" (depending on
+            * calc_method: None | "numpy" | "numba" (depending on
               availability)
             * end_time: ISO8601 string for numpy datetime64, e.g.
               1980-12-31T00:00:00.

@@ -35,7 +35,7 @@ class PRMSGroundwaterNoDprst(PRMSGroundwater):
             control.options["imbalance_behavior"] when available. When
             control.options["imbalance_behavior"] is not avaiable,
             imbalance_behavior is set to "warn".
-        calc_method: one of ["fortran", "numba", "numpy"]. None defaults to
+        calc_method: one of ["numba", "numpy"]. None defaults to
             "numba".
         verbose: Print extra information or not?
         restart_read:
@@ -73,7 +73,7 @@ class PRMSGroundwaterNoDprst(PRMSGroundwater):
         soil_to_gw: adaptable,
         ssr_to_gw: adaptable,
         imbalance_behavior: Literal["defer", None, "warn", "error"] = "defer",
-        calc_method: Literal["fortran", "numba", "numpy"] = None,
+        calc_method: Literal["numba", "numpy"] = None,
         input_aliases: dict = None,
         verbose: bool = None,
         restart_read: Union[pl.Path, bool] = False,
@@ -97,9 +97,6 @@ class PRMSGroundwaterNoDprst(PRMSGroundwater):
             restart_write=restart_write,
             restart_write_freq=restart_write_freq,
         )
-
-        self.name = "PRMSGroundwaterNoDprst"
-        self._set_budget(active_mask=self._active_hru_mask)
 
         return
 
@@ -166,7 +163,6 @@ class PRMSGroundwaterNoDprst(PRMSGroundwater):
             self.gwres_stor_change[:],
             self.gwres_flow_vol[:],
         ) = self._calculate_gw(
-            self._wh_inactive_hrus,
             self.hru_area,
             self.soil_to_gw,
             self.ssr_to_gw,

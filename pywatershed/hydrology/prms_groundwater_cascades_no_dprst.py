@@ -118,6 +118,7 @@ class PRMSGroundwaterCascadesNoDprst(PRMSGroundwater):
         )
 
         self.name = "PRMSGroundwaterCascadesNoDprst"
+        self._wh_inactive_hrus = np.where(~self._active_hru_mask)[0]
         self._set_budget(active_mask=self._active_hru_mask)
 
         return
@@ -345,9 +346,9 @@ class PRMSGroundwaterCascadesNoDprst(PRMSGroundwater):
         gwres_flow_vol = gwres_flow * hru_in_to_cf
         gw_upslope_hru = gw_upslope / gwarea
 
+        # The storage and flow arrays start as NaN, so their inactive entries
+        # stay NaN; these three accumulate from zeros and need masking.
         if len(wh_inactive_hrus) > 0:
-            gwres_stor_change[wh_inactive_hrus] = np.nan
-            gwres_flow_vol[wh_inactive_hrus] = np.nan
             gw_upslope[wh_inactive_hrus] = np.nan
             gw_upslope_hru[wh_inactive_hrus] = np.nan
             hru_gw_cascadeflow[wh_inactive_hrus] = np.nan

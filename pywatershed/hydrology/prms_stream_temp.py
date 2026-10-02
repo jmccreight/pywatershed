@@ -182,7 +182,6 @@ class PRMSStreamTempHumidityCBH(ConservativeProcess):
             imbalance_behavior=imbalance_behavior,
             input_aliases=input_aliases,
         )
-        self.name = "PRMSStreamTempHumidityCBH"
 
         # Handle stream_shade initialization before _set_inputs
         # This resolves the stream_shade from multiple possible input styles
@@ -2107,7 +2106,6 @@ class PRMSStreamTemp(PRMSStreamTempHumidityCBH):
             track_energy_fluxes=track_energy_fluxes,
             atmos_exchange_factor=atmos_exchange_factor,
         )
-        self.name = "PRMSStreamTemp"
 
     @staticmethod
     def get_dimensions() -> tuple:

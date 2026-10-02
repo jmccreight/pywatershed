@@ -44,10 +44,17 @@ def get_active_hru_params(hru_type: np.ndarray) -> dict:
     Returns:
         dict: A dictionary containing the active HRU mask, indices, and count.
             The indices are a 1-D integer index array into the nhru dimension.
+
+    Raises:
+        ValueError: if no HRU is active. PRMS does not check this either,
+            but its basin area is then zero and every basin mean is
+            divided by it (basin.f90, Basin_area_inv).
     """
     active_hru_mask = hru_type != HruType.INACTIVE.value
     wh_active_hrus = np.where(active_hru_mask)[0]
     nactive_hrus = len(wh_active_hrus)
+    if nactive_hrus == 0:
+        raise ValueError("hru_type marks no HRU active")
 
     return {
         "active_hru_mask": active_hru_mask,

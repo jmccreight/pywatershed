@@ -1,7 +1,8 @@
 #!/bin/bash
 
 # This is a local version of CI testing.
-# Unfortunately it has to be kept up to date with ci.yaml.
+# Unfortunately it has to be kept up to date with ci.yaml and
+# ci_examples.yaml (the notebooks section).
 
 # Notes:
 # * This is developed only on my Mac M1, so there are implicit assumptions
@@ -18,7 +19,7 @@ pytest_n_gridded=2
 
 # options
 # all "no data" options. if passed, these turn OFF sections of the tests.
-while getopts 'hilmtoscrdufg' opt; do
+while getopts 'hilmtoscrdufgn' opt; do
     case "$opt" in
     h)
         h=h
@@ -72,6 +73,10 @@ while getopts 'hilmtoscrdufg' opt; do
         g=g
         echo "Not generating test data for any run tests"
         ;;
+    n)
+        n=n
+        echo "Not running the example notebooks"
+        ;;
     esac
 done
 shift "$(($OPTIND - 1))"
@@ -98,6 +103,7 @@ if [ ! -z "${h}" ]; then
     echo "    g: generate ucb_2yr data"
     echo "  f: fgr_ag_2yr"
     echo "    g: generate fgr_ag_2yr data"
+    echo "n: example notebooks (autotest_exs, as in ci_examples.yaml)"
 
     exit 0
 fi
@@ -839,6 +845,27 @@ if [ -z "${t}" ]; then
             test_prms_atmosphere_transp_frost_dynamic.py || exit 1
 
     fi
+fi
+
+if [ -z "${n}" ]; then
+    echo
+    echo
+    echo "******************************"
+    echo "EXAMPLE NOTEBOOKS (ci_examples.yaml)"
+    echo "******************************"
+    echo
+
+    cd ..
+    echo "Get GIS files for notebooks"
+    python -m pywatershed.utils.gis_files || exit 1
+    echo "Get additional domain files for notebooks"
+    python -m pywatershed.utils.addtl_domain_files || exit 1
+
+    # Notebook 07 needs the mf6 binary from the modflow section (../bin,
+    # already on PATH).
+    cd autotest_exs || exit 1
+    pytest -s -vv --durations=0 || exit 1
+    cd $start_dir || exit 1
 fi
 
 if [ -z "${i}" ]; then

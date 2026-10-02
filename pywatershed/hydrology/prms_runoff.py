@@ -5,10 +5,10 @@ from warnings import warn
 import numpy as np
 from numba import prange
 
+from ..base.active_hru_mixin import ActiveHruMixin
 from ..base.adapter import adaptable
 from ..base.conservative_process import ConservativeProcess
 from ..base.control import Control
-from ..base.hru_mixin import HruMixin
 from ..constants import (
     HruType,
     dnearzero,
@@ -31,10 +31,8 @@ ACTIVE = 1
 LAND = HruType.LAND.value
 LAKE = HruType.LAKE.value
 
-# TODO: using through_rain and not net_rain and net_ppt is a WIP
 
-
-class PRMSRunoff(ConservativeProcess, HruMixin):
+class PRMSRunoff(ConservativeProcess, ActiveHruMixin):
     """PRMS surface runoff.
 
     A surface runoff representation from PRMS.
@@ -115,6 +113,10 @@ class PRMSRunoff(ConservativeProcess, HruMixin):
     # Cascades make the HRU loop order-dependent. Subclasses that route
     # cascades set this False so numba never parallelizes the kernel.
     _nb_parallel_ok = True
+    # _cascade_off_kernel_args() builds its arrays on first use; a class
+    # attribute so the method does not depend on _init_calc_method, which
+    # subclasses override.
+    _cascade_off_args = None
 
     def __init__(
         self,
@@ -149,9 +151,6 @@ class PRMSRunoff(ConservativeProcess, HruMixin):
         if self._dprst_flag is None:
             self._dprst_flag = True
 
-        if not hasattr(self, "name"):
-            self.name = "PRMSRunoff"
-
         super().__init__(
             control=control,
             discretization=discretization,
@@ -167,7 +166,7 @@ class PRMSRunoff(ConservativeProcess, HruMixin):
         self._set_inputs(locals())
         self._set_options(locals())
 
-        self._set_budget(active_mask=self._active_hru_mask)
+        self._set_budget()
         self._init_calc_method()
 
         if self._intcp_changeover_in_net_rain is None:
@@ -377,15 +376,6 @@ class PRMSRunoff(ConservativeProcess, HruMixin):
             self.hru_frac_perv[i] = perv_area / harea
 
         # <
-        if not hasattr(self, "hru_route_order"):
-            # hru_route_order in cascades is 1-based index, keep it the same.
-            if not hasattr(self, "_wh_active_hrus"):
-                # subclasses (e.g. PRMSRunoffAg) which do not call
-                # _set_active_hrus in their inits get the active HRU
-                # information on demand.
-                self._set_active_hrus()
-            self.hru_route_order = self._wh_active_hrus + 1
-
         return
 
     def dprst_init(self):
@@ -547,10 +537,6 @@ class PRMSRunoff(ConservativeProcess, HruMixin):
 
     def _calculate(self, time_length, vectorized=False):
         """Perform the core calculations"""
-        zero_array_2d_int = np.zeros((2, 2), dtype="int32")
-        nan_array = np.nan * self.infil
-        nan_array_2d = np.zeros((2, 2)) * np.nan
-
         (
             self.infil[:],
             self.contrib_fraction[:],
@@ -641,24 +627,15 @@ class PRMSRunoff(ConservativeProcess, HruMixin):
             through_rain=self.through_rain,
             dprst_flag=self._dprst_flag,
             intcp_changeover_in_net_rain=self._intcp_changeover_in_net_rain,
-            ncascade_hru=nan_array,
             nactive_hrus=self._nactive_hrus,
             hru_route_order=self.hru_route_order,
-            hru_down=zero_array_2d_int,
-            hru_down_frac=nan_array_2d,
-            hru_down_fracwt=nan_array_2d,
-            cascade_area=nan_array_2d,
-            hortonian_flow=nan_array,
-            upslope_hortonian=nan_array,
-            stream_seg_in=nan_array,
-            cfs_conv=nan_array,
             # functions at end
             check_capacity=self.check_capacity,
             perv_comp=self.perv_comp,
             compute_infil=self.compute_infil,
             dprst_comp=self.dprst_comp,
             imperv_et=self.imperv_et,
-            run_cascade_sroff=self._run_cascade_sroff_dummy,
+            **self._cascade_off_kernel_args(),
         )
 
         self.infil_hru[:] = self.infil * self.hru_frac_perv
@@ -673,6 +650,35 @@ class PRMSRunoff(ConservativeProcess, HruMixin):
         self.sroff_vol[:] = self.sroff * self.hru_in_to_cf
 
         return
+
+    def _cascade_off_kernel_args(self) -> dict:
+        """The kernel arguments that turn cascades off.
+
+        Used by PRMSRunoff and PRMSRunoffNoDprst. The kernel treats
+        cascades as off when ncascade_hru is all NaN and then never reads
+        the cascade arrays, except hortonian_flow, which it writes every
+        step and so gets its own array. numba compiles a separate
+        specialization per argument signature (number of dimensions and
+        dtype), so the stand-ins need only be 2-d like hru_down,
+        hru_down_frac, hru_down_fracwt and cascade_area; their 2x2 shape
+        and the int32 of the int stand-in (hru_down is int64) do not
+        matter. Built once, on first use.
+        """
+        if self._cascade_off_args is None:
+            nan_array_2d = np.full((2, 2), nan)
+            self._cascade_off_args = dict(
+                ncascade_hru=np.full(self.nhru, nan),
+                hru_down=np.zeros((2, 2), dtype="int32"),
+                hru_down_frac=nan_array_2d,
+                hru_down_fracwt=nan_array_2d,
+                cascade_area=nan_array_2d,
+                hortonian_flow=np.full(self.nhru, nan),
+                upslope_hortonian=np.full(self.nhru, nan),
+                stream_seg_in=np.full(self.nhru, nan),
+                cfs_conv=nan,
+                run_cascade_sroff=self._run_cascade_sroff_dummy,
+            )
+        return self._cascade_off_args
 
     @staticmethod
     def _calculate_numpy(
@@ -834,7 +840,6 @@ class PRMSRunoff(ConservativeProcess, HruMixin):
                 perv_comp=perv_comp,
                 through_rain=through_rain[i],
                 intcp_changeover_in_net_rain=intcp_changeover_in_net_rain,
-                ncascade_hru=ncascade_hru,
                 ncascade_hru_active=ncascade_hru_active,
                 upslope_hortonian=upslope_hortonian,
                 ihru=i,
@@ -919,23 +924,22 @@ class PRMSRunoff(ConservativeProcess, HruMixin):
                     if srunoff > zero:
                         hru_horton_cascflow[i] = zero
                         if ncascade_hru[i] > 0:
-                            (
-                                srunoff,
-                                hru_horton_cascflow[i],
-                                stream_seg_in[:],
-                                upslope_hortonian[:],
-                            ) = run_cascade_sroff(
-                                i,
-                                ncascade_hru[i],
-                                upslope_hortonian,
-                                srunoff,
-                                hru_sroff_down,
-                                hru_down,
-                                hru_down_frac,
-                                hru_down_fracwt,
-                                cascade_area,
-                                stream_seg_in,
-                                cfs_conv,
+                            # stream_seg_in and upslope_hortonian are
+                            # accumulated in place
+                            srunoff, hru_horton_cascflow[i] = (
+                                run_cascade_sroff(
+                                    i,
+                                    ncascade_hru[i],
+                                    upslope_hortonian,
+                                    srunoff,
+                                    hru_sroff_down,
+                                    hru_down,
+                                    hru_down_frac,
+                                    hru_down_fracwt,
+                                    cascade_area,
+                                    stream_seg_in,
+                                    cfs_conv,
+                                )
                             )
 
                     # <<
@@ -1037,7 +1041,6 @@ class PRMSRunoff(ConservativeProcess, HruMixin):
         perv_comp,
         through_rain,
         intcp_changeover_in_net_rain,
-        ncascade_hru,
         ncascade_hru_active,
         upslope_hortonian,
         ihru,
@@ -1563,7 +1566,7 @@ class PRMSRunoff(ConservativeProcess, HruMixin):
         # <<
         # reset Sroff as it accumulates flow to streams
         runoff = runoff - hru_sroff_down
-        return (runoff, hru_sroff_down, stream_seg_in, upslope_hortonian)
+        return runoff, hru_sroff_down
 
     @staticmethod
     def _run_cascade_sroff_dummy(
@@ -1579,4 +1582,9 @@ class PRMSRunoff(ConservativeProcess, HruMixin):
         stream_seg_in: np.ndarray,
         cfs_conv: float,
     ):
-        return (runoff, hru_sroff_down, stream_seg_in, upslope_hortonian)
+        # No-op stand-in for _run_cascade_sroff, passed to the kernel by
+        # the non-cascade classes (PRMSRunoff, PRMSRunoffNoDprst). It is
+        # never reached (ncascade_hru_active is False there) but the
+        # kernel's signature needs a callable with the same arguments and
+        # returns so numba can compile one kernel for both variants.
+        return runoff, hru_sroff_down

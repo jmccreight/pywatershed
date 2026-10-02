@@ -5,10 +5,10 @@ from warnings import warn
 import numpy as np
 from numba import prange
 
+from ..base.active_hru_mixin import ActiveHruMixin
 from ..base.adapter import adaptable
 from ..base.conservative_process import ConservativeProcess
 from ..base.control import Control
-from ..base.hru_mixin import HruMixin
 from ..constants import (
     HruType,
     closezero,
@@ -74,7 +74,7 @@ tcind = 0
 dbgind = 434
 
 
-class PRMSSnow(ConservativeProcess, HruMixin):
+class PRMSSnow(ConservativeProcess, ActiveHruMixin):
     """PRMS snow pack.
 
     A snow representation from PRMS.
@@ -117,7 +117,7 @@ class PRMSSnow(ConservativeProcess, HruMixin):
             control.options["imbalance_behavior"] when available. When
             control.options["imbalance_behavior"] is not avaiable,
             imbalance_behavior is set to "warn".
-        calc_method: one of ["fortran", "numba", "numpy"]. None defaults to
+        calc_method: one of ["numba", "numpy"]. None defaults to
             "numba".
         verbose: Print extra information or not?
         restart_read:
@@ -184,13 +184,12 @@ class PRMSSnow(ConservativeProcess, HruMixin):
             restart_write=restart_write,
             restart_write_freq=restart_write_freq,
         )
-        self.name = "PRMSSnow"
         self._set_active_hrus()
         self._mask_inactive_hrus()
         self._set_inputs(locals())
         self._set_options(locals())
 
-        self._set_budget(active_mask=self._active_hru_mask)
+        self._set_budget()
         self._init_calc_method()
 
         return
@@ -294,10 +293,9 @@ class PRMSSnow(ConservativeProcess, HruMixin):
     @staticmethod
     def get_restart_variables() -> list:
         # PRMS 5.2.1 snowcomp_restart's list (minus glacier variables) plus
-        # pkwater_equiv (climateflow's restart) and ai. PRMS does not save
-        # ai, which snowcov() recovers as pkwater_equiv only when the pack
-        # is not depleting; without it a restart of a depleting pack is not
-        # exact.
+        # pkwater_equiv (climateflow's restart). ai is not saved: _calculate
+        # zeroes it every step and snowcov() recomputes it as
+        # min(pst, snarea_thresh) before any read.
         return [
             "int_alb",
             "scrv",
@@ -322,7 +320,6 @@ class PRMSSnow(ConservativeProcess, HruMixin):
             "snsv",
             "pk_depth",
             "pkwater_equiv",
-            "ai",
         ]
 
     @staticmethod

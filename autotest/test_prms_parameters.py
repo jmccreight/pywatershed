@@ -88,6 +88,7 @@ def test_parameter_init():
     print("success initializing Parameters object")
 
 
+@pytest.mark.domainless
 def test_expand_scalar_to_dims():
     # A 12-HRU domain: per-HRU and monthly arrays have the same length, so
     # the declared dimension name must decide how to expand.
@@ -132,14 +133,15 @@ def test_expand_scalar_to_dims():
     assert (result["tmax_adj"][0, :] == np.arange(nhru)).all()
     assert (result["tmax_adj"][:, 3] == 3.0).all()
 
-    # unhandled shape: no error, data untouched
+    # unhandled shape: no error, data and file dims untouched
     assert result["snow_cbh_adj"].shape == (nhru,)
     assert (result["snow_cbh_adj"] == param_dict["snow_cbh_adj"]).all()
+    assert tuple(result_dims["snow_cbh_adj"]) == ("nhru",)
 
     assert result["hru_area"].shape == (nhru,)
 
-    # dims are reported from metadata in every case
-    for name in ["cecn_coef", "rain_cbh_adj", "tmax_adj", "snow_cbh_adj"]:
+    # expanded parameters report the metadata dims
+    for name in ["cecn_coef", "rain_cbh_adj", "tmax_adj"]:
         assert tuple(result_dims[name]) == ("nmonth", "nhru")
     assert tuple(result_dims["hru_area"]) == ("nhru",)
 

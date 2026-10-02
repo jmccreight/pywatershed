@@ -36,22 +36,48 @@ The cost also compounds: three binary options already give
 
 ### Cases
 
-- **`stream_seg_in` accepted and silently dropped** (PR 407, B13).
+- **`stream_seg_in` accepted and silently dropped** (PR 407 review).
   `PRMSSoilzone` and `PRMSSoilzoneNoDprst` took it in `__init__` but
   neither listed it in `get_inputs()`, so `_set_inputs` ignored it.
   Only `PRMSSoilzoneCascadesNoDprst` uses it, forwarding through the
   parent's signature. Workaround: a guard in `Process._set_inputs`
   that raises on any argument naming a model variable that is not in
-  `self.inputs`. Root cause: declarations spread and unchecked.
-- **Parents guard `self.name` with `hasattr`** (PR 407, B6). Cascade
+  `self.inputs`. The parent's docstring now says the argument is a
+  pass-through slot for the child (2026-09-29): a second workaround,
+  in prose, for the same declaration. Root cause: declarations spread
+  and unchecked.
+- **Parents guard `self.name` with `hasattr`** (PR 407 review). Cascade
   children set `self.name` before calling `super().__init__()`, and
   the parent overwrote it. Workaround: `if not hasattr(self, "name")`
   in `PRMSRunoff` and `PRMSSoilzone`. The guard only works before
   `super().__init__()`, because `Process.__init__` sets a default
   name; placed after it, both parents were named `Process` and
   collided on their budget output file (found 2026-09-04). Root
-  cause: parent decides.
-- **`_nb_parallel_ok` class attribute** (PR 407, B2). Cascade kernels
+  cause: parent decides. Resolved 2026-10-01: `Process.__init__` names
+  every instance for its class (`type(self).__name__`), the guards are
+  gone, and no subclass assigns `name` any more. The last step was
+  forced: a parent's assignment after `super().__init__()` overwrites
+  the default for its children too (`PRMSGroundwaterNoDprst` was
+  briefly named `PRMSGroundwater`, and `PRMSAtmosphereTranspFrost` had
+  always been named `PRMSAtmosphere`).
+- **`PRMSRunoffAg` skips its parent's `__init__`** (PR 407 review).
+  `PRMSRunoff.__init__` calls `self._set_inputs(locals())` with its own
+  locals, and `_set_inputs` loops over the child's `get_inputs()`; the
+  three ag inputs (`ag_soil_moist_prev`, `ag_soil_rechr_prev`,
+  `ag_frac`) are not in the parent's signature, so `args[...]` would
+  raise `KeyError`. `PRMSRunoffAg.__init__` therefore calls
+  `ConservativeProcess.__init__` directly (`prms_runoff_ag.py`, search
+  "grandparent") and repeats the rest of the parent's `__init__` by
+  hand. The copy drifts: when the active-HRU setup
+  (`_set_active_hrus`, `_mask_inactive_hrus`,
+  `_set_budget(active_mask=...)`) was added to the parent, the copy
+  did not get it, and `PRMSRunoff.basin_init` grew a
+  `hasattr(self, "_wh_active_hrus")` patch instead (both fixed
+  2026-09-29). Root cause: declarations spread (`locals()` ties input
+  setup to the frame whose signature declares the inputs) and parent
+  decides (a child with extra inputs can only skip the parent
+  wholesale).
+- **`_nb_parallel_ok` class attribute** (PR 407 review). Cascade kernels
   must never run under numba `prange`, but the parent chooses the
   kernel's parallel flag. Workaround: a class attribute, True on
   parents and False on cascade children, and-ed into the decision.
@@ -63,11 +89,17 @@ The cost also compounds: three binary options already give
   `dprst_seep_hru=None` through a signature that still requires them.
   `prms_groundwater.py` has the same loop for `dprst_seep_hru`.
   Root cause: parent decides, and declarations spread.
-- **Depression-storage restart variables on a no-dprst class.**
-  `PRMSRunoffCascadesNoDprst.get_restart_variables` lists `dprst_*`
-  variables the class does not carry. Restart is not expected for
-  the cascade processes at all; their signatures have no
-  `restart_read` or `restart_write`. Root cause: declarations spread.
+- **Depression-storage restart variables on a no-dprst class**
+  (PR 407, resolved there). `PRMSRunoffCascadesNoDprst` inherited
+  `get_restart_variables` from `PRMSRunoff`, so it listed `dprst_*`
+  variables the class does not carry, and the cascade classes had no
+  `restart_read` or `restart_write` at all. Resolved by giving each
+  no-dprst and cascade child its own restart list (two impervious
+  storages for runoff, four reservoir storages for soilzone) and the
+  cascade children the restart arguments, forwarded to the parent;
+  `test_restart_processes.py` now covers them. The fix is one more
+  spread declaration: four leaf classes carry the same two lists by
+  hand. Root cause: declarations spread.
 - **Copy-paste `_calculate`** (PR 407 review, Quality). The cascade
   children repeat their NoDprst siblings' ~90-keyword kernel call
   almost verbatim (`prms_runoff_cascades_no_dprst.py` vs
@@ -81,10 +113,10 @@ The cost also compounds: three binary options already give
   (`prms_runoff_cascades_no_dprst.py`, search `basin_init`; soilzone
   reruns `_set_budget`), because the child must preprocess parameters
   before the parent wires them and the parent's `__init__` cannot be
-  entered halfway. `preprocess_cascade_params` also runs once per
-  class, so twice per model (three times with the groundwater cascade
-  class, feat_gw_cascades). Not worked around. Root cause: parent
-  decides.
+  entered halfway. When the parameters are not already preprocessed,
+  `preprocess_cascade_params` also runs once per class, so twice per
+  model (three times with the groundwater cascade class). Not worked
+  around. Root cause: parent decides.
 - **Two off-switch conventions for one option** (PR 407 review,
   Quality). `PRMSRunoff` turns cascades off with per-step NaN sentinel
   arrays (`prms_runoff.py`, search `nan_array`) plus a compiled dummy
