@@ -292,11 +292,16 @@ class ProcessPlot:
         # Size the frame to the domain's aspect ratio (the tiled map forces
         # equal axes, so a fixed height alone crops wide domains east-west).
         # The tiles draw in Web Mercator (EPSG:3857), so measure the aspect
-        # there, not in the layer's own projection. The bounds come from
-        # the HRU layer itself, not plot_df, which for a time series holds
-        # one copy of every HRU polygon per time.
+        # there, not in the layer's own projection. Measure the drawn HRUs
+        # (plot_df), once each: for a time series plot_df holds one copy of
+        # every polygon per time, and the merge above drops HRUs the data
+        # does not cover.
+        if "time" in plot_df.columns:
+            bounds_gdf = plot_df.drop_duplicates("nhm_id")
+        else:
+            bounds_gdf = plot_df
         xmin, ymin, xmax, ymax = (
-            self.hru_gdf.set_crs(epsg, allow_override=True)
+            bounds_gdf.set_crs(epsg, allow_override=True)
             .to_crs(3857)
             .total_bounds
         )

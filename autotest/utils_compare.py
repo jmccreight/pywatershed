@@ -98,11 +98,16 @@ def active_hru_subset(
 
     pywatershed masks inactive HRUs to nan while PRMS generally reports
     zeros there, so comparisons are made at active HRUs only. For a
-    process without ActiveHruMixin (_active_hru_mask is None) or a var
-    without an nhru dimension, the arrays are returned unchanged.
+    process without ActiveHruMixin (_active_hru_mask is None), or a var
+    not in the process's metadata or without an nhru dimension, the
+    arrays are returned unchanged.
     """
     mask = process._active_hru_mask
-    if mask is None or "nhru" not in process.meta[var]["dims"]:
+    if (
+        mask is None
+        or var not in process.meta
+        or "nhru" not in process.meta[var]["dims"]
+    ):
         return arrays
     return tuple(np.asarray(aa)[mask] for aa in arrays)
 

@@ -33,10 +33,11 @@ def test_run_prms(simulation, exe):
     # (prcp/tmax/tmin.nc, ~9 MB each, also gitignored). Every other control
     # for the domain reads the .day files, so the make_cbh_only run must
     # come first; below we either generate or require them.
+    # A domain that ships a *_make_cbh_only.control generates its own CBH
+    # files, the same test as test_data/generate/conftest.py uses.
     domain_dir_name = simulation["control_file"].parent.name
-    control_file_name = simulation["control_file"].stem
-    requires_cbh = domain_dir_name in ("sagehen_gridded_5yr",)
-    run_cbh = requires_cbh and "make_cbh_only" in control_file_name
+    run_cbh = "make_cbh_only" in simulation["control_file"].stem
+    requires_cbh = run_cbh or any(ws.glob("*make_cbh_only*.control"))
     if requires_cbh and not run_cbh:
         missing_cbh = [
             f"{var}.nc"
