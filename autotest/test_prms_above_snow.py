@@ -69,7 +69,7 @@ def control(simulation):
         simulation["control_file"], warn_unused_options=False
     )
     control.options["verbosity"] = 10
-    control.options["imbalance_behavior"] = None
+    control.options["imbalance_behavior"] = "error"
     control.options["calc_method"] = "numba"
     del control.options["netcdf_output_var_names"]
     return control
