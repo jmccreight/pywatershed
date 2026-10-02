@@ -53,7 +53,13 @@ The cost also compounds: three binary options already give
   `super().__init__()`, because `Process.__init__` sets a default
   name; placed after it, both parents were named `Process` and
   collided on their budget output file (found 2026-09-04). Root
-  cause: parent decides.
+  cause: parent decides. Resolved 2026-10-01: `Process.__init__` names
+  every instance for its class (`type(self).__name__`), the guards are
+  gone, and no subclass assigns `name` any more. The last step was
+  forced: a parent's assignment after `super().__init__()` overwrites
+  the default for its children too (`PRMSGroundwaterNoDprst` was
+  briefly named `PRMSGroundwater`, and `PRMSAtmosphereTranspFrost` had
+  always been named `PRMSAtmosphere`).
 - **`PRMSRunoffAg` skips its parent's `__init__`** (PR 407 review).
   `PRMSRunoff.__init__` calls `self._set_inputs(locals())` with its own
   locals, and `_set_inputs` loops over the child's `get_inputs()`; the

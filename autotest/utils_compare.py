@@ -91,6 +91,20 @@ def assert_allclose(
     return
 
 
+def active_hru_subset(process, var: str, *arrays) -> tuple:
+    """Subset arrays to the process's active HRUs if var is on nhru.
+
+    pywatershed masks inactive HRUs to nan while PRMS generally reports
+    zeros there, so comparisons are made at active HRUs only. For a
+    process without ActiveHruMixin (_active_hru_mask is None) or a var
+    without an nhru dimension, the arrays are returned unchanged.
+    """
+    mask = process._active_hru_mask
+    if mask is None or "nhru" not in process.meta[var]["dims"]:
+        return arrays
+    return tuple(np.asarray(aa)[mask] for aa in arrays)
+
+
 def compare_in_memory(
     process: pws.base.Process,
     answers: dict[pws.base.adapter.AdapterNetcdf],
@@ -138,13 +152,8 @@ def compare_in_memory(
         if mask_dict is not None:
             actual = actual[mask_dict[var]]
             desired = np.array(desired)[mask_dict[var]]
-        elif hasattr(process, "_active_hru_mask") and (
-            "nhru" in process.meta[var]["dims"]
-        ):
-            # compare only at active HRUs; inactive HRUs are masked to
-            # nan by pywatershed but generally not by PRMS output.
-            actual = actual[process._active_hru_mask]
-            desired = np.array(desired)[process._active_hru_mask]
+        else:
+            actual, desired = active_hru_subset(process, var, actual, desired)
 
         # Get variable-specific tolerances if provided
         var_rtol = rtol

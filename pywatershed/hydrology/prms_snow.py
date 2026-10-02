@@ -184,13 +184,12 @@ class PRMSSnow(ConservativeProcess, ActiveHruMixin):
             restart_write=restart_write,
             restart_write_freq=restart_write_freq,
         )
-        self.name = "PRMSSnow"
         self._set_active_hrus()
         self._mask_inactive_hrus()
         self._set_inputs(locals())
         self._set_options(locals())
 
-        self._set_budget(active_mask=self._active_hru_mask)
+        self._set_budget()
         self._init_calc_method()
 
         return

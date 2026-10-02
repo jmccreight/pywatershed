@@ -10,8 +10,8 @@ import pywatershed as pws
 """This module contains functions for running PRMS simulations.
 
 This module provides functions for running PRMS simulations using the
-pywatershed library. If a control name contains "_cbh_" or "_CBH_", the
-simulation will generate CBH netcdf files.
+pywatershed library. A control whose name contains "make_cbh_only"
+generates the domain's CBH files (see test_run_prms).
 
 """
 
@@ -35,29 +35,21 @@ def test_run_prms(simulation, exe):
     # come first; below we either generate or require them.
     domain_dir_name = simulation["control_file"].parent.name
     control_file_name = simulation["control_file"].stem
-    domains_requiring_cbh_files = ["sagehen_gridded_5yr"]
-    run_cbh = False
-    for dom_req_cbh in domains_requiring_cbh_files:
-        if dom_req_cbh in domain_dir_name:
-            # if we got here, the simulation requires CBH files to be generated
-            if "_cbh_" in control_file_name or "_CBH_" in control_file_name:
-                # if we got here, this run will generate the cbh files
-                run_cbh = True
-            else:
-                cbh_files_present = {
-                    f"{var}.nc": (ws / f"{var}.nc").exists()
-                    for var in ["prcp", "tmax", "tmin"]
-                }
-                if not all(cbh_files_present.values()):
-                    missing_cbh = [
-                        kk for kk, vv in cbh_files_present.items() if not vv
-                    ]
-                    msg = (
-                        "Input CBH files are missing for the domain "
-                        f"{domain_dir_name}: {missing_cbh}.\n"
-                        "Run the simulation for generating CBH files first."
-                    )
-                    raise IOError(msg)
+    requires_cbh = domain_dir_name in ("sagehen_gridded_5yr",)
+    run_cbh = requires_cbh and "make_cbh_only" in control_file_name
+    if requires_cbh and not run_cbh:
+        missing_cbh = [
+            f"{var}.nc"
+            for var in ["prcp", "tmax", "tmin"]
+            if not (ws / f"{var}.nc").exists()
+        ]
+        if missing_cbh:
+            msg = (
+                "Input CBH files are missing for the domain "
+                f"{domain_dir_name}: {missing_cbh}.\n"
+                "Run the simulation for generating CBH files first."
+            )
+            raise IOError(msg)
 
     control_file = simulation["control_file"]
     output_dir = simulation["output_dir"]

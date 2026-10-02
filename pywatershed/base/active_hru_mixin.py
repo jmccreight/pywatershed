@@ -2,7 +2,6 @@ import numpy as np
 
 from pywatershed.base.timeseries import TimeseriesArray
 
-from ..base import meta
 from ..constants import mask_fill_values_dict
 from ..utils.preprocess_gridded import get_active_hru_params
 
@@ -11,7 +10,8 @@ class ActiveHruMixin:
     """Derive the active-HRU mask from hru_type; mask inactive HRUs."""
 
     def _set_active_hrus(self) -> None:
-        """Set _active_hru_mask, _wh_active_hrus, and _nactive_hrus.
+        """Set _active_hru_mask, _wh_active_hrus, _nactive_hrus and, if the
+        parameters do not supply it, hru_route_order.
 
         All three are derived from the hru_type parameter, via
         :func:`~pywatershed.utils.preprocess_gridded.get_active_hru_params`,
@@ -35,7 +35,7 @@ class ActiveHruMixin:
         Returns:
             None
         """
-        if "hru_type" not in self._params.parameters:
+        if "hru_type" not in self.parameters:
             raise KeyError(
                 f"{self.__class__.__name__} uses ActiveHruMixin, so "
                 "'hru_type' must be in its get_parameters()"
@@ -64,6 +64,11 @@ class ActiveHruMixin:
         for kk in ("active_hru_mask", "wh_active_hrus", "nactive_hrus"):
             self[f"_{kk}"] = result[kk]
 
+        if route_order is None:
+            # The kernels loop over hru_route_order (1-based, as in PRMS);
+            # without cascades that is the active HRUs in index order.
+            self.hru_route_order = result["wh_active_hrus"] + 1
+
         return
 
     def _mask_inactive_hrus(self) -> None:
@@ -77,7 +82,7 @@ class ActiveHruMixin:
             return
 
         for var_name in self.get_variables():
-            var_dims = list(meta.get_dimensions(var_name).values())[0]
+            var_dims = self.meta[var_name]["dims"]
             if "nhru" not in var_dims:
                 continue
 

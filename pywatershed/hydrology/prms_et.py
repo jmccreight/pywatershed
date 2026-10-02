@@ -41,7 +41,6 @@ class PRMSEt(Process):
             parameters=parameters,
             input_aliases=input_aliases,
         )
-        self.name = "PRMSEt"
 
         self._set_inputs(locals())
         self._set_options(locals())

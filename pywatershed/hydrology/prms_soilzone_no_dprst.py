@@ -109,8 +109,6 @@ class PRMSSoilzoneNoDprst(PRMSSoilzone):
         restart_write: Union[pl.Path, bool] = False,
         restart_write_freq: Literal["y", "m", "d", "f", False] = False,
     ) -> None:
-        self._dprst_flag = False
-
         super().__init__(
             control=control,
             discretization=discretization,
@@ -136,9 +134,6 @@ class PRMSSoilzoneNoDprst(PRMSSoilzone):
             restart_write=restart_write,
             restart_write_freq=restart_write_freq,
         )
-
-        self.name = "PRMSSoilzoneNoDprst"
-        self._set_budget(active_mask=self._active_hru_mask)
 
         return
 
@@ -389,19 +384,10 @@ class PRMSSoilzoneNoDprst(PRMSSoilzone):
             swale_actet=self.swale_actet,
             transp_on=self.transp_on,
             unused_potet=self.unused_potet,
-            ncascade_hru=None,
             nactive_hrus=self._nactive_hrus,
             hru_route_order=self.hru_route_order,
-            hru_down=None,
-            hru_down_frac=None,
-            hru_down_fracwt=None,
-            cascade_area=None,
-            upslope_dunnianflow=None,
-            upslope_interflow=None,
-            hru_sz_cascadeflow=None,
-            stream_seg_in=None,
-            cfs_conv=None,
             _compute_cascades=self._compute_cascades,
+            **self._cascade_off_kernel_args(),
         )
 
         self.sroff_vol[:] = self.sroff * self.hru_in_to_cf

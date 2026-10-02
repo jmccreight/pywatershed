@@ -8,7 +8,7 @@ from ..parameters import Parameters
 from ..utils.preprocess_cascades import (
     cascade_param_names,
     check_no_lake_hrus,
-    preprocess_cascade_params,
+    ensure_cascade_params,
 )
 from .prms_runoff import PRMSRunoff
 
@@ -143,16 +143,7 @@ class PRMSRunoffCascadesNoDprst(PRMSRunoff):
         restart_write: Union[pl.Path, bool] = False,
         restart_write_freq: Literal["y", "m", "d", "f", False] = False,
     ) -> None:
-        self.name = "PRMSRunoffCascadesNoDprst"
-
-        # The derived cascade parameters are not in a PRMS parameter file,
-        # so derive them here when any is missing rather than require them.
-        if not all(
-            kk in parameters.parameters.keys() for kk in cascade_param_names
-        ):
-            parameters = preprocess_cascade_params(
-                control, parameters, verbosity=int(bool(verbose))
-            )
+        parameters = ensure_cascade_params(control, parameters, verbose)
 
         super().__init__(
             control=control,
@@ -184,11 +175,6 @@ class PRMSRunoffCascadesNoDprst(PRMSRunoff):
         )
 
         check_no_lake_hrus(self.hru_type, self.name)
-        self._set_inputs(locals())
-        self._set_options(locals())
-
-        self._set_budget(active_mask=self._active_hru_mask)
-        self.basin_init()
 
         return
 
@@ -209,12 +195,7 @@ class PRMSRunoffCascadesNoDprst(PRMSRunoff):
             "smidx_exp",
             "soil_moist_max",
             "snowinfil_max",
-            "hru_route_order",
-            "ncascade_hru",
-            "hru_down",
-            "hru_down_frac",
-            "hru_down_fracwt",
-            "cascade_area",
+            *cascade_param_names,
         )
 
     @staticmethod

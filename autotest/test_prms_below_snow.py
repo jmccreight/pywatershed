@@ -4,6 +4,7 @@ from pprint import pprint
 
 import numpy as np
 import pytest
+from utils_compare import active_hru_subset
 
 import pywatershed
 from pywatershed.base.adapter import adapter_factory
@@ -340,7 +341,6 @@ def check_timestep_results(
 ):
     # print(storageunit)
     all_success = True
-    active_mask = getattr(storageunit, "_active_hru_mask", None)
     for key in ans.keys():
         # print(key)
         a1 = ans[key].current
@@ -348,11 +348,7 @@ def check_timestep_results(
             a2 = storageunit[key].current
         else:
             a2 = storageunit[key]
-        if active_mask is not None and np.shape(a1) == np.shape(active_mask):
-            # compare only at active HRUs; pywatershed masks inactive
-            # HRUs to nan while PRMS generally reports zeros there.
-            a1 = np.asarray(a1)[active_mask]
-            a2 = np.asarray(a2)[active_mask]
+        a1, a2 = active_hru_subset(storageunit, key, a1, a2)
         success_a = np.isclose(a2, a1, atol=tol, rtol=0.0)
         success_r = np.isclose(a2, a1, atol=0.0, rtol=tol)
         success = success_a | success_r

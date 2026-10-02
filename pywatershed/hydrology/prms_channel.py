@@ -143,7 +143,6 @@ class PRMSChannel(ConservativeProcess):
             restart_write=restart_write,
             restart_write_freq=restart_write_freq,
         )
-        self.name = "PRMSChannel"
 
         self._set_inputs(locals())
         self._set_options(locals())

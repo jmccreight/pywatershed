@@ -40,7 +40,6 @@ import numpy as np
 import xarray as xr
 
 from ..base import Control
-from ..base.data_model import DatasetDict
 from ..constants import ACTIVE, HruType, one
 from ..parameters import Parameters
 
@@ -55,6 +54,22 @@ cascade_param_names = (
     "hru_down_fracwt",
     "cascade_area",
 )
+
+
+def ensure_cascade_params(
+    control: Control, parameters: Parameters, verbose: bool = None
+) -> Parameters:
+    """Return parameters with the derived cascade parameters present.
+
+    The derived cascade parameters are not in a PRMS parameter file, so
+    the cascade process classes derive them here when any is missing
+    rather than require them.
+    """
+    if all(kk in parameters.parameters for kk in cascade_param_names):
+        return parameters
+    return preprocess_cascade_params(
+        control, parameters, verbosity=int(bool(verbose))
+    )
 
 
 def _verbosity_msg(msg: str, verbosity: int) -> None:
@@ -164,7 +179,6 @@ def calc_hru_route_order(parameters: Parameters) -> Parameters:
     hru_route_order = np.zeros(nhru, dtype=np.int32)
 
     nlake = parameters.dims.get("nlake", 0)
-    numlake_hrus = 0  # to verify we have all the lakes
     numlakes_check = 0
     if nlake > 0:
         lake_hru_id = parameters.parameters["lake_hru_id"]
@@ -175,7 +189,6 @@ def calc_hru_route_order(parameters: Parameters) -> Parameters:
             continue
 
         if hru_type[ii] == HruType.LAKE.value:
-            numlake_hrus = numlake_hrus + 1
             if nlake == 0:
                 msg = (
                     f"ERROR, hru_type = 2 for HRU: {ii} "
@@ -205,9 +218,6 @@ def calc_hru_route_order(parameters: Parameters) -> Parameters:
         active_hrus += 1
         hru_route_order[active_hrus - 1] = ii + 1
 
-        if hru_type[ii] == HruType.LAKE.value:
-            continue
-
     # <
     if nlake > 0:
         if numlakes_check != nlake:
@@ -224,7 +234,7 @@ def calc_hru_route_order(parameters: Parameters) -> Parameters:
     new_params["active_hrus"] = xr.Variable(
         "scalar", np.array([active_hrus], dtype="int64")
     )
-    return Parameters.from_dataset_dict(DatasetDict.from_ds(new_params))
+    return Parameters.from_ds(new_params)
 
 
 def init_cascade_params(
@@ -281,16 +291,15 @@ def init_cascade_params(
     if cascade_flag == cascade_hru_segment:
         msg = "simple cascades defined by param hru_segment not implemented"
         raise ValueError(msg)
-    else:
-        #  figure out the maximum number of cascades links from all HRUs, to
-        # set dimensions for 2-D arrays
-        ncascade_hru[:] = 0
-        for i in range(ncascade):
-            k = hru_up_id[i]
-            if k > 0:
-                ncascade_hru[k - 1] = ncascade_hru[k - 1] + 1
-                if ncascade_hru[k - 1] > ndown:
-                    ndown = ncascade_hru[k - 1]
+
+    #  figure out the maximum number of cascades links from all HRUs, to
+    # set dimensions for 2-D arrays
+    for i in range(ncascade):
+        k = hru_up_id[i]
+        if k > 0:
+            ncascade_hru[k - 1] = ncascade_hru[k - 1] + 1
+            if ncascade_hru[k - 1] > ndown:
+                ndown = ncascade_hru[k - 1]
 
     if ndown > 15:
         msg = f"possible ndown issue: {ndown=}"
@@ -328,7 +337,6 @@ def init_cascade_params(
             f"\nup fraction: {frac=}; stream segment: {istrm=}"
         )
 
-        msg = ""
         # only the last of these ifs does anything before end of loop, so
         # a "continue" is not necessary except in that last case.
         if frac < 0.00001:
@@ -525,7 +533,6 @@ def init_cascade_params(
     _verbosity_msg(msg, verbosity)
 
     new_params = parameters.to_xr_ds()
-    del new_params["hru_type"]
     new_params["hru_type"] = xr.Variable("nhru", hru_type)
     new_params["hru_route_order"] = xr.Variable("nhru", hru_route_order)
     new_params["ncascade_hru"] = xr.Variable("nhru", ncascade_hru)
@@ -537,7 +544,7 @@ def init_cascade_params(
         ["ndown", "nhru"], hru_down_fracwt
     )
 
-    return Parameters.from_dataset_dict(DatasetDict.from_ds(new_params))
+    return Parameters.from_ds(new_params)
 
 
 def order_hrus(
@@ -647,8 +654,6 @@ def order_hrus(
                     up_id_cnt[dnhru - 1] = up_id_cnt[dnhru - 1] - 1
 
     # <<<< End of for loop
-
-    del up_id_cnt
 
     # check for circles when circle_switch = 1. cascade.f90 walks up from
     # each root recursively (up_tree/check_path); a directed-graph cycle

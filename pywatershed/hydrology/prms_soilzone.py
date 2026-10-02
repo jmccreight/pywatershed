@@ -145,8 +145,11 @@ class PRMSSoilzone(ConservativeProcess, ActiveHruMixin):
         restart_write: Union[pl.Path, bool] = False,
         restart_write_freq: Literal["y", "m", "d", "f", False] = False,
     ):
-        if not hasattr(self, "name"):
-            self.name = "PRMSSoilzone"
+        # _set_options reads option names from the child's signature, and
+        # the NoDprst children have no dprst_flag argument, so store it
+        # here (as PRMSRunoff does); _set_options overrides it when the
+        # child does declare it.
+        self._dprst_flag = dprst_flag
 
         super().__init__(
             control=control,
@@ -182,7 +185,7 @@ class PRMSSoilzone(ConservativeProcess, ActiveHruMixin):
         # values at inactive HRUs that a restart (masked nan) would not.
         self._mask_inactive_hrus()
 
-        self._set_budget(active_mask=self._active_hru_mask)
+        self._set_budget()
         self._init_calc_method()
 
         if (
@@ -590,10 +593,6 @@ class PRMSSoilzone(ConservativeProcess, ActiveHruMixin):
             / self.soil_lower_max[wh_soil_lower_stor]
         )
 
-        if not hasattr(self, "hru_route_order"):
-            # hru_route_order in cascades is 1-based index, keep it the same.
-            self.hru_route_order = self._wh_active_hrus + 1
-
         return
 
     def _init_calc_method(self):
@@ -773,9 +772,26 @@ class PRMSSoilzone(ConservativeProcess, ActiveHruMixin):
             swale_actet=self.swale_actet,
             transp_on=self.transp_on,
             unused_potet=self.unused_potet,
-            ncascade_hru=None,
             nactive_hrus=self._nactive_hrus,
             hru_route_order=self.hru_route_order,
+            _compute_cascades=self._compute_cascades,
+            **self._cascade_off_kernel_args(),
+        )
+
+        self.sroff_vol[:] = self.sroff * self.hru_in_to_cf
+
+        return
+
+    @staticmethod
+    def _cascade_off_kernel_args() -> dict:
+        """The kernel arguments that turn cascades off.
+
+        Used by PRMSSoilzone and PRMSSoilzoneNoDprst. ncascade_hru None
+        makes the kernel skip its cascade branches (numba prunes them at
+        compile time), so the rest are never read.
+        """
+        return dict(
+            ncascade_hru=None,
             hru_down=None,
             hru_down_frac=None,
             hru_down_fracwt=None,
@@ -785,12 +801,7 @@ class PRMSSoilzone(ConservativeProcess, ActiveHruMixin):
             hru_sz_cascadeflow=None,
             stream_seg_in=None,
             cfs_conv=None,
-            _compute_cascades=self._compute_cascades,
         )
-
-        self.sroff_vol[:] = self.sroff * self.hru_in_to_cf
-
-        return
 
     @staticmethod
     def _calculate_numpy(
@@ -1198,9 +1209,6 @@ class PRMSSoilzone(ConservativeProcess, ActiveHruMixin):
                                 dnslowflow,
                                 dnprefflow,
                                 dndunn,
-                                upslope_dunnianflow[:],
-                                upslope_interflow[:],
-                                stream_seg_in[:],
                             ) = _compute_cascades(
                                 hh,
                                 ncascade_hru[hh],
@@ -1210,7 +1218,7 @@ class PRMSSoilzone(ConservativeProcess, ActiveHruMixin):
                                 dnslowflow,
                                 dnprefflow,
                                 dndunn,
-                                # these are module variables now being passed
+                                # accumulated in place
                                 upslope_dunnianflow,
                                 upslope_interflow,
                                 stream_seg_in,
@@ -1397,9 +1405,6 @@ class PRMSSoilzone(ConservativeProcess, ActiveHruMixin):
             dnslowflow,
             dnprefflow,
             dndunnflow,
-            upslope_dunnianflow,
-            upslope_interflow,
-            stream_seg_in,
         )
 
     @staticmethod

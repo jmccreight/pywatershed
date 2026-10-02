@@ -98,9 +98,6 @@ class PRMSGroundwaterNoDprst(PRMSGroundwater):
             restart_write_freq=restart_write_freq,
         )
 
-        self.name = "PRMSGroundwaterNoDprst"
-        self._set_budget(active_mask=self._active_hru_mask)
-
         return
 
     @staticmethod

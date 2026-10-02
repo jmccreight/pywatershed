@@ -123,6 +123,15 @@ Breaking Changes
   Code passing those or any later arguments positionally must switch to
   keywords.
   (:pull:`407`, :pull:`423`) By `James McCreight <https://github.com/jmccreight>`_.
+- Every process is named for its class: ``Process.__init__`` sets
+  ``self.name = type(self).__name__`` and no subclass assigns ``name``
+  itself. The subclasses' own assignments all matched their class names
+  already, except that :class:`PRMSAtmosphereTranspFrost` and
+  :class:`PRMSAtmosphereTranspFrostDynamic` inherited their parent's
+  ``"PRMSAtmosphere"``; their single-file netCDF output (when
+  ``netcdf_output_separate_files`` is off) and budget descriptions now
+  carry their own class names.
+  (:pull:`423`) By `James McCreight <https://github.com/jmccreight>`_.
 - The variable metadata entry ``hru_hortn_cascflow`` (PRMS's name, declared
   by no process) is replaced by ``hru_horton_cascflow``, the variable
   :class:`PRMSRunoffCascadesNoDprst` declares; the unused ``strm_seg_in``

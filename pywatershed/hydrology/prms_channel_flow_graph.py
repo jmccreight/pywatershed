@@ -543,7 +543,6 @@ class HruNodeFlowExchange(ConservativeProcess):
             parameters=parameters,
             input_aliases=input_aliases,
         )
-        self.name = "HruNodeFlowExchange"
 
         self._set_inputs(locals())
         self._set_options(locals())

@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
 
+from pywatershed.base import meta
 from pywatershed.base.active_hru_mixin import ActiveHruMixin
 from pywatershed.base.process import Process
 from pywatershed.base.timeseries import TimeseriesArray
@@ -104,6 +105,8 @@ def make_process(hru_type: np.ndarray, supplied: dict = None):
     proc._set_params(
         make_parameters(len(hru_type)), make_discretization(hru_type, supplied)
     )
+    # Process._set_metadata needs a Control; the mixin reads only dims
+    proc.meta = meta.get_vars(proc.get_variables())
     return proc
 
 

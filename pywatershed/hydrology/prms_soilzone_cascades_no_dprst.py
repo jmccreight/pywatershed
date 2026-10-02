@@ -8,7 +8,7 @@ from ..parameters import Parameters
 from ..utils.preprocess_cascades import (
     cascade_param_names,
     check_no_lake_hrus,
-    preprocess_cascade_params,
+    ensure_cascade_params,
 )
 from .prms_soilzone import PRMSSoilzone
 
@@ -135,17 +135,7 @@ class PRMSSoilzoneCascadesNoDprst(PRMSSoilzone):
         restart_write: Union[pl.Path, bool] = False,
         restart_write_freq: Literal["y", "m", "d", "f", False] = False,
     ) -> None:
-        self.name = "PRMSSoilzoneCascadesNoDprst"
-        self._dprst_flag = False
-
-        # The derived cascade parameters are not in a PRMS parameter file,
-        # so derive them here when any is missing rather than require them.
-        if not all(
-            kk in parameters.parameters.keys() for kk in cascade_param_names
-        ):
-            parameters = preprocess_cascade_params(
-                control, parameters, verbosity=int(bool(verbose))
-            )
+        parameters = ensure_cascade_params(control, parameters, verbose)
 
         super().__init__(
             control=control,
@@ -175,7 +165,6 @@ class PRMSSoilzoneCascadesNoDprst(PRMSSoilzone):
         )
 
         check_no_lake_hrus(self.hru_type, self.name)
-        self._set_budget(active_mask=self._active_hru_mask)
 
         return
 
@@ -207,12 +196,7 @@ class PRMSSoilzoneCascadesNoDprst(PRMSSoilzone):
             "ssr2gw_exp",
             "ssr2gw_rate",
             "ssstor_init_frac",
-            "hru_route_order",
-            "ncascade_hru",
-            "hru_down",
-            "hru_down_frac",
-            "hru_down_fracwt",
-            "cascade_area",
+            *cascade_param_names,
         )
 
     @staticmethod

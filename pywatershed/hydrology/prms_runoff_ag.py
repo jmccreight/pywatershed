@@ -171,14 +171,12 @@ class PRMSRunoffAg(PRMSRunoff):
             input_aliases=input_aliases,
         )
 
-        self.name = "PRMSRunoffAg"
-
         self._set_active_hrus()
         self._mask_inactive_hrus()
         self._set_inputs(locals())
         self._set_options(locals())
 
-        self._set_budget(active_mask=self._active_hru_mask)
+        self._set_budget()
         self._init_calc_method()
 
         if self._intcp_changeover_in_net_rain is None:
@@ -715,8 +713,7 @@ class PRMSRunoffAg(PRMSRunoff):
                 perv_comp=perv_comp,
                 through_rain=through_rain[i],
                 intcp_changeover_in_net_rain=intcp_changeover_in_net_rain,
-                # cascades are not active for ag, arrays are unused
-                ncascade_hru=net_rain,
+                # cascades are not active for ag, the array is unused
                 ncascade_hru_active=False,
                 upslope_hortonian=net_rain,
                 ihru=i,

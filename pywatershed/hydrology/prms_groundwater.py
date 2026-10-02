@@ -95,7 +95,6 @@ class PRMSGroundwater(ConservativeProcess, ActiveHruMixin):
             restart_write=restart_write,
             restart_write_freq=restart_write_freq,
         )
-        self.name = "PRMSGroundwater"
         self._set_active_hrus()
         self._mask_inactive_hrus()
 
@@ -117,7 +116,7 @@ class PRMSGroundwater(ConservativeProcess, ActiveHruMixin):
                     control=self.control,
                 )
 
-        self._set_budget(active_mask=self._active_hru_mask)
+        self._set_budget()
         self._init_calc_method()
 
         return
