@@ -36,7 +36,7 @@ The cost also compounds: three binary options already give
 
 ### Cases
 
-- **`stream_seg_in` accepted and silently dropped** (PR 407, B13).
+- **`stream_seg_in` accepted and silently dropped** (PR 407 review).
   `PRMSSoilzone` and `PRMSSoilzoneNoDprst` took it in `__init__` but
   neither listed it in `get_inputs()`, so `_set_inputs` ignored it.
   Only `PRMSSoilzoneCascadesNoDprst` uses it, forwarding through the
@@ -46,7 +46,7 @@ The cost also compounds: three binary options already give
   pass-through slot for the child (2026-09-29): a second workaround,
   in prose, for the same declaration. Root cause: declarations spread
   and unchecked.
-- **Parents guard `self.name` with `hasattr`** (PR 407, B6). Cascade
+- **Parents guard `self.name` with `hasattr`** (PR 407 review). Cascade
   children set `self.name` before calling `super().__init__()`, and
   the parent overwrote it. Workaround: `if not hasattr(self, "name")`
   in `PRMSRunoff` and `PRMSSoilzone`. The guard only works before
@@ -71,7 +71,7 @@ The cost also compounds: three binary options already give
   setup to the frame whose signature declares the inputs) and parent
   decides (a child with extra inputs can only skip the parent
   wholesale).
-- **`_nb_parallel_ok` class attribute** (PR 407, B2). Cascade kernels
+- **`_nb_parallel_ok` class attribute** (PR 407 review). Cascade kernels
   must never run under numba `prange`, but the parent chooses the
   kernel's parallel flag. Workaround: a class attribute, True on
   parents and False on cascade children, and-ed into the decision.

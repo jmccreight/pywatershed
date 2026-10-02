@@ -12,6 +12,7 @@
     - [Drop the gfortran <16 ceiling (conda-forge win-64 link failure)](#drop-the-gfortran-16-ceiling-conda-forge-win-64-link-failure)
     - [PR #412 follow-ups: pre-commit notebook coverage, holoviews floor](#pr-412-follow-ups-pre-commit-notebook-coverage-holoviews-floor)
     - [Decide the fate of preprocess_gridded_params before 4.0](#decide-the-fate-of-preprocess_gridded_params-before-40)
+    - [Metadata for derived cascade and active-HRU parameters](#metadata-for-derived-cascade-and-active-hru-parameters)
     - [PRMSChannel ignores stream_seg_in: cascaded flow never reaches the channel](#prmschannel-ignores-stream_seg_in-cascaded-flow-never-reaches-the-channel)
   - [Done](#done)
 
@@ -245,26 +246,45 @@ check it), **Action** (what to do once unblocked), and optional
   - If kept: state in its docstring that processes never read the
     variables it writes (`active_hru_mask`, `wh_active_hrus`,
     `nactive_hrus` are always derived from `hru_type` by
-    `base.ActiveHruMixin._set_active_hrus`), and add the `nactive_hru`
-    dimension it introduces to `pywatershed/static/metadata/dimensions.yaml`.
+    `base.ActiveHruMixin._set_active_hrus`), and add its metadata (see
+    the derived-parameter metadata item below).
   - If deleted: remove it from `doc/api/utils.rst`, delete
     `autotest/test_preprocess_gridded.py`'s tests of it (keep those of
     `get_active_hru_params`, which the mixin uses), and note the removal
     in whats-new.
-- **Notes:** the PR #407 review (B3/B7, 2026-09-02) fixed the function's
+- **Notes:** the PR #407 review (2026-09-02) fixed the function's
   crash and removed the mixin's dead "use supplied mask" path, making
   `hru_type` the single source of truth. That left the function public
   with zero callers, writing three variables nothing consumes. Deleting
   was recommended; James kept it pending experience with real gridded
   setups.
 
+### Metadata for derived cascade and active-HRU parameters
+
+- **Blocked on:** nothing.
+- **Action:** add to `pywatershed/static/metadata/dimensions.yaml` the
+  dimensions `ndown` (written by `preprocess_cascade_params`) and
+  `nactive_hru` (written by `preprocess_gridded_params`), and to
+  `parameters.yaml` the nine derived parameters no entry describes:
+  `hru_route_order`, `ncascade_hru`, `hru_down`, `hru_down_frac`,
+  `hru_down_fracwt`, `cascade_area` (cascades) and `active_hru_mask`,
+  `wh_active_hrus`, `nactive_hrus` (gridded). Then give the bare
+  `xr.Variable`s that `preprocess_cascades.py` writes their attrs from
+  those entries (the part of PR #407 review suggestion 5 deferred here).
+  The PRMS-file cascade parameters (`hru_up_id`, `hru_down_id`,
+  `hru_pct_up`, `hru_strmseg_down_id`, `cascade_tol`, `cascade_flg`,
+  `circle_switch`) already have entries.
+- **Notes:** found 2026-09-29 (PR #407 review); the gap means the
+  separated `parameters_PRMS*CascadesNoDprst.nc` files carry these
+  variables without descriptions or units.
+
 ### PRMSChannel ignores stream_seg_in: cascaded flow never reaches the channel
 
-- **Blocked on:** nothing; fix on `feat_gw_cascades` after PR #407
-  merges and before PR #417 merges (check:
+- **Blocked on:** nothing; PR #407 merged 2026-09-29. Fix on
+  `feat_gw_cascades` before PR #417 merges (check:
   `https://api.github.com/repos/DOI-USGS/pywatershed/pulls/417`, `merged`
-  false). Written on `feat_cascades_port` ahead of that merge;
-  `feat_gw_cascades` carries an earlier version of this item, keep one.
+  false). `feat_gw_cascades` carries an earlier version of this item,
+  keep one.
 - **Action:** make `PRMSChannel` take `stream_seg_in` as the lateral
   inflow when cascades are on, as `routing.f90` does:
 
@@ -280,12 +300,13 @@ check it), **Action** (what to do once unblocked), and optional
   term") always rebuilds `seg_lateral_inflow` from `hru_segment` and the
   per-HRU `sroff_vol`, `ssres_flow_vol`, `gwres_flow_vol`, so under
   cascades the water that `PRMSRunoffCascadesNoDprst`,
-  `PRMSSoilzoneCascadesNoDprst` and `PRMSGroundwaterCascadesNoDprst`
-  route to `stream_seg_in` is dropped, and HRU outflow that PRMS sends
+  `PRMSSoilzoneCascadesNoDprst` and (PR #417)
+  `PRMSGroundwaterCascadesNoDprst` route to `stream_seg_in` is dropped, and HRU outflow that PRMS sends
   downslope is instead sent straight to `hru_segment`. Steps:
   - Add `stream_seg_in=None` to `PRMSChannel.__init__` and
-    `get_inputs()` (a `Process._set_inputs` guard raises if it is in
-    the signature but not in inputs; see DESIGN_NOTES.md).
+    `get_inputs()` (the `Process._set_inputs` guard raises only when a
+    non-`None` value is passed for a model variable not in
+    `get_inputs()`, so the `None` default is safe; see DESIGN_NOTES.md).
   - When supplied, `seg_lateral_inflow[:] = stream_seg_in` (units:
     PRMS `Strm_seg_in` is cfs) and skip the `hru_segment` accumulation;
     keep the `channel_*_vol` diagnostics or zero them deliberately.
