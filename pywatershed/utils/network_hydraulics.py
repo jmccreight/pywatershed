@@ -393,6 +393,10 @@ def _read_run_vars(
             if start_time is not None or end_time is not None:
                 _check_time_window(nm, available, start_time, end_time)
                 da = da.sel(time=slice(start_time, end_time))
+            if da.dims != ("time", "nhm_seg"):
+                raise ValueError(
+                    f"{nm}.nc has dims {da.dims}; expected ('time', 'nhm_seg')"
+                )
             result[nm] = da.load()
         _check_run_values(nm, result[nm])
     return result
@@ -551,8 +555,10 @@ def export_network_hydraulics(
             run's time span, selects no time steps, or ``start_time`` is
             after ``end_time``; the shapefile
             identifiers do not match ``nhm_seg``; a shapefile geometry
-            is not a ``LineString``; ``shp_id_col`` is not a column of
-            the shapefile; the shapefile has no CRS, or its CRS is
+            is not a ``LineString``, is null or empty, or has zero
+            length; ``shp_id_col`` is not a column of the shapefile or
+            holds non-integer values; a run file's dims are not
+            ``(time, nhm_seg)``; the shapefile has no CRS, or its CRS is
             geographic or not in meters; or more than half of the
             reaches with a downstream reach fail ``connect_tol``.
         ImportError: ``segment_shp_file`` is given and geopandas is not
@@ -646,7 +652,7 @@ def export_network_hydraulics(
             params["seg_slope"],
             np.float64,
             "m m-1",
-            "reach slope",
+            "reach slope (unfloored; ustar uses max(slope, 1e-7))",
             "seg_slope",
         ),
         "mann_n": static(
@@ -702,7 +708,7 @@ def export_network_hydraulics(
             "units": "m s-1",
             "long_name": "shear velocity",
             "source_name": "seg_flow_depth, seg_slope",
-            "method": "sqrt(g*depth*slope)",
+            "method": "sqrt(g*depth*max(slope, 1e-7))",
         },
     )
 
@@ -744,15 +750,15 @@ def export_network_hydraulics(
             ),
         },
     )
-    out_file = pl.Path(out_file)
-    ds.to_netcdf(out_file)
-    ds.close()
     if n_unconnected > 0:
         warn(
             f"{n_unconnected} reach polyline(s) do not meet their "
             f"downstream reach within {connect_tol}; see the "
             "n_unconnected global attribute"
         )
+    out_file = pl.Path(out_file)
+    ds.to_netcdf(out_file)
+    ds.close()
     return out_file
 
 
@@ -769,7 +775,20 @@ def _polyline_block(
             f"Column {shp_id_col} not in {segment_shp_file}; "
             f"columns are {list(gdf.columns)}"
         )
-    shp_ids = gdf[shp_id_col].to_numpy().astype(np.int64)
+    raw_ids = gdf[shp_id_col].to_numpy()
+    try:
+        as_float = raw_ids.astype(float)
+    except (TypeError, ValueError) as err:
+        raise ValueError(
+            f"Shapefile column {shp_id_col} must hold integer identifiers; "
+            f"got dtype {raw_ids.dtype}"
+        ) from err
+    if not np.all(np.isfinite(as_float) & (as_float == np.floor(as_float))):
+        raise ValueError(
+            f"Shapefile column {shp_id_col} must hold integer identifiers; "
+            "some values are fractional or missing"
+        )
+    shp_ids = as_float.astype(np.int64)
     if set(shp_ids) != set(reach_id) or len(shp_ids) != len(reach_id):
         raise ValueError(
             f"Shapefile column {shp_id_col} identifiers do not match the "
@@ -801,10 +820,17 @@ def _polyline_block(
     geoms = [gdf.geometry.iloc[order[rid]] for rid in reach_id]
     coords = []
     for rid, gg in zip(reach_id, geoms):
+        if gg is None or gg.is_empty:
+            raise ValueError(f"Reach {rid} has a null or empty geometry")
         if gg.geom_type != "LineString":
             raise ValueError(
                 f"Reach {rid} geometry is {gg.geom_type}; only LineString "
                 "is supported (explode or merge multipart segments first)"
+            )
+        if gg.length == 0.0:
+            raise ValueError(
+                f"Reach {rid} polyline has zero length; particle positions "
+                "scale s/length onto it, so it cannot be used"
             )
         coords.append(np.asarray(gg.coords, dtype=float)[:, :2])
 
@@ -871,12 +897,9 @@ def _polyline_block(
         step = np.hypot(np.diff(cc[:, 0]), np.diff(cc[:, 1]))
         dist = np.concatenate([[0.0], np.cumsum(step)])
         dists.append(dist)
-        if dist[-1] == 0:
-            x_mid[ii], y_mid[ii] = cc[0, 0], cc[0, 1]
-        else:
-            half = dist[-1] / 2.0
-            x_mid[ii] = np.interp(half, dist, cc[:, 0])
-            y_mid[ii] = np.interp(half, dist, cc[:, 1])
+        half = dist[-1] / 2.0
+        x_mid[ii] = np.interp(half, dist, cc[:, 0])
+        y_mid[ii] = np.interp(half, dist, cc[:, 1])
     vertex_dist = np.concatenate(dists)
 
     def vvar(values, dims, units, long_name):

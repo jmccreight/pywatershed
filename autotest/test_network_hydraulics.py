@@ -339,7 +339,7 @@ def test_export_time_varying_fields(
     np.testing.assert_allclose(ds["ustar"], expected_ustar)
     assert ds["flow_out"].attrs["units"] == "m3 s-1"
     assert ds["flow_out"].attrs["source_name"] == "seg_outflow"
-    assert ds["ustar"].attrs["method"] == "sqrt(g*depth*slope)"
+    assert ds["ustar"].attrs["method"] == "sqrt(g*depth*max(slope, 1e-7))"
     assert ds["velocity"].attrs["method"] == "power_law_at_a_station"
     assert ds["flow_out"].dims == ("time", "reach")
     assert "water_temperature" not in ds
@@ -553,28 +553,72 @@ def test_export_polyline_unconnected_counted(
 
 
 @pytest.mark.domainless
-def test_export_polyline_zero_length_line_midpoint(
+@pytest.mark.parametrize(
+    "line,match",
+    [
+        ([(-1000.0, 0.0), (-1000.0, 0.0)], "Reach 101 polyline has zero"),
+        ([], "Reach 101 has a null or empty"),
+    ],
+)
+def test_export_polyline_degenerate_line_raises(
+    synthetic_params, synthetic_run_dir, synthetic_lines, tmp_path, line, match
+):
+    """A particle position is s/length scaled onto the polyline, so a
+    zero-length or empty line cannot be used and must name the reach."""
+    from pywatershed.utils.network_hydraulics import (
+        export_network_hydraulics,
+    )
+
+    lines = [list(ll) for ll in synthetic_lines]
+    lines[0] = line
+    shp = tmp_path / "segs.shp"
+    _write_segments_shp(shp, lines, [101, 102, 103])
+    with pytest.raises(ValueError, match=match):
+        export_network_hydraulics(
+            synthetic_params,
+            synthetic_run_dir,
+            tmp_path / "net.nc",
+            segment_shp_file=shp,
+        )
+
+
+@pytest.mark.domainless
+def test_export_polyline_fractional_ids_raise(
     synthetic_params, synthetic_run_dir, synthetic_lines, tmp_path
 ):
     from pywatershed.utils.network_hydraulics import (
         export_network_hydraulics,
     )
 
-    lines = [list(ll) for ll in synthetic_lines]
-    lines[0] = [(-1000.0, 0.0), (-1000.0, 0.0)]  # two identical vertices
     shp = tmp_path / "segs.shp"
-    _write_segments_shp(shp, lines, [101, 102, 103])
-    with pytest.warns(UserWarning, match="1 reach polyline"):
-        out = export_network_hydraulics(
+    _write_segments_shp(shp, synthetic_lines, [101.4, 102.0, 103.0])
+    with pytest.raises(ValueError, match="integer identifiers"):
+        export_network_hydraulics(
             synthetic_params,
             synthetic_run_dir,
             tmp_path / "net.nc",
             segment_shp_file=shp,
         )
-    ds = xr.open_dataset(out)
-    assert ds["x_mid"].values[0] == -1000.0
-    assert ds.attrs["n_unconnected"] == 1
-    ds.close()
+
+
+@pytest.mark.domainless
+def test_export_transposed_run_file_raises(
+    synthetic_params, synthetic_run_dir, tmp_path
+):
+    """A (nhm_seg, time) file must be rejected by name, not transposed or
+    left to xarray's shape error."""
+    from pywatershed.utils.network_hydraulics import (
+        export_network_hydraulics,
+    )
+
+    path = synthetic_run_dir / "seg_inflow.nc"
+    with xr.open_dataarray(path) as opened:
+        da = opened.load()
+    da.transpose("nhm_seg", "time").to_netcdf(path)
+    with pytest.raises(ValueError, match=r"seg_inflow.nc has dims"):
+        export_network_hydraulics(
+            synthetic_params, synthetic_run_dir, tmp_path / "net.nc"
+        )
 
 
 @pytest.mark.domainless
