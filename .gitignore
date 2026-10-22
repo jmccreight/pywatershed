@@ -19,10 +19,6 @@ __pycache__
 *.user
 *VC.db*
 .vs/
-prms_src/prms5.2.1/msvs/x64/Debug/
-prms_src/prms5.2.1/msvs/x64/Release/
-prms_src/prms5.3.0/msvs/x64/Debug/
-prms_src/prms5.3.0/msvs/x64/Release/
 
 # prms obj, mod, and library files
 *.o
@@ -32,23 +28,8 @@ prms_src/prms5.3.0/msvs/x64/Release/
 *.lib
 *.a
 
-# meson build information
-prms_src/prms5.3.0/builddir/
-
-# prms binaries
-gsflow_src/
-prms_src/prms5.2.1/bin
-prms_src/prms5.2.1.1/bin
-prms_src/prms5.3.0/bin
-bin/libmf6.dylib
-bin/mf5to6
-bin/mf6
-bin/zbud6
-# PRMS binaries are compiled from prms_src/ on demand rather than checked
-# in; only the GSFLOW binaries (whose source is not in this repo) are
-# tracked in bin/.
-bin/prms_*
-bin/.compile_prms_*.lock
+# mf6 binaries (get-modflow, see autotest/ci_local.sh)
+bin/
 
 # prms output files
 *.out
@@ -126,7 +107,4 @@ starfit_minimal/
 # claude code: personal settings stay untracked
 .claude/settings.local.json
 
-# PRMS binaries compiled on demand from prms_src (see pywatershed.utils.compile_prms)
-bin/prms_5.2.1_*
-bin/prms_5.2.1.1_*
 .codegraph/
