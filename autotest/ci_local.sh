@@ -89,6 +89,7 @@ if [ ! -z "${h}" ]; then
     echo "i: installation"
     echo "l: linting"
     echo "m: modflow update and build"
+    echo "n: example notebooks (autotest_exs, as in ci_examples.yaml)"
     echo "t: tests"
     echo "  o: domainless tests"
     echo "  s: sagehen_5yr"
@@ -103,7 +104,6 @@ if [ ! -z "${h}" ]; then
     echo "    g: populate ucb_2yr from the oracle"
     echo "  f: fgr_ag_2yr"
     echo "    g: populate fgr_ag_2yr from the oracle"
-    echo "n: example notebooks (autotest_exs, as in ci_examples.yaml)"
 
     exit 0
 fi
@@ -113,10 +113,12 @@ echo ""
 
 start_dir=$(pwd)
 
-# Populate test_data/<domain> from the oracle answer set at PWS_ORACLE_DIR
-# (a pws-prms-oracle clone's domains/): links to its inputs and answers,
-# the derived answer variables written alongside. Arguments after the
-# domain are passed on (--control_pattern=...).
+# Populate test_data/<domain> from the oracle answer set: links to its
+# inputs and answers, the derived answer variables written alongside.
+# The answer set is PWS_ORACLE_DIR (a pws-prms-oracle clone's domains/)
+# or, unset, the release assets pinned in prms_oracle.toml, which
+# oracle_fetch.py downloads into test_data/.oracle/ first. Arguments
+# after the domain are passed on to populate (--control_pattern=...).
 populate_from_oracle() {
     domain="$1"
     shift
@@ -126,14 +128,15 @@ populate_from_oracle() {
     echo "$domain - populate test data from the oracle"
     echo ".........."
     echo
+    if [ -z "${PWS_ORACLE_DIR}" ]; then
+        python ../test_data/generate/oracle_fetch.py \
+            --domain="$domain" || return 1
+    fi
     python ../test_data/generate/oracle_populate.py \
         --domain="$domain" "$@" || return 1
 }
 
 # name: Set environment variables
-export PYWS_FORTRAN=false
-export SETUPTOOLS_ENABLE_FEATURES="legacy-editable"
-export PYNHM_FORTRAN=false
 # export $(head -n1 ../.mf6_ci_ref_remote)
 # export $(tail -n1 ../.mf6_ci_ref_remote)
 
@@ -279,13 +282,6 @@ if [ -z "${t}" ]; then
     python -m pywatershed.utils.addtl_domain_files || exit 1
 
     cd autotest
-
-    if [ -z "${g}" ] && [ -z "${PWS_ORACLE_DIR}" ]; then
-        echo "PWS_ORACLE_DIR is not set: point it at a pws-prms-oracle"
-        echo "domains/ directory, or pass -g to test the data already"
-        echo "populated in test_data/"
-        exit 1
-    fi
 
     if [ -z "${o}" ]; then
         echo

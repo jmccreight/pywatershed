@@ -2,11 +2,15 @@
 """Populate test_data/<domain> from a pws-prms-oracle answer set and
 derive pywatershed's answer variables next to it.
 
-    PWS_ORACLE_DIR=<oracle clone>/domains \\
-    python test_data/generate/oracle_populate.py --domain hru_1 \\
+    [PWS_ORACLE_DIR=<oracle clone>/domains] \\
+    python test_data/generate/oracle_populate.py [--domain hru_1 ...] \\
         [--control_pattern nhm.control] [--no-derive] [--force]
 
-PWS_ORACLE_DIR is laid out like the oracle's domains/: <domain>/<inputs>
+Without --domain every domain in the oracle is populated. Without
+PWS_ORACLE_DIR the oracle is test_data/.oracle/, the pinned release
+assets oracle_fetch.py downloads.
+
+The oracle directory is laid out like the oracle's domains/: <domain>/<inputs>
 and <domain>/<output dir named by the control>/<var>.nc. It is shared by
 every clone and never written to. Each file is symlinked into this
 clone's test_data/<domain>/ (copied where symlinks are unavailable, e.g.
@@ -55,12 +59,18 @@ MARKERS = (".oracle_ikey", ".oracle_okey")
 
 
 def oracle_root() -> pl.Path:
+    """PWS_ORACLE_DIR (a pws-prms-oracle clone's domains/) or, unset, the
+    release assets oracle_fetch.py unpacks into test_data/.oracle/."""
     env = os.environ.get("PWS_ORACLE_DIR")
     if env is None:
-        raise SystemExit(
-            "PWS_ORACLE_DIR is not set: point it at a pws-prms-oracle "
-            "domains/ directory."
-        )
+        root = TEST_DATA_DIR / ".oracle"
+        if not root.is_dir():
+            raise SystemExit(
+                f"{root} does not exist: run "
+                "test_data/generate/oracle_fetch.py, or set PWS_ORACLE_DIR "
+                "to a pws-prms-oracle domains/ directory."
+            )
+        return root
     root = pl.Path(env).expanduser().resolve()
     if not root.is_dir():
         raise SystemExit(f"PWS_ORACLE_DIR={root} is not a directory")
@@ -161,7 +171,9 @@ def select_controls(dom_dir: pl.Path, patterns: list[str]) -> list[pl.Path]:
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("--domain", action="append", required=True)
+    parser.add_argument(
+        "--domain", action="append", help="default: every domain in the oracle"
+    )
     parser.add_argument("--control_pattern", action="append", default=[])
     parser.add_argument("--no-derive", action="store_true")
     parser.add_argument(
@@ -171,8 +183,13 @@ def main(argv=None):
     )
     args = parser.parse_args(argv)
     root = oracle_root()
+    domains = args.domain or sorted(
+        d.name
+        for d in root.iterdir()
+        if d.is_dir() and not d.name.startswith(".")
+    )
 
-    for domain in args.domain:
+    for domain in domains:
         src_dom, dst_dom = root / domain, TEST_DATA_DIR / domain
         if not src_dom.is_dir():
             raise SystemExit(f"{src_dom}: no such domain under {root}")
