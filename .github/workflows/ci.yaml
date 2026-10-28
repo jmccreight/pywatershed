@@ -587,10 +587,6 @@ jobs:
           create-args: >-
             python=${{matrix.python-version}}
 
-      - name: Link conda gfortran dylibs on Mac
-        if: runner.os == 'macOS'
-        run: .github/scripts/symlink_gfortran_mac.sh
-
       - name: Install pywatershed
         run: |
           pip install .
@@ -600,21 +596,13 @@ jobs:
           pip -V
           pip list
 
-      - name: Compile PRMS 5.2.1
-        run: |
-          which gfortran
-          gfortran --version
-          which make
-          python -c "import pywatershed as pws; pws.utils.compile_prms('5.2.1')"
-
-      - name: hru_1 all configs - generate and manage test data, run PRMS and convert csv output to NetCDF
+      - name: hru_1 - fetch the oracle answer set and populate test_data
         working-directory: autotest
+        env:
+          GITHUB_TOKEN: ${{ secrets.PWS_ORACLE_TOKEN }}
         run: |
-          python generate_test_data.py \
-            -n=auto --domain=hru_1 \
-            --remove_prms_csvs --remove_prms_output_dirs \
-            --control_pattern=nhm.control \
-            --control_pattern=frost.control
+          python ../test_data/generate/oracle_fetch.py --domain=hru_1
+          python ../test_data/generate/oracle_populate.py --domain=hru_1
 
       - name: hru_1_nhm - list netcdf input files
         working-directory: test_data
