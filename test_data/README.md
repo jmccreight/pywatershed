@@ -66,9 +66,10 @@ tests the agriculture variants of runoff and soilzone.
 The answers are produced in the oracle repository, not here. Setup is
 described in [`DEVELOPER.md`](../DEVELOPER.md), "Testing". In short:
 
-1. Answers come from either a published oracle release (downloaded into
-   `test_data/.oracle/`) or a local oracle clone (`PWS_ORACLE_DIR`
-   pointing at its `domains/`).
+1. Answers come from either a published oracle release (downloaded by
+   `generate/oracle_fetch.py` into `test_data/.oracle/`; needs
+   `GITHUB_TOKEN`, the repository is internal) or a local oracle clone
+   (`PWS_ORACLE_DIR` pointing at its `domains/`).
 2. `generate/oracle_populate.py` fills `test_data/<domain>/` from there.
 
 What `oracle_populate.py` puts in `test_data/<domain>/`:

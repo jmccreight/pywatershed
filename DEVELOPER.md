@@ -191,9 +191,17 @@ Choose one.
 
 **A. Use a published release** (no compiler needed)
 
-Nothing to do. `autotest/ci_local.sh` downloads the pinned release
-assets into `test_data/.oracle/` (gitignored) the first time it runs.
-The pins are in `autotest/prms_oracle.toml`.
+The oracle repository is internal to DOI-USGS, so you need a GitHub
+token that can read it. Create a classic personal access token with the
+`repo` scope, authorize it for the DOI-USGS organization (SSO), and:
+
+```shell
+export GITHUB_TOKEN=<token>
+```
+
+`autotest/ci_local.sh` then downloads the pinned release assets into
+`test_data/.oracle/` (gitignored) the first time it runs. The pins are
+in `autotest/prms_oracle.toml`.
 
 **B. Generate locally** (Fortran compiler needed)
 
